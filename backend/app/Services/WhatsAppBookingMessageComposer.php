@@ -156,7 +156,7 @@ TXT;
             self::EVENT_DECLINED => 'Geweigerd',
             self::EVENT_EN_ROUTE => 'De chauffeur is onderweg naar jou.',
             self::EVENT_STARTED => 'De rit is gestart.',
-            self::EVENT_COMPLETED => 'De rit is afgerond.',
+            self::EVENT_COMPLETED => 'Rit afgerond',
             self::EVENT_CANCELLED => 'Rit geannuleerd',
             self::EVENT_REDISPATCHED => 'Opnieuw op zoek naar een chauffeur',
         ];

@@ -62,6 +62,7 @@ return [
         'admin.notifications.*',
         'admin.incidents.*',
         'admin.newsletters.*',
+        'admin.taxi-partner-finder.*',
         'admin.whatsapp-pickup-proposal-mock.*',
     ],
 

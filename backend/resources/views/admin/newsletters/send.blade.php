@@ -3,18 +3,18 @@
 @section('title', 'Nieuwsbrief versturen')
 
 @section('content')
-<div class="kt-container-fixed">
+<div class="kt-container-fixed min-w-0">
     <div class="pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Versturen</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0">
             Alleen opt-inadressen. Afgemelde bedrijven en eerdere ontvangers van dezelfde campagne worden overgeslagen.
         </p>
-        <div class="pt-3 flex w-full items-center justify-between gap-3">
-            <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline">
+        <div class="pt-3 flex w-full flex-wrap items-center justify-between gap-3">
+            <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline shrink-0">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
-            <a href="{{ route('admin.newsletters.prospects') }}" class="kt-btn kt-btn-primary ms-auto">Klantenlijst</a>
+            <a href="{{ route('admin.newsletters.prospects') }}" class="kt-btn kt-btn-primary shrink-0 ms-auto">Klantenlijst</a>
         </div>
     </div>
 
@@ -28,28 +28,28 @@
         </div>
     @endif
 
-    <div class="kt-card">
+    <div class="kt-card w-full min-w-0">
         <div class="kt-card-header px-5 py-5">
             <h5 class="kt-card-title mb-0">{{ $subscribedCount }} adressen in de opt-inlijst</h5>
         </div>
-        <div class="kt-card-content p-5">
+        <div class="kt-card-content p-5 min-w-0">
             @if($campaigns->isEmpty())
                 <p class="text-sm text-muted-foreground mb-0">Maak eerst een nieuwsbrief in de designer.</p>
             @else
-                <form method="POST" action="{{ route('admin.newsletters.send.store') }}" id="send-form">
+                <form method="POST" action="{{ route('admin.newsletters.send.store') }}" id="send-form" class="min-w-0">
                     @csrf
                     <label class="kt-label mb-1" for="campaign_id">Nieuwsbrief *</label>
-                    <select id="campaign_id" name="campaign_id" class="kt-select w-full mb-4" required>
+                    <select id="campaign_id" name="campaign_id" class="kt-select admin-field-fit mb-4" data-kt-select="true" required>
                         @foreach($campaigns as $campaign)
                             <option value="{{ $campaign->id }}">{{ $campaign->name }} — {{ $campaign->subject }}</option>
                         @endforeach
                     </select>
                     <p class="kt-label mb-2">Alleen deze provincies (leeg = heel Nederland)</p>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-5">
                         @foreach($provinces as $province)
-                            <label class="flex items-center gap-2 text-sm">
-                                <input type="checkbox" name="provinces[]" value="{{ $province }}" class="kt-checkbox">
-                                {{ $province }}
+                            <label class="flex items-center gap-2 text-sm min-w-0">
+                                <input type="checkbox" name="provinces[]" value="{{ $province }}" class="kt-checkbox shrink-0">
+                                <span class="truncate">{{ $province }}</span>
                             </label>
                         @endforeach
                     </div>
@@ -64,7 +64,7 @@
 </div>
 
 @if($campaigns->isNotEmpty())
-<div id="send-modal" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="send-modal-title">
+<div id="send-modal" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-slate-900/45 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="send-modal-title">
     <div class="w-full max-w-lg rounded-2xl border border-border bg-background shadow-2xl">
         <div class="border-b border-border px-6 py-5">
             <h2 id="send-modal-title" class="text-lg font-semibold text-foreground mb-1">Nieuwsbrief versturen?</h2>

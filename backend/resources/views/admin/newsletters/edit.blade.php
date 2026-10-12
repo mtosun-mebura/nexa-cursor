@@ -24,13 +24,13 @@
         'planning' => 'Planning',
     ];
 @endphp
-<div class="kt-container-fixed">
-    <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
-        <div>
+<div class="kt-container-fixed min-w-0">
+    <div class="flex flex-wrap items-center lg:items-end justify-between gap-3 pb-7.5">
+        <div class="min-w-0">
             <h1 class="text-xl font-medium leading-none text-mono">{{ $isNew ? 'Nieuwsbrief designer' : 'Nieuwsbrief bewerken' }}</h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0">Compacte wervende mail met website-plaatjes en een knop naar de contactpagina.</p>
         </div>
-        <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline">
+        <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
             Overzicht
         </a>
@@ -46,11 +46,11 @@
         </div>
     @endif
 
-    <div class="kt-card mb-5">
-        <div class="kt-card-header">
-            <h5 class="kt-card-title">AI schrijft de nieuwsbrief</h5>
+    <div class="kt-card mb-5 w-full min-w-0">
+        <div class="kt-card-header px-5 py-5">
+            <h5 class="kt-card-title mb-0">AI schrijft de nieuwsbrief</h5>
         </div>
-        <div class="kt-card-content">
+        <div class="kt-card-content p-5 min-w-0">
             <label for="ai-brief" class="kt-label mb-1">Opdracht (optioneel)</label>
             <textarea id="ai-brief" class="kt-textarea w-full" rows="3" placeholder="Bijvoorbeeld: nadruk op contractvervoer in Utrecht en geen commissie."></textarea>
             <div class="flex flex-wrap items-center gap-2 mt-3">
@@ -74,13 +74,13 @@
             @method('PUT')
         @endif
 
-        <div class="grid gap-5 xl:grid-cols-2">
-            <div class="grid gap-5">
-                <div class="kt-card">
-                    <div class="kt-card-header">
-                        <h5 class="kt-card-title">Kop en intro</h5>
+        <div class="grid gap-5 xl:grid-cols-2 min-w-0">
+            <div class="grid gap-5 min-w-0">
+                <div class="kt-card w-full min-w-0">
+                    <div class="kt-card-header px-5 py-5">
+                        <h5 class="kt-card-title mb-0">Kop en intro</h5>
                     </div>
-                    <div class="kt-card-content space-y-4">
+                    <div class="kt-card-content p-5 space-y-4 min-w-0">
                         <div>
                             <label class="kt-label mb-1" for="name">Interne naam *</label>
                             <input type="text" id="name" name="name" class="kt-input w-full" required value="{{ old('name', $campaign->name) }}">
@@ -108,11 +108,11 @@
                     </div>
                 </div>
 
-                <div class="kt-card">
-                    <div class="kt-card-header">
-                        <h5 class="kt-card-title">Hero-plaatje</h5>
+                <div class="kt-card w-full min-w-0">
+                    <div class="kt-card-header px-5 py-5">
+                        <h5 class="kt-card-title mb-0">Hero-plaatje</h5>
                     </div>
-                    <div class="kt-card-content">
+                    <div class="kt-card-content p-5 min-w-0">
                         <input type="hidden" id="hero_image" name="hero_image" class="nl-image-input" value="{{ old('hero_image', $b['hero_image'] ?? '') }}">
                         <div class="flex flex-wrap gap-2" data-image-target="hero_image">
                             @foreach($stockImages as $key => $url)
@@ -126,11 +126,11 @@
                 </div>
 
                 @foreach(array_slice($features, 0, 3) as $i => $feature)
-                    <div class="kt-card">
-                        <div class="kt-card-header">
-                            <h5 class="kt-card-title">Voordeel {{ $i + 1 }}</h5>
+                    <div class="kt-card w-full min-w-0">
+                        <div class="kt-card-header px-5 py-5">
+                            <h5 class="kt-card-title mb-0">Voordeel {{ $i + 1 }}</h5>
                         </div>
-                        <div class="kt-card-content space-y-3">
+                        <div class="kt-card-content p-5 space-y-3 min-w-0">
                             <input type="text" name="features[{{ $i }}][title]" class="kt-input w-full" placeholder="Titel" value="{{ $feature['title'] ?? '' }}">
                             <textarea name="features[{{ $i }}][text]" class="kt-textarea w-full" rows="3" placeholder="Korte overtuigende zin">{{ $feature['text'] ?? '' }}</textarea>
                             <input type="hidden" id="feature_image_{{ $i }}" name="features[{{ $i }}][image]" class="nl-image-input" value="{{ $feature['image'] ?? '' }}">
@@ -145,11 +145,11 @@
                     </div>
                 @endforeach
 
-                <div class="kt-card">
-                    <div class="kt-card-header">
-                        <h5 class="kt-card-title">Aanmelden</h5>
+                <div class="kt-card w-full min-w-0">
+                    <div class="kt-card-header px-5 py-5">
+                        <h5 class="kt-card-title mb-0">Aanmelden</h5>
                     </div>
-                    <div class="kt-card-content space-y-3">
+                    <div class="kt-card-content p-5 space-y-3 min-w-0">
                         <div>
                             <label class="kt-label mb-1" for="cta_label">Knoptekst *</label>
                             <input type="text" id="cta_label" name="cta_label" class="kt-input w-full" required value="{{ old('cta_label', $b['cta_label'] ?? 'Aanmelden via contact') }}">
@@ -162,7 +162,7 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="admin-form-actions flex flex-wrap items-center gap-2.5 w-full min-w-0">
                     <button type="submit" class="kt-btn kt-btn-primary">
                         <i class="ki-filled ki-check me-2"></i>
                         Opslaan
@@ -170,15 +170,15 @@
                 </div>
             </div>
 
-            <div>
-                <div class="kt-card xl:sticky xl:top-24">
-                    <div class="kt-card-header">
-                        <h5 class="kt-card-title">Voorbeeld</h5>
+            <div class="min-w-0">
+                <div class="kt-card w-full min-w-0 xl:sticky xl:top-24">
+                    <div class="kt-card-header px-5 py-5">
+                        <h5 class="kt-card-title mb-0">Voorbeeld</h5>
                     </div>
-                    <div class="kt-card-content p-3 bg-muted/30">
+                    <div class="kt-card-content p-3 sm:p-5 min-w-0">
                         <iframe id="newsletter-preview"
                                 title="Voorbeeld nieuwsbrief"
-                                class="w-full h-[820px] bg-white border border-border rounded-lg"
+                                class="w-full h-[420px] sm:h-[620px] xl:h-[820px] bg-white border border-border rounded-lg"
                                 style="color-scheme:light;"></iframe>
                     </div>
                 </div>

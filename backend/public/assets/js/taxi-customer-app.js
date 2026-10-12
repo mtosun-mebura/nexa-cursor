@@ -22,7 +22,7 @@
         centerLat: parseFloat(app.dataset.centerLat || '52.3676'),
         centerLng: parseFloat(app.dataset.centerLng || '4.9041'),
         marketplaceSectionKey: 'component:taxi.algemene_boekingsmodule',
-        fleetRadiusKm: 10,
+        fleetRadiusKm: 50,
     };
 
     const TOKEN_KEY = 'nexa_taxi_customer_token';
@@ -80,6 +80,10 @@
         audioCtx: null,
         showArchivedRides: false,
         ridesCache: [],
+        expandedRideToken: '',
+        bookVehicleMarker: null,
+        followDidCenter: false,
+        screen: '',
     };
 
     let googleMapsLoadPromise = null;
@@ -120,6 +124,7 @@
     }
 
     function showScreen(name) {
+        state.screen = name;
         Object.keys(screens).forEach((key) => {
             if (screens[key]) screens[key].hidden = key !== name;
         });
@@ -1350,6 +1355,7 @@
     }
 
     function upsertFleet(vehicles) {
+        if (isFollowingAssignedTaxi()) return;
         if (!state.map || !window.google || !google.maps) return;
         const Overlay = ensureCustomerTaxiOverlayClass();
         const next = {};
@@ -1427,14 +1433,15 @@
         const status = el('map-fleet-status');
         if (status) {
             status.textContent = count === 0
-                ? 'Geen taxi’s online in de straal'
-                : (count === 1 ? '1 taxi live in de straal' : count + ' taxi’s live in de straal');
+                ? 'Geen taxi’s online'
+                : (count === 1 ? '1 taxi online' : count + ' taxi’s online');
         }
         updateFleetRadiusCircle();
         maybeFitFleetViewport(list);
     }
 
     async function fetchNearbyTaxis() {
+        if (isFollowingAssignedTaxi()) return;
         if (!cfg.nearbyTaxisUrl) return;
         const origin = fleetOrigin();
         const params = new URLSearchParams({
@@ -1457,6 +1464,10 @@
     }
 
     function startFleetPolling() {
+        if (isFollowingAssignedTaxi()) {
+            syncBookFollow(state.liveRide);
+            return;
+        }
         stopFleetPolling();
         const status = el('map-fleet-status');
         if (status) status.textContent = 'Taxi’s zoeken…';
@@ -1540,6 +1551,7 @@
         if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
         if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
         state.map.fitBounds(bounds, 56);
+        syncMapFitButton();
         return true;
     }
 
@@ -2717,12 +2729,31 @@
             state.quote = data;
             const offer = (data.offers && data.offers[0]) || null;
             if (offer) {
+                const km = (metrics.distance_meters / 1000).toFixed(1).replace('.', ',');
+                const mins = Math.max(1, Math.round(metrics.duration_seconds / 60));
+                const routeEl = el('quote-route');
+                if (routeEl) routeEl.textContent = km + ' km · ca. ' + mins + ' min';
                 el('quote-price').textContent = offer.price_label
                     || ('€ ' + Number(offer.price || 0).toFixed(2).replace('.', ','));
                 const cand = (data.marketplace && data.marketplace.candidate_count) || 0;
-                el('quote-meta').textContent = cand + ' taxi' + (cand === 1 ? '' : 's') + ' in straal';
+                el('quote-meta').textContent = cand > 0
+                    ? (cand + ' taxi' + (cand === 1 ? '' : '’s') + ' in de buurt')
+                    : 'Geen vrije taxi in de buurt';
+                const warn = el('quote-warn');
+                const unavailable = data.marketplace && data.marketplace.unavailable_message;
+                if (warn) {
+                    if (cand === 0) {
+                        warn.hidden = false;
+                        warn.textContent = unavailable
+                            || 'Geen taxi’s beschikbaar. We sturen geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.';
+                    } else {
+                        warn.hidden = true;
+                        warn.textContent = '';
+                    }
+                }
                 el('quote-card').hidden = false;
                 updatePaymentUi(data.payment || null);
+                syncMapFitButton();
             }
         } catch (e) {
             el('quote-card').hidden = true;
@@ -2818,18 +2849,21 @@
 
     function openLive(initial) {
         unlockAudio();
+        if (state.trackToken) state.expandedRideToken = state.trackToken;
         stopFleetPolling();
-        showScreen('live');
+        showScreen('rides');
         state.liveRouteKey = '';
         state.liveRouteFetchSeq += 1;
         if (initial && initial.phase && initial.phase !== 'searching') {
             state.acceptedNotified = true;
             state.livePhase = initial.phase;
         }
-        ensureLiveMap().then(function () {
-            if (initial) renderLive(initial);
-            startLivePoll();
-        });
+        if (initial) {
+            renderLive(initial);
+            syncBookFollow(initial);
+        }
+        startLivePoll();
+        loadRides();
     }
 
     function startLivePoll() {
@@ -3069,7 +3103,7 @@
         } else if (ride.phase === 'completed') {
             pill.className = 'status-pill ok';
             pill.textContent = 'Voltooid';
-            title.textContent = ride.status_label || 'De rit is afgerond.';
+            title.textContent = ride.status_label || 'Rit afgerond';
             text.textContent = 'Bedankt voor je rit met Nexa Taxi. Beoordeel je rit hieronder of download je factuur.';
             details.hidden = true;
             renderLiveRating(ride);
@@ -3130,6 +3164,8 @@
                 updateVehicleOnMap(ride);
             }
         });
+        syncBookFollow(ride);
+        mountExpandedFollow();
     }
 
     async function waitLiveRide() {
@@ -3444,20 +3480,152 @@
 
     function updateRidesScreenTitle() {
         const title = document.querySelector('#screen-rides .app-nav-title');
-        if (title) title.textContent = state.showArchivedRides ? 'Archief' : 'Mijn ritten';
+        if (title) title.textContent = state.showArchivedRides ? 'Archief' : 'Ritten';
+        const archiveBack = el('btn-rides-book');
+        if (archiveBack) archiveBack.hidden = !state.showArchivedRides;
+    }
+
+    function isFollowingAssignedTaxi(ride) {
+        const current = ride || state.liveRide;
+        return !!(
+            state.trackToken
+            && current
+            && current.accepted
+            && isActiveRidePhase(current.phase)
+        );
+    }
+
+    function parkFollowBanner() {
+        const banner = el('live-banner');
+        const park = el('live-banner-park');
+        if (banner && park && banner.parentNode !== park) {
+            park.appendChild(banner);
+        }
+    }
+
+    function mountExpandedFollow() {
+        const banner = el('live-banner');
+        const token = state.expandedRideToken;
+        if (!banner) return;
+        if (!token) {
+            parkFollowBanner();
+            return;
+        }
+        const host = document.querySelector('.ride-follow-host[data-token="' + token.replace(/"/g, '') + '"]');
+        if (host && banner.parentNode !== host) {
+            host.appendChild(banner);
+        }
+    }
+
+    function syncMapFitButton() {
+        const fit = el('map-zoom-fit');
+        if (!fit) return;
+        const following = isFollowingAssignedTaxi();
+        const loc = state.liveRide && state.liveRide.vehicle_location;
+        const showFollow = !!(following && loc && isFinite(Number(loc.lat)) && isFinite(Number(loc.lng)));
+        const showRoute = !!(state.pickup && state.dropoff && !following);
+        fit.hidden = !(showRoute || showFollow);
+        fit.setAttribute('aria-label', showFollow ? 'Volg taxi' : 'Toon route');
+    }
+
+    function placeBookTaxiMarker(lat, lng) {
+        if (!state.map || !window.google || !google.maps) return;
+        const pos = { lat: lat, lng: lng };
+        if (!state.bookVehicleMarker) {
+            state.bookVehicleMarker = new google.maps.Marker({
+                map: state.map,
+                title: 'Jouw taxi',
+                zIndex: 20,
+                icon: {
+                    url: taxiIconUrl('sedan'),
+                    scaledSize: new google.maps.Size(28, 38),
+                    anchor: new google.maps.Point(14, 19),
+                },
+            });
+            tintedTaxiIconUrl('sedan', function (url) {
+                if (!state.bookVehicleMarker) return;
+                state.bookVehicleMarker.setIcon({
+                    url: url,
+                    scaledSize: new google.maps.Size(28, 38),
+                    anchor: new google.maps.Point(14, 19),
+                });
+            });
+        }
+        state.bookVehicleMarker.setPosition(pos);
+        state.bookVehicleMarker.setMap(state.map);
+    }
+
+    function syncBookFollow(ride) {
+        const following = isFollowingAssignedTaxi(ride);
+        const status = el('map-fleet-status');
+        if (!following) {
+            state.followDidCenter = false;
+            if (state.bookVehicleMarker) state.bookVehicleMarker.setMap(null);
+            if (state.routeLine && state.map && state.pickup && state.dropoff) {
+                state.routeLine.setMap(state.map);
+            }
+            if (state.screen === 'book' && !state.fleetTimer) startFleetPolling();
+            syncMapFitButton();
+            return;
+        }
+        stopFleetPolling();
+        clearFleetOverlays();
+        if (state.fleetRadiusCircle) state.fleetRadiusCircle.setMap(null);
+        if (state.routeLine) state.routeLine.setMap(null);
+        const loc = ride && ride.vehicle_location;
+        const lat = loc ? Number(loc.lat) : NaN;
+        const lng = loc ? Number(loc.lng) : NaN;
+        const hasLoc = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+        if (status) {
+            status.textContent = hasLoc ? 'Jouw taxi · live volgen' : 'Chauffeur gekoppeld…';
+        }
+        if (hasLoc) {
+            placeBookTaxiMarker(lat, lng);
+            if (state.map && !state.followDidCenter) {
+                state.followDidCenter = true;
+                state.map.panTo({ lat: lat, lng: lng });
+                state.map.setZoom(15);
+            }
+        }
+        syncMapFitButton();
+    }
+
+    function zoomBookMap(delta) {
+        if (!state.map || typeof state.map.getZoom !== 'function') return;
+        const next = Math.max(3, Math.min(20, (state.map.getZoom() || 14) + delta));
+        state.map.setZoom(next);
+    }
+
+    function setPassengerCount(count) {
+        const next = Math.max(1, Math.min(20, count));
+        const input = el('passengers');
+        if (input) input.value = String(next);
+        const label = el('passenger-qty');
+        if (label) label.textContent = String(next);
+        const minus = el('passenger-minus');
+        const plus = el('passenger-plus');
+        if (minus) minus.disabled = next <= 1;
+        if (plus) plus.disabled = next >= 20;
     }
 
     function renderRideCardHtml(ride, options) {
         const opts = options || {};
-        const asHero = !!opts.hero;
         const showArchiveAction = !!opts.archiveAction;
+        const token = String(ride.token || '');
+        const expanded = !!(token && state.expandedRideToken === token);
         const from = shortAddress(ride.from);
         const to = shortAddress(ride.to);
         const when = formatRideWhen(ride.at || ride.at_ts);
         const pill = ridePillLabel(ride);
         const amount = ride.amount ? String(ride.amount) : '';
-        const attrs = ride.token
-            ? (' data-token="' + escapeHtml(ride.token) + '"')
+        const searching = ride.phase === 'searching';
+        const title = searching
+            ? 'We zoeken een taxi'
+            : (ride.phase === 'awaiting_payment'
+                ? 'Wacht op betaling'
+                : (ride.status_label || pill));
+        const attrs = token
+            ? (' data-token="' + escapeHtml(token) + '"')
             : (' data-id="' + escapeHtml(String(ride.id || '')) + '"');
         const invoiceBtn = ride.can_download_invoice
             ? ('<button type="button" class="ride-card__invoice-icon" aria-label="Factuur downloaden"'
@@ -3476,79 +3644,59 @@
                 + '</button>')
             : '';
 
-        if (asHero) {
-            return '<button type="button" class="rides-hero'
-                + (ride.phase === 'accepted' ? ' is-accepted' : '')
-                + '"' + attrs + '>'
-                + '<div class="rides-hero__eyebrow">'
-                + (ride.phase === 'searching' ? '<span class="pulse"></span>' : '')
-                + escapeHtml(ride.phase === 'accepted'
-                    ? (ride.status_label || 'Taxi onderweg')
-                    : 'Openstaande rit')
-                + '</div>'
-                + '<h3 class="rides-hero__title">' + escapeHtml(pill) + '</h3>'
-                + '<div class="live-route ride-card__route" style="margin-top:10px;padding-top:0;border:0">'
-                + '<div class="ride-card__spine" aria-hidden="true">'
-                + '<span class="ride-card__dot is-from"></span>'
-                + '<span class="ride-card__dot is-to"></span>'
-                + '</div>'
-                + '<div class="ride-card__stops">'
-                + '<div><p class="ride-card__stop-label">Van</p>'
-                + '<p class="ride-card__stop-value">' + escapeHtml(from) + '</p></div>'
-                + '<div><p class="ride-card__stop-label">Naar</p>'
-                + '<p class="ride-card__stop-value">' + escapeHtml(to) + '</p></div>'
-                + '</div></div>'
-                + '<div class="rides-hero__foot">'
-                + '<span class="ride-card__when">' + escapeHtml(when || 'Nu') + '</span>'
-                + '<span class="rides-hero__cta">Volgen →</span>'
-                + '</div></button>';
-        }
+        const expandedBlock = expanded
+            ? ('<div class="ride-card__expanded">'
+                + '<p class="ride-card__stop-label">Van</p>'
+                + '<p class="ride-card__stop-value">' + escapeHtml(ride.from || '—') + '</p>'
+                + '<p class="ride-card__stop-label" style="margin-top:10px">Naar</p>'
+                + '<p class="ride-card__stop-value">' + escapeHtml(ride.to || '—') + '</p>'
+                + (amount
+                    ? ('<p class="ride-card__stop-label" style="margin-top:10px">Prijs</p>'
+                        + '<p class="ride-card__stop-value">' + escapeHtml(amount) + '</p>')
+                    : '')
+                + (token
+                    ? ('<div class="ride-follow-host" data-token="' + escapeHtml(token) + '"></div>')
+                    : '')
+                + '</div>')
+            : '';
 
-        return '<div class="ride-card-wrap">'
-            + '<article class="ride-card'
-            + (ride.active ? (ride.phase === 'accepted' ? ' is-accepted' : ' is-active') : '')
-            + '"' + attrs + ' role="button" tabindex="0">'
+        return '<article class="ride-card'
+            + (ride.phase === 'accepted' ? ' is-accepted' : '')
+            + (ride.phase === 'cancelled' ? ' is-cancelled' : '')
+            + (expanded ? ' is-expanded' : '')
+            + '"' + attrs + ' role="button" tabindex="0" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
             + '<div class="ride-card__top">'
             + '<span class="ride-card__status">'
             + '<span class="ride-card__pill ' + ridePillClass(ride.phase) + '">'
-            + (ride.phase === 'searching' ? '<span class="pulse"></span>' : '')
+            + (searching ? '<span class="pulse"></span>' : '')
             + escapeHtml(pill)
-            + '</span>'
+            + '</span></span>'
+            + '<span class="ride-card__status">'
             + invoiceBtn
             + archiveBtn
-            + '</span>'
-            + (amount ? ('<span class="ride-card__amount">' + escapeHtml(amount) + '</span>') : '')
-            + '</div>'
-            + '<div class="ride-card__route">'
-            + '<div class="ride-card__spine" aria-hidden="true">'
-            + '<span class="ride-card__dot is-from"></span>'
-            + '<span class="ride-card__dot is-to"></span>'
-            + '</div>'
-            + '<div class="ride-card__stops">'
-            + '<div><p class="ride-card__stop-label">Van</p>'
-            + '<p class="ride-card__stop-value">' + escapeHtml(from) + '</p></div>'
-            + '<div><p class="ride-card__stop-label">Naar</p>'
-            + '<p class="ride-card__stop-value">' + escapeHtml(to) + '</p></div>'
-            + '</div></div>'
+            + '<span class="ride-card__chevron" aria-hidden="true">' + (expanded ? '▴' : '▾') + '</span>'
+            + '</span></div>'
+            + (ride.phase === 'cancelled' ? '' : ('<p class="ride-card__title">' + escapeHtml(title) + '</p>'))
+            + '<p class="ride-card__line">' + escapeHtml(from) + ' → ' + escapeHtml(to) + '</p>'
             + (ride.rating && ride.rating.rated && ride.rating.stars
                 ? ('<p class="ride-card__rating" style="margin:8px 0 0;font-size:.85rem;color:var(--muted)">'
-                    + 'Beoordeling: ' + '★'.repeat(Number(ride.rating.stars))
+                    + 'Jouw beoordeling: ' + '★'.repeat(Number(ride.rating.stars))
                     + '☆'.repeat(Math.max(0, 5 - Number(ride.rating.stars)))
                     + (ride.rating.comment ? (' — ' + escapeHtml(String(ride.rating.comment))) : '')
                     + '</p>')
                 : '')
             + '<div class="ride-card__foot">'
             + '<span class="ride-card__when">' + escapeHtml(when || '—') + '</span>'
-            + '<span class="ride-card__action">'
-            + (ride.active ? 'Volgen' : 'Details') + ' →'
-            + '</span></div></article>'
-            + '</div>';
+            + (amount ? ('<span class="ride-card__amount">' + escapeHtml(amount) + '</span>') : '')
+            + '</div>'
+            + expandedBlock
+            + '</article>';
     }
 
     function renderRidesEmptyHtml(message) {
         const opts = message || {};
         const title = opts.title || 'Nog geen ritten';
-        const text = opts.text || 'Boek een taxi en volg hier je openstaande en eerdere ritten.';
+        const text = opts.text || 'Nog geen ritten. Boek een taxi via Boeken; openstaande en eerdere ritten zie je hier.';
         const showBook = opts.showBook !== false;
         return '<div class="rides-empty">'
             + '<div class="rides-empty__icon" aria-hidden="true">'
@@ -3558,7 +3706,7 @@
             + '<h3 class="rides-empty__title">' + escapeHtml(title) + '</h3>'
             + '<p class="rides-empty__text">' + escapeHtml(text) + '</p>'
             + (showBook
-                ? '<button type="button" class="btn btn-primary" id="rides-empty-book">Nieuwe rit boeken</button>'
+                ? '<button type="button" class="btn btn-primary" id="rides-empty-book">Taxi boeken</button>'
                 : '')
             + '</div>';
     }
@@ -3604,15 +3752,22 @@
                 renderRidesOverview(state.ridesCache);
             });
         });
-        box.querySelectorAll('.ride-card[data-id], .rides-hero[data-id], .ride-card[data-token], .rides-hero[data-token]')
+        box.querySelectorAll('.ride-card[data-id], .ride-card[data-token]')
             .forEach(function (btn) {
                 async function openRideCard() {
                     if (btn.dataset.token) {
+                        if (state.expandedRideToken === btn.dataset.token) {
+                            state.expandedRideToken = '';
+                            renderRidesOverview(state.ridesCache);
+                            return;
+                        }
                         setTrackToken(btn.dataset.token);
+                        state.expandedRideToken = btn.dataset.token;
                         const guest = guestRides().find(function (r) { return r && r.token === btn.dataset.token; });
                         state.acceptedNotified = !!(guest && guest.phase && guest.phase !== 'searching');
                         state.livePhase = (guest && guest.phase) || null;
-                        openLive(null);
+                        startLivePoll();
+                        renderRidesOverview(state.ridesCache);
                         return;
                     }
                     if (!btn.dataset.id) return;
@@ -3638,7 +3793,14 @@
                         toast(e.message || 'Kon rit niet laden.');
                     }
                 }
-                btn.addEventListener('click', openRideCard);
+                btn.addEventListener('click', function (ev) {
+                    if (ev.target && ev.target.closest && ev.target.closest(
+                        '.ride-card__expanded, .ride-card__archive-icon, .ride-card__invoice-icon'
+                    )) {
+                        return;
+                    }
+                    openRideCard();
+                });
                 btn.addEventListener('keydown', function (ev) {
                     if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
@@ -3651,6 +3813,7 @@
     function renderRidesOverview(rawRides) {
         const box = el('rides-list');
         if (!box) return;
+        parkFollowBanner();
         const rides = (rawRides || []).map(normalizeRideCard);
         state.ridesCache = rides;
         updateRidesScreenTitle();
@@ -3673,6 +3836,7 @@
             }).join('');
             box.innerHTML = archiveHtml;
             bindRideListClicks(box);
+            mountExpandedFollow();
             refreshActiveRideUi();
             return;
         }
@@ -3689,11 +3853,8 @@
         const archivedPast = past.filter(function (r) { return isRideArchived(r); });
         let html = '';
         if (active.length) {
-            html += renderRideCardHtml(active[0], { hero: true });
-            if (active.length > 1) {
-                html += '<div class="rides-section">Nog actief</div>';
-                html += active.slice(1).map(function (r) { return renderRideCardHtml(r); }).join('');
-            }
+            html += '<div class="rides-section">Openstaand</div>';
+            html += active.map(function (r) { return renderRideCardHtml(r); }).join('');
         }
         if (visiblePast.length) {
             html += '<div class="rides-section">' + (active.length ? 'Eerdere ritten' : 'Alle ritten') + '</div>';
@@ -3713,10 +3874,12 @@
         }
         box.innerHTML = html;
         bindRideListClicks(box);
+        mountExpandedFollow();
         refreshActiveRideUi();
     }
 
     async function loadRides() {
+        parkFollowBanner();
         const box = el('rides-list');
         if (state.token) {
             try {
@@ -3796,19 +3959,42 @@
         }));
     }
 
+    function syncThemeRows() {
+        const pref = (typeof window.nexaPwaThemePref === 'function' && window.nexaPwaThemePref())
+            || document.documentElement.getAttribute('data-theme-pref')
+            || 'dark';
+        document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+            btn.classList.toggle('is-on', btn.getAttribute('data-theme-choice') === pref);
+        });
+    }
+
     function showProfile() {
         stopFleetPolling();
         showScreen('profile');
         const guest = !state.token;
-        el('profile-guest').hidden = !guest;
-        if (el('profile-account-actions')) el('profile-account-actions').hidden = guest;
         if (guest) {
-            if (el('profile-view')) el('profile-view').hidden = true;
-            if (el('profile-form')) el('profile-form').hidden = true;
-            return;
+            try {
+                const d = JSON.parse(localStorage.getItem(PROFILE_DRAFT_KEY) || '{}');
+                if (el('prof-first')) el('prof-first').value = d.first_name || (el('first-name') && el('first-name').value) || '';
+                if (el('prof-last')) el('prof-last').value = d.last_name || (el('last-name') && el('last-name').value) || '';
+                if (el('prof-phone')) el('prof-phone').value = d.phone || (el('phone') && el('phone').value) || '';
+                if (el('prof-email')) {
+                    el('prof-email').readOnly = false;
+                    el('prof-email').value = d.email || (el('email') && el('email').value) || '';
+                }
+            } catch (e) {}
+        } else if (state.user) {
+            applyUserToForm(state.user);
+            if (el('prof-email')) el('prof-email').readOnly = true;
         }
-        if (state.user) applyUserToForm(state.user);
-        setProfileEditMode(false);
+        const emailHint = el('prof-email-hint');
+        if (emailHint) emailHint.hidden = guest;
+        setProfileEditMode(true);
+        if (el('profile-guest')) el('profile-guest').hidden = !guest;
+        if (el('profile-account-actions')) el('profile-account-actions').hidden = guest;
+        const cancel = el('btn-cancel-profile');
+        if (cancel) cancel.hidden = guest;
+        syncThemeRows();
     }
 
     async function bootAuth() {
@@ -3831,9 +4017,11 @@
         if (state.user) applyUserToForm(state.user);
         else fillProfileDraft();
         await ensureBookMap();
-        startFleetPolling();
+        if (isFollowingAssignedTaxi()) syncBookFollow(state.liveRide);
+        else startFleetPolling();
         refreshActiveRideUi();
-        detectLocation();
+        syncMapFitButton();
+        if (!state.pickup && !isFollowingAssignedTaxi()) detectLocation();
         if (window.Notification && Notification.permission === 'default') {
             try { Notification.requestPermission(); } catch (e) {}
         }
@@ -3859,7 +4047,15 @@
     }
     const profileBack = el('btn-profile-back');
     if (profileBack) {
-        profileBack.addEventListener('click', () => enterBook());
+        profileBack.addEventListener('click', () => {
+            window.location.href = cfg.launcherUrl + '?switch=1';
+        });
+    }
+    const ridesHome = el('btn-rides-home');
+    if (ridesHome) {
+        ridesHome.addEventListener('click', () => {
+            window.location.href = cfg.launcherUrl + '?switch=1';
+        });
     }
     el('btn-show-register').addEventListener('click', () => {
         el('auth-title').textContent = 'Registreren';
@@ -3918,6 +4114,53 @@
     });
     el('btn-book').addEventListener('click', bookRide);
     el('passengers').addEventListener('change', maybeQuote);
+    const passengerMinus = el('passenger-minus');
+    const passengerPlus = el('passenger-plus');
+    if (passengerMinus) {
+        passengerMinus.addEventListener('click', function () {
+            setPassengerCount((parseInt(el('passengers').value, 10) || 1) - 1);
+            maybeQuote();
+        });
+    }
+    if (passengerPlus) {
+        passengerPlus.addEventListener('click', function () {
+            setPassengerCount((parseInt(el('passengers').value, 10) || 1) + 1);
+            maybeQuote();
+        });
+    }
+    setPassengerCount(parseInt(el('passengers').value, 10) || 1);
+    const zoomIn = el('map-zoom-in');
+    const zoomOut = el('map-zoom-out');
+    const zoomFit = el('map-zoom-fit');
+    if (zoomIn) zoomIn.addEventListener('click', function () { zoomBookMap(1); });
+    if (zoomOut) zoomOut.addEventListener('click', function () { zoomBookMap(-1); });
+    if (zoomFit) {
+        zoomFit.addEventListener('click', function () {
+            if (isFollowingAssignedTaxi() && state.bookVehicleMarker && state.map) {
+                const pos = state.bookVehicleMarker.getPosition();
+                if (pos) {
+                    state.map.panTo(pos);
+                    state.map.setZoom(15);
+                }
+                return;
+            }
+            refitBookRouteBounds();
+        });
+    }
+    const locateBtn = el('btn-pickup-locate');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', function () {
+            detectLocation();
+        });
+    }
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const choice = btn.getAttribute('data-theme-choice');
+            if (typeof window.nexaPwaSetTheme === 'function') window.nexaPwaSetTheme(choice);
+            syncThemeRows();
+        });
+    });
+    syncThemeRows();
     el('btn-live-back').addEventListener('click', () => {
         stopLivePoll();
         state.showArchivedRides = false;
@@ -3988,6 +4231,19 @@
         setProfileEditMode(false);
     });
     el('btn-save-profile').addEventListener('click', async () => {
+        if (!state.token) {
+            if (el('first-name')) el('first-name').value = (el('prof-first').value || '').trim();
+            if (el('last-name')) el('last-name').value = (el('prof-last').value || '').trim();
+            if (el('phone')) el('phone').value = (el('prof-phone').value || '').trim();
+            if (el('email')) el('email').value = (el('prof-email').value || '').trim();
+            persistProfileDraft();
+            const saved = el('profile-saved');
+            if (saved) {
+                saved.hidden = false;
+                setTimeout(function () { saved.hidden = true; }, 2000);
+            }
+            return;
+        }
         try {
             const data = await api(cfg.apiBase + '/profile', {
                 method: 'PUT',
@@ -4012,12 +4268,16 @@
             if (name === 'book') enterBook();
             else if (name === 'rides') {
                 stopFleetPolling();
-                stopLivePoll();
                 state.showArchivedRides = false;
+                const active = activeGuestRide();
+                if (active && active.token && isActiveRidePhase(active.phase)) {
+                    state.expandedRideToken = active.token;
+                    setTrackToken(active.token);
+                    if (!state.liveTimer) startLivePoll();
+                }
                 showScreen('rides');
                 loadRides();
             } else if (name === 'profile') {
-                stopLivePoll();
                 showProfile();
             }
         });
@@ -4097,8 +4357,10 @@
                     status_label: data.ride.status_label,
                 });
                 if (isActiveRidePhase(data.ride.phase)) {
-                    // Blijf op boeken met banner; gebruiker kiest Volgen.
+                    state.liveRide = data.ride;
                     refreshActiveRideUi();
+                    syncBookFollow(data.ride);
+                    startLivePoll();
                     return;
                 }
             }

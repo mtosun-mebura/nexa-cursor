@@ -1443,6 +1443,11 @@ class AdminSettingsController extends Controller
         }
         if ($events === []) {
             $events = WhatsAppBookingMessageComposer::defaultStatusEvents();
+        } else {
+            $events = array_values(array_unique(array_merge(
+                WhatsAppBookingMessageComposer::requiredStatusEvents(),
+                $events
+            )));
         }
 
         return json_encode(array_values(array_unique($events)), JSON_UNESCAPED_UNICODE);

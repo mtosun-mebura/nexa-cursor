@@ -231,11 +231,11 @@
             word-break: break-word;
         }
         .profile-form-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
             gap: 10px;
             margin-top: 4px;
         }
+        .profile-form-actions .btn { flex: 1; }
 
         .content {
             flex: 1;
@@ -265,8 +265,68 @@
             position: absolute; left: 10px; bottom: 10px; z-index: 2;
             background: rgba(15,23,42,.78); color: #fff; font-size: .75rem; font-weight: 600;
             padding: 6px 10px; border-radius: 999px; pointer-events: none;
-            max-width: calc(100% - 20px);
+            max-width: calc(100% - 72px);
         }
+        .map-zoom {
+            position: absolute; right: 10px; top: 10px; z-index: 2;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .map-zoom button {
+            width: 36px; height: 36px; border-radius: 10px;
+            border: 1px solid var(--line); background: var(--card); color: var(--text);
+            font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; padding: 0;
+        }
+        .map-zoom button svg {
+            width: 18px; height: 18px; stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .section-label {
+            margin: 0 0 6px; font-size: .8rem; font-weight: 700; color: var(--muted);
+        }
+        .route-summary { margin: 0 0 4px; font-size: .95rem; font-weight: 600; color: var(--text); }
+        .quote-warn { margin: 8px 0 0; color: #d97706; font-size: .85rem; }
+        .qty-wrap { display: inline-flex; align-items: center; gap: 8px; }
+        .qty-wrap button {
+            width: 2.25rem; height: 2.25rem; border-radius: 10px; border: 1px solid var(--line);
+            background: var(--card); color: var(--text); font-size: 1.2rem; font-weight: 700;
+            cursor: pointer; line-height: 1;
+        }
+        .qty-wrap button:disabled { opacity: .4; cursor: default; }
+        .qty-value { min-width: 1.5rem; text-align: center; font-size: 1.05rem; font-weight: 700; color: var(--text); }
+        .field-loc-btn {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            width: 2.25rem; height: 2.25rem; border: 0; border-radius: 10px;
+            background: transparent; color: var(--blue, #2563eb); cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; padding: 0;
+        }
+        .field-loc-btn svg {
+            width: 22px; height: 22px; stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .field-suggest-input-wrap.has-loc-btn input { padding-right: 4.6rem; }
+        .field-suggest-input-wrap.has-loc-btn .field-clear { right: 42px; }
+        .field-loc-btn { z-index: 2; }
+        .profile-hint { margin: 8px 0 0; color: var(--muted); font-size: .8rem; }
+        .theme-row {
+            display: flex; align-items: center; gap: 10px; width: 100%;
+            text-align: left; border: 1px solid var(--line); background: transparent;
+            color: inherit; border-radius: 12px; padding: 10px 12px; margin-top: 8px; cursor: pointer;
+        }
+        .theme-row.is-on { border-color: var(--blue, #2563eb); background: rgba(37, 99, 235, .12); }
+        .theme-radio {
+            width: 16px; height: 16px; border-radius: 999px; border: 2px solid var(--muted); flex-shrink: 0;
+        }
+        .theme-row.is-on .theme-radio { border-color: var(--blue, #2563eb); background: var(--blue, #2563eb); }
+        .theme-row strong { display: block; font-size: .9rem; color: var(--text); }
+        .theme-row span { display: block; font-size: .75rem; color: var(--muted); margin-top: 2px; }
+        .ride-card__title { margin: 8px 0 0; font-size: 1rem; font-weight: 700; }
+        .ride-card__line { margin: 6px 0 0; font-size: .9rem; color: var(--text); }
+        .ride-card__chevron { color: var(--muted); font-size: 1rem; line-height: 1; }
+        .ride-card__expanded {
+            margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+        }
+        .ride-card.is-expanded { cursor: default; }
         html[data-theme="light"] .map-status {
             background: rgba(255,255,255,.92); color: #0f172a; border: 1px solid var(--line);
         }
@@ -1347,8 +1407,8 @@
             </div>
             <div class="app-nav-row">
                 <div class="app-nav-start">
-                    <button type="button" class="app-nav-back" id="btn-switch-role" aria-label="Terug">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    <button type="button" class="app-nav-back" id="btn-switch-role" aria-label="Naar startpagina">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9h12v-9"/></svg>
                     </button>
                 </div>
                 <h1 class="app-nav-title">Boeken</h1>
@@ -1363,16 +1423,14 @@
                 </div>
                 <span class="active-ride-banner__cta">Volgen</span>
             </button>
-            <div class="map-wrap">
-                <div id="map"></div>
-                <div id="map-error" class="map-error" hidden>Kaart laden…</div>
-                <div class="map-status" id="map-fleet-status">Taxi’s zoeken…</div>
-            </div>
             <div class="card">
                 <div class="field field-suggest">
-                    <label for="pickup">Van</label>
-                    <div class="field-suggest-input-wrap" data-clear-for="pickup">
-                        <input id="pickup" type="text" readonly placeholder="Locatie bepalen…" autocomplete="off">
+                    <label for="pickup">Ophaaladres</label>
+                    <div class="field-suggest-input-wrap has-loc-btn" data-clear-for="pickup">
+                        <input id="pickup" type="text" placeholder="Typ een adres en kies een suggestie" autocomplete="off">
+                        <button type="button" class="field-loc-btn" id="btn-pickup-locate" aria-label="Bepaal mijn locatie">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                        </button>
                         <button type="button" class="field-clear" id="pickup-clear" aria-label="Ophaaladres wissen" tabindex="-1">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="12" cy="12" r="9"></circle>
@@ -1382,7 +1440,7 @@
                         </button>
                     </div>
                     <ul class="suggestions" id="pickup-suggestions" hidden></ul>
-                    <p class="hint" id="pickup-hint">We gebruiken je huidige locatie</p>
+                    <p class="hint" id="pickup-hint">Typ een adres of gebruik je locatie</p>
                     <div class="location-notice" id="pickup-location-notice" hidden>
                         <p class="location-notice__text" id="pickup-location-notice-text"></p>
                         <div class="location-notice__actions">
@@ -1391,10 +1449,12 @@
                         <p class="location-notice__help" id="pickup-location-notice-help" hidden></p>
                     </div>
                 </div>
+            </div>
+            <div class="card">
                 <div class="field field-suggest">
-                    <label for="dropoff">Naar</label>
+                    <label for="dropoff">Bestemming</label>
                     <div class="field-suggest-input-wrap" data-clear-for="dropoff">
-                        <input id="dropoff" type="text" placeholder="Bestemming invoeren" autocomplete="off">
+                        <input id="dropoff" type="text" placeholder="Typ een adres en kies een suggestie" autocomplete="off">
                         <button type="button" class="field-clear" id="dropoff-clear" aria-label="Bestemming wissen" tabindex="-1">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="12" cy="12" r="9"></circle>
@@ -1405,23 +1465,43 @@
                     </div>
                     <ul class="suggestions" id="dropoff-suggestions" hidden></ul>
                 </div>
-                <div class="row2">
-                    <div class="field">
-                        <label for="passengers">Personen</label>
-                        <select id="passengers">
-                            @for($i = 1; $i <= 8; $i++)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endfor
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="pickup-at-display">Ophalen</label>
-                        <button type="button" class="pickup-at-btn" id="pickup-at-display" aria-haspopup="dialog">
-                            <span class="pickup-at-btn__value" id="pickup-at-label">Kies tijd</span>
-                        </button>
-                        <input type="hidden" id="pickup-at" value="">
-                    </div>
+            </div>
+            <div class="card">
+                <div class="field">
+                    <label for="pickup-at-display">Ophalen</label>
+                    <button type="button" class="pickup-at-btn" id="pickup-at-display" aria-haspopup="dialog">
+                        <span class="pickup-at-btn__value" id="pickup-at-label">Kies tijd</span>
+                    </button>
+                    <input type="hidden" id="pickup-at" value="">
                 </div>
+            </div>
+            <div class="map-wrap">
+                <div id="map"></div>
+                <div id="map-error" class="map-error" hidden>Kaart laden…</div>
+                <div class="map-zoom">
+                    <button type="button" id="map-zoom-in" aria-label="Inzoomen">+</button>
+                    <button type="button" id="map-zoom-out" aria-label="Uitzoomen">−</button>
+                    <button type="button" id="map-zoom-fit" aria-label="Toon route" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                    </button>
+                </div>
+                <div class="map-status" id="map-fleet-status">Taxi’s zoeken…</div>
+            </div>
+            <div class="card" id="quote-card" hidden>
+                <p class="section-label">Rit &amp; prijs</p>
+                <p class="route-summary" id="quote-route">— km · — min</p>
+                <div class="price-tag" id="quote-price">—</div>
+                <p class="hint" id="quote-meta" style="margin:6px 0 0"></p>
+                <p class="quote-warn" id="quote-warn" hidden></p>
+            </div>
+            <div class="card" id="passengers-card">
+                <h2>Passagiers</h2>
+                <div class="qty-wrap" id="passenger-stepper">
+                    <button type="button" id="passenger-minus" aria-label="Minder passagiers">−</button>
+                    <span class="qty-value" id="passenger-qty">1</span>
+                    <button type="button" id="passenger-plus" aria-label="Meer passagiers">+</button>
+                </div>
+                <input type="hidden" id="passengers" value="1">
             </div>
             <div class="card">
                 <h2>Bagage</h2>
@@ -1462,7 +1542,7 @@
                     <div class="baggage-row" data-baggage-key="wheelchair" data-baggage-special="1" data-qty="0" data-max="2">
                         <div class="baggage-row__copy">
                             <strong>Opvouwbare rolstoel</strong>
-                            <span>Optioneel</span>
+                            <span>Speciale bagage</span>
                         </div>
                         <div class="baggage-qty">
                             <button type="button" data-baggage-step="-1" aria-label="Minder">−</button>
@@ -1500,22 +1580,14 @@
                     <input id="phone" type="tel" autocomplete="tel" placeholder="06…">
                 </div>
                 <div class="field" id="email-field">
-                    <label for="email">E-mail (verplicht voor betaling)</label>
+                    <label for="email">E-mail</label>
                     <input id="email" type="email" autocomplete="email">
                 </div>
                 <div class="field">
                     <label for="remarks">Opmerking</label>
-                    <textarea id="remarks" rows="2" placeholder="Bijv. kinderstoel, extra info…"></textarea>
+                    <textarea id="remarks" rows="2" placeholder="Bijv. bakfiets, hulp bij instappen…"></textarea>
                 </div>
-            </div>
-            <div class="card" id="quote-card" hidden>
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-                    <div>
-                        <div style="color:var(--muted);font-size:.8rem">Indicatieprijs</div>
-                        <div class="price-tag" id="quote-price">—</div>
-                    </div>
-                    <div id="quote-meta" style="color:var(--muted);font-size:.8rem;text-align:right"></div>
-                </div>
+                <p class="profile-hint">Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden ingevuld.</p>
             </div>
             <div class="card" id="payment-card" hidden>
                 <h2>Betaling</h2>
@@ -1544,6 +1616,7 @@
         </header>
         <div class="content">
             <div class="map-wrap"><div id="live-map"></div></div>
+            <div id="live-banner-park">
             <div class="live-banner" id="live-banner">
                 <div class="status-pill" id="live-pill"><span class="pulse"></span> Zoeken…</div>
                 <h3 id="live-title" style="margin-top:12px">We zoeken een taxi</h3>
@@ -1595,6 +1668,7 @@
                     <button type="button" class="btn btn-invoice" id="btn-live-invoice" hidden>Factuur downloaden</button>
                 </div>
             </div>
+            </div>
         </div>
     </section>
 
@@ -1606,12 +1680,17 @@
             </div>
             <div class="app-nav-row">
                 <div class="app-nav-start">
-                    <button type="button" class="app-nav-back" id="btn-rides-book" aria-label="Terug">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    <button type="button" class="app-nav-back" id="btn-rides-home" aria-label="Naar startpagina">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9h12v-9"/></svg>
                     </button>
                 </div>
-                <h1 class="app-nav-title">Mijn ritten</h1>
-                <div class="app-nav-end" data-theme-slot></div>
+                <h1 class="app-nav-title">Ritten</h1>
+                <div class="app-nav-end">
+                    <button type="button" class="app-nav-back" id="btn-rides-book" aria-label="Terug naar ritten" hidden>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div data-theme-slot></div>
+                </div>
             </div>
         </header>
         <div class="content" id="rides-list">
@@ -1627,8 +1706,8 @@
             </div>
             <div class="app-nav-row">
                 <div class="app-nav-start">
-                    <button type="button" class="app-nav-back" id="btn-profile-back" aria-label="Terug">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    <button type="button" class="app-nav-back" id="btn-profile-back" aria-label="Naar startpagina">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9h12v-9"/></svg>
                     </button>
                 </div>
                 <h1 class="app-nav-title">Profiel</h1>
@@ -1670,9 +1749,6 @@
                 </dl>
             </div>
             <div class="card" id="profile-form" hidden>
-                <div class="profile-card-head">
-                    <h2>Bewerken</h2>
-                </div>
                 <div class="row2">
                     <div class="field">
                         <label for="prof-first">Voornaam</label>
@@ -1690,12 +1766,29 @@
                 <div class="field">
                     <label>E-mail</label>
                     <input id="prof-email" type="email" readonly>
-                    <p class="hint">E-mailadres kun je hier niet wijzigen.</p>
+                    <p class="hint" id="prof-email-hint">E-mailadres kun je hier niet wijzigen.</p>
                 </div>
+                <p class="profile-hint" id="profile-saved" hidden>Opgeslagen.</p>
                 <div class="profile-form-actions">
                     <button type="button" class="btn btn-ghost" id="btn-cancel-profile">Annuleren</button>
                     <button type="button" class="btn btn-primary" id="btn-save-profile">Opslaan</button>
                 </div>
+            </div>
+            <div class="card" id="profile-theme">
+                <h2>Weergave</h2>
+                <p class="profile-hint" style="margin-top:0">Standaard kun je light of dark kiezen. Systeem volgt de instelling van je apparaat.</p>
+                <button type="button" class="theme-row" data-theme-choice="system">
+                    <span class="theme-radio" aria-hidden="true"></span>
+                    <span><strong>Systeem</strong><span>Volgt de telefooninstelling</span></span>
+                </button>
+                <button type="button" class="theme-row" data-theme-choice="light">
+                    <span class="theme-radio" aria-hidden="true"></span>
+                    <span><strong>Licht</strong><span>Altijd lichte weergave</span></span>
+                </button>
+                <button type="button" class="theme-row" data-theme-choice="dark">
+                    <span class="theme-radio" aria-hidden="true"></span>
+                    <span><strong>Donker</strong><span>Altijd donkere weergave</span></span>
+                </button>
             </div>
             <div id="profile-account-actions" hidden>
                 <button type="button" class="btn btn-ghost" id="btn-logout" style="margin-top:12px">Uitloggen</button>
@@ -1706,7 +1799,7 @@
 
     <nav class="tabs" id="app-tabbar" hidden>
         <button type="button" class="tab active" data-tab="book" aria-label="Boeken">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <span>Boeken</span>
         </button>
         <button type="button" class="tab" data-tab="rides" id="tab-rides" aria-label="Ritten">
@@ -1784,6 +1877,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=42" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=43" defer></script>
 </body>
 </html>

@@ -26,6 +26,7 @@ import {
   fetchQuote,
   LiveRide,
   NearbyTaxi,
+  RideStatusUpdate,
   payLive,
   rateLive,
   QuoteOffer,
@@ -81,7 +82,7 @@ import { AppModal } from '../ui/AppModal';
 import { CustomerTabBar, CustomerTabKey } from '../ui/CustomerTabBar';
 import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { PickupAtField } from '../ui/PickupAtPicker';
-import { ColorPalette } from '../config';
+import { API_BASE_URL, ColorPalette } from '../config';
 import { ThemePreference, useTheme } from '../theme/ThemeContext';
 
 const TRACK_KEY = 'nexa_taxi_customer_track';
@@ -111,6 +112,21 @@ const BAGGAGE_ROWS: {
   { key: 'pets', label: 'Huisdieren', hint: 'Optioneel', special: true, max: 2 },
 ];
 
+/** Nieuwste status bovenaan. Bron blijft oudste-eerst (API orderBy id). */
+function statusUpdatesNewestFirst(updates: RideStatusUpdate[]): RideStatusUpdate[] {
+  return updates
+    .map((update, index) => ({ update, index }))
+    .sort((a, b) => {
+      const aTime = Date.parse(a.update.at || '');
+      const bTime = Date.parse(b.update.at || '');
+      const aMs = Number.isFinite(aTime) ? aTime : 0;
+      const bMs = Number.isFinite(bTime) ? bTime : 0;
+      if (bMs !== aMs) return bMs - aMs;
+      return b.index - a.index;
+    })
+    .map(({ update }) => update);
+}
+
 export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const { colors, colorScheme, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -129,6 +145,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [rateStars, setRateStars] = useState(0);
   const [rateComment, setRateComment] = useState('');
+  const [rateModalToken, setRateModalToken] = useState<string | null>(null);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const prevLivePhase = useRef<string | null>(null);
 
   const hasActiveRide = !!(live && trackToken && isActiveRidePhase(live.phase));
 
@@ -668,10 +687,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
+    prevLivePhase.current = null;
+
     const tick = async () => {
       try {
         const data = await fetchLive(trackToken);
         if (cancelled) return;
+        const previousPhase = prevLivePhase.current;
+        prevLivePhase.current = data.ride.phase;
         setLive(data.ride);
         notifyNewRideStatusUpdates(data.ride).catch(() => undefined);
         const next = await updateGuestRide(trackToken, {
@@ -688,6 +711,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
           setTab('rides');
           AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+          if (
+            previousPhase &&
+            previousPhase !== 'completed' &&
+            data.ride.rating?.can_rate
+          ) {
+            setRateStars(0);
+            setRateComment('');
+            setRateError(null);
+            setRateModalToken(trackToken);
+          }
         }
         if (!isActiveRidePhase(data.ride.phase)) {
           await persistTrack(null);
@@ -965,13 +998,29 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  function openRateModal(token: string) {
+    setRateStars(0);
+    setRateComment('');
+    setRateError(null);
+    setRateModalToken(token);
+  }
+
+  async function onDownloadInvoice(token: string) {
+    const url = `${API_BASE_URL}/api/taxi/v1/customer/live/invoice?token=${encodeURIComponent(token)}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setError('Factuur downloaden mislukt.');
+    }
+  }
+
   async function onSubmitRating(token: string) {
     if (rateStars < 1) {
-      setError('Kies 1 tot 5 sterren.');
+      setRateError('Kies 1 tot 5 sterren.');
       return;
     }
     setBusy(true);
-    setError(null);
+    setRateError(null);
     try {
       const data = await rateLive(token, rateStars, rateComment.trim() || null);
       if (data.ride) {
@@ -985,8 +1034,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       }
       setRateStars(0);
       setRateComment('');
+      setRateModalToken(null);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Beoordeling opslaan mislukt.');
+      setRateError(e instanceof ApiError ? e.message : 'Beoordeling opslaan mislukt.');
     } finally {
       setBusy(false);
     }
@@ -1535,6 +1585,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const visiblePast = pastRides.filter((r) => !archivedSet.has(rideArchiveKey(r)));
   const archivedPast = pastRides.filter((r) => archivedSet.has(rideArchiveKey(r)));
 
+  function renderRatingResult(stars: number, comment?: string | null) {
+    return (
+      <View style={styles.statusTimeline}>
+        <Text style={styles.rowLabel}>Jouw beoordeling</Text>
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Ionicons
+              key={n}
+              name={n <= stars ? 'star' : 'star-outline'}
+              size={22}
+              color={n <= stars ? '#F5B301' : colors.muted}
+            />
+          ))}
+        </View>
+        {comment ? <Text style={styles.ratingComment}>{comment}</Text> : null}
+      </View>
+    );
+  }
+
   function renderRideCard(ride: GuestRide) {
     const key = rideArchiveKey(ride);
     const expanded = expandedRideKey === key;
@@ -1758,17 +1827,35 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 ) : null}
 
                 {live.company?.name ? (
-                  <Text style={styles.meta}>Centrale: {live.company.name}</Text>
+                  <>
+                    <Text style={[styles.rowLabel, { marginTop: 10 }]}>Centrale</Text>
+                    <Text style={styles.rowValue}>{live.company.name}</Text>
+                  </>
                 ) : null}
 
                 {Array.isArray(live.status_updates) && live.status_updates.length > 0 ? (
                   <View style={styles.statusTimeline}>
                     <Text style={styles.rowLabel}>Statusupdates</Text>
-                    {live.status_updates.map((u, idx) => (
+                    {statusUpdatesNewestFirst(live.status_updates).map((u, idx) => {
+                      const isCurrent =
+                        idx === 0 && u.event !== 'cancelled' && u.event !== 'declined';
+                      return (
                       <View key={`${u.event}-${u.at || idx}`} style={styles.statusRow}>
-                        <View style={styles.statusDot} />
+                        <View
+                          style={[
+                            styles.statusDot,
+                            isCurrent && { backgroundColor: colors.success },
+                          ]}
+                        />
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.statusLabel}>{u.label}</Text>
+                          <Text
+                            style={[
+                              styles.statusLabel,
+                              isCurrent && { color: colors.success },
+                            ]}
+                          >
+                            {u.label}
+                          </Text>
                           {u.at ? (
                             <Text style={styles.statusAt}>
                               {new Date(u.at).toLocaleString('nl-NL', {
@@ -1781,7 +1868,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                           ) : null}
                         </View>
                       </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 ) : null}
 
@@ -1816,81 +1904,43 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 ) : null}
 
                 {live.rating?.can_rate ? (
-                  <View style={styles.rateBox}>
-                    <Text style={styles.rowLabel}>Beoordeel je rit</Text>
-                    <View style={styles.starsRow}>
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <Pressable key={n} onPress={() => setRateStars(n)} hitSlop={8}>
-                          <Ionicons
-                            name={n <= rateStars ? 'star' : 'star-outline'}
-                            size={32}
-                            color={n <= rateStars ? '#F5B301' : colors.muted}
-                          />
-                        </Pressable>
-                      ))}
-                    </View>
-                    <TextInput
-                      style={styles.rateInput}
-                      value={rateComment}
-                      onChangeText={setRateComment}
-                      placeholder="Optionele opmerking"
-                      placeholderTextColor={colors.muted}
-                      multiline
-                    />
-                    <PrimaryButton
-                      title="Beoordeling versturen"
-                      onPress={() => onSubmitRating(ride.token)}
-                      loading={busy}
-                    />
+                  <View style={{ marginTop: 14 }}>
+                    <GhostButton title="Beoordeel je rit" onPress={() => openRateModal(ride.token)} />
                   </View>
                 ) : null}
 
-                {live.rating?.rated && live.rating.stars ? (
-                  <Text style={styles.meta}>
-                    Jouw beoordeling: {'★'.repeat(live.rating.stars)}
-                    {'☆'.repeat(5 - live.rating.stars)}
-                    {live.rating.comment ? ` — ${live.rating.comment}` : ''}
-                  </Text>
+                {live.rating?.rated && live.rating.stars
+                  ? renderRatingResult(live.rating.stars, live.rating.comment)
+                  : null}
+
+                {live.can_download_invoice || live.phase === 'completed' ? (
+                  <View style={{ marginTop: 12 }}>
+                    <GhostButton
+                      title="Factuur downloaden"
+                      onPress={() => onDownloadInvoice(ride.token)}
+                    />
+                  </View>
                 ) : null}
               </>
             ) : null}
 
             {!isLiveMatch && completed && ride.rating?.can_rate ? (
-              <View style={styles.rateBox}>
-                <Text style={styles.rowLabel}>Beoordeel je rit</Text>
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <Pressable key={n} onPress={() => setRateStars(n)} hitSlop={8}>
-                      <Ionicons
-                        name={n <= rateStars ? 'star' : 'star-outline'}
-                        size={32}
-                        color={n <= rateStars ? '#F5B301' : colors.muted}
-                      />
-                    </Pressable>
-                  ))}
-                </View>
-                <TextInput
-                  style={styles.rateInput}
-                  value={rateComment}
-                  onChangeText={setRateComment}
-                  placeholder="Optionele opmerking"
-                  placeholderTextColor={colors.muted}
-                  multiline
-                />
-                <PrimaryButton
-                  title="Beoordeling versturen"
-                  onPress={() => onSubmitRating(ride.token)}
-                  loading={busy}
-                />
+              <View style={{ marginTop: 14 }}>
+                <GhostButton title="Beoordeel je rit" onPress={() => openRateModal(ride.token)} />
               </View>
             ) : null}
 
-            {!isLiveMatch && ride.rating?.rated && ride.rating.stars ? (
-              <Text style={[styles.meta, { marginTop: 12 }]}>
-                Jouw beoordeling: {'★'.repeat(ride.rating.stars)}
-                {'☆'.repeat(5 - ride.rating.stars)}
-                {ride.rating.comment ? ` — ${ride.rating.comment}` : ''}
-              </Text>
+            {!isLiveMatch && ride.rating?.rated && ride.rating.stars
+              ? renderRatingResult(ride.rating.stars, ride.rating.comment)
+              : null}
+
+            {!isLiveMatch && completed ? (
+              <View style={{ marginTop: 12 }}>
+                <GhostButton
+                  title="Factuur downloaden"
+                  onPress={() => onDownloadInvoice(ride.token)}
+                />
+              </View>
             ) : null}
 
             {(cancelled || completed) && (
@@ -2103,11 +2153,74 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </AppModal>
 
       <AppModal
+        visible={!!rateModalToken}
+        onRequestClose={() => {
+          if (!busy) setRateModalToken(null);
+        }}
+        dismissDisabled={busy}
+        panelStyle={styles.confirmBanner}
+      >
+        <Text style={styles.confirmTitle}>Beoordeel je rit</Text>
+        <Text style={styles.confirmText}>Hoe was de rit?</Text>
+        <View style={[styles.starsRow, { marginBottom: 12 }]}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Pressable key={n} onPress={() => setRateStars(n)} hitSlop={8}>
+              <Ionicons
+                name={n <= rateStars ? 'star' : 'star-outline'}
+                size={32}
+                color={n <= rateStars ? '#F5B301' : colors.muted}
+              />
+            </Pressable>
+          ))}
+        </View>
+        <TextInput
+          style={[styles.rateInput, { marginBottom: 12 }]}
+          value={rateComment}
+          onChangeText={setRateComment}
+          placeholder="Optionele opmerking"
+          placeholderTextColor={colors.muted}
+          multiline
+        />
+        {rateError ? (
+          <Text style={[styles.ratingComment, { color: colors.danger, marginBottom: 12 }]}>
+            {rateError}
+          </Text>
+        ) : null}
+        <View style={styles.confirmActions}>
+          <Pressable
+            onPress={() => setRateModalToken(null)}
+            disabled={busy}
+            style={styles.confirmSecondaryBtn}
+          >
+            <Text style={styles.confirmSecondaryText}>Later</Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <PrimaryButton
+              title="Versturen"
+              onPress={() => {
+                if (rateModalToken) onSubmitRating(rateModalToken);
+              }}
+              loading={busy}
+            />
+          </View>
+        </View>
+      </AppModal>
+
+      <AppModal
         visible={!!photoPreviewUri}
         onRequestClose={() => setPhotoPreviewUri(null)}
         panelStyle={styles.photoPreviewPanel}
         avoidKeyboard={false}
       >
+        <Pressable
+          onPress={() => setPhotoPreviewUri(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Sluiten"
+          hitSlop={8}
+          style={styles.photoPreviewClose}
+        >
+          <Ionicons name="close" size={22} color={colors.text} />
+        </Pressable>
         {photoPreviewUri ? (
           <Pressable
             onPress={() => setPhotoPreviewUri(null)}
@@ -2768,10 +2881,19 @@ function makeStyles(colors: ColorPalette) {
     },
     photoPreviewPanel: {
       paddingHorizontal: 12,
-      paddingTop: 12,
+      paddingTop: 8,
       paddingBottom: 12,
       maxWidth: 420,
       backgroundColor: colors.card,
+    },
+    photoPreviewClose: {
+      alignSelf: 'flex-end',
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: -4,
+      marginBottom: 2,
     },
     photoPreviewImage: {
       width: '100%',
@@ -2805,9 +2927,10 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 12,
       marginTop: 2,
     },
-    rateBox: {
-      marginTop: 14,
-      gap: 10,
+    ratingComment: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
     },
     starsRow: {
       flexDirection: 'row',
@@ -2891,7 +3014,7 @@ function makeStyles(colors: ColorPalette) {
       textAlign: 'center',
     },
     liveTitle: {
-      color: colors.text,
+      color: colors.success,
       fontSize: 18,
       fontWeight: '700',
       marginTop: 10,

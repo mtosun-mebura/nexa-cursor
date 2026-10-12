@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\SyncKnvTaxiMembersJob;
 use App\Jobs\ProcessNexaSuiteMarketplaceBillingJob;
 use App\Jobs\ProcessNexaSuiteMarketplaceDunningJob;
 use App\Jobs\ProcessPlatformBillingJob;
@@ -116,3 +117,10 @@ Schedule::command('database:backup-scheduled')
     ->timezone((string) config('database_backup.display_timezone', 'Europe/Amsterdam'))
     ->name('database-backup-scheduled')
     ->withoutOverlapping();
+
+if (config('taxi-partner-finder.schedule.knv_weekly')) {
+    Schedule::job(new SyncKnvTaxiMembersJob)
+        ->weeklyOn(1, '04:30')
+        ->name('taxi-partner-finder-knv-weekly')
+        ->withoutOverlapping();
+}
