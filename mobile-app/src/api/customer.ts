@@ -39,6 +39,13 @@ export type NearbyTaxi = {
   busy?: boolean;
 };
 
+export type RideStatusUpdate = {
+  event: string;
+  label: string;
+  at?: string | null;
+  channel?: string;
+};
+
 export type LiveRide = {
   id: number;
   status: string;
@@ -62,10 +69,30 @@ export type LiveRide = {
   passengers?: number;
   quoted_price?: number | null;
   company?: { id: number; name: string; phone?: string } | null;
-  vehicle?: { label?: string; license_plate?: string | null } | null;
-  driver?: { id: number; name: string } | null;
+  vehicle?: {
+    label?: string;
+    license_plate?: string | null;
+    photo_url?: string | null;
+  } | null;
+  driver?: {
+    id: number;
+    name: string;
+    photo_url?: string | null;
+    company_logo_url?: string | null;
+    rating_avg?: number | null;
+    rating_count?: number | null;
+  } | null;
+  status_updates?: RideStatusUpdate[];
+  status_notify_events?: string[];
+  rating?: {
+    rated?: boolean;
+    stars?: number | null;
+    comment?: string | null;
+    can_rate?: boolean;
+  } | null;
   eta_minutes?: number | null;
   eta_label?: string | null;
+  vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
   poll_interval_ms?: number;
   refund_business_days?: number | null;
 };
@@ -189,5 +216,17 @@ export function payLive(token: string, returnUrl?: string) {
   }>('/api/taxi/v1/customer/live/pay', {
     method: 'POST',
     body: { token, return_url: returnUrl },
+  });
+}
+
+export function rateLive(token: string, stars: number, comment?: string | null) {
+  return apiRequest<{
+    success?: boolean;
+    rating?: LiveRide['rating'];
+    ride?: LiveRide;
+    message?: string;
+  }>('/api/taxi/v1/customer/live/rate', {
+    method: 'POST',
+    body: { token, stars, comment: comment || null },
   });
 }

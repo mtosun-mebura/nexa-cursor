@@ -16,6 +16,8 @@ class RideRequestNotificationLog extends Model
 
     public const CHANNEL_SMS = 'sms';
 
+    public const CHANNEL_APP = 'app';
+
     public const STATUS_SENT = 'sent';
 
     public const STATUS_FAILED = 'failed';
@@ -46,6 +48,7 @@ class RideRequestNotificationLog extends Model
             self::CHANNEL_WHATSAPP => 'WhatsApp',
             self::CHANNEL_EMAIL => 'E-mail',
             self::CHANNEL_SMS => 'SMS',
+            self::CHANNEL_APP => 'App',
         ];
     }
 

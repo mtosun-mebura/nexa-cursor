@@ -1,5 +1,14 @@
-import { apiRequest } from './client';
+import { apiRequest, apiUpload } from './client';
 import type { AppModes } from './auth';
+
+export type DriverMedia = {
+  profile_photo_url?: string | null;
+  company_logo_url?: string | null;
+  vehicle_photo_url?: string | null;
+  has_profile_photo?: boolean;
+  rating_avg?: number | null;
+  rating_count?: number;
+};
 
 export type DriverUser = {
   id: number;
@@ -18,6 +27,7 @@ export type DriverUser = {
   ride_alert_tone?: string | null;
   can_handle_contract_rides?: boolean;
   app_modes?: AppModes;
+  media?: DriverMedia | null;
 };
 
 export type DriverPermissions = {
@@ -206,6 +216,66 @@ export function updateDriverRideAlertTone(token: string, tone: string) {
     token,
     body: { tone },
   });
+}
+
+function uploadPhotoFileName(kind: 'profile' | 'logo' | 'vehicle', mimeType?: string | null) {
+  const ext =
+    mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : mimeType === 'image/heic' || mimeType === 'image/heif'
+          ? 'heic'
+          : 'jpg';
+  return `${kind}.${ext}`;
+}
+
+export function uploadDriverProfilePhoto(
+  token: string,
+  uri: string,
+  mimeType?: string | null
+) {
+  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/photo',
+    {
+      token,
+      uri,
+      fileName: uploadPhotoFileName('profile', mimeType),
+      mimeType: mimeType || undefined,
+    }
+  );
+}
+
+export function uploadDriverCompanyLogo(
+  token: string,
+  uri: string,
+  mimeType?: string | null
+) {
+  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/company-logo',
+    {
+      token,
+      uri,
+      fileName: uploadPhotoFileName('logo', mimeType),
+      mimeType: mimeType || undefined,
+    }
+  );
+}
+
+export function uploadDriverVehiclePhoto(
+  token: string,
+  uri: string,
+  mimeType?: string | null
+) {
+  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/vehicle-photo',
+    {
+      token,
+      uri,
+      fileName: uploadPhotoFileName('vehicle', mimeType),
+      mimeType: mimeType || undefined,
+    }
+  );
 }
 
 export function fetchDriverVehicles(token: string) {
@@ -515,7 +585,7 @@ export function rideChannelLabel(ride?: {
     if (owner && owner !== '—') return `Netwerk van ${owner}`;
     return 'Netwerk';
   }
-  if (kind === 'marketplace') return 'Marktplaats';
+  if (kind === 'marketplace') return 'NEXA-marktplaats';
   return 'Taxi';
 }
 

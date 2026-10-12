@@ -12,9 +12,9 @@ class WhatsAppBookingMessageComposer
     public const META_BODY_CUSTOMER = <<<'TXT'
 Beste {{1}},
 
-Uw boeking is succesvol vastgelegd bij {{2}}.
+Jouw taxiverzoek is succesvol vastgelegd bij {{2}}.
 
-De boekingsgegevens zijn als volgt:
+De gegevens zijn als volgt:
 Referentie: {{3}}
 Telefoon: {{4}}
 Ophalen: {{5}}
@@ -24,10 +24,14 @@ Passagiers: {{8}}
 Aanbieding/voertuig: {{9}}
 Prijsindicatie: {{10}}
 
+Download de Nexa Taxi-app voor live statusupdates:
+App Store: {{12}}
+Google Play: {{13}}
+
 Met vriendelijke groet,
 {{11}}
 
-Wij houden u graag op de hoogte via WhatsApp.
+Wij houden je graag op de hoogte via WhatsApp.
 TXT;
 
     /** Aanbevolen Meta body (dispatch). */
@@ -158,17 +162,31 @@ TXT;
     }
 
     /**
+     * Altijd aan (app + WhatsApp); niet uit te zetten in admin.
+     *
+     * @return list<string>
+     */
+    public static function requiredStatusEvents(): array
+    {
+        return [
+            self::EVENT_ACCEPTED,
+            self::EVENT_STARTED,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     public static function defaultStatusEvents(): array
     {
-        return [
-            self::EVENT_ACCEPTED,
-            self::EVENT_DECLINED,
-            self::EVENT_STARTED,
-            self::EVENT_CANCELLED,
-            self::EVENT_REDISPATCHED,
-        ];
+        return array_values(array_unique(array_merge(
+            self::requiredStatusEvents(),
+            [
+                self::EVENT_DECLINED,
+                self::EVENT_CANCELLED,
+                self::EVENT_REDISPATCHED,
+            ]
+        )));
     }
 
     /**
@@ -294,6 +312,9 @@ TXT;
             ? '€ '.number_format((float) $selected['price'], 2, ',', '.')
             : '';
 
+        $appStore = trim((string) config('nexa.app_store_url', ''));
+        $playStore = trim((string) config('nexa.play_store_url', ''));
+
         return [
             $customerName !== '' ? $customerName : 'klant',
             $companyName,
@@ -306,6 +327,8 @@ TXT;
             $offer !== '' ? $offer : '—',
             $price !== '' ? $price : '—',
             $companyName,
+            $appStore !== '' ? $appStore : 'https://apps.apple.com/',
+            $playStore !== '' ? $playStore : 'https://play.google.com/store',
         ];
     }
 
@@ -546,7 +569,9 @@ TXT;
             }
         }
 
-        return $events !== [] ? array_values(array_unique($events)) : self::defaultStatusEvents();
+        $events = array_values(array_unique(array_merge(self::requiredStatusEvents(), $events)));
+
+        return $events !== [] ? $events : self::defaultStatusEvents();
     }
 
     public function statusEventEnabled(string $event): bool

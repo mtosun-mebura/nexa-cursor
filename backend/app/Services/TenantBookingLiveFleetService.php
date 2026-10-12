@@ -156,15 +156,18 @@ class TenantBookingLiveFleetService
             if ($hasOrigin) {
                 $distanceKm = round(GeoHelper::calculateDistance($originLat, $originLng, $taxiLat, $taxiLng), 2);
             }
+            // Bezet op een rit: niet tonen aan andere klanten.
+            if (isset($busyDriverIds[$driverId])) {
+                continue;
+            }
             $vehicleId = $hasVehicleColumn && $row->vehicle_id ? (int) $row->vehicle_id : 0;
             $vehicle = $vehicleId > 0 ? $vehicles->get($vehicleId) : null;
-            $occupied = isset($busyDriverIds[$driverId]);
             $out[] = $this->publicVehicle(
                 'tenant-'.$driverId,
                 $taxiLat,
                 $taxiLng,
                 TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type ?? null),
-                $occupied,
+                false,
                 $vehicle ? trim((string) ($vehicle->name ?? '')) : '',
                 $distanceKm,
                 $color

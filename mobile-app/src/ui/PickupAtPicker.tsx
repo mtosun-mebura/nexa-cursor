@@ -7,11 +7,20 @@ import {
   View,
 } from 'react-native';
 import { ColorPalette } from '../config';
-import { formatPickupAtLabel } from '../geo/route';
+import { defaultPickupDate, formatPickupAtLabel } from '../geo/route';
 import { useTheme } from '../theme/ThemeContext';
 import { AppModal } from './AppModal';
 
 const TIME_ITEM_H = 44;
+const TIME_VIEWPORT_H = 180;
+/** Padding zodat eerste/laatste items (o.a. 50/55) in het midden van de kolom kunnen staan. */
+const TIME_PAD = Math.max(0, (TIME_VIEWPORT_H - TIME_ITEM_H) / 2);
+
+const QUICK_PRESETS: { minutes: number; label: string }[] = [
+  { minutes: 10, label: 'Over 10 min' },
+  { minutes: 30, label: 'Over een half uur' },
+  { minutes: 60, label: 'Over 1 uur' },
+];
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -29,6 +38,16 @@ function snapMinutes(m: number) {
   return Math.min(55, Math.round(m / 5) * 5);
 }
 
+function sameMinute(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate() &&
+    a.getHours() === b.getHours() &&
+    snapMinutes(a.getMinutes()) === snapMinutes(b.getMinutes())
+  );
+}
+
 export function PickupAtField({
   value,
   onChange,
@@ -43,6 +62,16 @@ export function PickupAtField({
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
   const dayScrollRef = useRef<ScrollView>(null);
+
+  const quickOptions = useMemo(
+    () =>
+      QUICK_PRESETS.map((p) => ({
+        ...p,
+        at: defaultPickupDate(p.minutes),
+      })),
+    [open]
+  );
+  const selectedQuick = quickOptions.find((p) => sameMinute(draft, p.at)) ?? null;
 
   function scrollToDraft(d: Date, animated = false) {
     const hour = d.getHours();
@@ -75,7 +104,13 @@ export function PickupAtField({
       day.setDate(today.getDate() + i);
       const label =
         i === 0 ? 'Vandaag' : i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' });
-      return { day, label, key: `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}` };
+      const month = day.toLocaleDateString('nl-NL', { month: 'short' });
+      return {
+        day,
+        label,
+        month,
+        key: `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`,
+      };
     });
   }, [open]);
 
@@ -91,10 +126,19 @@ export function PickupAtField({
     scrollToDraft(next, true);
   }
 
+  function pickQuick(minutes: number) {
+    const next = defaultPickupDate(minutes);
+    setDraft(next);
+    scrollToDraft(next, true);
+  }
+
   function confirm() {
     onChange(clampToFuture(draft));
     setOpen(false);
   }
+
+  const valueQuickLabel =
+    QUICK_PRESETS.find((p) => sameMinute(value, defaultPickupDate(p.minutes)))?.label ?? null;
 
   return (
     <>
@@ -105,7 +149,11 @@ export function PickupAtField({
         accessibilityRole="button"
         accessibilityLabel="Kies ophaaldatum en -tijd"
       >
-        <Text style={styles.triggerText}>{formatPickupAtLabel(value)}</Text>
+        <Text style={styles.triggerText}>
+          {valueQuickLabel
+            ? `${valueQuickLabel} · ${formatPickupAtLabel(value)}`
+            : formatPickupAtLabel(value)}
+        </Text>
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
 
@@ -116,106 +164,134 @@ export function PickupAtField({
       >
         <Text style={styles.sheetTitle}>Ophaalmoment</Text>
 
-            <ScrollView
-              ref={dayScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.daysRow}
-            >
-              {days.map((d) => {
-                const active = d.key === selectedDayKey;
-                return (
-                  <Pressable
-                    key={d.key}
-                    onPress={() => pickDay(d.day)}
-                    style={[styles.dayBtn, active && styles.dayBtnActive]}
-                  >
-                    <Text style={[styles.dayWd, active && styles.dayTextActive]} numberOfLines={1}>
-                      {d.label}
-                    </Text>
-                    <Text style={[styles.dayNr, active && styles.dayTextActive]}>{d.day.getDate()}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.timeRow}>
-              <ScrollView
-                ref={hourScrollRef}
-                style={styles.timeCol}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={TIME_ITEM_H}
-                decelerationRate="fast"
+        <View style={styles.quickRow}>
+          {quickOptions.map((p) => {
+            const active = selectedQuick?.minutes === p.minutes;
+            return (
+              <Pressable
+                key={p.minutes}
+                onPress={() => pickQuick(p.minutes)}
+                style={[styles.quickChip, active && styles.quickChipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
               >
-                {hours.map((h) => {
-                  const active = draft.getHours() === h;
-                  return (
-                    <Pressable
-                      key={`h-${h}`}
-                      onPress={() => {
-                        const next = clampToFuture(
-                          new Date(
-                            draft.getFullYear(),
-                            draft.getMonth(),
-                            draft.getDate(),
-                            h,
-                            draft.getMinutes(),
-                            0,
-                            0
-                          )
-                        );
-                        setDraft(next);
-                        scrollToDraft(next, true);
-                      }}
-                      style={[styles.timeItem, active && styles.timeItemActive]}
-                    >
-                      <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                        {String(h).padStart(2, '0')}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <Text style={styles.timeSep}>:</Text>
-              <ScrollView
-                ref={minuteScrollRef}
-                style={styles.timeCol}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={TIME_ITEM_H}
-                decelerationRate="fast"
-              >
-                {minutes.map((m) => {
-                  const active = snapMinutes(draft.getMinutes()) === m;
-                  return (
-                    <Pressable
-                      key={`m-${m}`}
-                      onPress={() => {
-                        const next = clampToFuture(
-                          new Date(
-                            draft.getFullYear(),
-                            draft.getMonth(),
-                            draft.getDate(),
-                            draft.getHours(),
-                            m,
-                            0,
-                            0
-                          )
-                        );
-                        setDraft(next);
-                        scrollToDraft(next, true);
-                      }}
-                      style={[styles.timeItem, active && styles.timeItemActive]}
-                    >
-                      <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                        {String(m).padStart(2, '0')}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>
+                  {p.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-        <Text style={styles.preview}>{formatPickupAtLabel(draft)}</Text>
+        <ScrollView
+          ref={dayScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.daysRow}
+        >
+          {days.map((d) => {
+            const active = d.key === selectedDayKey;
+            return (
+              <Pressable
+                key={d.key}
+                onPress={() => pickDay(d.day)}
+                style={[styles.dayBtn, active && styles.dayBtnActive]}
+              >
+                <Text style={[styles.dayWd, active && styles.dayTextActive]} numberOfLines={1}>
+                  {d.label}
+                </Text>
+                <Text style={[styles.dayNr, active && styles.dayTextActive]}>{d.day.getDate()}</Text>
+                <Text style={[styles.dayMonth, active && styles.dayTextActive]}>{d.month}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.timeRow}>
+          <ScrollView
+            ref={hourScrollRef}
+            style={styles.timeCol}
+            contentContainerStyle={styles.timeColContent}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={TIME_ITEM_H}
+            decelerationRate="fast"
+            nestedScrollEnabled
+          >
+            {hours.map((h) => {
+              const active = draft.getHours() === h;
+              return (
+                <Pressable
+                  key={`h-${h}`}
+                  onPress={() => {
+                    const next = clampToFuture(
+                      new Date(
+                        draft.getFullYear(),
+                        draft.getMonth(),
+                        draft.getDate(),
+                        h,
+                        draft.getMinutes(),
+                        0,
+                        0
+                      )
+                    );
+                    setDraft(next);
+                    scrollToDraft(next, true);
+                  }}
+                  style={[styles.timeItem, active && styles.timeItemActive]}
+                >
+                  <Text style={[styles.timeText, active && styles.timeTextActive]}>
+                    {String(h).padStart(2, '0')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <Text style={styles.timeSep}>:</Text>
+          <ScrollView
+            ref={minuteScrollRef}
+            style={styles.timeCol}
+            contentContainerStyle={styles.timeColContent}
+            showsVerticalScrollIndicator={false}
+            snapToInterval={TIME_ITEM_H}
+            decelerationRate="fast"
+            nestedScrollEnabled
+          >
+            {minutes.map((m) => {
+              const active = snapMinutes(draft.getMinutes()) === m;
+              return (
+                <Pressable
+                  key={`m-${m}`}
+                  onPress={() => {
+                    const next = clampToFuture(
+                      new Date(
+                        draft.getFullYear(),
+                        draft.getMonth(),
+                        draft.getDate(),
+                        draft.getHours(),
+                        m,
+                        0,
+                        0
+                      )
+                    );
+                    setDraft(next);
+                    scrollToDraft(next, true);
+                  }}
+                  style={[styles.timeItem, active && styles.timeItemActive]}
+                >
+                  <Text style={[styles.timeText, active && styles.timeTextActive]}>
+                    {String(m).padStart(2, '0')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <Text style={styles.preview}>
+          {selectedQuick
+            ? `${selectedQuick.label} · ${formatPickupAtLabel(draft)}`
+            : formatPickupAtLabel(draft)}
+        </Text>
         <Pressable onPress={confirm} style={styles.confirmBtn}>
           <Text style={styles.confirmText}>Bevestigen</Text>
         </Pressable>
@@ -249,6 +325,8 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
+      flex: 1,
+      paddingRight: 8,
     },
     chevron: {
       color: colors.muted,
@@ -265,6 +343,37 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 18,
       fontWeight: '700',
       marginBottom: 12,
+    },
+    quickRow: {
+      flexDirection: 'row',
+      flexWrap: 'nowrap',
+      alignItems: 'stretch',
+      gap: 6,
+      marginBottom: 12,
+    },
+    quickChip: {
+      flex: 1,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.inputBg,
+      paddingVertical: 10,
+      paddingHorizontal: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    quickChipText: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    quickChipTextActive: {
+      color: '#FFFFFF',
     },
     daysRow: {
       gap: 8,
@@ -288,12 +397,19 @@ function makeStyles(colors: ColorPalette) {
       color: colors.muted,
       fontSize: 11,
       fontWeight: '600',
-      marginBottom: 4,
+      marginBottom: 2,
     },
     dayNr: {
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
+    },
+    dayMonth: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '600',
+      marginTop: 2,
+      textTransform: 'lowercase',
     },
     dayTextActive: {
       color: '#FFFFFF',
@@ -302,15 +418,19 @@ function makeStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      height: 180,
+      height: TIME_VIEWPORT_H,
       marginBottom: 12,
     },
     timeCol: {
       flex: 1,
+      height: TIME_VIEWPORT_H,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 12,
       backgroundColor: colors.inputBg,
+    },
+    timeColContent: {
+      paddingVertical: TIME_PAD,
     },
     timeSep: {
       color: colors.text,

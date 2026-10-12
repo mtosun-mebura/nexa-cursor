@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiCustomerRideCancelledMailer;
 use App\Modules\NexaTaxi\Services\TaxiPortalDataService;
 use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
+use App\Modules\NexaTaxi\Services\TaxiRideRatingService;
 use App\Services\InvoicePdfService;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
@@ -211,6 +212,47 @@ class CustomerRideController extends Controller
         }
 
         return $this->waitRideResponse($conn, $model, $cancellation, $live);
+    }
+
+    public function rateByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        TaxiRideRatingService $ratings,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'stars' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $rating = $ratings->rate(
+                $conn,
+                $ride,
+                (int) $data['stars'],
+                isset($data['comment']) ? (string) $data['comment'] : null
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'rating' => $rating,
+            'ride' => $live->livePayload($ride->fresh() ?? $ride),
+        ]);
     }
 
     public function payByToken(

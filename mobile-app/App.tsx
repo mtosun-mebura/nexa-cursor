@@ -174,7 +174,10 @@ function RootNavigator() {
                     persistGuestRoute('login');
                     navigation.navigate('Login');
                   }}
-                  onCustomer={() => persistGuestRoute('customer')}
+                  onCustomer={() => {
+                    AsyncStorage.setItem('nexa_taxi_customer_tab', 'book').catch(() => undefined);
+                    persistGuestRoute('customer');
+                  }}
                   onMarketplaceRegister={() => {
                     persistGuestRoute('marketplace');
                     navigation.navigate('MarketplaceRegister');

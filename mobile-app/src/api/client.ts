@@ -93,3 +93,68 @@ export async function apiRequest<T>(
   }
   return data as T;
 }
+
+function mimeFromUri(uri: string): string | null {
+  const path = uri.split('?')[0]?.toLowerCase() || '';
+  if (path.endsWith('.png')) return 'image/png';
+  if (path.endsWith('.webp')) return 'image/webp';
+  if (path.endsWith('.gif')) return 'image/gif';
+  if (path.endsWith('.heic') || path.endsWith('.heif')) return 'image/heic';
+  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+  return null;
+}
+
+/**
+ * Multipart upload (foto’s).
+ * Expo fetch ondersteunt géén RN `{ uri, name, type }`-parts — lokale file → Blob.
+ */
+export async function apiUpload<T>(
+  path: string,
+  options: {
+    token: string;
+    fieldName?: string;
+    uri: string;
+    fileName?: string;
+    mimeType?: string;
+  }
+): Promise<T> {
+  const name = options.fileName || 'photo.jpg';
+  const type =
+    options.mimeType || mimeFromUri(options.uri) || mimeFromUri(name) || 'image/jpeg';
+
+  const local = await fetch(options.uri);
+  if (!local.ok) {
+    throw new ApiError('Lokale foto kon niet worden gelezen.', local.status);
+  }
+  const rawBlob = await local.blob();
+  const blob =
+    rawBlob.type && rawBlob.type !== 'application/octet-stream'
+      ? rawBlob
+      : new Blob([rawBlob], { type });
+
+  const form = new FormData();
+  form.append(options.fieldName || 'photo', blob, name);
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${options.token}`,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: form,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) {
+      notifyUnauthorized();
+    }
+    throw new ApiError(
+      (data as { message?: string }).message || `HTTP ${res.status}`,
+      res.status,
+      data
+    );
+  }
+  return data as T;
+}

@@ -32,6 +32,8 @@ class RideClaimService
         ?string $pickupAt = null,
         ?int $vehicleId = null
     ): array {
+        app(TaxiDriverProfileMediaService::class)->assertCanAcceptRides($driver);
+
         $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt, $vehicleId) {
             $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
             if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {

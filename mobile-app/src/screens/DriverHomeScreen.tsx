@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import {
   acceptOffer,
   cancelAcceptedRide,
@@ -21,6 +22,7 @@ import {
   DispatchOffer,
   DriverActiveRide,
   DriverCancelReason,
+  DriverMedia,
   DriverVehicle,
   fetchDriverInbox,
   fetchDriverMe,
@@ -41,6 +43,9 @@ import {
   rideRequiresPaymentBeforeComplete,
   updateDriverAccent,
   updateDriverRideAlertTone,
+  uploadDriverCompanyLogo,
+  uploadDriverProfilePhoto,
+  uploadDriverVehiclePhoto,
   vehicleDisplayLabel,
   vehicleDisplayName,
 } from '../api/driver';
@@ -66,6 +71,8 @@ import {
   setupDriverNotificationChannel,
 } from '../notifications/driverOffers';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
+import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { Card, ErrorText, GhostButton, Screen } from '../ui/components';
 import { DriverOfferCard } from '../ui/DriverOfferCard';
@@ -272,6 +279,8 @@ export function DriverHomeScreen() {
   const [accent, setAccent] = useState<string>('orange');
   const [rideTone, setRideTone] = useState<RideAlertTone>('classic');
   const [company, setCompany] = useState('');
+  const [driverMedia, setDriverMedia] = useState<DriverMedia | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [canFilterContractRides, setCanFilterContractRides] = useState(false);
@@ -435,6 +444,7 @@ export function DriverHomeScreen() {
       setCompany(me.user.company_name || '');
       setLogoLight(me.user.company_logo_url || null);
       setLogoDark(me.user.company_logo_dark_url || null);
+      setDriverMedia(me.user.media || null);
       setCanFilterContractRides(!!me.user.can_handle_contract_rides);
       const canSeeEarnings = !!me.permissions?.earnings_view;
       setShowEarnings(canSeeEarnings);
@@ -1165,7 +1175,7 @@ export function DriverHomeScreen() {
             <Card>
               <Text style={styles.hint}>
                 Zet jezelf online. Locatie blijft actief op de achtergrond (belangrijk voor
-                marktplaats-matching).
+                matching op de NEXA Taxi marktplaats).
               </Text>
             </Card>
           ) : null}
@@ -1221,6 +1231,47 @@ export function DriverHomeScreen() {
     Linking.openURL(url).catch(() => undefined);
   };
 
+  const pickAndUploadMedia = async (kind: 'profile' | 'logo' | 'vehicle') => {
+    if (!driverToken || mediaBusy) return;
+    setError(null);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+        return;
+      }
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+        // Crop-UI (allowsEditing) is op iOS-simulator onbetrouwbaar; selectie volstaat.
+        allowsEditing: false,
+      });
+      if (picked.canceled || !picked.assets?.[0]?.uri) return;
+
+      setMediaBusy(true);
+      const asset = picked.assets[0];
+      const uri = asset.uri;
+      const mime = asset.mimeType || null;
+      const res =
+        kind === 'profile'
+          ? await uploadDriverProfilePhoto(driverToken, uri, mime)
+          : kind === 'logo'
+            ? await uploadDriverCompanyLogo(driverToken, uri, mime)
+            : await uploadDriverVehiclePhoto(driverToken, uri, mime);
+      if (res.media) setDriverMedia(res.media);
+    } catch (e) {
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Foto kiezen of uploaden mislukt.'
+      );
+    } finally {
+      setMediaBusy(false);
+    }
+  };
+
   const profilePanel = (
     <ScrollView
       style={{ flex: 1 }}
@@ -1249,6 +1300,72 @@ export function DriverHomeScreen() {
         <View style={styles.profileRow}>
           <Text style={styles.profileLabel}>Accountstatus</Text>
           <Text style={styles.profileValue}>{accountStatusLabel(accountActive, online)}</Text>
+        </View>
+        {driverMedia?.rating_avg != null ? (
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Beoordeling</Text>
+            <Text style={styles.profileValue}>
+              ★ {Number(driverMedia.rating_avg).toFixed(1)}
+              {driverMedia.rating_count ? ` (${driverMedia.rating_count})` : ''}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.profileDivider} />
+        <Text style={styles.profileSection}>Foto’s voor de klant</Text>
+        <Text style={styles.themeHint}>
+          Profielfoto is verplicht voordat je een rit kunt accepteren. Logo en auto-foto zijn
+          optioneel en worden alleen getoond als je ze uploadt.
+        </Text>
+        <View style={styles.mediaUploadRow}>
+          <Pressable
+            style={styles.mediaUploadCard}
+            onPress={() => pickAndUploadMedia('profile')}
+            disabled={mediaBusy}
+          >
+            {driverMedia?.profile_photo_url ? (
+              <Image source={{ uri: driverMedia.profile_photo_url }} style={styles.mediaPreview} />
+            ) : (
+              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                <Ionicons name="person" size={28} color={colors.muted} />
+              </View>
+            )}
+            <Text style={styles.mediaUploadLabel}>
+              {driverMedia?.has_profile_photo ? 'Profielfoto wijzigen' : 'Profielfoto (verplicht)'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.mediaUploadCard}
+            onPress={() => pickAndUploadMedia('logo')}
+            disabled={mediaBusy}
+          >
+            {driverMedia?.company_logo_url ? (
+              <Image
+                source={{ uri: driverMedia.company_logo_url }}
+                style={styles.mediaPreview}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                <Ionicons name="business" size={28} color={colors.muted} />
+              </View>
+            )}
+            <Text style={styles.mediaUploadLabel}>Bedrijfslogo</Text>
+          </Pressable>
+          <Pressable
+            style={styles.mediaUploadCard}
+            onPress={() => pickAndUploadMedia('vehicle')}
+            disabled={mediaBusy}
+          >
+            {driverMedia?.vehicle_photo_url ? (
+              <Image source={{ uri: driverMedia.vehicle_photo_url }} style={styles.mediaPreview} />
+            ) : (
+              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                <Ionicons name="car" size={28} color={colors.muted} />
+              </View>
+            )}
+            <Text style={styles.mediaUploadLabel}>Auto</Text>
+          </Pressable>
         </View>
 
         <View style={styles.profileDivider} />
@@ -1325,7 +1442,6 @@ export function DriverHomeScreen() {
           })}
         </View>
 
-        <Text style={styles.profileNote}>Gegevens zijn alleen ter inzage.</Text>
         <Pressable
           onPress={openHandleiding}
           style={[styles.guideLink, { borderColor: `${accentHex(accent)}66` }]}
@@ -1569,7 +1685,7 @@ export function DriverHomeScreen() {
 
   return (
     <DriverAccentProvider accent={accent}>
-    <Screen style={{ paddingHorizontal: 0, paddingBottom: 0 }}>
+    <Screen style={{ paddingHorizontal: 0, paddingTop: APP_PAGE_TOP_INSET, paddingBottom: 0 }}>
       <View style={styles.topBar}>
         <View style={styles.onlineBox}>
           <Text style={styles.onlineLabel}>{online ? 'Online' : 'Offline'}</Text>
@@ -1582,18 +1698,12 @@ export function DriverHomeScreen() {
         </View>
 
         <View style={[styles.logoCenter, { pointerEvents: 'none' }]}>
-          {logoUri ? (
-            <Image
-              source={{ uri: logoUri }}
-              style={styles.logo}
-              resizeMode="contain"
-              accessibilityLabel={company || 'Bedrijfslogo'}
-            />
-          ) : (
-            <Text style={styles.logoFallback} numberOfLines={1}>
-              {company || 'Chauffeur'}
-            </Text>
-          )}
+          <AppBrandLogo
+            bare
+            uri={logoUri}
+            fallbackLabel={company || 'Chauffeur'}
+            accessibilityLabel={company || 'Bedrijfslogo'}
+          />
         </View>
 
         <View style={styles.headerIcons}>
@@ -1854,11 +1964,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
   return StyleSheet.create({
     topBar: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       paddingHorizontal: 16,
-      paddingTop: 4,
-      paddingBottom: 6,
-      minHeight: 62,
+      paddingTop: 2,
+      paddingBottom: 2,
+      minHeight: APP_LOGO_BAR_MIN_HEIGHT,
     },
     onlineBox: {
       width: 72,
@@ -1880,20 +1990,19 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       left: 72,
       right: 72,
       top: 0,
-      bottom: 6,
+      bottom: 0,
       alignItems: 'center',
-      justifyContent: 'flex-end',
+      justifyContent: 'center',
       zIndex: 1,
     },
     headerIcons: {
       marginLeft: 'auto',
       minWidth: 72,
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       justifyContent: 'flex-end',
       gap: 2,
       zIndex: 3,
-      paddingBottom: 1,
     },
     headerIconBtn: {
       width: 36,
@@ -1944,10 +2053,6 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '600',
       marginBottom: 4,
     },
-    logo: {
-      width: 220,
-      height: 60,
-    },
     rideKindRow: {
       flexDirection: 'row',
       borderRadius: 999,
@@ -1961,13 +2066,6 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     rideKindBtnActive: { backgroundColor: accentHex },
     rideKindText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
     rideKindTextActive: { color: '#fff' },
-    logoFallback: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      maxWidth: 200,
-      textAlign: 'center',
-    },
     vehicleRow: {
       marginHorizontal: 20,
       marginBottom: 8,
@@ -2233,6 +2331,37 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       letterSpacing: 0.5,
       textTransform: 'uppercase',
       marginBottom: 10,
+    },
+    mediaUploadRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 4,
+    },
+    mediaUploadCard: {
+      width: '30%',
+      minWidth: 96,
+      flexGrow: 1,
+      alignItems: 'center',
+      gap: 6,
+    },
+    mediaPreview: {
+      width: '100%',
+      aspectRatio: 1,
+      borderRadius: 12,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    mediaPreviewEmpty: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    mediaUploadLabel: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: '600',
+      textAlign: 'center',
     },
     accentRow: {
       flexDirection: 'row',

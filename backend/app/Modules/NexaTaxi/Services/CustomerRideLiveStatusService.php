@@ -14,6 +14,7 @@ use App\Modules\NexaTaxi\Support\TaxiCustomerAppSchema;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiRideTrackSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\WhatsAppBookingMessageComposer;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -37,6 +38,7 @@ class CustomerRideLiveStatusService
         TaxiCustomerAppSchema::ensureTrackTokenColumn($conn);
         TaxiDispatchSchema::ensureFulfillingCompanyColumn($conn);
         TaxiRideTrackSchema::ensure($conn);
+        \App\Modules\NexaTaxi\Support\TaxiDriverProfileSchema::ensure($conn);
     }
 
     public function issueTrackToken(RideRequest $ride): string
@@ -221,6 +223,19 @@ class CustomerRideLiveStatusService
             $statusLabel = 'Wacht op betaling';
         }
 
+        $driverMedia = $driver
+            ? app(TaxiDriverProfileMediaService::class)->publicPayload($driver)
+            : [
+                'profile_photo_url' => null,
+                'company_logo_url' => null,
+                'vehicle_photo_url' => null,
+                'rating_avg' => null,
+                'rating_count' => 0,
+            ];
+        $statusUpdates = app(TaxiCustomerRideStatusNotificationService::class)
+            ->statusTimeline($conn, (int) $ride->id);
+        $ratingPayload = app(TaxiRideRatingService::class)->payloadForRide($conn, $ride);
+
         return [
             'id' => (int) $ride->id,
             'status' => $status,
@@ -269,11 +284,19 @@ class CustomerRideLiveStatusService
                 'name' => (string) ($vehicle->name ?? ''),
                 'license_plate' => preg_replace('/\s+/', '', (string) ($vehicle->license_plate ?? '')) ?: null,
                 'label' => $vehicle->fleetLabel(),
+                'photo_url' => $driverMedia['vehicle_photo_url'] ?? null,
             ] : null,
             'driver' => $driver ? [
                 'id' => (int) $driver->id,
                 'name' => trim(($driver->first_name ?? '').' '.($driver->last_name ?? '')) ?: 'Chauffeur',
+                'photo_url' => $driverMedia['profile_photo_url'] ?? null,
+                'company_logo_url' => $driverMedia['company_logo_url'] ?? null,
+                'rating_avg' => $driverMedia['rating_avg'] ?? null,
+                'rating_count' => ($driverMedia['rating_count'] ?? 0) > 0 ? (int) $driverMedia['rating_count'] : null,
             ] : null,
+            'status_updates' => $statusUpdates,
+            'status_notify_events' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            'rating' => $ratingPayload,
             'vehicle_location' => $driverLoc,
             'eta_minutes' => $eta['minutes'] ?? null,
             'eta_label' => $eta['label'] ?? null,

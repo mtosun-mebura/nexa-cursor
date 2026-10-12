@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import type { TextInput as TextInputType } from 'react-native';
@@ -26,10 +27,12 @@ import {
   LiveRide,
   NearbyTaxi,
   payLive,
+  rateLive,
   QuoteOffer,
   QuoteResponse,
   waitLive,
 } from '../api/customer';
+import { notifyNewRideStatusUpdates } from '../customer/rideStatusNotifications';
 import { ApiError } from '../api/client';
 import {
   AddressSuggestion,
@@ -76,6 +79,7 @@ import {
 } from '../ui/components';
 import { AppModal } from '../ui/AppModal';
 import { CustomerTabBar, CustomerTabKey } from '../ui/CustomerTabBar';
+import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { PickupAtField } from '../ui/PickupAtPicker';
 import { ColorPalette } from '../config';
 import { ThemePreference, useTheme } from '../theme/ThemeContext';
@@ -83,8 +87,6 @@ import { ThemePreference, useTheme } from '../theme/ThemeContext';
 const TRACK_KEY = 'nexa_taxi_customer_track';
 const PROFILE_KEY = 'nexa_taxi_customer_profile_guest';
 const TAB_KEY = 'nexa_taxi_customer_tab';
-const logoDark = require('../../assets/nexa-taxi-logo-dark.png');
-const logoLight = require('../../assets/nexa-taxi-logo.png');
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
@@ -112,7 +114,6 @@ const BAGGAGE_ROWS: {
 export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const { colors, colorScheme, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const logoSource = colorScheme === 'light' ? logoLight : logoDark;
   const [tab, setTab] = useState<CustomerTabKey>('book');
   const [trackToken, setTrackToken] = useState<string | null>(null);
   const [live, setLive] = useState<LiveRide | null>(null);
@@ -125,6 +126,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [rateStars, setRateStars] = useState(0);
+  const [rateComment, setRateComment] = useState('');
 
   const hasActiveRide = !!(live && trackToken && isActiveRidePhase(live.phase));
 
@@ -180,8 +183,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   const offer: QuoteOffer | null = quote?.offers?.[0] || null;
   const freeTaxis = nearbyTaxis.filter((t) => !t.busy);
-  const freeNearby = freeTaxis.length;
-  const canDispatch = freeNearby > 0;
+  /** Na acceptatie: alleen de gekoppelde taxi tonen/volgen, geen vloot meer. */
+  const followingAssignedTaxi = !!(
+    live &&
+    trackToken &&
+    live.accepted &&
+    isActiveRidePhase(live.phase)
+  );
+  const linkedTaxiLoc = useMemo(() => {
+    if (!followingAssignedTaxi) return null;
+    const loc = live?.vehicle_location;
+    const lat = loc?.lat != null ? Number(loc.lat) : NaN;
+    const lng = loc?.lng != null ? Number(loc.lng) : NaN;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (lat === 0 && lng === 0) return null;
+    return { lat, lng };
+  }, [followingAssignedTaxi, live?.vehicle_location?.lat, live?.vehicle_location?.lng]);
+  const freeNearby = followingAssignedTaxi ? (linkedTaxiLoc ? 1 : 0) : freeTaxis.length;
+  const canDispatch = followingAssignedTaxi ? true : freeNearby > 0;
   const unavailableMessage =
     quote?.marketplace?.unavailable_message ||
     'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie. Je krijgt een melding zodra er weer een taxi beschikbaar is.';
@@ -348,15 +367,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
 
   useEffect(() => {
+    // Bij openen vanaf start: altijd Boeken (niet een oude Profiel-tab).
+    // Betaling-return mag wel naar Ritten blijven sturen.
     (async () => {
       try {
-        const savedTab = await AsyncStorage.getItem(TAB_KEY);
-        if (savedTab === 'book' || savedTab === 'rides' || savedTab === 'profile') {
-          setTab(savedTab);
-        }
+        const url = await Linking.getInitialURL();
+        if (isCustomerPaymentReturn(parseAppDeepLink(url))) return;
       } catch {
         /* ignore */
       }
+      setTab('book');
+      AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
     })();
   }, []);
 
@@ -424,6 +445,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup?.lat, pickup?.lng]);
 
   useEffect(() => {
+    if (followingAssignedTaxi) return;
     const map = mapRef.current;
     if (!map) return;
     const coords: LatLng[] = [];
@@ -457,7 +479,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       edgePadding: { top: 48, right: 48, bottom: 48, left: 48 },
       animated: true,
     });
-  }, [pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng, fleetOrigin.lat, fleetOrigin.lng]);
+  }, [
+    followingAssignedTaxi,
+    pickup?.lat,
+    pickup?.lng,
+    dropoff?.lat,
+    dropoff?.lng,
+    fleetOrigin.lat,
+    fleetOrigin.lng,
+  ]);
 
   function zoomMap(delta: number) {
     const map = mapRef.current;
@@ -577,6 +607,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt]);
 
   const refreshFleet = useCallback(async () => {
+    // Tijdens gekoppelde rit geen vloot ophalen — alleen de eigen taxi via live-status.
+    if (followingAssignedTaxi) {
+      setNearbyTaxis([]);
+      return;
+    }
     const origin = pickup
       ? { lat: pickup.lat, lng: pickup.lng }
       : fleetOrigin;
@@ -590,13 +625,29 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     } catch {
       /* behoud vorige markers */
     }
-  }, [pickup, fleetOrigin]);
+  }, [pickup, fleetOrigin, followingAssignedTaxi]);
 
   useEffect(() => {
     refreshFleet();
+    if (followingAssignedTaxi) return;
     const t = setInterval(refreshFleet, 4000);
     return () => clearInterval(t);
-  }, [refreshFleet]);
+  }, [refreshFleet, followingAssignedTaxi]);
+
+  // Kaart volgt de gekoppelde taxi.
+  useEffect(() => {
+    if (!linkedTaxiLoc || !mapRef.current) return;
+    mapRef.current.animateCamera(
+      {
+        center: {
+          latitude: linkedTaxiLoc.lat,
+          longitude: linkedTaxiLoc.lng,
+        },
+        zoom: 15,
+      },
+      { duration: 600 }
+    );
+  }, [linkedTaxiLoc?.lat, linkedTaxiLoc?.lng]);
 
   useEffect(() => {
     if (!pickup || !dropoff) {
@@ -621,6 +672,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         const data = await fetchLive(trackToken);
         if (cancelled) return;
         setLive(data.ride);
+        notifyNewRideStatusUpdates(data.ride).catch(() => undefined);
         const next = await updateGuestRide(trackToken, {
           id: data.ride.id,
           from: data.ride.pickup_address || undefined,
@@ -906,6 +958,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function onSubmitRating(token: string) {
+    if (rateStars < 1) {
+      setError('Kies 1 tot 5 sterren.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await rateLive(token, rateStars, rateComment.trim() || null);
+      if (data.ride) setLive(data.ride);
+      setRateStars(0);
+      setRateComment('');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Beoordeling opslaan mislukt.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function startNewRide() {
     setTrackToken(null);
     setLive(null);
@@ -915,18 +986,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     goToBookTab();
   }
 
-  function openRideFollow(ride: GuestRide) {
+  function loadRideLive(ride: GuestRide) {
     setTrackToken(ride.token);
     persistTrack(isActiveRidePhase(ride.phase) ? ride.token : null);
-    setExpandedRideKey(rideArchiveKey(ride));
-    setShowArchivedRides(false);
-    setTab('rides');
-    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
     setError(null);
     fetchLive(ride.token)
       .then((data) => {
         if (!data.ride) return;
         setLive(data.ride);
+        notifyNewRideStatusUpdates(data.ride).catch(() => undefined);
         return updateGuestRide(ride.token, {
           id: data.ride.id,
           from: data.ride.pickup_address || undefined,
@@ -937,6 +1005,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         }).then(setGuestRides);
       })
       .catch(() => undefined);
+  }
+
+  function openRideFollow(ride: GuestRide) {
+    setExpandedRideKey(rideArchiveKey(ride));
+    setShowArchivedRides(false);
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+    loadRideLive(ride);
+  }
+
+  function toggleRideExpanded(ride: GuestRide) {
+    const key = rideArchiveKey(ride);
+    if (expandedRideKey === key) {
+      setExpandedRideKey(null);
+      return;
+    }
+    setExpandedRideKey(key);
+    loadRideLive(ride);
   }
 
   async function toggleArchiveRide(ride: GuestRide, archived: boolean) {
@@ -1006,25 +1092,49 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             </View>
           </Marker>
         ) : null}
-        {freeTaxis.map((taxi) => (
-          <Marker
-            key={taxi.id}
-            coordinate={{ latitude: taxi.lat, longitude: taxi.lng }}
-            title="Taxi beschikbaar"
-            description={
-              taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined
-            }
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-          >
-            <Image
-              source={taxiCarYellow}
-              style={styles.taxiMarker}
-              resizeMode="contain"
-            />
-          </Marker>
-        ))}
-        {routeCoords.length > 1 ? (
+        {followingAssignedTaxi
+          ? linkedTaxiLoc
+            ? (
+              <Marker
+                key="linked-taxi"
+                coordinate={{
+                  latitude: linkedTaxiLoc.lat,
+                  longitude: linkedTaxiLoc.lng,
+                }}
+                title={live?.driver?.name || 'Jouw taxi'}
+                description={
+                  live?.vehicle?.license_plate || live?.vehicle?.label || 'Onderweg'
+                }
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+              >
+                <Image
+                  source={taxiCarYellow}
+                  style={styles.taxiMarker}
+                  resizeMode="contain"
+                />
+              </Marker>
+              )
+            : null
+          : freeTaxis.map((taxi) => (
+              <Marker
+                key={taxi.id}
+                coordinate={{ latitude: taxi.lat, longitude: taxi.lng }}
+                title="Taxi beschikbaar"
+                description={
+                  taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined
+                }
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+              >
+                <Image
+                  source={taxiCarYellow}
+                  style={styles.taxiMarker}
+                  resizeMode="contain"
+                />
+              </Marker>
+            ))}
+        {!followingAssignedTaxi && routeCoords.length > 1 ? (
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
       </MapView>
@@ -1043,7 +1153,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         >
           <Text style={styles.zoomBtnText}>−</Text>
         </Pressable>
-        {pickup && dropoff ? (
+        {pickup && dropoff && !followingAssignedTaxi ? (
           <Pressable
             onPress={fitMapToRoute}
             style={styles.zoomBtn}
@@ -1053,10 +1163,34 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             <Ionicons name="navigate" size={18} color={colors.text} />
           </Pressable>
         ) : null}
+        {followingAssignedTaxi && linkedTaxiLoc ? (
+          <Pressable
+            onPress={() => {
+              mapRef.current?.animateCamera(
+                {
+                  center: {
+                    latitude: linkedTaxiLoc.lat,
+                    longitude: linkedTaxiLoc.lng,
+                  },
+                  zoom: 15,
+                },
+                { duration: 400 }
+              );
+            }}
+            style={styles.zoomBtn}
+            accessibilityLabel="Volg taxi"
+          >
+            <Ionicons name="navigate" size={18} color={colors.text} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.fleetBadge}>
         <Text style={styles.fleetBadgeText}>
-          {freeNearby} taxi{freeNearby === 1 ? '' : '’s'} online
+          {followingAssignedTaxi
+            ? linkedTaxiLoc
+              ? 'Jouw taxi · live volgen'
+              : 'Chauffeur gekoppeld…'
+            : `${freeNearby} taxi${freeNearby === 1 ? '' : '’s'} online`}
         </Text>
       </View>
     </View>
@@ -1072,49 +1206,31 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         : 'Boeken';
 
   const appHeader = (
-    <View style={styles.header}>
-      <View style={styles.logoBar}>
-        <Pressable
-          onPress={goToBookTab}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Naar Boeken"
-        >
-          <Image
-            source={logoSource}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityLabel="NEXA | taxi"
-          />
-        </Pressable>
-      </View>
-      <View style={styles.headerTitleRow}>
+    <AppPageHeader
+      title={headerTitle}
+      onLogoPress={goToBookTab}
+      left={
         <Pressable
           onPress={onBack}
-          hitSlop={8}
-          style={styles.headerBackBtn}
+          hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Naar startpagina"
         >
-          <Ionicons name="home-outline" size={22} color={colors.text} />
+          <Ionicons name="home-outline" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {headerTitle}
-        </Text>
-        {tab === 'rides' && showArchivedRides ? (
+      }
+      right={
+        tab === 'rides' && showArchivedRides ? (
           <Pressable
             onPress={() => setShowArchivedRides(false)}
-            hitSlop={8}
-            style={styles.headerBackBtn}
+            hitSlop={10}
             accessibilityLabel="Terug naar ritten"
           >
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
           </Pressable>
-        ) : (
-          <View style={styles.headerBackBtn} />
-        )}
-      </View>
-    </View>
+        ) : null
+      }
+    />
   );
 
   const activeBannerRide =
@@ -1432,7 +1548,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {!cancelled ? (
             <View style={styles.rideCardTop}>
               <Pressable
-                onPress={() => setExpandedRideKey(expanded ? null : key)}
+                onPress={() => toggleRideExpanded(ride)}
                 style={{ flex: 1, minWidth: 0 }}
                 accessibilityRole="button"
                 accessibilityState={{ expanded }}
@@ -1459,7 +1575,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   </Pressable>
                 ) : null}
                 <Pressable
-                  onPress={() => setExpandedRideKey(expanded ? null : key)}
+                  onPress={() => toggleRideExpanded(ride)}
                   hitSlop={8}
                   accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}
                 >
@@ -1474,7 +1590,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           ) : null}
 
           <Pressable
-            onPress={() => setExpandedRideKey(expanded ? null : key)}
+            onPress={() => toggleRideExpanded(ride)}
             accessibilityRole="button"
             accessibilityState={{ expanded }}
           >
@@ -1552,17 +1668,80 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {isLiveMatch && live ? (
               <>
                 {live.eta_label ? <Text style={styles.meta}>ETA: {live.eta_label}</Text> : null}
-                {live.driver?.name ? (
-                  <Text style={styles.meta}>Chauffeur: {live.driver.name}</Text>
+
+                {live.driver || live.vehicle ? (
+                  <View style={styles.driverCard}>
+                    {live.driver?.company_logo_url ? (
+                      <Image
+                        source={{ uri: live.driver.company_logo_url }}
+                        style={styles.driverLogo}
+                        resizeMode="contain"
+                      />
+                    ) : null}
+                    <View style={styles.driverRow}>
+                      {live.driver?.photo_url ? (
+                        <Image source={{ uri: live.driver.photo_url }} style={styles.driverAvatar} />
+                      ) : null}
+                      <View style={{ flex: 1 }}>
+                        {live.driver?.name ? (
+                          <Text style={styles.driverName}>{live.driver.name}</Text>
+                        ) : null}
+                        {live.driver?.rating_avg != null ? (
+                          <Text style={styles.meta}>
+                            ★ {Number(live.driver.rating_avg).toFixed(1)}
+                            {live.driver.rating_count
+                              ? ` (${live.driver.rating_count})`
+                              : ''}
+                          </Text>
+                        ) : null}
+                        {live.vehicle?.label || live.vehicle?.license_plate ? (
+                          <Text style={styles.meta}>
+                            {live.vehicle.label || 'Voertuig'}
+                            {live.vehicle.license_plate
+                              ? ` · ${live.vehicle.license_plate}`
+                              : ''}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {live.vehicle?.photo_url ? (
+                        <Image
+                          source={{ uri: live.vehicle.photo_url }}
+                          style={styles.vehicleThumb}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                    </View>
+                  </View>
                 ) : null}
-                {live.vehicle?.label || live.vehicle?.license_plate ? (
-                  <Text style={styles.meta}>
-                    Voertuig: {live.vehicle.label || live.vehicle.license_plate}
-                  </Text>
-                ) : null}
+
                 {live.company?.name ? (
                   <Text style={styles.meta}>Centrale: {live.company.name}</Text>
                 ) : null}
+
+                {Array.isArray(live.status_updates) && live.status_updates.length > 0 ? (
+                  <View style={styles.statusTimeline}>
+                    <Text style={styles.rowLabel}>Statusupdates</Text>
+                    {live.status_updates.map((u, idx) => (
+                      <View key={`${u.event}-${u.at || idx}`} style={styles.statusRow}>
+                        <View style={styles.statusDot} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.statusLabel}>{u.label}</Text>
+                          {u.at ? (
+                            <Text style={styles.statusAt}>
+                              {new Date(u.at).toLocaleString('nl-NL', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
                 {live.payment_error ? (
                   <Text style={[styles.meta, { color: colors.danger }]}>{live.payment_error}</Text>
                 ) : null}
@@ -1591,6 +1770,44 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   <View style={{ marginTop: 8 }}>
                     <GhostButton title="Rit annuleren" onPress={requestCancel} danger />
                   </View>
+                ) : null}
+
+                {live.rating?.can_rate ? (
+                  <View style={styles.rateBox}>
+                    <Text style={styles.rowLabel}>Beoordeel je rit</Text>
+                    <View style={styles.starsRow}>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Pressable key={n} onPress={() => setRateStars(n)} hitSlop={8}>
+                          <Ionicons
+                            name={n <= rateStars ? 'star' : 'star-outline'}
+                            size={32}
+                            color={n <= rateStars ? '#F5B301' : colors.muted}
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                    <TextInput
+                      style={styles.rateInput}
+                      value={rateComment}
+                      onChangeText={setRateComment}
+                      placeholder="Optionele opmerking"
+                      placeholderTextColor={colors.muted}
+                      multiline
+                    />
+                    <PrimaryButton
+                      title="Beoordeling versturen"
+                      onPress={() => onSubmitRating(ride.token)}
+                      loading={busy}
+                    />
+                  </View>
+                ) : null}
+
+                {live.rating?.rated && live.rating.stars ? (
+                  <Text style={styles.meta}>
+                    Jouw beoordeling: {'★'.repeat(live.rating.stars)}
+                    {'☆'.repeat(5 - live.rating.stars)}
+                    {live.rating.comment ? ` — ${live.rating.comment}` : ''}
+                  </Text>
                 ) : null}
               </>
             ) : null}
@@ -2036,7 +2253,7 @@ function makeStyles(colors: ColorPalette) {
     shell: {
       flex: 1,
       paddingHorizontal: 0,
-      paddingTop: 0,
+      paddingTop: APP_PAGE_TOP_INSET,
       paddingBottom: 0,
     },
     shellBody: {
@@ -2056,40 +2273,6 @@ function makeStyles(colors: ColorPalette) {
       paddingHorizontal: 20,
       paddingTop: 4,
       paddingBottom: 24,
-    },
-    header: {
-      paddingBottom: 2,
-    },
-    logoBar: {
-      alignItems: 'center',
-      paddingTop: 4,
-      paddingBottom: 2,
-      paddingHorizontal: 20,
-    },
-    logo: {
-      width: 160,
-      height: 40,
-    },
-    headerTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingTop: 4,
-      paddingBottom: 6,
-    },
-    headerBackBtn: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerTitle: {
-      flex: 1,
-      textAlign: 'center',
-      color: colors.text,
-      fontSize: 20,
-      lineHeight: 24,
-      fontWeight: '700',
     },
     activeBanner: {
       flexDirection: 'row',
@@ -2440,6 +2623,86 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 14,
       lineHeight: 20,
       marginTop: 6,
+    },
+    driverCard: {
+      marginTop: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: 12,
+      gap: 10,
+    },
+    driverLogo: {
+      width: 96,
+      height: 32,
+      alignSelf: 'flex-start',
+    },
+    driverRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    driverAvatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.inputBg,
+    },
+    driverName: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    vehicleThumb: {
+      width: 72,
+      height: 52,
+      borderRadius: 8,
+      backgroundColor: colors.inputBg,
+    },
+    statusTimeline: {
+      marginTop: 14,
+      gap: 8,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginTop: 6,
+      backgroundColor: colors.primary,
+    },
+    statusLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    statusAt: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    rateBox: {
+      marginTop: 14,
+      gap: 10,
+    },
+    starsRow: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    rateInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      minHeight: 72,
+      textAlignVertical: 'top',
     },
     profileHint: {
       color: colors.muted,
