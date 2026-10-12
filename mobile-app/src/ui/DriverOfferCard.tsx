@@ -353,7 +353,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     >
       {highlightActive ? (
         <Animated.View
-          style={[styles.highlightRing, { opacity: highlightOpacity, pointerEvents: 'none' }]}
+          pointerEvents="none"
+          style={[styles.highlightRing, { opacity: highlightOpacity }]}
         />
       ) : null}
       <View

@@ -233,6 +233,9 @@
                 @endcan
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Voertuig:</span><span class="flex-1">{{ $ride->vehicle?->name ?? '—' }}</span></p>
                 <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Chauffeur:</span><span class="flex-1">{{ $ride->driver ? $ride->driver->first_name . ' ' . $ride->driver->last_name : '—' }}</span></p>
+                @if(!empty($rideRating['rated']) && !empty($rideRating['stars']))
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Beoordeling:</span><span class="flex-1">{{ str_repeat('★', (int) $rideRating['stars']) }}{{ str_repeat('☆', max(0, 5 - (int) $rideRating['stars'])) }}@if(!empty($rideRating['comment'])) — {{ $rideRating['comment'] }}@endif</span></p>
+                @endif
             </div>
         </div>
     </div>

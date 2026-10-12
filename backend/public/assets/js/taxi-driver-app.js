@@ -855,10 +855,13 @@
 
     async function api(path, options) {
         const opts = options || {};
+        const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
         const res = await fetch(cfg.apiBase + path, {
             method: opts.method || 'GET',
-            headers: headers(opts.body !== undefined),
-            body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+            headers: headers(!isFormData && opts.body !== undefined),
+            body: opts.body === undefined
+                ? undefined
+                : (isFormData ? opts.body : JSON.stringify(opts.body)),
             credentials: 'same-origin',
             keepalive: !!opts.keepalive,
         });
@@ -881,7 +884,10 @@
             if (data && data.error === 'driver_not_active') {
                 setAccountInactive(true, data.message);
             }
-            const msg = (data && data.message) || 'Er ging iets mis.';
+            const msg = (data && data.message)
+                || (data && data.errors && data.errors.photo && data.errors.photo[0])
+                || (data && data.errors && data.errors.profile_photo && data.errors.profile_photo[0])
+                || 'Er ging iets mis.';
             const err = new Error(msg);
             err.code = data && data.error;
             err.status = res.status;
@@ -9928,10 +9934,14 @@
         const text = address != null ? String(address).trim() : '';
         const href = text ? mapsSearchUrl(text) : '';
         const linkAttrs = href
-            ? ' href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer"'
-            : ' href="#" aria-disabled="true"';
+            ? ' href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" data-route-kind="' +
+              escapeHtml(variant) +
+              '"'
+            : ' href="#" aria-disabled="true" data-route-kind="' + escapeHtml(variant) + '"';
         return (
-            '<div class="offer-route-stop">' +
+            '<div class="offer-route-stop" data-route-kind="' +
+            escapeHtml(variant) +
+            '">' +
             '<div class="offer-route-head">' +
             '<span class="offer-route-dot offer-route-dot--' +
             escapeHtml(variant) +
@@ -9947,6 +9957,16 @@
             '</a>' +
             '</div>'
         );
+    }
+
+    function notifyCustomerEnRoute(rideId) {
+        const id = parseInt(rideId, 10) || 0;
+        if (!token || id <= 0) {
+            return Promise.resolve();
+        }
+        return api('/dispatch/rides/' + id + '/en-route', { method: 'POST' }).catch(function () {
+            /* navigatie mag doorgaan */
+        });
     }
 
     function routeTimelineHtml(pickupAddress, dropoffAddress) {
@@ -11831,6 +11851,137 @@
         statusEl.classList.remove('is-empty');
     }
 
+    let profileMedia = null;
+    let profileMediaBusy = false;
+    let profileMediaPendingKind = null;
+
+    function setProfileMediaPreview(kind, url, emptyGlyph) {
+        const preview = $('#profile-media-' + kind + '-preview');
+        const label = $('#profile-media-' + kind + '-label');
+        if (!preview) {
+            return;
+        }
+        if (url) {
+            const img = document.createElement('img');
+            img.className = 'profile-media__preview' + (kind === 'logo' ? ' is-logo' : '');
+            img.src = url;
+            img.alt = '';
+            img.decoding = 'async';
+            preview.replaceWith(img);
+            img.id = 'profile-media-' + kind + '-preview';
+        } else {
+            const span = document.createElement('span');
+            span.className = 'profile-media__preview is-empty' + (kind === 'logo' ? ' is-logo' : '');
+            span.id = 'profile-media-' + kind + '-preview';
+            span.setAttribute('aria-hidden', 'true');
+            span.textContent = emptyGlyph;
+            preview.replaceWith(span);
+        }
+        if (kind === 'profile' && label) {
+            label.textContent = url ? 'Profielfoto wijzigen' : 'Profielfoto (verplicht)';
+        }
+    }
+
+    function renderProfileMedia(media) {
+        profileMedia = media || null;
+        const ratingRow = $('#profile-rating-row');
+        const ratingEl = $('#profile-rating');
+        if (ratingRow && ratingEl) {
+            const avg = media && media.rating_avg != null ? Number(media.rating_avg) : null;
+            const count = media && media.rating_count ? Number(media.rating_count) : 0;
+            if (avg != null && !Number.isNaN(avg)) {
+                ratingRow.hidden = false;
+                ratingEl.textContent = '★ ' + avg.toFixed(1) + (count ? ' (' + count + ')' : '');
+                ratingEl.classList.remove('is-empty');
+            } else {
+                ratingRow.hidden = true;
+                ratingEl.textContent = '—';
+            }
+        }
+        setProfileMediaPreview('profile', media && media.profile_photo_url, '👤');
+        setProfileMediaPreview('logo', media && media.company_logo_url, '🏢');
+        setProfileMediaPreview('vehicle', media && media.vehicle_photo_url, '🚗');
+    }
+
+    function setProfileMediaError(message) {
+        const err = $('#profile-media-error');
+        if (!err) {
+            return;
+        }
+        if (message) {
+            err.hidden = false;
+            err.textContent = message;
+        } else {
+            err.hidden = true;
+            err.textContent = '';
+        }
+    }
+
+    function setProfileMediaBusy(busy) {
+        profileMediaBusy = !!busy;
+        document.querySelectorAll('[data-media-kind]').forEach(function (btn) {
+            btn.disabled = profileMediaBusy;
+        });
+    }
+
+    async function uploadProfileMedia(kind, file) {
+        if (!token || !file || profileMediaBusy) {
+            return;
+        }
+        const path =
+            kind === 'logo'
+                ? '/profile/company-logo'
+                : kind === 'vehicle'
+                    ? '/profile/vehicle-photo'
+                    : '/profile/photo';
+        const fd = new FormData();
+        const ext = file.type === 'image/png'
+            ? '.png'
+            : (file.type === 'image/webp' ? '.webp' : (file.type === 'image/gif' ? '.gif' : '.jpg'));
+        fd.append('photo', file, file.name || (kind + ext));
+        setProfileMediaBusy(true);
+        setProfileMediaError('');
+        try {
+            const res = await api(path, { method: 'POST', body: fd });
+            if (res && res.media) {
+                renderProfileMedia(res.media);
+                if (profileUser) {
+                    profileUser.media = res.media;
+                }
+            }
+        } catch (e) {
+            setProfileMediaError((e && e.message) || 'Upload mislukt.');
+        } finally {
+            setProfileMediaBusy(false);
+        }
+    }
+
+    function bindProfileMediaPicker() {
+        const fileInput = $('#profile-media-file');
+        if (!fileInput) {
+            return;
+        }
+        document.querySelectorAll('[data-media-kind]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (profileMediaBusy) {
+                    return;
+                }
+                profileMediaPendingKind = btn.getAttribute('data-media-kind');
+                fileInput.value = '';
+                fileInput.click();
+            });
+        });
+        fileInput.addEventListener('change', function () {
+            const file = fileInput.files && fileInput.files[0];
+            const kind = profileMediaPendingKind || 'profile';
+            profileMediaPendingKind = null;
+            if (!file) {
+                return;
+            }
+            uploadProfileMedia(kind, file);
+        });
+    }
+
     function renderProfileUser(user) {
         profileUser = user || null;
         const nameEl = $('#profile-name');
@@ -11851,6 +12002,7 @@
                 delete statusEl.dataset.accountActive;
             }
             setProfileField(statusEl, '');
+            renderProfileMedia(null);
             return;
         }
         const fullName =
@@ -11871,6 +12023,7 @@
         updateProfileOnlineStatus();
         applyAccentFromUser(user);
         applyRideAlertToneFromUser(user);
+        renderProfileMedia(user.media || null);
         syncRideKindFilterUi();
         applyRideKindFilterToViews();
     }
@@ -11933,9 +12086,22 @@
         return next;
     }
 
+    let rideToneDirty = false;
+
     function applyRideAlertToneFromUser(user) {
-        if (user && user.ride_alert_tone) {
-            storeRideAlertTone(user.ride_alert_tone);
+        const serverTone = user && user.ride_alert_tone
+            ? normalizeRideAlertTone(user.ride_alert_tone)
+            : null;
+        if (rideToneDirty) {
+            const local = getRideAlertTone();
+            if (serverTone && serverTone === local) {
+                rideToneDirty = false;
+            }
+            syncRideTonePicker(local);
+            return;
+        }
+        if (serverTone) {
+            storeRideAlertTone(serverTone);
             return;
         }
         syncRideTonePicker(getRideAlertTone());
@@ -11943,6 +12109,7 @@
 
     function persistRideAlertTone(tone) {
         const next = storeRideAlertTone(tone);
+        rideToneDirty = true;
         if (!token) {
             return;
         }
@@ -11950,9 +12117,14 @@
             .then(function (res) {
                 if (res && res.ride_alert_tone && profileUser) {
                     profileUser.ride_alert_tone = res.ride_alert_tone;
+                    if (normalizeRideAlertTone(res.ride_alert_tone) === next) {
+                        rideToneDirty = false;
+                    }
                 }
             })
-            .catch(function () {});
+            .catch(function () {
+                /* lokale keuze blijft via rideToneDirty */
+            });
     }
 
     function bindAccentPicker() {
@@ -12841,19 +13013,42 @@
     });
 
     document.addEventListener('click', function (ev) {
-        if (!isIosDevice() || !ev.target || !ev.target.closest) {
+        if (!ev.target || !ev.target.closest) {
             return;
         }
         const link = ev.target.closest('a[href*="google.com/maps"]');
         if (!link) {
             return;
         }
-        const target = mapsTargetFromLink(link.getAttribute('href'));
-        if (!target) {
+        const rideCard = link.closest('[data-ride-id]');
+        const routeKind = link.getAttribute('data-route-kind')
+            || (link.closest('[data-route-kind]') && link.closest('[data-route-kind]').getAttribute('data-route-kind'))
+            || '';
+        const rideId = rideCard ? rideCard.getAttribute('data-ride-id') : '';
+        const shouldNotify = routeKind === 'pickup' && rideId;
+        const open = function () {
+            if (isIosDevice()) {
+                const target = mapsTargetFromLink(link.getAttribute('href'));
+                if (target) {
+                    ev.preventDefault();
+                    openMapsTarget(target);
+                }
+            }
+        };
+        if (shouldNotify) {
+            ev.preventDefault();
+            notifyCustomerEnRoute(rideId).finally(function () {
+                if (isIosDevice()) {
+                    openMapsTarget(mapsTargetFromLink(link.getAttribute('href')));
+                } else {
+                    window.open(link.getAttribute('href'), '_blank', 'noopener,noreferrer');
+                }
+            });
             return;
         }
-        ev.preventDefault();
-        openMapsTarget(target);
+        if (isIosDevice()) {
+            open();
+        }
     });
 
     document.addEventListener('click', function () {
@@ -12876,6 +13071,7 @@
 
     bindAccentPicker();
     bindRideTonePicker();
+    bindProfileMediaPicker();
     bindNavigationMapTheme();
     updateGuideHint();
     bootstrap();

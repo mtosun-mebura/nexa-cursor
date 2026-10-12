@@ -207,6 +207,58 @@ class RideClaimService
         return $result;
     }
 
+    /**
+     * Chauffeur opent navigatie naar ophaalpunt → klant ziet “onderweg naar jou”.
+     * Wijzigt de ritstatus niet (blijft accepted tot “klant opgehaald”).
+     */
+    public function markEnRouteToPickup(string $conn, User $driver, int $rideId): RideRequest
+    {
+        $ride = RideRequest::on($conn)->whereKey($rideId)->first();
+        if (! $ride) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        if (! $ride->isVisibleToDriver((int) $driver->id, $vehicleId)) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+        ], true)) {
+            throw ValidationException::withMessages([
+                'ride' => ['Deze rit heeft geen ophaalstatus meer.'],
+            ]);
+        }
+
+        $event = WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+        $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event] ?? $event;
+        $this->persistCustomerStatusEvent($ride, $event, $label);
+        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $event, $driver);
+
+        return $ride->fresh() ?? $ride;
+    }
+
+    /**
+     * Bewaar de laatste klantgerichte status op de rit (fallback naast notification-log).
+     */
+    public function persistCustomerStatusEvent(RideRequest $ride, string $event, string $label): void
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $payload['customer_status'] = [
+            'event' => $event,
+            'label' => $label,
+            'at' => now()->toIso8601String(),
+        ];
+        $ride->booking_payload = $payload;
+        $ride->save();
+    }
+
     public function startRide(string $conn, User $driver, int $rideId): RideRequest
     {
         $ride = DB::connection($conn)->transaction(function () use ($conn, $driver, $rideId) {
@@ -275,9 +327,12 @@ class RideClaimService
             report($e);
         }
 
-        $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_STARTED, $driver);
+        $startedEvent = WhatsAppBookingMessageComposer::EVENT_STARTED;
+        $startedLabel = WhatsAppBookingMessageComposer::statusEventLabels()[$startedEvent] ?? $startedEvent;
+        $this->persistCustomerStatusEvent($ride, $startedEvent, $startedLabel);
+        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $startedEvent, $driver);
 
-        return $ride;
+        return $ride->fresh() ?? $ride;
     }
 
     private function assertContractRideCanStartToday(string $conn, RideRequest $ride): void
@@ -740,7 +795,10 @@ class RideClaimService
             } catch (\Throwable $e) {
                 report($e);
             }
-            $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_COMPLETED, $driver);
+            $completedEvent = WhatsAppBookingMessageComposer::EVENT_COMPLETED;
+            $completedLabel = WhatsAppBookingMessageComposer::statusEventLabels()[$completedEvent] ?? $completedEvent;
+            $this->persistCustomerStatusEvent($ride, $completedEvent, $completedLabel);
+            $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $completedEvent, $driver);
         } elseif ($clientTrack !== []) {
             try {
                 app(RideTrackService::class)->bufferClientTrack($conn, $ride, $clientTrack);

@@ -126,6 +126,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [rateStars, setRateStars] = useState(0);
   const [rateComment, setRateComment] = useState('');
 
@@ -680,8 +681,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           phase: data.ride.phase,
           status_label: data.ride.status_label,
           quoted_price: data.ride.quoted_price,
+          rating: data.ride.rating || null,
         });
         setGuestRides(next);
+        if (data.ride.phase === 'completed') {
+          setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
+          setTab('rides');
+          AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+        }
         if (!isActiveRidePhase(data.ride.phase)) {
           await persistTrack(null);
           return;
@@ -967,7 +974,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       const data = await rateLive(token, rateStars, rateComment.trim() || null);
-      if (data.ride) setLive(data.ride);
+      if (data.ride) {
+        setLive(data.ride);
+        const next = await updateGuestRide(token, {
+          phase: data.ride.phase,
+          status_label: data.ride.status_label,
+          rating: data.ride.rating || null,
+        });
+        setGuestRides(next);
+      }
       setRateStars(0);
       setRateComment('');
     } catch (e) {
@@ -1002,6 +1017,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           phase: data.ride.phase,
           status_label: data.ride.status_label,
           quoted_price: data.ride.quoted_price,
+          rating: data.ride.rating || null,
         }).then(setGuestRides);
       })
       .catch(() => undefined);
@@ -1055,7 +1071,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        customMapStyle={colorScheme === 'dark' ? DARK_MAP_STYLE : []}
+        {...(colorScheme === 'dark' ? { customMapStyle: DARK_MAP_STYLE } : {})}
         initialRegion={mapRegion}
         showsUserLocation
         showsMyLocationButton={false}
@@ -1138,7 +1154,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
       </MapView>
-      <View style={[styles.zoomControls, { pointerEvents: 'box-none' }]}>
+      <View style={styles.zoomControls} pointerEvents="box-none">
         <Pressable
           onPress={() => zoomMap(1)}
           style={styles.zoomBtn}
@@ -1233,6 +1249,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     />
   );
 
+  const liveStatusFromUpdates = (() => {
+    const updates = live?.status_updates;
+    if (!Array.isArray(updates) || updates.length === 0) return null;
+    const latest = updates[updates.length - 1];
+    const label = String(latest?.label || '').trim();
+    return label || null;
+  })();
+
   const activeBannerRide =
     (live && trackToken && isActiveRidePhase(live.phase)
       ? {
@@ -1241,7 +1265,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           from: live.pickup_address || pickup?.address || '',
           to: live.dropoff_address || dropoff?.address || '',
           phase: live.phase,
-          status_label: live.status_label,
+          status_label: liveStatusFromUpdates || live.status_label,
           at: Date.now(),
           quoted_price: live.quoted_price,
         }
@@ -1599,11 +1623,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 <SearchingTaxiTitle />
               ) : (
                 <Text style={styles.liveTitle}>
-                  {phase === 'accepted'
-                    ? 'Taxi onderweg'
-                    : phase === 'awaiting_payment'
-                      ? 'Wacht op betaling'
-                      : phaseLabel(phase, ride.status_label)}
+                  {phase === 'awaiting_payment'
+                    ? 'Wacht op betaling'
+                    : (isLiveMatch &&
+                        (liveStatusFromUpdates || live?.status_label)) ||
+                      ride.status_label ||
+                      phaseLabel(phase)}
                 </Text>
               )
             ) : null}
@@ -1667,7 +1692,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
             {isLiveMatch && live ? (
               <>
-                {live.eta_label ? <Text style={styles.meta}>ETA: {live.eta_label}</Text> : null}
+                {live.eta_label ? (
+                  <>
+                    <Text style={[styles.rowLabel, { marginTop: 10 }]}>Verwachte aankomsttijd</Text>
+                    <Text style={styles.rowValue}>{live.eta_label}</Text>
+                  </>
+                ) : null}
 
                 {live.driver || live.vehicle ? (
                   <View style={styles.driverCard}>
@@ -1680,7 +1710,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                     ) : null}
                     <View style={styles.driverRow}>
                       {live.driver?.photo_url ? (
-                        <Image source={{ uri: live.driver.photo_url }} style={styles.driverAvatar} />
+                        <Pressable
+                          onPress={() => setPhotoPreviewUri(live.driver!.photo_url!)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Profielfoto vergroten"
+                        >
+                          <Image
+                            source={{ uri: live.driver.photo_url }}
+                            style={styles.driverAvatar}
+                          />
+                        </Pressable>
                       ) : null}
                       <View style={{ flex: 1 }}>
                         {live.driver?.name ? (
@@ -1694,21 +1733,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                               : ''}
                           </Text>
                         ) : null}
-                        {live.vehicle?.label || live.vehicle?.license_plate ? (
-                          <Text style={styles.meta}>
-                            {live.vehicle.label || 'Voertuig'}
-                            {live.vehicle.license_plate
-                              ? ` · ${live.vehicle.license_plate}`
-                              : ''}
-                          </Text>
+                        {live.vehicle?.license_plate ? (
+                          <Text style={styles.meta}>{live.vehicle.license_plate}</Text>
+                        ) : null}
+                        {live.vehicle?.name ? (
+                          <Text style={styles.meta}>{live.vehicle.name}</Text>
                         ) : null}
                       </View>
                       {live.vehicle?.photo_url ? (
-                        <Image
-                          source={{ uri: live.vehicle.photo_url }}
-                          style={styles.vehicleThumb}
-                          resizeMode="cover"
-                        />
+                        <Pressable
+                          onPress={() => setPhotoPreviewUri(live.vehicle!.photo_url!)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Autofoto vergroten"
+                        >
+                          <Image
+                            source={{ uri: live.vehicle.photo_url }}
+                            style={styles.vehicleThumb}
+                            resizeMode="contain"
+                          />
+                        </Pressable>
                       ) : null}
                     </View>
                   </View>
@@ -1810,6 +1853,44 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   </Text>
                 ) : null}
               </>
+            ) : null}
+
+            {!isLiveMatch && completed && ride.rating?.can_rate ? (
+              <View style={styles.rateBox}>
+                <Text style={styles.rowLabel}>Beoordeel je rit</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable key={n} onPress={() => setRateStars(n)} hitSlop={8}>
+                      <Ionicons
+                        name={n <= rateStars ? 'star' : 'star-outline'}
+                        size={32}
+                        color={n <= rateStars ? '#F5B301' : colors.muted}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+                <TextInput
+                  style={styles.rateInput}
+                  value={rateComment}
+                  onChangeText={setRateComment}
+                  placeholder="Optionele opmerking"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                />
+                <PrimaryButton
+                  title="Beoordeling versturen"
+                  onPress={() => onSubmitRating(ride.token)}
+                  loading={busy}
+                />
+              </View>
+            ) : null}
+
+            {!isLiveMatch && ride.rating?.rated && ride.rating.stars ? (
+              <Text style={[styles.meta, { marginTop: 12 }]}>
+                Jouw beoordeling: {'★'.repeat(ride.rating.stars)}
+                {'☆'.repeat(5 - ride.rating.stars)}
+                {ride.rating.comment ? ` — ${ride.rating.comment}` : ''}
+              </Text>
             ) : null}
 
             {(cancelled || completed) && (
@@ -2020,6 +2101,27 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </Pressable>
         </View>
       </AppModal>
+
+      <AppModal
+        visible={!!photoPreviewUri}
+        onRequestClose={() => setPhotoPreviewUri(null)}
+        panelStyle={styles.photoPreviewPanel}
+        avoidKeyboard={false}
+      >
+        {photoPreviewUri ? (
+          <Pressable
+            onPress={() => setPhotoPreviewUri(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Sluiten"
+          >
+            <Image
+              source={{ uri: photoPreviewUri }}
+              style={styles.photoPreviewImage}
+              resizeMode="contain"
+            />
+          </Pressable>
+        ) : null}
+      </AppModal>
     </Screen>
   );
 }
@@ -2075,12 +2177,15 @@ function ActiveRideBanner({
     >
       {isSearching ? (
         <Animated.View
-          style={[styles.activeBannerWash, { opacity: washOpacity, pointerEvents: 'none' }]}
+          pointerEvents="none"
+          style={[styles.activeBannerWash, { opacity: washOpacity }]}
         />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.activeBannerTitle}>
-          {ride.phase === 'accepted' ? 'Taxi onderweg' : 'Openstaande rit'}
+        <Text style={styles.activeBannerTitle} numberOfLines={2}>
+          {ride.phase === 'accepted'
+            ? ride.status_label || 'Taxi onderweg'
+            : 'Openstaande rit'}
         </Text>
         <Text style={styles.activeBannerMeta} numberOfLines={1}>
           {shortAddress(ride.from)} → {shortAddress(ride.to)}
@@ -2617,6 +2722,7 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 15,
       lineHeight: 21,
+      fontWeight: '700',
     },
     meta: {
       color: colors.muted,
@@ -2633,9 +2739,10 @@ function makeStyles(colors: ColorPalette) {
       gap: 10,
     },
     driverLogo: {
-      width: 96,
-      height: 32,
+      width: 120,
+      height: 40,
       alignSelf: 'flex-start',
+      backgroundColor: 'transparent',
     },
     driverRow: {
       flexDirection: 'row',
@@ -2657,7 +2764,20 @@ function makeStyles(colors: ColorPalette) {
       width: 72,
       height: 52,
       borderRadius: 8,
-      backgroundColor: colors.inputBg,
+      backgroundColor: 'transparent',
+    },
+    photoPreviewPanel: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 12,
+      maxWidth: 420,
+      backgroundColor: colors.card,
+    },
+    photoPreviewImage: {
+      width: '100%',
+      height: 360,
+      backgroundColor: 'transparent',
+      borderRadius: 12,
     },
     statusTimeline: {
       marginTop: 14,

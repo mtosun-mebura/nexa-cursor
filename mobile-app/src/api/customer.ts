@@ -70,6 +70,7 @@ export type LiveRide = {
   quoted_price?: number | null;
   company?: { id: number; name: string; phone?: string } | null;
   vehicle?: {
+    name?: string | null;
     label?: string;
     license_plate?: string | null;
     photo_url?: string | null;

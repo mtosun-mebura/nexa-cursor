@@ -402,6 +402,13 @@ export function declineOffer(token: string, offerId: number) {
   });
 }
 
+export function markRideEnRoute(token: string, rideId: number) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
+    method: 'POST',
+    token,
+  });
+}
+
 export function startRide(token: string, rideId: number) {
   return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/start`, {
     method: 'POST',

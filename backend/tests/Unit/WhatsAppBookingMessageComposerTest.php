@@ -103,7 +103,8 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][6]);
         $this->assertSame('AB-123-C', $composed['template_params'][7]);
         $this->assertCount(8, $composed['template_params']);
-        $this->assertStringContainsString('reactie op uw taxirit bij Taxi Royaal', $composed['preview']);
+        $this->assertStringContainsString('Hierbij een statusupdate op jouw taxiverzoek:', $composed['preview']);
+        $this->assertStringContainsString('Bedrijf: Taxi Royaal.', $composed['preview']);
         $this->assertStringContainsString('Status: Rit gestart — chauffeur onderweg.', $composed['preview']);
         $this->assertStringContainsString('Chauffeur: Piet', $composed['preview']);
         $this->assertStringContainsString('Kenteken: AB-123-C', $composed['preview']);
@@ -153,6 +154,7 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $events = WhatsAppBookingMessageComposer::defaultStatusEvents();
 
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_ACCEPTED, $events);
+        $this->assertContains(WhatsAppBookingMessageComposer::EVENT_EN_ROUTE, $events);
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_STARTED, $events);
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_DECLINED, $events);
         $this->assertContains(WhatsAppBookingMessageComposer::EVENT_CANCELLED, $events);

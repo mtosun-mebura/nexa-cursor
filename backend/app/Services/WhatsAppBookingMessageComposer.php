@@ -54,8 +54,9 @@ TXT;
     public const META_BODY_STATUS = <<<'TXT'
 Beste {{1}},
 
-Hierbij de reactie op uw taxirit bij {{2}}.
+Hierbij een statusupdate op jouw taxiverzoek:
 
+Bedrijf: {{2}}.
 Status: {{3}}.
 Opmerking: {{4}}.
 
@@ -140,6 +141,9 @@ TXT;
 
     public const EVENT_STARTED = 'started';
 
+    /** Chauffeur opent navigatie naar ophaalpunt (vóór “klant opgehaald”). */
+    public const EVENT_EN_ROUTE = 'en_route';
+
     public const EVENT_COMPLETED = 'completed';
 
     public const EVENT_CANCELLED = 'cancelled';
@@ -154,8 +158,9 @@ TXT;
         return [
             self::EVENT_ACCEPTED => 'Chauffeur toegewezen',
             self::EVENT_DECLINED => 'Geweigerd',
-            self::EVENT_STARTED => 'Rit gestart — chauffeur onderweg',
-            self::EVENT_COMPLETED => 'Rit afgerond',
+            self::EVENT_EN_ROUTE => 'De chauffeur is onderweg naar jou.',
+            self::EVENT_STARTED => 'De rit is gestart.',
+            self::EVENT_COMPLETED => 'De rit is afgerond.',
             self::EVENT_CANCELLED => 'Rit geannuleerd',
             self::EVENT_REDISPATCHED => 'Opnieuw op zoek naar een chauffeur',
         ];
@@ -170,6 +175,7 @@ TXT;
     {
         return [
             self::EVENT_ACCEPTED,
+            self::EVENT_EN_ROUTE,
             self::EVENT_STARTED,
         ];
     }
@@ -605,21 +611,23 @@ TXT;
      */
     public function sampleStatusPreview(string $event = self::EVENT_ACCEPTED, ?array $detailFields = null): array
     {
-        $statusLabel = self::statusEventLabels()[$event] ?? 'Statusupdate';
+        $statusLabel = $event === self::EVENT_ACCEPTED
+            ? 'Geaccepteerd'
+            : (self::statusEventLabels()[$event] ?? 'Statusupdate');
         $params = [
             'Jan de Vries',
             'Taxi Voorbeeld',
             $statusLabel,
-            '—',
-            'Piet Chauffeur',
-            '16-07-2026 14:30',
-            'Dam 1, Amsterdam',
-            'XX-999-X',
+            '5 min voor tijd aanwezig',
+            'Virgil van Dijk',
+            '11-08-2026 11:00',
+            'P.C. Hoofdstraat 4, 1234AB, Amsterdam',
+            'KN-122-T',
         ];
 
         return [
             'preview' => $this->renderPreview(self::META_BODY_STATUS, $params),
-            'details' => "Opmerking: —\nChauffeur: Piet Chauffeur\nKenteken: XX-999-X\nOphaalmoment: 16-07-2026 14:30\nOphaaladres: Dam 1, Amsterdam",
+            'details' => "Opmerking: 5 min voor tijd aanwezig\nChauffeur: Virgil van Dijk\nKenteken: KN-122-T\nOphaalmoment: 11-08-2026 11:00\nOphaaladres: P.C. Hoofdstraat 4, 1234AB, Amsterdam",
             'params' => $params,
         ];
     }
