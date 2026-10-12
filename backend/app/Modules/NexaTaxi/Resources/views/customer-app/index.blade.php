@@ -491,22 +491,22 @@
         .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
         .row2 .field select,
         .row2 .field .pickup-at-btn {
-            min-height: 2.75rem;
-            height: 2.75rem;
+            min-height: 3.5rem;
+            height: 3.5rem;
             box-sizing: border-box;
         }
         .pickup-at-btn {
-            width: 100%; border-radius: 12px; border: 1px solid var(--line);
-            background: var(--card2); color: var(--text); padding: 0 14px;
+            width: 100%; border-radius: 14px; border: 1px solid var(--line);
+            background: var(--card2); color: var(--text); padding: 0 16px;
             font: inherit; text-align: left; cursor: pointer;
-            display: flex; align-items: center; gap: 6px;
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
             overflow: hidden;
         }
         .pickup-at-btn:focus, .pickup-at-btn:active {
             border-color: rgba(37,99,235,.6); outline: none;
         }
         .pickup-at-btn__value {
-            font-weight: 600; font-size: .95rem; line-height: 1.2;
+            font-weight: 700; font-size: 1.05rem; line-height: 1.25;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             min-width: 0;
         }
@@ -519,126 +519,150 @@
             padding: max(12px, var(--safe-top)) 14px max(12px, var(--safe-bottom));
         }
         .dt-sheet {
-            width: min(100%, 380px);
-            max-height: min(92dvh, 560px);
+            width: min(100%, 400px);
+            max-height: min(92dvh, 720px);
             background: #0b0f19;
             color: #f8fafc;
             border: 1px solid rgba(148,163,184,.18);
             border-radius: 1rem;
             box-shadow: 0 20px 50px rgba(0,0,0,.45);
-            overflow: hidden;
+            overflow: auto;
+            padding: 16px;
             animation: dt-pop .18s ease-out;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148,163,184,.55) transparent;
         }
+        .dt-sheet::-webkit-scrollbar { width: 6px; }
+        .dt-sheet::-webkit-scrollbar-track { background: transparent; }
+        .dt-sheet::-webkit-scrollbar-thumb { background: rgba(148,163,184,.5); border-radius: 999px; }
         html[data-theme="light"] .dt-sheet {
             background: #ffffff;
             color: #0f172a;
             box-shadow: 0 18px 40px rgba(15,23,42,.18);
+            scrollbar-color: rgba(100,116,139,.55) rgba(226,232,240,.7);
         }
+        html[data-theme="light"] .dt-sheet::-webkit-scrollbar-track { background: rgba(226,232,240,.7); }
+        html[data-theme="light"] .dt-sheet::-webkit-scrollbar-thumb { background: rgba(100,116,139,.5); }
         @keyframes dt-pop {
             from { transform: translateY(8px) scale(.98); opacity: .65; }
             to { transform: translateY(0) scale(1); opacity: 1; }
         }
-        .dt-sheet__head {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 12px; padding: 14px 14px 8px;
-        }
-        .dt-sheet__title { margin: 0; font-size: 1.05rem; font-weight: 700; }
-        .dt-sheet__close {
-            border: 0; background: transparent; color: var(--muted);
-            font-size: 1.35rem; line-height: 1; cursor: pointer; padding: 2px 6px;
-        }
+        .dt-sheet__title { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
         .dt-quick {
-            display: flex; gap: 6px; padding: 0 14px 10px; overflow-x: auto;
-            scrollbar-width: none;
+            display: flex; align-items: stretch; gap: 6px; margin-bottom: 12px;
         }
-        .dt-quick::-webkit-scrollbar { display: none; }
         .dt-chip {
-            flex: 0 0 auto; border: 1px solid rgba(148,163,184,.22);
+            flex: 1 1 0; min-width: 0;
+            border: 1px solid rgba(148,163,184,.35);
             background: transparent; color: inherit; border-radius: 999px;
-            padding: 6px 10px; font-size: .78rem; font-weight: 600; cursor: pointer;
+            padding: 10px 4px; font: inherit; font-size: 11px; font-weight: 700;
+            line-height: 1.15; text-align: center; cursor: pointer;
+            white-space: nowrap;
         }
         .dt-chip.is-active {
-            background: rgba(37,99,235,.18); border-color: rgba(37,99,235,.55); color: #93c5fd;
+            border-color: var(--blue);
+            box-shadow: none;
+            background: var(--blue);
+            color: #fff;
+        }
+        html[data-theme="light"] .dt-chip {
+            border-color: rgba(15,23,42,.18);
+            color: #0f172a;
         }
         html[data-theme="light"] .dt-chip.is-active {
-            background: rgba(37,99,235,.12); color: #1d4ed8;
-        }
-        .dt-body {
-            display: grid;
-            grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
-            gap: 10px;
-            padding: 0 14px 6px;
-            align-items: stretch;
-            min-height: 0;
+            border-color: var(--blue);
+            box-shadow: none;
+            background: var(--blue);
+            color: #fff;
         }
         .dt-days {
-            display: flex; flex-direction: column; gap: 6px;
-            padding: 0; overflow-x: hidden; overflow-y: auto;
-            height: 168px;
-            scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.55) transparent;
+            display: flex; flex-direction: row; align-items: stretch; gap: 8px;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto; overflow-y: hidden;
+            background: transparent;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
-        .dt-days::-webkit-scrollbar { width: 5px; }
-        .dt-days::-webkit-scrollbar-track { background: transparent; }
-        .dt-days::-webkit-scrollbar-thumb { background: rgba(148,163,184,.45); border-radius: 999px; }
+        .dt-days::-webkit-scrollbar { display: none; height: 0; }
         .dt-day {
-            flex: 0 0 auto; min-width: 0; width: 100%;
-            border: 1px solid rgba(148,163,184,.2);
-            background: transparent; color: inherit; border-radius: 12px;
-            padding: 8px 6px; cursor: pointer; text-align: center;
+            flex: 0 0 auto; min-width: 76px;
+            border: 1px solid rgba(148,163,184,.28);
+            background: rgba(255,255,255,.04); color: inherit; border-radius: 12px;
+            padding: 10px 12px; cursor: pointer; text-align: center; font: inherit;
         }
-        .dt-day__wd { display: block; font-size: .62rem; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
-        .dt-day__nr { display: block; font-size: .98rem; font-weight: 700; margin-top: 1px; }
+        html[data-theme="light"] .dt-day {
+            background: #f8fafc;
+            border-color: rgba(15,23,42,.12);
+        }
+        .dt-day__wd { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+        .dt-day__nr { display: block; font-size: 16px; font-weight: 700; line-height: 1.15; }
+        .dt-day__month { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; text-transform: lowercase; }
         .dt-day.is-active {
             background: var(--blue); border-color: var(--blue); color: #fff;
         }
-        .dt-day.is-active .dt-day__wd { color: rgba(255,255,255,.85); }
+        .dt-day.is-active .dt-day__wd,
+        .dt-day.is-active .dt-day__nr,
+        .dt-day.is-active .dt-day__month { color: #fff; }
         .dt-time {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-            padding: 0; position: relative; min-width: 0;
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 20px;
+            margin-bottom: 12px;
         }
-        .dt-time::before {
-            content: '';
-            position: absolute; left: 0; right: 0; top: 50%;
-            height: 36px; margin-top: -18px; border-radius: 10px;
-            border: 1px solid rgba(37,99,235,.35);
-            background: rgba(37,99,235,.1); pointer-events: none;
+        .dt-time__sep {
+            flex: 0 0 auto; font-size: 22px; font-weight: 700; line-height: 1;
         }
         .dt-col {
-            height: 168px; overflow-y: auto; scroll-snap-type: y mandatory;
+            position: relative;
+            flex: 1 1 0; min-width: 0;
+            /* 5 × 48px: randuren/minuten volledig zichtbaar, geen fade-mask */
+            height: 240px; overflow-y: auto; scroll-snap-type: y mandatory;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.55) transparent;
-            mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+            border: 1px solid rgba(148,163,184,.28);
+            border-radius: 12px;
+            background: transparent;
+            padding: 96px 0;
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148,163,184,.55) transparent;
+            mask-image: none;
+            -webkit-mask-image: none;
         }
-        .dt-col::-webkit-scrollbar { width: 5px; }
+        html[data-theme="light"] .dt-col {
+            border-color: rgba(15,23,42,.12);
+            scrollbar-color: rgba(100,116,139,.55) rgba(226,232,240,.7);
+        }
+        .dt-col::-webkit-scrollbar { width: 6px; }
         .dt-col::-webkit-scrollbar-track { background: transparent; }
-        .dt-col::-webkit-scrollbar-thumb { background: rgba(148,163,184,.45); border-radius: 999px; }
+        .dt-col::-webkit-scrollbar-thumb { background: rgba(148,163,184,.5); border-radius: 999px; }
+        html[data-theme="light"] .dt-col::-webkit-scrollbar-track { background: rgba(226,232,240,.7); }
+        html[data-theme="light"] .dt-col::-webkit-scrollbar-thumb { background: rgba(100,116,139,.5); }
         .dt-item {
-            height: 36px; display: flex; align-items: center; justify-content: center;
-            scroll-snap-align: center; font-size: 1.05rem; font-weight: 600;
+            height: 48px; display: flex; align-items: center; justify-content: center;
+            scroll-snap-align: center; font-size: 20px; font-weight: 600;
             color: var(--muted); cursor: pointer; user-select: none;
         }
-        .dt-item.is-active { color: inherit; }
-        .dt-sheet__foot {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
-            padding: 10px 14px 14px;
-            border-top: 1px solid rgba(148,163,184,.12);
+        .dt-item.is-active {
+            background: rgba(37,99,235,.42);
+            color: #60a5fa;
+            font-weight: 800;
         }
-        .dt-sheet__foot .btn,
-        .dt-sheet__foot .btn-outline-soft {
-            width: 100%;
-            min-height: 2.55rem;
-            padding: 0.55rem 0.7rem;
-            font-size: 0.82rem;
+        html[data-theme="light"] .dt-item.is-active {
+            background: rgba(37,99,235,.16);
+            color: #1d4ed8;
+        }
+        .dt-preview {
+            margin: 0 0 10px;
+            text-align: center;
+            font-size: 15px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            border-radius: 0.55rem;
         }
-        .btn-outline-soft {
-            background: transparent; color: inherit; border: 1px solid rgba(148,163,184,.28);
-            cursor: pointer; font: inherit;
-            display: inline-flex; align-items: center; justify-content: center;
+        #dt-confirm {
+            text-transform: none;
+            letter-spacing: 0;
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 16px;
         }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -1823,26 +1847,20 @@
 
     <div id="pickup-datetime-overlay" class="dt-overlay" hidden>
         <div class="dt-sheet" role="dialog" aria-modal="true" aria-labelledby="dt-sheet-title">
-            <div class="dt-sheet__head">
-                <h2 class="dt-sheet__title" id="dt-sheet-title">Ophaaltijd</h2>
-                <button type="button" class="dt-sheet__close" id="dt-close" aria-label="Sluiten">×</button>
-            </div>
+            <h2 class="dt-sheet__title" id="dt-sheet-title">Ophaalmoment</h2>
             <div class="dt-quick" id="dt-quick">
-                <button type="button" class="dt-chip" data-quick="10">Over 10 min</button>
-                <button type="button" class="dt-chip" data-quick="30">Over 30 min</button>
-                <button type="button" class="dt-chip" data-quick="60">Over 1 uur</button>
+                <button type="button" class="dt-chip" data-quick="10" aria-pressed="false">Over 10 min</button>
+                <button type="button" class="dt-chip" data-quick="30" aria-pressed="false">Over een half uur</button>
+                <button type="button" class="dt-chip" data-quick="60" aria-pressed="false">Over 1 uur</button>
             </div>
-            <div class="dt-body">
-                <div class="dt-days" id="dt-days"></div>
-                <div class="dt-time">
-                    <div class="dt-col" id="dt-hours" aria-label="Uren"></div>
-                    <div class="dt-col" id="dt-minutes" aria-label="Minuten"></div>
-                </div>
+            <div class="dt-days" id="dt-days"></div>
+            <div class="dt-time">
+                <div class="dt-col" id="dt-hours" aria-label="Uren"></div>
+                <span class="dt-time__sep" aria-hidden="true">:</span>
+                <div class="dt-col" id="dt-minutes" aria-label="Minuten"></div>
             </div>
-            <div class="dt-sheet__foot">
-                <button type="button" class="btn-outline-soft" id="dt-cancel">Annuleren</button>
-                <button type="button" class="btn btn-primary" id="dt-confirm">Bevestigen</button>
-            </div>
+            <p class="dt-preview" id="dt-preview"></p>
+            <button type="button" class="btn btn-primary" id="dt-confirm">Bevestigen</button>
         </div>
     </div>
 </div>
@@ -1877,6 +1895,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=43" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=45" defer></script>
 </body>
 </html>
