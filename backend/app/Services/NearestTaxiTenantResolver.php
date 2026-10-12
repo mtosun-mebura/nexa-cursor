@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Helpers\GeoHelper;
 use App\Models\Company;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
-use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use Illuminate\Support\Collection;
@@ -68,23 +67,7 @@ class NearestTaxiTenantResolver
         array $excludeCompanyIds = []
     ): array {
         $limit = max(1, $limit);
-        $eligible = [];
-
-        foreach ($this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds) as $candidate) {
-            /** @var Company $company */
-            $company = $candidate['company'];
-            if ($this->billingAccess->isBookingBlocked($company)) {
-                continue;
-            }
-            if (! $this->canReceiveMarketplaceRides($company)) {
-                continue;
-            }
-            if (! $this->companyHasActiveVehicles($company)) {
-                continue;
-            }
-
-            $eligible[] = $candidate;
-        }
+        $eligible = $this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds);
 
         if ($eligible === []) {
             return [];
@@ -110,7 +93,7 @@ class NearestTaxiTenantResolver
     public function rankedCandidates(float $pickupLat, float $pickupLng, array $excludeCompanyIds = []): array
     {
         $exclude = array_values(array_filter(array_map('intval', $excludeCompanyIds)));
-        $companies = $this->eligibleCompanies()->keyBy(fn (Company $c) => (int) $c->id);
+        $companies = $this->bookableCompanies()->keyBy(fn (Company $c) => (int) $c->id);
         if ($companies->isEmpty()) {
             return [];
         }
@@ -217,6 +200,22 @@ class NearestTaxiTenantResolver
     }
 
     /**
+     * Bedrijven die nu marketplace-ritten mogen ontvangen. Zelfde set voor de live-kaart
+     * en voor quote/boeking, zodat een getoonde taxi ook echt boekbaar is.
+     * Alleen een volledige facturatieblokkade sluit uit (net als de chauffeur-app); de
+     * blokkade "boekingen" geldt voor de eigen website-boeking van het bedrijf.
+     *
+     * @return Collection<int, Company>
+     */
+    public function bookableCompanies(): Collection
+    {
+        return $this->eligibleCompanies()
+            ->reject(fn (Company $company) => $this->billingAccess->isFullyBlocked($company))
+            ->filter(fn (Company $company) => $this->canReceiveMarketplaceRides($company))
+            ->values();
+    }
+
+    /**
      * Vestigingscoördinaten (legacy / overige flows). Marketplace-matching gebruikt chauffeur-GPS.
      *
      * @return array{lat: float, lng: float}|null
@@ -254,21 +253,6 @@ class NearestTaxiTenantResolver
         }
 
         return null;
-    }
-
-    public function companyHasActiveVehicles(Company $company): bool
-    {
-        try {
-            $this->moduleDb->ensureModuleStorageReady('taxi');
-            $conn = $this->moduleDb->getModuleConnectionName('taxi');
-        } catch (\Throwable) {
-            return true;
-        }
-
-        return Vehicle::on($conn)
-            ->where('company_id', $company->id)
-            ->where('active', true)
-            ->exists();
     }
 
     /**

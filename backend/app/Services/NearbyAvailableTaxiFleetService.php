@@ -42,7 +42,7 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
-        $companyIds = $this->tenants->eligibleCompanies()
+        $companyIds = $this->tenants->bookableCompanies()
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)

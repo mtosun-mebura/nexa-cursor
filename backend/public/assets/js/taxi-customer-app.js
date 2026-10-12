@@ -68,6 +68,8 @@
         taxiOverlays: {},
         fleetRadiusCircle: null,
         fleetDidFit: false,
+        fleetCount: null,
+        nearestTaxi: null,
         acceptedNotified: false,
         liveRide: null,
         livePhase: null,
@@ -1314,10 +1316,14 @@
 
     function maybeFitFleetViewport(vehicles) {
         if (state.fleetDidFit || !state.map || !window.google || !google.maps) return;
-        // Niet herpositioneren als er al een route/bestemming op de kaart staat.
-        if (state.dropoff) return;
         const list = Array.isArray(vehicles) ? vehicles : [];
         if (!list.length) return;
+        if (state.dropoff) {
+            // Route staat al op de kaart: alleen opnieuw kaderen zodat de dichtstbijzijnde taxi zichtbaar is.
+            state.fleetDidFit = true;
+            refitBookRouteBounds();
+            return;
+        }
         const bounds = new google.maps.LatLngBounds();
         const origin = fleetOrigin();
         bounds.extend(origin);
@@ -1430,6 +1436,15 @@
             }
         });
         const count = Object.keys(next).length;
+        state.nearestTaxi = null;
+        for (let i = 0; i < list.length; i++) {
+            const lat = Number(list[i] && list[i].lat);
+            const lng = Number(list[i] && list[i].lng);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                state.nearestTaxi = { lat: lat, lng: lng };
+                break;
+            }
+        }
         const status = el('map-fleet-status');
         if (status) {
             status.textContent = count === 0
@@ -1438,6 +1453,11 @@
         }
         updateFleetRadiusCircle();
         maybeFitFleetViewport(list);
+        const countChanged = state.fleetCount !== null && state.fleetCount !== count;
+        state.fleetCount = count;
+        if (countChanged && state.pickup && state.dropoff) {
+            maybeQuote();
+        }
     }
 
     async function fetchNearbyTaxis() {
@@ -1550,6 +1570,7 @@
         path.forEach(function (p) { bounds.extend(p); });
         if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
         if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
+        if (state.nearestTaxi) bounds.extend(state.nearestTaxi);
         state.map.fitBounds(bounds, 56);
         syncMapFitButton();
         return true;
@@ -1716,6 +1737,7 @@
         path.forEach(function (ll) { bounds.extend(ll); });
         if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
         if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
+        if (state.nearestTaxi) bounds.extend(state.nearestTaxi);
         state.map.fitBounds(bounds, 56);
     }
 
@@ -1796,6 +1818,7 @@
             const lng = pos.coords.longitude;
             state.pickup = { lat: lat, lng: lng, address: '' };
             state.fleetDidFit = false;
+            state.nearestTaxi = null;
             updateMapMarkers();
             updateFleetRadiusCircle();
             fetchNearbyTaxis();
@@ -2260,6 +2283,7 @@
         if (inputId === 'pickup') {
             state.pickup = null;
             state.fleetDidFit = false;
+            state.nearestTaxi = null;
             const hint = el('pickup-hint');
             if (hint) {
                 hint.hidden = false;
@@ -2438,6 +2462,7 @@
         bindAddressField('pickup', 'pickup-suggestions', function (point) {
             state.pickup = point;
             state.fleetDidFit = false;
+            state.nearestTaxi = null;
             hidePickupLocationNotice();
             const hint = el('pickup-hint');
             if (hint) {
