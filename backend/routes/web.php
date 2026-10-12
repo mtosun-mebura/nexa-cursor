@@ -898,6 +898,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::post('invoices/{invoice}/mark-paid', [AdminNexaSuiteMarketplaceController::class, 'markPaid'])->name('invoices.mark-paid');
             Route::post('invoices/{invoice}/status', [AdminNexaSuiteMarketplaceController::class, 'updateStatus'])->name('invoices.status');
             Route::post('invoices/{invoice}/reminder', [AdminNexaSuiteMarketplaceController::class, 'sendReminder'])->name('invoices.reminder');
+            Route::get('werkwijze', [AdminNexaSuiteMarketplaceController::class, 'procedure'])->name('procedure');
             Route::get('settings', [AdminNexaSuiteMarketplaceController::class, 'settings'])->name('settings');
             Route::put('settings', [AdminNexaSuiteMarketplaceController::class, 'updateSettings'])->name('settings.update');
             Route::post('generate', [AdminNexaSuiteMarketplaceController::class, 'generate'])->name('generate');

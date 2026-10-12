@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../config';
+import { alertUnseenDriverOffers } from '../notifications/offerAlertWatch';
 
 export const LOCATION_TASK = 'nexa-taxi-driver-location';
 const TOKEN_KEY = 'nexa_taxi_location_token';
@@ -50,6 +51,13 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
     });
   } catch {
     /* ignore network errors in background */
+  }
+
+  // GPS-wake is de enige JS die op het vergrendelscherm nog draait.
+  try {
+    await alertUnseenDriverOffers({ token, minIntervalMs: 4000 });
+  } catch {
+    /* inbox-check mag de locatiepost niet breken */
   }
 });
 

@@ -19,8 +19,30 @@ export type GuestRide = {
   phase: string;
   status_label: string;
   quoted_price?: number | null;
+  passengers?: number | null;
+  baggage_summary?: string | null;
+  distance_km?: number | null;
+  duration_seconds?: number | null;
+  /** Gekozen ophaaltijd (label of ISO), niet het moment van inschieten. */
+  pickup_at?: string | null;
   rating?: GuestRideRating | null;
+  cancellation_message?: string | null;
+  refund_message?: string | null;
+  refund_business_days?: number | null;
+  payment_status?: string | null;
+  pickup_confirmation?: {
+    status?: string | null;
+    prompt?: string | null;
+    can_answer?: boolean;
+  } | null;
 };
+
+export function rideNeedsLivePoll(ride: {
+  phase?: string | null;
+  pickup_confirmation?: { can_answer?: boolean } | null;
+}): boolean {
+  return isActiveRidePhase(ride.phase) || ride.pickup_confirmation?.can_answer === true;
+}
 
 export function isActiveRidePhase(phase?: string | null): boolean {
   return (
@@ -83,7 +105,30 @@ export async function saveGuestRide(
     status_label: meta.status_label || prev?.status_label || 'Zoeken…',
     quoted_price:
       meta.quoted_price !== undefined ? meta.quoted_price : prev?.quoted_price ?? null,
+    passengers: meta.passengers !== undefined ? meta.passengers : prev?.passengers ?? null,
+    baggage_summary:
+      meta.baggage_summary !== undefined ? meta.baggage_summary : prev?.baggage_summary ?? null,
+    distance_km: meta.distance_km !== undefined ? meta.distance_km : prev?.distance_km ?? null,
+    duration_seconds:
+      meta.duration_seconds !== undefined ? meta.duration_seconds : prev?.duration_seconds ?? null,
+    pickup_at: pickupAtOrPrevious(meta.pickup_at, prev?.pickup_at),
     rating: meta.rating !== undefined ? meta.rating : prev?.rating ?? null,
+    cancellation_message:
+      meta.cancellation_message !== undefined
+        ? meta.cancellation_message
+        : prev?.cancellation_message ?? null,
+    refund_message:
+      meta.refund_message !== undefined ? meta.refund_message : prev?.refund_message ?? null,
+    refund_business_days:
+      meta.refund_business_days !== undefined
+        ? meta.refund_business_days
+        : prev?.refund_business_days ?? null,
+    payment_status:
+      meta.payment_status !== undefined ? meta.payment_status : prev?.payment_status ?? null,
+    pickup_confirmation:
+      meta.pickup_confirmation !== undefined
+        ? meta.pickup_confirmation
+        : prev?.pickup_confirmation ?? null,
   };
   const filtered = list.filter((r) => r.token !== token && Number(r.id) !== id);
   const out = [next, ...filtered].slice(0, 50);
@@ -96,7 +141,10 @@ export async function updateGuestRide(
   patch: Partial<GuestRide>
 ): Promise<GuestRide[]> {
   const list = await loadGuestRides();
-  const out = list.map((r) => (r.token === token ? { ...r, ...patch } : r));
+  const clean = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined)
+  ) as Partial<GuestRide>;
+  const out = list.map((r) => (r.token === token ? { ...r, ...clean } : r));
   await writeGuestRides(out);
   return out;
 }
@@ -124,19 +172,201 @@ export async function setRideArchived(
   return unique;
 }
 
-export function formatRideWhen(at?: number | null): string {
-  if (at == null || !Number.isFinite(at)) return '';
+export function livePickupAt(
+  ride?: { pickup_at_label?: string | null; pickup_at?: string | null } | null
+): string | null {
+  const label = String(ride?.pickup_at_label || '').trim();
+  if (label) return label;
+  const iso = String(ride?.pickup_at || '').trim();
+  return iso || null;
+}
+
+export function guestPatchFromLive(ride: {
+  id?: number;
+  pickup_address?: string | null;
+  dropoff_address?: string | null;
+  phase?: string | null;
+  status_label?: string | null;
+  quoted_price?: number | null;
+  passengers?: number | null;
+  baggage?: { summary?: string | null } | null;
+  pickup_at?: string | null;
+  pickup_at_label?: string | null;
+  rating?: GuestRideRating | null;
+  distance_km?: number | null;
+  duration_seconds?: number | null;
+  cancellation_message?: string | null;
+  refund_message?: string | null;
+  refund_business_days?: number | null;
+  payment_status?: string | null;
+  pickup_confirmation?: GuestRide['pickup_confirmation'];
+}): Partial<GuestRide> {
+  return {
+    id: ride.id,
+    from: ride.pickup_address || undefined,
+    to: ride.dropoff_address || undefined,
+    phase: ride.phase || undefined,
+    status_label: ride.status_label || undefined,
+    quoted_price: ride.quoted_price,
+    passengers: ride.passengers ?? undefined,
+    baggage_summary: ride.baggage?.summary ?? undefined,
+    pickup_at: livePickupAt(ride) || undefined,
+    rating: ride.rating ?? undefined,
+    distance_km: ride.distance_km ?? undefined,
+    duration_seconds: ride.duration_seconds ?? undefined,
+    cancellation_message: ride.cancellation_message ?? undefined,
+    refund_message: ride.refund_message ?? undefined,
+    refund_business_days: ride.refund_business_days ?? undefined,
+    payment_status: ride.payment_status ?? undefined,
+    pickup_confirmation: ride.pickup_confirmation ?? undefined,
+  };
+}
+
+/** Fallback-tekst als de API geen refund_message stuurt maar er wel betaald is. */
+export function customerRefundNoticeText(input?: {
+  refund_message?: string | null;
+  payment_status?: string | null;
+  payment_paid?: boolean | null;
+  /** Klant-app boekt vooruit online; bij geannuleerde rit met prijs toon terugbetaling. */
+  assume_prepaid?: boolean | null;
+  refund_business_days?: number | null;
+} | null): string | null {
+  const fromApi = String(input?.refund_message || '').trim();
+  if (fromApi) return fromApi;
+  const status = String(input?.payment_status || '').trim();
+  const wasPaid =
+    !!input?.payment_paid ||
+    !!input?.assume_prepaid ||
+    ['paid', 'refunded', 'refund_pending', 'refund_failed'].includes(status);
+  if (!wasPaid) return null;
+  if (status === 'refund_failed') {
+    return 'De automatische terugbetaling is nog niet afgerond. Neem contact op met de taxi zodat we dit voor u kunnen afronden.';
+  }
+  const days = Math.max(1, Number(input?.refund_business_days) || 10);
+  return (
+    'Het betaalde bedrag wordt teruggestort op de rekening/methode waarmee u heeft betaald. '
+    + `Reken op zichtbaarheid binnen circa ${days} werkdagen (afhankelijk van uw bank).`
+  );
+}
+
+function pickupAtOrPrevious(next?: string | null, prev?: string | null): string | null {
+  const value = String(next || '').trim();
+  if (value) return value;
+  const previous = String(prev || '').trim();
+  return previous || null;
+}
+
+const WEEKDAYS = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'] as const;
+const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'] as const;
+
+/** Bedrijfsnaam of straat op de eerste regel, de rest (straat, plaats) eronder. */
+export function splitRideAddress(address?: string | null): { main: string; sub: string } {
+  const text = String(address || '').trim();
+  if (!text) return { main: '—', sub: '' };
+  const comma = text.indexOf(',');
+  if (comma > 0 && comma < text.length - 1) {
+    return { main: text.slice(0, comma).trim(), sub: text.slice(comma + 1).trim() };
+  }
+  return { main: text, sub: '' };
+}
+
+function formatDutchPickup(day: number, month: number, year: number, hh: string, mm: string): string {
+  const date = new Date(year, month - 1, day);
+  const weekday = WEEKDAYS[date.getDay()] || '';
+  const monthName = MONTHS[month - 1] || '';
+  return `${weekday} ${day} ${monthName} ${year}, ${hh}:${mm}`;
+}
+
+function formatInstantPickup(at: number): string {
   try {
-    return new Date(at).toLocaleString('nl-NL', {
-      day: '2-digit',
-      month: '2-digit',
+    const parts = new Intl.DateTimeFormat('nl-NL', {
+      timeZone: 'Europe/Amsterdam',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+      hourCycle: 'h23',
+    }).formatToParts(new Date(at));
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value || '';
+    const weekday = get('weekday').replace(/\./g, '').slice(0, 2).toLowerCase();
+    const day = Number(get('day'));
+    const month = get('month').replace(/\./g, '').toLowerCase();
+    const year = get('year');
+    const hour = get('hour').padStart(2, '0');
+    const minute = get('minute').padStart(2, '0');
+    if (!day || !year) return '';
+    return `${weekday} ${day} ${month} ${year}, ${hour}:${minute}`;
   } catch {
     return '';
   }
+}
+
+/** Ophaaltijd als “ma 12 okt 2026, 16:35”. */
+export function formatPickupWhen(value?: string | number | null): string {
+  if (value == null || value === '') return '';
+  if (typeof value === 'number') return formatRideWhen(value);
+  const raw = String(value).trim();
+  const labeled = raw.match(/^(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{2}):(\d{2})/);
+  if (labeled) {
+    return formatDutchPickup(
+      Number(labeled[1]),
+      Number(labeled[2]),
+      Number(labeled[3]),
+      labeled[4],
+      labeled[5]
+    );
+  }
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed)) return formatRideWhen(parsed);
+  return raw;
+}
+
+export function formatRideWhen(at?: number | null): string {
+  if (at == null || !Number.isFinite(at)) return '';
+  return formatInstantPickup(at);
+}
+
+export function formatTripDistance(km?: number | null): string | null {
+  const n = Number(km);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `${n.toFixed(1).replace('.', ',')} km`;
+}
+
+export function formatTripDuration(seconds?: number | null): string | null {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total < 0) return null;
+  const mins = Math.max(0, Math.round(total / 60));
+  const hours = Math.floor(mins / 60);
+  const rest = mins % 60;
+  if (hours <= 0) return `${rest} min`;
+  if (rest <= 0) return `${hours} u`;
+  return `${hours} u ${rest} min`;
+}
+
+export function baggageChipLines(input?: {
+  items?: Array<{ label?: string | null; qty?: number | null }> | null;
+  summary?: string | null;
+} | null): string[] {
+  const items = input?.items || [];
+  if (items.length) {
+    return items
+      .map((item) => {
+        const label = String(item.label || '').trim();
+        const qty = Number(item.qty || 0);
+        if (!label || qty <= 0) return '';
+        return `${label} × ${qty}`;
+      })
+      .filter(Boolean);
+  }
+  const summary = String(input?.summary || '').trim();
+  if (!summary || /^geen$/i.test(summary)) return [];
+  return summary
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 export function phaseLabel(phase?: string | null, fallback?: string | null): string {

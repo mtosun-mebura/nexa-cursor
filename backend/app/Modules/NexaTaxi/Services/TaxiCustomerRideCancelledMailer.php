@@ -29,6 +29,33 @@ class TaxiCustomerRideCancelledMailer
     }
 
     /**
+     * Tekst voor de klant als er een betaling is die wordt teruggestort.
+     * Null als er niets is betaald.
+     */
+    public function customerRefundNotice(?string $paymentStatus): ?string
+    {
+        $status = (string) $paymentStatus;
+        $wasPaid = in_array($status, [
+            RideRequest::PAYMENT_STATUS_PAID,
+            RideRequest::PAYMENT_STATUS_REFUNDED,
+            RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+            RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+        ], true);
+        if (! $wasPaid) {
+            return null;
+        }
+
+        if ($status === RideRequest::PAYMENT_STATUS_REFUND_FAILED) {
+            return 'De automatische terugbetaling is nog niet afgerond. Neem contact op met de taxi zodat we dit voor u kunnen afronden.';
+        }
+
+        $days = $this->refundBusinessDays();
+
+        return 'Het betaalde bedrag wordt teruggestort op de rekening/methode waarmee u heeft betaald. '
+            .'Reken op zichtbaarheid binnen circa '.$days.' werkdagen (afhankelijk van uw bank).';
+    }
+
+    /**
      * @param  array{refunded?: bool, refund_error?: ?string, reason?: string}  $context
      */
     public function send(string $conn, RideRequest $ride, array $context = []): bool

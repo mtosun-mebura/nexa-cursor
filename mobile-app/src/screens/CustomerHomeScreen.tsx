@@ -21,6 +21,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import {
   bookGuest,
   cancelLive,
+  confirmPickupLive,
   fetchLive,
   fetchNearbyTaxis,
   fetchQuote,
@@ -52,8 +53,15 @@ import {
   searchAddresses,
 } from '../geo/route';
 import {
-  formatRideWhen,
+  baggageChipLines,
+  customerRefundNoticeText,
+  formatPickupWhen,
+  formatTripDistance,
+  formatTripDuration,
   GuestRide,
+  guestPatchFromLive,
+  rideNeedsLivePoll,
+  livePickupAt,
   isActiveRidePhase,
   isRidesTabBadgePhase,
   loadArchivedKeys,
@@ -63,6 +71,7 @@ import {
   saveGuestRide,
   setRideArchived,
   shortAddress,
+  splitRideAddress,
   updateGuestRide,
 } from '../customer/guestRides';
 import {
@@ -89,6 +98,7 @@ const TRACK_KEY = 'nexa_taxi_customer_track';
 const PROFILE_KEY = 'nexa_taxi_customer_profile_guest';
 const TAB_KEY = 'nexa_taxi_customer_tab';
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
+const dropPinGreen = require('../../assets/marker-drop-green.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
   { key: 'system', label: 'Systeem', hint: 'Volgt de telefooninstelling' },
@@ -111,6 +121,25 @@ const BAGGAGE_ROWS: {
   { key: 'wheelchair', label: 'Opvouwbare rolstoel', hint: 'Speciale bagage', special: true, max: 2 },
   { key: 'pets', label: 'Huisdieren', hint: 'Optioneel', special: true, max: 2 },
 ];
+
+function formatBaggageSummary(
+  baggage?: Record<string, number> | null,
+  special?: Record<string, number> | null
+): string | null {
+  const labels: Record<string, string> = Object.fromEntries(
+    BAGGAGE_ROWS.map((row) => [row.key, row.label])
+  );
+  const parts: string[] = [];
+  for (const map of [baggage, special]) {
+    if (!map) continue;
+    for (const [key, qty] of Object.entries(map)) {
+      const count = Number(qty) || 0;
+      if (count <= 0) continue;
+      parts.push(`${labels[key] || key} × ${count}`);
+    }
+  }
+  return parts.length ? parts.join(', ') : null;
+}
 
 /** Nieuwste status bovenaan. Bron blijft oudste-eerst (API orderBy id). */
 function statusUpdatesNewestFirst(updates: RideStatusUpdate[]): RideStatusUpdate[] {
@@ -140,6 +169,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pickupAnswerToken, setPickupAnswerToken] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
@@ -313,13 +343,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           const data = await fetchLive(token);
           if (data.ride) {
             setLive(data.ride);
-            const next = await saveGuestRide(data.ride.id, token, {
-              from: data.ride.pickup_address || '',
-              to: data.ride.dropoff_address || '',
-              phase: data.ride.phase,
-              status_label: data.ride.status_label,
-              quoted_price: data.ride.quoted_price,
-            });
+            const next = await saveGuestRide(data.ride.id, token, guestPatchFromLive(data.ride));
             setGuestRides(next);
             setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token }));
           }
@@ -401,6 +425,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     })();
   }, []);
 
+  async function hydratePickupTimes(list: GuestRide[]) {
+    const missing = list.filter((ride) => ride.token && !String(ride.pickup_at || '').trim());
+    for (const ride of missing) {
+      try {
+        const data = await fetchLive(ride.token);
+        const pickup = livePickupAt(data.ride);
+        if (!pickup) continue;
+        const next = await updateGuestRide(ride.token, { pickup_at: pickup });
+        setGuestRides(next);
+      } catch {
+        /* rit blijft zonder ophaaltijd tot de volgende sync */
+      }
+    }
+  }
+
   useEffect(() => {
     loadPickup();
     (async () => {
@@ -408,6 +447,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         const [rides, archived] = await Promise.all([loadGuestRides(), loadArchivedKeys()]);
         setGuestRides(rides);
         setArchivedKeys(archived);
+        void hydratePickupTimes(rides);
       } catch {
         /* ignore */
       }
@@ -435,15 +475,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         if (data.ride) {
           setTrackToken(saved);
           setLive(data.ride);
-          const next = await saveGuestRide(data.ride.id, saved, {
-            from: data.ride.pickup_address || '',
-            to: data.ride.dropoff_address || '',
-            phase: data.ride.phase,
-            status_label: data.ride.status_label,
-            quoted_price: data.ride.quoted_price,
-          });
+          const next = await saveGuestRide(data.ride.id, saved, guestPatchFromLive(data.ride));
           setGuestRides(next);
-          if (!isActiveRidePhase(data.ride.phase)) {
+          if (!rideNeedsLivePoll(data.ride)) {
             await AsyncStorage.removeItem(TRACK_KEY);
             if (data.ride.phase === 'cancelled' || data.ride.phase === 'completed') {
               setTrackToken(null);
@@ -682,6 +716,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     };
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt, refreshQuote]);
 
+  const guestRidesRef = useRef(guestRides);
+  guestRidesRef.current = guestRides;
+
   useEffect(() => {
     if (!trackToken) return;
     let cancelled = false;
@@ -690,44 +727,56 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     prevLivePhase.current = null;
 
     const tick = async () => {
+      const tokens = new Set<string>();
+      if (trackToken) tokens.add(trackToken);
+      guestRidesRef.current.forEach((ride) => {
+        if (ride.token && rideNeedsLivePoll(ride)) tokens.add(ride.token);
+      });
+
       try {
-        const data = await fetchLive(trackToken);
-        if (cancelled) return;
-        const previousPhase = prevLivePhase.current;
-        prevLivePhase.current = data.ride.phase;
-        setLive(data.ride);
-        notifyNewRideStatusUpdates(data.ride).catch(() => undefined);
-        const next = await updateGuestRide(trackToken, {
-          id: data.ride.id,
-          from: data.ride.pickup_address || undefined,
-          to: data.ride.dropoff_address || undefined,
-          phase: data.ride.phase,
-          status_label: data.ride.status_label,
-          quoted_price: data.ride.quoted_price,
-          rating: data.ride.rating || null,
-        });
-        setGuestRides(next);
-        if (data.ride.phase === 'completed') {
-          setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
-          setTab('rides');
-          AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
-          if (
-            previousPhase &&
-            previousPhase !== 'completed' &&
-            data.ride.rating?.can_rate
-          ) {
-            setRateStars(0);
-            setRateComment('');
-            setRateError(null);
-            setRateModalToken(trackToken);
+        let list = guestRidesRef.current;
+        for (const token of tokens) {
+          if (cancelled) return;
+          let data;
+          try {
+            data = await fetchLive(token);
+          } catch {
+            continue;
           }
+          if (cancelled || !data.ride) continue;
+          const ride = data.ride;
+          if (token === trackToken) {
+            const previousPhase = prevLivePhase.current;
+            prevLivePhase.current = ride.phase;
+            setLive(ride);
+            notifyNewRideStatusUpdates(ride).catch(() => undefined);
+            if (ride.phase === 'completed') {
+              setExpandedRideKey(rideArchiveKey({ id: ride.id, token: trackToken }));
+              setTab('rides');
+              AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+              if (
+                previousPhase &&
+                previousPhase !== 'completed' &&
+                ride.rating?.can_rate
+              ) {
+                setRateStars(0);
+                setRateComment('');
+                setRateError(null);
+                setRateModalToken(trackToken);
+              }
+            }
+          }
+          list = await updateGuestRide(token, guestPatchFromLive(ride));
         }
-        if (!isActiveRidePhase(data.ride.phase)) {
+        if (cancelled) return;
+        setGuestRides(list);
+        const tracked = list.find((ride) => ride.token === trackToken);
+        if (tracked && !rideNeedsLivePoll(tracked)) {
           await persistTrack(null);
-          return;
         }
-        const ms = data.ride.poll_interval_ms || 3000;
-        timer = setTimeout(tick, ms);
+        const stillActive = list.some((ride) => ride.token && rideNeedsLivePoll(ride));
+        if (!stillActive) return;
+        timer = setTimeout(tick, 2500);
       } catch {
         if (!cancelled) timer = setTimeout(tick, 2500);
       }
@@ -738,6 +787,43 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       if (timer) clearTimeout(timer);
     };
   }, [trackToken, persistTrack]);
+
+  const idleActiveKey = trackToken
+    ? ''
+    : guestRides
+        .filter((ride) => ride.token && rideNeedsLivePoll(ride))
+        .map((ride) => ride.token)
+        .sort()
+        .join('|');
+
+  useEffect(() => {
+    if (trackToken || !idleActiveKey) return;
+    const tokens = idleActiveKey.split('|').filter(Boolean);
+    if (!tokens.length) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = async () => {
+      let list = guestRidesRef.current;
+      for (const token of tokens) {
+        if (cancelled) return;
+        try {
+          const data = await fetchLive(token);
+          if (cancelled || !data.ride) continue;
+          list = await updateGuestRide(token, guestPatchFromLive(data.ride));
+        } catch {
+          /* volgende rit */
+        }
+      }
+      if (!cancelled) setGuestRides(list);
+      if (!cancelled) timer = setTimeout(tick, 2500);
+    };
+    timer = setTimeout(tick, 400);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [trackToken, idleActiveKey]);
 
   function scheduleSuggestions(query: string, kind: 'pickup' | 'dropoff') {
     const timerRef = kind === 'pickup' ? pickupSuggestTimer : dropoffSuggestTimer;
@@ -905,11 +991,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       await persistTrack(data.track_token);
       if (data.live) setLive(data.live);
       const next = await saveGuestRide(data.ride_request_id, data.track_token, {
+        ...guestPatchFromLive(data.live || {}),
         from: pickup.address,
         to: dropoff.address,
         phase: data.live?.phase || 'awaiting_payment',
         status_label: data.live?.status_label || 'Betaling',
         quoted_price: data.live?.quoted_price ?? offer.price ?? null,
+        passengers: data.live?.passengers ?? passengerCount,
+        baggage_summary:
+          data.live?.baggage?.summary ||
+          formatBaggageSummary(baggagePayload.baggage, baggagePayload.special_baggage),
+        pickup_at: livePickupAt(data.live) || formatPickupAtPayload(pickupAt),
+        distance_km:
+          data.live?.distance_km ??
+          (metrics.distance_meters ? Math.round(metrics.distance_meters / 100) / 10 : null),
+        duration_seconds: data.live?.duration_seconds ?? metrics.duration_seconds,
       });
       setGuestRides(next);
       setExpandedRideKey(rideArchiveKey({ id: data.ride_request_id, token: data.track_token }));
@@ -942,13 +1038,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       const data = await cancelLive(trackToken);
       if (data.ride) {
         setLive(data.ride);
-        const next = await updateGuestRide(trackToken, {
-          phase: data.ride.phase,
-          status_label: data.ride.status_label,
-          from: data.ride.pickup_address || undefined,
-          to: data.ride.dropoff_address || undefined,
-          quoted_price: data.ride.quoted_price,
-        });
+        const next = await updateGuestRide(trackToken, guestPatchFromLive(data.ride));
         setGuestRides(next);
         setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
       }
@@ -959,6 +1049,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       setError(e instanceof ApiError ? e.message : 'Annuleren mislukt.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function answerPickup(token: string, answer: 'yes' | 'no') {
+    const track = String(token || '').trim();
+    if (!track || pickupAnswerToken) return;
+    setPickupAnswerToken(track);
+    setError(null);
+    try {
+      const data = await confirmPickupLive(track, answer);
+      if (data.ride) {
+        if (track === trackToken) setLive(data.ride);
+        const next = await updateGuestRide(track, guestPatchFromLive(data.ride));
+        setGuestRides(next);
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Bevestigen mislukt.');
+    } finally {
+      setPickupAnswerToken(null);
     }
   }
 
@@ -1060,15 +1169,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         if (!data.ride) return;
         setLive(data.ride);
         notifyNewRideStatusUpdates(data.ride).catch(() => undefined);
-        return updateGuestRide(ride.token, {
-          id: data.ride.id,
-          from: data.ride.pickup_address || undefined,
-          to: data.ride.dropoff_address || undefined,
-          phase: data.ride.phase,
-          status_label: data.ride.status_label,
-          quoted_price: data.ride.quoted_price,
-          rating: data.ride.rating || null,
-        }).then(setGuestRides);
+        return updateGuestRide(ride.token, guestPatchFromLive(data.ride)).then(setGuestRides);
       })
       .catch(() => undefined);
   }
@@ -1147,16 +1248,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Marker
             coordinate={{ latitude: dropoff.lat, longitude: dropoff.lng }}
             title="Bestemming"
+            image={dropPinGreen}
             anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges={false}
-          >
-            <View style={styles.dropPin}>
-              <View style={styles.dropPinHead}>
-                <View style={styles.dropPinHole} />
-              </View>
-              <View style={styles.dropPinTip} />
-            </View>
-          </Marker>
+          />
         ) : null}
         {followingAssignedTaxi
           ? linkedTaxiLoc
@@ -1321,16 +1416,61 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         }
       : guestRides.find((r) => isActiveRidePhase(r.phase))) || null;
 
+  const quoteDistance = routeMetrics
+    ? formatTripDistance(routeMetrics.distance_meters / 1000)
+    : null;
+  const quoteDuration = routeMetrics
+    ? formatTripDuration(routeMetrics.duration_seconds)
+    : null;
+  const quotePassengersLabel = String(passengerCount);
+  const showQuoteMetrics = !!(quoteDistance || quoteDuration || quotePassengersLabel);
+
   const priceBlock = displayPrice ? (
     <Card>
-      <Text style={styles.section}>Rit & prijs</Text>
-      <Text style={styles.routeSummary}>{routeSummary}</Text>
-      {quoteBusy ? (
-        <Text style={styles.meta}>Bezig met berekenen…</Text>
+      <Text style={[styles.section, styles.sectionCenter]}>Rit & prijs</Text>
+      {showQuoteMetrics ? (
+        <View style={styles.quoteMetricsBox}>
+          <View style={styles.tripMetrics}>
+            {quoteDistance ? (
+              <View style={styles.tripMetric}>
+                <Ionicons name="navigate-outline" size={18} color={colors.muted} />
+                <Text style={styles.tripMetricValue}>{quoteDistance}</Text>
+                <Text style={styles.tripMetricLabel}>afstand</Text>
+              </View>
+            ) : null}
+            {quoteDistance && (quoteDuration || quotePassengersLabel) ? (
+              <View style={styles.tripMetricDivider} />
+            ) : null}
+            {quoteDuration ? (
+              <View style={styles.tripMetric}>
+                <Ionicons name="time-outline" size={18} color={colors.muted} />
+                <Text style={styles.tripMetricValue}>{quoteDuration}</Text>
+                <Text style={styles.tripMetricLabel}>rijtijd</Text>
+              </View>
+            ) : null}
+            {quoteDuration && quotePassengersLabel ? (
+              <View style={styles.tripMetricDivider} />
+            ) : null}
+            {quotePassengersLabel ? (
+              <View style={styles.tripMetric}>
+                <Ionicons name="people-outline" size={18} color={colors.muted} />
+                <Text style={styles.tripMetricValue}>{quotePassengersLabel}</Text>
+                <Text style={styles.tripMetricLabel}>
+                  {passengerCount === 1 ? 'persoon' : 'personen'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
       ) : (
-        <Text style={styles.price}>{displayPrice}</Text>
+        <Text style={styles.routeSummary}>{routeSummary}</Text>
       )}
-      <Text style={styles.meta}>
+      {quoteBusy ? (
+        <Text style={[styles.meta, styles.quotePriceCenter]}>Bezig met berekenen…</Text>
+      ) : (
+        <Text style={[styles.price, styles.quotePriceCenter]}>{displayPrice}</Text>
+      )}
+      <Text style={[styles.meta, styles.quoteMetaCenter]}>
         {freeNearby > 0
           ? `${freeNearby} taxi${freeNearby === 1 ? '' : '’s'} in de buurt`
           : 'Geen vrije taxi in de buurt'}
@@ -1451,8 +1591,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       {priceBlock}
 
       <Card>
-        <Text style={styles.section}>Passagiers</Text>
-        <View style={styles.qtyWrap}>
+        <Text style={[styles.section, styles.sectionCenter]}>Passagiers</Text>
+        <View style={[styles.qtyWrap, styles.qtyWrapCenter]}>
           <Pressable
             onPress={() => bumpPassengers(-1)}
             disabled={passengerCount <= 1}
@@ -1604,6 +1744,104 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
+  function renderTripDetails(input: {
+    from?: string | null;
+    to?: string | null;
+    distanceKm?: number | null;
+    durationSeconds?: number | null;
+    passengers?: number | null;
+    baggage?: {
+      items?: Array<{ label?: string | null; qty?: number | null }> | null;
+      summary?: string | null;
+    } | null;
+  }) {
+    const pickupStop = splitRideAddress(input.from);
+    const dropoffStop = splitRideAddress(input.to);
+    const distance = formatTripDistance(input.distanceKm);
+    const duration = formatTripDuration(input.durationSeconds);
+    const passengerCount = Number(input.passengers || 0);
+    const passengersLabel = passengerCount > 0 ? String(passengerCount) : null;
+    const chips = baggageChipLines(input.baggage);
+    const showMetrics = !!(distance || duration || passengersLabel);
+
+    return (
+      <View>
+        <View style={styles.tripRoute}>
+          <View style={styles.tripRail} />
+          <View style={styles.tripStop}>
+            <View style={styles.tripHead}>
+              <View style={[styles.tripDotOuter, styles.tripDotOuterPickup]}>
+                <View style={[styles.tripDot, styles.tripDotPickup]} />
+              </View>
+              <Text style={styles.tripLabel}>Ophalen</Text>
+            </View>
+            <View style={styles.tripAddress}>
+              <Text style={styles.tripMain}>{pickupStop.main}</Text>
+              {pickupStop.sub ? <Text style={styles.tripSub}>{pickupStop.sub}</Text> : null}
+            </View>
+          </View>
+          <View style={[styles.tripStop, styles.tripStopLast]}>
+            <View style={styles.tripHead}>
+              <View style={[styles.tripDotOuter, styles.tripDotOuterDropoff]}>
+                <View style={[styles.tripDot, styles.tripDotDropoff]} />
+              </View>
+              <Text style={styles.tripLabel}>Afzetten</Text>
+            </View>
+            <View style={styles.tripAddress}>
+              <Text style={styles.tripMain}>{dropoffStop.main}</Text>
+              {dropoffStop.sub ? <Text style={styles.tripSub}>{dropoffStop.sub}</Text> : null}
+            </View>
+          </View>
+        </View>
+        {showMetrics || chips.length ? (
+          <View style={styles.tripStats}>
+            {showMetrics ? (
+              <View style={styles.tripMetrics}>
+                {distance ? (
+                  <View style={styles.tripMetric}>
+                    <Ionicons name="navigate-outline" size={18} color={colors.muted} />
+                    <Text style={styles.tripMetricValue}>{distance}</Text>
+                    <Text style={styles.tripMetricLabel}>afstand</Text>
+                  </View>
+                ) : null}
+                {distance && (duration || passengersLabel) ? <View style={styles.tripMetricDivider} /> : null}
+                {duration ? (
+                  <View style={styles.tripMetric}>
+                    <Ionicons name="time-outline" size={18} color={colors.muted} />
+                    <Text style={styles.tripMetricValue}>{duration}</Text>
+                    <Text style={styles.tripMetricLabel}>rijtijd</Text>
+                  </View>
+                ) : null}
+                {duration && passengersLabel ? <View style={styles.tripMetricDivider} /> : null}
+                {passengersLabel ? (
+                  <View style={styles.tripMetric}>
+                    <Ionicons name="people-outline" size={18} color={colors.muted} />
+                    <Text style={styles.tripMetricValue}>{passengersLabel}</Text>
+                    <Text style={styles.tripMetricLabel}>
+                      {passengerCount === 1 ? 'persoon' : 'personen'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            {chips.length ? (
+              <View style={[styles.tripBags, showMetrics && styles.tripBagsSpaced]}>
+                <Text style={styles.tripBagsHeading}>Bagage</Text>
+                <View style={styles.tripChips}>
+                  {chips.map((line) => (
+                    <View key={line} style={styles.tripChip}>
+                      <Text style={styles.tripChipText}>{line}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   function renderRideCard(ride: GuestRide) {
     const key = rideArchiveKey(ride);
     const expanded = expandedRideKey === key;
@@ -1616,7 +1854,111 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     const cancelled = phase === 'cancelled';
     const completed = phase === 'completed';
     const active = isActiveRidePhase(phase);
+    const headerStatus =
+      (isLiveMatch && (liveStatusFromUpdates || live?.status_label)) ||
+      ride.status_label ||
+      '';
     const canArchive = !active;
+    const pickupWhen =
+      formatPickupWhen(isLiveMatch ? livePickupAt(live) || ride.pickup_at : ride.pickup_at) ||
+      '—';
+    const storedKm = (isLiveMatch ? live?.distance_km : null) ?? ride.distance_km ?? null;
+    const storedSeconds =
+      (isLiveMatch ? live?.duration_seconds : null) ?? ride.duration_seconds ?? null;
+    const pickupLat = isLiveMatch ? live?.pickup_lat : null;
+    const pickupLng = isLiveMatch ? live?.pickup_lng : null;
+    const dropoffLat = isLiveMatch ? live?.dropoff_lat : null;
+    const dropoffLng = isLiveMatch ? live?.dropoff_lng : null;
+    const estimated =
+      storedKm == null || storedSeconds == null
+        ? pickupLat != null &&
+          pickupLng != null &&
+          dropoffLat != null &&
+          dropoffLng != null
+          ? estimateRouteMetrics(
+              { lat: pickupLat, lng: pickupLng },
+              { lat: dropoffLat, lng: dropoffLng }
+            )
+          : null
+        : null;
+    const distanceKm =
+      storedKm ??
+      (estimated ? Math.round(estimated.distance_meters / 100) / 10 : null);
+    const durationSeconds = storedSeconds ?? estimated?.duration_seconds ?? null;
+    // Alle zoekritten (ook “blijven wachten”) gebruiken dezelfde box: geen status_label “Aangeboden”
+    if (phase === 'searching') {
+      const needsDecision = !!(isLiveMatch && live?.needs_unaccepted_decision);
+      const waitingOn = !!(isLiveMatch && live?.waiting_for_taxi);
+      const showCancel = isLiveMatch ? !!live?.can_cancel : true;
+      const passengers =
+        (isLiveMatch ? live?.passengers : ride.passengers) ?? null;
+      const baggageSummary =
+        (isLiveMatch ? live?.baggage?.summary : ride.baggage_summary) || null;
+      const desc = needsDecision
+        ? `Wil je blijven wachten${
+            live?.decision_minutes
+              ? ` (tot ca. ${live.decision_deadline_label || '—'})`
+              : ''
+          } of annuleren?`
+        : waitingOn
+          ? 'Je rit blijft op de marktplaats tot een taxi accepteert. Je kunt alsnog annuleren.'
+          : 'Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.';
+
+      return (
+        <View key={key || ride.token} style={styles.rideCard}>
+          <View style={styles.rideCardBody}>
+            <PhasePill phase="searching" />
+            <SearchingTaxiTitle />
+            <Text style={styles.searchingDesc}>{desc}</Text>
+            <View style={styles.searchingDivider} />
+            <View style={styles.searchingMetaRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.metaCaption}>Datum</Text>
+                <Text style={styles.rideCardAmount}>{pickupWhen}</Text>
+              </View>
+              {price != null ? (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.metaCaption}>Prijs</Text>
+                  <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
+                </View>
+              ) : null}
+            </View>
+            {renderTripDetails({
+              from,
+              to,
+              distanceKm,
+              durationSeconds,
+              passengers,
+              baggage: isLiveMatch
+                ? live?.baggage
+                : { summary: baggageSummary },
+            })}
+            {needsDecision ? (
+              <View style={{ marginTop: 14, gap: 8 }}>
+                <PrimaryButton title="Blijven wachten" onPress={onWait} loading={busy} />
+                <GhostButton title="Annuleren" onPress={requestCancel} danger />
+              </View>
+            ) : showCancel ? (
+              <Pressable
+                onPress={() => {
+                  if (!isLiveMatch) loadRideLive(ride);
+                  else if (ride.token !== trackToken) {
+                    setTrackToken(ride.token);
+                    persistTrack(ride.token);
+                  }
+                  setCancelConfirmOpen(true);
+                }}
+                style={styles.cancelRideBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Rit annuleren"
+              >
+                <Text style={styles.cancelRideBtnText}>Rit annuleren</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      );
+    }
 
     return (
       <View
@@ -1634,9 +1976,41 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         ) : null}
 
         <View style={styles.rideCardBody}>
-          {cancelled && live?.cancellation_message ? (
-            <Text style={styles.cancelReasonNotice}>{live.cancellation_message}</Text>
-          ) : null}
+          {(() => {
+            if (!cancelled) return null;
+            const cancelMsg = String(
+              (isLiveMatch ? live?.cancellation_message : null) || ride.cancellation_message || ''
+            ).trim();
+            const refundMsg = customerRefundNoticeText(
+              isLiveMatch && live
+                ? {
+                    refund_message: live.refund_message,
+                    payment_status: live.payment_status,
+                    payment_paid: live.payment_paid,
+                    assume_prepaid: price != null,
+                    refund_business_days: live.refund_business_days,
+                  }
+                : {
+                    refund_message: ride.refund_message,
+                    payment_status: ride.payment_status,
+                    assume_prepaid: price != null,
+                    refund_business_days: ride.refund_business_days,
+                  }
+            );
+            return (
+              <>
+                {cancelMsg ? (
+                  <Text style={styles.cancelReasonNotice}>{cancelMsg}</Text>
+                ) : null}
+                {refundMsg ? (
+                  <View style={styles.refundNotice}>
+                    <Text style={styles.refundNoticeTitle}>Terugbetaling</Text>
+                    <Text style={styles.refundNoticeText}>{refundMsg}</Text>
+                  </View>
+                ) : null}
+              </>
+            );
+          })()}
 
           {!cancelled ? (
             <View style={styles.rideCardTop}>
@@ -1669,12 +2043,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 ) : null}
                 <Pressable
                   onPress={() => toggleRideExpanded(ride)}
-                  hitSlop={8}
+                  hitSlop={12}
+                  style={styles.rideChevronBtn}
                   accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}
                 >
                   <Ionicons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
+                    size={26}
                     color={colors.muted}
                   />
                 </Pressable>
@@ -1688,18 +2063,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             accessibilityState={{ expanded }}
           >
             {!cancelled ? (
-              phase === 'searching' ? (
-                <SearchingTaxiTitle />
-              ) : (
-                <Text style={styles.liveTitle}>
-                  {phase === 'awaiting_payment'
-                    ? 'Wacht op betaling'
-                    : (isLiveMatch &&
-                        (liveStatusFromUpdates || live?.status_label)) ||
-                      ride.status_label ||
-                      phaseLabel(phase)}
-                </Text>
-              )
+              <Text style={styles.liveTitle}>
+                {phase === 'awaiting_payment'
+                  ? 'Wacht op betaling'
+                  : headerStatus || phaseLabel(phase)}
+              </Text>
             ) : null}
 
             <View style={styles.rideRouteRow}>
@@ -1731,27 +2099,72 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   ) : null}
                   <Ionicons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
+                    size={26}
                     color={colors.muted}
                   />
                 </View>
               ) : null}
             </View>
             <View style={[styles.rideCardFoot, { marginTop: 4 }]}>
-              <Text style={styles.meta}>{formatRideWhen(ride.at) || '—'}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.metaCaption}>Datum</Text>
+                <Text style={styles.rideCardAmount}>{pickupWhen}</Text>
+              </View>
               {price != null ? (
-                <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.metaCaption}>Prijs</Text>
+                  <Text style={styles.rideCardAmount}>{formatEuroNl(Number(price))}</Text>
+                </View>
               ) : null}
             </View>
           </Pressable>
+          {(() => {
+            const confirm =
+              (isLiveMatch ? live?.pickup_confirmation : null) ?? ride.pickup_confirmation ?? null;
+            if (!confirm?.can_answer) return null;
+            const prompt =
+              confirm.prompt || 'De chauffeur zegt dat je bent opgehaald. Klopt dat?';
+            const answering = pickupAnswerToken === ride.token;
+            return (
+              <View style={styles.pickupConfirm}>
+                <Text style={styles.pickupConfirmText}>{prompt}</Text>
+                <View style={styles.pickupConfirmActions}>
+                  <Pressable
+                    style={styles.pickupConfirmYes}
+                    disabled={answering}
+                    onPress={() => answerPickup(ride.token, 'yes')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ja, ik ben opgehaald"
+                  >
+                    <Text style={styles.pickupConfirmYesText}>{answering ? '…' : 'Ja'}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.pickupConfirmNo}
+                    disabled={answering}
+                    onPress={() => answerPickup(ride.token, 'no')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Nee, ik ben niet opgehaald"
+                  >
+                    <Text style={styles.pickupConfirmNoText}>Nee</Text>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })()}
         </View>
 
         {expanded ? (
           <View style={styles.rideCardExpanded}>
-            <Text style={styles.rowLabel}>Van</Text>
-            <Text style={styles.rowValue}>{from || '—'}</Text>
-            <Text style={[styles.rowLabel, { marginTop: 10 }]}>Naar</Text>
-            <Text style={styles.rowValue}>{to || '—'}</Text>
+            {renderTripDetails({
+              from,
+              to,
+              distanceKm,
+              durationSeconds,
+              passengers: (isLiveMatch ? live?.passengers : ride.passengers) ?? ride.passengers,
+              baggage: isLiveMatch
+                ? live?.baggage || { summary: ride.baggage_summary }
+                : { summary: ride.baggage_summary },
+            })}
             {price != null ? (
               <>
                 <Text style={[styles.rowLabel, { marginTop: 10 }]}>Prijs</Text>
@@ -1796,7 +2209,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                         ) : null}
                         {live.driver?.rating_avg != null ? (
                           <Text style={styles.meta}>
-                            ★ {Number(live.driver.rating_avg).toFixed(1)}
+                            <Text style={styles.driverStar}>★</Text>
+                            {' '}
+                            {Number(live.driver.rating_avg).toFixed(1)}
                             {live.driver.rating_count
                               ? ` (${live.driver.rating_count})`
                               : ''}
@@ -2140,15 +2555,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           bedrag teruggestort (doorgaans binnen {refundDays} werkdagen).
         </Text>
         <View style={styles.confirmActions}>
-          <Pressable
-            onPress={() => setCancelConfirmOpen(false)}
-            style={styles.confirmSecondaryBtn}
-          >
-            <Text style={styles.confirmSecondaryText}>Nee, behouden</Text>
-          </Pressable>
-          <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
-            <Text style={styles.confirmDangerText}>Ja, annuleren</Text>
-          </Pressable>
+          <View style={styles.confirmActionSlot}>
+            <Pressable
+              onPress={() => setCancelConfirmOpen(false)}
+              style={styles.confirmSecondaryBtn}
+            >
+              <Text style={styles.confirmSecondaryText}>Nee, behouden</Text>
+            </Pressable>
+          </View>
+          <View style={styles.confirmActionSlot}>
+            <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
+              <Text style={styles.confirmDangerText}>Ja, annuleren</Text>
+            </Pressable>
+          </View>
         </View>
       </AppModal>
 
@@ -2187,14 +2606,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </Text>
         ) : null}
         <View style={styles.confirmActions}>
-          <Pressable
-            onPress={() => setRateModalToken(null)}
-            disabled={busy}
-            style={styles.confirmSecondaryBtn}
-          >
-            <Text style={styles.confirmSecondaryText}>Later</Text>
-          </Pressable>
-          <View style={{ flex: 1 }}>
+          <View style={styles.confirmActionSlot}>
+            <Pressable
+              onPress={() => setRateModalToken(null)}
+              disabled={busy}
+              style={[styles.confirmSecondaryBtn, busy && { opacity: 0.55 }]}
+            >
+              <Text style={styles.confirmSecondaryText}>Later</Text>
+            </Pressable>
+          </View>
+          <View style={styles.confirmActionSlot}>
             <PrimaryButton
               title="Versturen"
               onPress={() => {
@@ -2419,7 +2840,7 @@ function PhasePill({ phase }: { phase?: string }) {
 
   const label =
     phase === 'searching'
-      ? 'Zoeken'
+      ? 'Zoeken…'
       : phase === 'accepted'
         ? 'Geaccepteerd'
         : phase === 'awaiting_payment'
@@ -2533,10 +2954,9 @@ function makeStyles(colors: ColorPalette) {
     },
     ridesSection: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
+      letterSpacing: 0,
       marginTop: 8,
       marginBottom: 8,
     },
@@ -2576,6 +2996,72 @@ function makeStyles(colors: ColorPalette) {
       backgroundColor: 'rgba(248,113,113,0.12)',
       overflow: 'hidden',
     },
+    refundNotice: {
+      marginBottom: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: 'rgba(6, 78, 59, 0.55)',
+      borderWidth: 1,
+      borderColor: 'rgba(110, 231, 183, 0.4)',
+    },
+    refundNoticeTitle: {
+      color: '#6EE7B7',
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0,
+      marginBottom: 4,
+    },
+    refundNoticeText: {
+      color: '#A7F3D0',
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    pickupConfirm: {
+      marginTop: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: 'rgba(30, 58, 138, 0.35)',
+      borderWidth: 1,
+      borderColor: 'rgba(147, 197, 253, 0.45)',
+      gap: 10,
+    },
+    pickupConfirmText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 21,
+    },
+    pickupConfirmActions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    pickupConfirmYes: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    pickupConfirmYesText: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    pickupConfirmNo: {
+      flex: 1,
+      borderRadius: 10,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    pickupConfirmNoText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
     rideCardBody: {
       paddingHorizontal: 14,
       paddingTop: 12,
@@ -2598,9 +3084,14 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 15,
       fontWeight: '700',
+      lineHeight: 20,
     },
     archiveIconBtn: {
       padding: 2,
+    },
+    rideChevronBtn: {
+      padding: 4,
+      margin: -4,
     },
     rideRouteRow: {
       flexDirection: 'row',
@@ -2616,9 +3107,167 @@ function makeStyles(colors: ColorPalette) {
     },
     rideCardFoot: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: 8,
+    },
+    metaCaption: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 0,
+      marginBottom: 2,
+    },
+    tripRoute: {
+      marginTop: 14,
+      position: 'relative',
+    },
+    tripRail: {
+      position: 'absolute',
+      left: 9,
+      top: 18,
+      bottom: 18,
+      width: 2,
+      backgroundColor: colors.border,
+    },
+    tripStop: {
+      paddingBottom: 16,
+    },
+    tripStopLast: {
+      paddingBottom: 0,
+    },
+    tripHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 4,
+    },
+    tripDotOuter: {
+      width: 20,
+      height: 20,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tripDotOuterPickup: {
+      backgroundColor: 'rgba(34,197,94,0.18)',
+    },
+    tripDotOuterDropoff: {
+      backgroundColor: 'rgba(37,99,235,0.18)',
+    },
+    tripDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 999,
+    },
+    tripDotPickup: {
+      backgroundColor: '#22C55E',
+    },
+    tripDotDropoff: {
+      backgroundColor: colors.primary,
+    },
+    tripLabel: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tripAddress: {
+      paddingLeft: 30,
+    },
+    tripMain: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+      lineHeight: 21,
+    },
+    tripSub: {
+      color: colors.muted,
+      fontSize: 13,
+      marginTop: 2,
+      lineHeight: 18,
+    },
+    tripStats: {
+      marginTop: 14,
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: 'rgba(148,163,184,0.05)',
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+    },
+    quoteMetricsBox: {
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: 'rgba(148,163,184,0.05)',
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      marginBottom: 4,
+    },
+    quotePriceCenter: {
+      textAlign: 'center',
+      marginTop: 14,
+    },
+    quoteMetaCenter: {
+      textAlign: 'center',
+      marginTop: 6,
+    },
+    tripMetrics: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+    },
+    tripMetric: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 3,
+    },
+    tripMetricValue: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    tripMetricLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    tripMetricDivider: {
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginVertical: 4,
+    },
+    tripBags: {
+      gap: 8,
+    },
+    tripBagsSpaced: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    tripBagsHeading: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 0,
+    },
+    tripChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    tripChip: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      backgroundColor: 'rgba(148,163,184,0.12)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    tripChipText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
     },
     rideCardExpanded: {
       borderTopWidth: StyleSheet.hairlineWidth,
@@ -2728,39 +3377,6 @@ function makeStyles(colors: ColorPalette) {
       borderWidth: 2,
       borderColor: '#FFFFFF',
     },
-    dropPin: {
-      alignItems: 'center',
-      width: 28,
-      height: 36,
-    },
-    dropPinHead: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: '#22C55E',
-      borderWidth: 2,
-      borderColor: '#FFFFFF',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 2,
-    },
-    dropPinHole: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: '#FFFFFF',
-    },
-    dropPinTip: {
-      marginTop: -6,
-      width: 0,
-      height: 0,
-      borderLeftWidth: 8,
-      borderRightWidth: 8,
-      borderTopWidth: 12,
-      borderLeftColor: 'transparent',
-      borderRightColor: 'transparent',
-      borderTopColor: '#22C55E',
-    },
     routeSummary: {
       color: colors.text,
       fontSize: 15,
@@ -2781,11 +3397,16 @@ function makeStyles(colors: ColorPalette) {
     },
     section: {
       color: colors.muted,
-      fontSize: 12,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 0,
       marginBottom: 8,
+    },
+    sectionCenter: {
+      textAlign: 'center',
+    },
+    qtyWrapCenter: {
+      justifyContent: 'center',
     },
     themeHint: {
       color: colors.muted,
@@ -2872,6 +3493,9 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
+    },
+    driverStar: {
+      color: '#F5B301',
     },
     vehicleThumb: {
       width: 72,
@@ -3050,34 +3674,43 @@ function makeStyles(colors: ColorPalette) {
     },
     confirmActions: {
       flexDirection: 'row',
+      alignItems: 'stretch',
       gap: 10,
     },
-    confirmSecondaryBtn: {
+    confirmActionSlot: {
       flex: 1,
-      borderRadius: 12,
+      minWidth: 0,
+    },
+    confirmSecondaryBtn: {
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
-      paddingVertical: 12,
+      paddingVertical: 14,
       alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: 'transparent',
+      marginTop: 8,
+      width: '100%',
     },
     confirmSecondaryText: {
       color: colors.text,
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: 16,
+      fontWeight: '700',
     },
     confirmDangerBtn: {
-      flex: 1,
-      borderRadius: 12,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.danger,
-      paddingVertical: 12,
+      paddingVertical: 14,
       alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: 'transparent',
+      marginTop: 8,
+      width: '100%',
     },
     confirmDangerText: {
       color: colors.danger,
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: '700',
     },
     pill: {
@@ -3098,7 +3731,37 @@ function makeStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       marginTop: 10,
+      marginBottom: 8,
+    },
+    searchingDesc: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      marginBottom: 0,
+    },
+    searchingDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginTop: 14,
       marginBottom: 12,
+    },
+    searchingMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    cancelRideBtn: {
+      marginTop: 14,
+      backgroundColor: colors.danger,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    cancelRideBtnText: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
     },
     payToggle: {
       flexDirection: 'row',

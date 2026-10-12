@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Helpers\GeoHelper;
 use App\Models\Company;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideGpsPoint;
@@ -235,6 +236,7 @@ class CustomerRideLiveStatusService
         $statusUpdates = app(TaxiCustomerRideStatusNotificationService::class)
             ->statusTimeline($conn, (int) $ride->id);
         $statusUpdates = $this->ensureCompletedStatusUpdate($ride, $statusUpdates);
+        $statusUpdates = $this->ensureInvoiceSentStatusUpdates($ride, $statusUpdates);
         // Voorkeur: opgeslagen customer_status op de rit, anders nieuwste timeline-entry.
         $payloadStatus = data_get($ride->booking_payload, 'customer_status');
         $payloadLabel = trim((string) (data_get($payloadStatus, 'label') ?? ''));
@@ -282,6 +284,11 @@ class CustomerRideLiveStatusService
             'cancellation_message' => $status === RideRequest::STATUS_CANCELLED
                 ? $cancellation->cancellationMessageForCustomer($ride)
                 : null,
+            'refund_message' => $status === RideRequest::STATUS_CANCELLED
+                ? app(TaxiCustomerRideCancelledMailer::class)->customerRefundNotice(
+                    $this->paymentStatusForRefundNotice($paymentStatus, $latestBookingPayment)
+                )
+                : null,
             'cancellation_reason' => $status === RideRequest::STATUS_CANCELLED
                 ? (($cancellation->cancellationPayload($ride)['reason'] ?? null) ?: null)
                 : null,
@@ -294,7 +301,10 @@ class CustomerRideLiveStatusService
             'pickup_at' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
             'pickup_at_label' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i'),
             'passengers' => (int) ($ride->passengers ?? 1),
+            'distance_km' => $ride->distance_meters ? round(((int) $ride->distance_meters) / 1000, 1) : null,
+            'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
+            'baggage' => $this->baggageFromBookingPayload($ride),
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => (string) $company->name,
@@ -318,6 +328,7 @@ class CustomerRideLiveStatusService
             'status_updates' => $statusUpdates,
             'status_notify_events' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
             'rating' => $ratingPayload,
+            'pickup_confirmation' => app(MarketplacePickupConfirmationService::class)->customerPayload($ride),
             'vehicle_location' => $driverLoc,
             'eta_minutes' => $eta['minutes'] ?? null,
             'eta_label' => $eta['label'] ?? null,
@@ -416,5 +427,112 @@ class CustomerRideLiveStatusService
         ];
 
         return $statusUpdates;
+    }
+
+    /**
+     * Factuurversturen hoort in de tijdlijn, ook als die log nog ontbreekt.
+     *
+     * @param  list<array{event: string, label: string, at: string|null, channel: string}>  $statusUpdates
+     * @return list<array{event: string, label: string, at: string|null, channel: string}>
+     */
+    protected function ensureInvoiceSentStatusUpdates(RideRequest $ride, array $statusUpdates): array
+    {
+        foreach ($statusUpdates as $update) {
+            if (($update['event'] ?? '') === 'invoice_sent') {
+                return $statusUpdates;
+            }
+        }
+
+        $sent = Invoice::query()
+            ->where('module', Invoice::MODULE_TAXI)
+            ->where('module_reference_id', $ride->id)
+            ->where('status', 'sent')
+            ->orderBy('id')
+            ->get(['id', 'updated_at']);
+
+        foreach ($sent as $invoice) {
+            $statusUpdates[] = [
+                'event' => 'invoice_sent',
+                'label' => TaxiCustomerRideStatusNotificationService::INVOICE_SENT_LABEL,
+                'at' => $invoice->updated_at?->toIso8601String(),
+                'channel' => 'app',
+            ];
+        }
+
+        return $statusUpdates;
+    }
+
+    /**
+     * @return array{items: list<array{key: string, label: string, qty: int}>, summary: ?string}
+     */
+    protected function baggageFromBookingPayload(RideRequest $ride): array
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $labels = [
+            'large' => 'Grote ruimbagage',
+            'small' => 'Kleine ruimbagage',
+            'hand' => 'Handbagage',
+            'wheelchair' => 'Opvouwbare rolstoel',
+            'pets' => 'Huisdieren',
+            'winter' => 'Wintersport',
+            'golf' => 'Golftas',
+        ];
+
+        $items = [];
+        foreach (['baggage', 'special_baggage'] as $bagKey) {
+            $bag = is_array($payload[$bagKey] ?? null) ? $payload[$bagKey] : [];
+            foreach ($bag as $key => $qty) {
+                $count = (int) $qty;
+                if ($count <= 0) {
+                    continue;
+                }
+                $keyStr = (string) $key;
+                $items[] = [
+                    'key' => $keyStr,
+                    'label' => $labels[$keyStr] ?? $keyStr,
+                    'qty' => $count,
+                ];
+            }
+        }
+
+        $summary = $items === []
+            ? null
+            : implode(', ', array_map(
+                static fn (array $row): string => $row['label'].' × '.$row['qty'],
+                $items
+            ));
+
+        return [
+            'items' => $items,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
+     * Voor terugbetalingsmelding: gebruik ride.payment_status, anders status van laatste booking-betaling.
+     */
+    protected function paymentStatusForRefundNotice(string $paymentStatus, ?RidePayment $latestBookingPayment): string
+    {
+        $known = [
+            RideRequest::PAYMENT_STATUS_PAID,
+            RideRequest::PAYMENT_STATUS_REFUNDED,
+            RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+            RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+        ];
+        if (in_array($paymentStatus, $known, true)) {
+            return $paymentStatus;
+        }
+
+        if (! $latestBookingPayment) {
+            return $paymentStatus;
+        }
+
+        return match ((string) $latestBookingPayment->status) {
+            RidePayment::STATUS_PAID => RideRequest::PAYMENT_STATUS_PAID,
+            RidePayment::STATUS_REFUNDED => RideRequest::PAYMENT_STATUS_REFUNDED,
+            RidePayment::STATUS_REFUND_PENDING => RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+            RidePayment::STATUS_REFUND_FAILED => RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+            default => $paymentStatus,
+        };
     }
 }

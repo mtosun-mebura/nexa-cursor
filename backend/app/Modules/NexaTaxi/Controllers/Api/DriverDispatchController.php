@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -355,8 +356,18 @@ class DriverDispatchController extends Controller
             ], 409);
         }
 
+        $pickupWarning = null;
+        try {
+            $noted = app(MarketplacePickupConfirmationService::class)->noteStart($conn, $started, $request->user());
+            $started = $noted['ride'];
+            $pickupWarning = $noted['warning'];
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return response()->json([
             'message' => 'Rit gestart.',
+            'pickup_warning' => $pickupWarning,
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($started),
             ],
@@ -581,6 +592,7 @@ class DriverDispatchController extends Controller
 
         return response()->json([
             'message' => $message,
+            'dropoff_warning' => data_get($completed->booking_payload, 'dropoff_location_check.warning'),
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($completed),
                 'outbound_completed' => $isOutboundOnlyComplete,

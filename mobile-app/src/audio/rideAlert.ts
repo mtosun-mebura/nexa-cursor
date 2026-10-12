@@ -1,5 +1,9 @@
-import { Asset } from 'expo-asset';
-import { requireOptionalNativeModule } from 'expo-modules-core';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+  type AudioPlayer,
+} from 'expo-audio';
 
 export const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'] as const;
 export type RideAlertTone = (typeof RIDE_ALERT_TONES)[number];
@@ -20,26 +24,13 @@ const SOURCES: Record<RideAlertTone, number> = {
   siren: require('../../assets/sounds/siren.m4a'),
 };
 
-type NativeAudio = {
-  setAudioModeAsync?: (mode: Record<string, unknown>) => Promise<void>;
-  AudioPlayer?: new (
-    source: { uri: string } | null,
-    updateInterval: number,
-    keepAudioSessionActive: boolean,
-    preferredForwardBufferDuration: number
-  ) => {
-    volume: number;
-    loop: boolean;
-    play: () => void;
-    pause: () => void;
-    remove: () => void;
-    addListener: (event: string, cb: (status: { didJustFinish?: boolean }) => void) => unknown;
-  };
-};
+/** Bestandsnaam voor expo-notifications (wav in app.json sounds). */
+export function rideAlertNotificationSound(tone?: string | null): string {
+  return `${normalizeRideAlertTone(tone)}.wav`;
+}
 
-let nativeAudio: NativeAudio | null | undefined;
-let ready = false;
-let current: InstanceType<NonNullable<NativeAudio['AudioPlayer']>> | null = null;
+let modeReady = false;
+let current: AudioPlayer | null = null;
 
 export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
   const key = String(value || '').toLowerCase();
@@ -48,42 +39,24 @@ export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
     : 'classic';
 }
 
-function getNativeAudio(): NativeAudio | null {
-  if (nativeAudio !== undefined) return nativeAudio;
-  nativeAudio = requireOptionalNativeModule<NativeAudio>('ExpoAudio');
-  return nativeAudio;
-}
-
-async function ensureAudioMode(native: NativeAudio) {
-  if (ready || typeof native.setAudioModeAsync !== 'function') return;
-  await native.setAudioModeAsync({
+async function ensureAudioMode(): Promise<void> {
+  if (modeReady) return;
+  await setAudioModeAsync({
     allowsRecording: false,
     playsInSilentMode: true,
-    shouldPlayInBackground: false,
+    shouldPlayInBackground: true,
     shouldRouteThroughEarpiece: false,
     interruptionMode: 'doNotMix',
   });
-  ready = true;
-}
-
-async function resolveUri(moduleId: number): Promise<string | null> {
-  const asset = Asset.fromModule(moduleId);
-  if (!asset.localUri) {
-    await asset.downloadAsync();
-  }
-  return asset.localUri || asset.uri || null;
+  await setIsAudioActiveAsync(true);
+  modeReady = true;
 }
 
 export async function playRideAlertTone(tone?: string | null): Promise<void> {
   const key = normalizeRideAlertTone(tone);
-  const native = getNativeAudio();
-  const Player = native?.AudioPlayer;
-  if (!native || !Player) return;
 
   try {
-    await ensureAudioMode(native);
-    const uri = await resolveUri(SOURCES[key]);
-    if (!uri) return;
+    await ensureAudioMode();
 
     if (current) {
       try {
@@ -95,7 +68,10 @@ export async function playRideAlertTone(tone?: string | null): Promise<void> {
       current = null;
     }
 
-    const player = new Player({ uri }, 100, false, 0);
+    const player = createAudioPlayer(SOURCES[key], {
+      updateInterval: 200,
+      keepAudioSessionActive: true,
+    });
     player.volume = 1;
     player.loop = false;
     player.addListener('playbackStatusUpdate', (status) => {
