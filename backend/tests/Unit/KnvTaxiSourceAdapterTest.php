@@ -24,7 +24,7 @@ class KnvTaxiSourceAdapterTest extends TestCase
     #[Test]
     public function it_parses_knv_member_blocks_from_fixture(): void
     {
-        $html = file_get_contents(base_path('tests/Fixtures/knv-ledenoverzicht-sample.html'));
+        $html = file_get_contents(base_path('tests/fixtures/knv-ledenoverzicht-sample.html'));
         $this->assertNotFalse($html);
 
         $candidates = $this->adapter()->parseHtml($html, 'https://www.knv.nl/ledenoverzicht-taxi/');
@@ -49,7 +49,7 @@ class KnvTaxiSourceAdapterTest extends TestCase
     #[Test]
     public function it_allows_missing_email(): void
     {
-        $html = file_get_contents(base_path('tests/Fixtures/knv-ledenoverzicht-sample.html'));
+        $html = file_get_contents(base_path('tests/fixtures/knv-ledenoverzicht-sample.html'));
         $candidates = $this->adapter()->parseHtml((string) $html);
         $withoutEmail = collect($candidates)->first(fn ($c) => blank($c->email));
         $this->assertNotNull($withoutEmail);
