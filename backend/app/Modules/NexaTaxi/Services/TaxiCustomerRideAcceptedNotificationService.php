@@ -359,6 +359,31 @@ class TaxiCustomerRideAcceptedNotificationService
         bool $force = false
     ): void {
         $rideId = (int) $ride->id;
+
+        // Ritten met app-tracking: status via app (niet WhatsApp).
+        if (trim((string) ($ride->customer_track_token ?? '')) !== '') {
+            $settingsCompanyId = $companyId > 0 ? $companyId : null;
+            if (! $this->dispatchSettings->customerWhatsappStatusEventEnabled(
+                WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+                $settingsCompanyId
+            )) {
+                return;
+            }
+            app(TaxiCustomerRideStatusNotificationService::class)->notify(
+                $conn,
+                $ride,
+                WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+                [
+                    'driver_name' => $variables['DRIVER_NAME'] ?? null,
+                    'driver_phone' => $variables['DRIVER_PHONE'] ?? null,
+                    'license_plate' => $variables['LICENSE_PLATE'] ?? null,
+                ],
+                force: $force
+            );
+
+            return;
+        }
+
         $phone = trim((string) ($ride->customer_phone ?? ''));
         if ($phone === '') {
             $this->logCustomer(

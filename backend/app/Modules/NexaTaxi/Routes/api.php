@@ -5,6 +5,7 @@ use App\Modules\NexaTaxi\Controllers\Api\ContractPortalController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverAuthController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverAvailabilityController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchController;
+use App\Modules\NexaTaxi\Controllers\Api\DriverProfileMediaController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchStreamController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverEarningsController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverPlanningController;
@@ -96,6 +97,15 @@ Route::prefix('v1/driver')
         Route::put('accent', [DriverAuthController::class, 'updateAccent'])
             ->middleware('throttle:taxi-driver-action');
         Route::put('ride-alert-tone', [DriverAuthController::class, 'updateRideAlertTone'])
+            ->middleware('throttle:taxi-driver-action');
+
+        Route::get('profile/media', [DriverProfileMediaController::class, 'show'])
+            ->middleware('throttle:taxi-driver-read');
+        Route::post('profile/photo', [DriverProfileMediaController::class, 'uploadProfilePhoto'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::post('profile/company-logo', [DriverProfileMediaController::class, 'uploadCompanyLogo'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::post('profile/vehicle-photo', [DriverProfileMediaController::class, 'uploadVehiclePhoto'])
             ->middleware('throttle:taxi-driver-action');
 
         Route::get('earnings', [DriverEarningsController::class, 'show'])

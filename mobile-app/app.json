@@ -21,6 +21,9 @@
         "NSLocationWhenInUseUsageDescription": "Nexa Taxi gebruikt je locatie voor ritten in de buurt en ophaaladressen.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Kies Altijd zodat marktplaats-klanten je taxi ook vinden als de app op de achtergrond staat.",
         "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marktplaats-matching en chauffeur-tracking.",
+        "NSPhotoLibraryUsageDescription": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
+        "NSPhotoLibraryAddUsageDescription": "Nexa Taxi bewaart gekozen foto’s alleen voor je chauffeurprofiel.",
+        "NSCameraUsageDescription": "Nexa Taxi gebruikt de camera optioneel voor profiel-, logo- en autouploads.",
         "UIBackgroundModes": ["location", "fetch", "processing"],
         "ITSAppUsesNonExemptEncryption": false,
         "UIApplicationSceneManifest": {
@@ -56,6 +59,14 @@
     },
     "plugins": [
       "expo-secure-store",
+      "expo-font",
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads."
+        }
+      ],
       "react-native-maps",
       [
         "expo-notifications",

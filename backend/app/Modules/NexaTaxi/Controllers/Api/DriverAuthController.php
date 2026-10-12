@@ -309,6 +309,7 @@ class DriverAuthController extends Controller
             'ride_alert_tone' => RideAlertTone::fromUser($user),
             'can_handle_contract_rides' => app(TaxiDriverEligibilityService::class)->canUseContractRideFilter($user),
             'app_modes' => app(\App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService::class)->forUser($user)['modes'],
+            'media' => app(\App\Modules\NexaTaxi\Services\TaxiDriverProfileMediaService::class)->publicPayload($user),
         ];
     }
 

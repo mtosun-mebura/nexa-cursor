@@ -91,6 +91,7 @@ class WebsitePageModelTest extends TestCase
         $expected = [
             'slug', 'title', 'menu_title', 'content', 'meta_description', 'home_sections',
             'page_type', 'module_name', 'frontend_theme_id', 'company_id',
+            'site_brand',
             'is_active', 'show_in_menu', 'sort_order',
         ];
         $page = new WebsitePage;

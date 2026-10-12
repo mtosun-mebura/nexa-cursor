@@ -393,10 +393,9 @@ class NexaSuiteMarketplaceTest extends TestCase
 
         $response->assertOk();
         $vehicles = $response->json('vehicles');
-        $this->assertCount(2, $vehicles);
-        $busyFlags = collect($vehicles)->pluck('busy')->all();
-        $this->assertContains(true, $busyFlags);
-        $this->assertContains(false, $busyFlags);
+        // Bezette taxi’s worden niet meer op de kaart getoond voor andere klanten.
+        $this->assertCount(1, $vehicles);
+        $this->assertFalse((bool) ($vehicles[0]['busy'] ?? true));
         $this->assertEqualsWithDelta(52.37, (float) $vehicles[0]['lat'], 0.002);
         $this->assertTrue((bool) $response->json('marketplace.dispatch_ready'));
         $this->assertGreaterThanOrEqual(1, (int) $response->json('marketplace.candidate_count'));

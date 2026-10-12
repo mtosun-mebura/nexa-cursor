@@ -1,17 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   ScrollView,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 import { registerMarketplaceCompany, requestLoginCode, verifyLoginCode } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ColorPalette } from '../config';
-import { useTheme } from '../theme/ThemeContext';
+import { useThemeColors } from '../theme/ThemeContext';
+import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import {
   ErrorText,
   Field,
@@ -21,9 +19,6 @@ import {
   Subtitle,
   SuccessText,
 } from '../ui/components';
-
-const logoLight = require('../../assets/nexa-taxi-logo.png');
-const logoDark = require('../../assets/nexa-taxi-logo-dark.png');
 
 const VERIFY_PENDING_KEY = 'nexa_taxi_marketplace_verify_pending';
 
@@ -56,9 +51,8 @@ async function clearPendingVerify() {
 
 export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   const { setSession } = useAuth();
-  const { colors, colorScheme } = useTheme();
+  const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const logoSource = colorScheme === 'light' ? logoLight : logoDark;
 
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
@@ -235,28 +229,20 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <Screen>
+    <Screen style={{ paddingTop: APP_PAGE_TOP_INSET, paddingHorizontal: 0 }}>
+      <AppPageHeader
+        title={step === 'form' ? 'NEXA Taxi marktplaats' : 'Bevestig e-mail'}
+      />
       <ScrollView
-        style={{ flex: 1 }}
+        style={styles.body}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
       >
-        <View style={styles.logoBar}>
-          <Image
-            source={logoSource}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityLabel="NEXA | taxi"
-          />
-        </View>
-        <Text style={styles.pageTitle}>
-          {step === 'form' ? 'Taxibedrijf aanmelden' : 'Bevestig e-mail'}
-        </Text>
         <Subtitle>
           {step === 'form'
-            ? 'Maak je marktplaats-account aan. Daarna ontvang je een code per e-mail.'
+            ? 'Meld je taxibedrijf aan op de NEXA Taxi marktplaats.\nNa registratie ontvang je een code per e-mail.'
             : 'Vul de code uit je e-mail in om je account te activeren.'}
         </Subtitle>
 
@@ -375,24 +361,11 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function makeStyles(colors: ColorPalette) {
+function makeStyles(_colors: ColorPalette) {
   return StyleSheet.create({
-    logoBar: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 8,
-      paddingBottom: 16,
-    },
-    logo: {
-      width: 180,
-      height: 46,
-    },
-    pageTitle: {
-      color: colors.text,
-      fontSize: 22,
-      fontWeight: '700',
-      marginBottom: 8,
-      textAlign: 'center',
+    body: {
+      flex: 1,
+      paddingHorizontal: 20,
     },
   });
 }

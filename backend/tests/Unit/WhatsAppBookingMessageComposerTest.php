@@ -55,9 +55,12 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertSame('CS Utrecht', $composed['template_params'][5]);
         $this->assertSame('2', $composed['template_params'][7]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][10]);
-        $this->assertCount(11, $composed['template_params']);
+        $this->assertCount(13, $composed['template_params']);
         $this->assertStringContainsString('Beste Sara Jansen', $composed['preview']);
+        $this->assertStringContainsString('Jouw taxiverzoek', $composed['preview']);
+        $this->assertStringContainsString('De gegevens zijn als volgt:', $composed['preview']);
         $this->assertStringContainsString('Aanbieding/voertuig:', $composed['preview']);
+        $this->assertStringContainsString('App Store:', $composed['preview']);
         $this->assertStringNotContainsString(' · ', $composed['preview']);
     }
 

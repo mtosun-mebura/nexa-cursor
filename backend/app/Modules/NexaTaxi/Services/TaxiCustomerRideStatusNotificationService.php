@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class TaxiCustomerRideStatusNotificationService
 {
@@ -55,8 +56,31 @@ class TaxiCustomerRideStatusNotificationService
             return true;
         }
 
-        $phone = trim((string) ($ride->customer_phone ?? ''));
+        $composed = $this->composer->composeStatus($ride, $event, $context, $settingsCompanyId);
         $customerName = trim((string) ($ride->customer_name ?: 'Klant'));
+        $phone = trim((string) ($ride->customer_phone ?? ''));
+
+        // App-tracking: status alleen in de app (timeline + lokale push), niet via WhatsApp.
+        if ($this->rideUsesAppTracking($conn, $ride)) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_APP,
+                RideRequestNotificationLog::STATUS_SENT,
+                $customerName,
+                null,
+                null,
+                $logDetail,
+                [
+                    'event' => $event,
+                    'mode' => 'app',
+                    'status_label' => $composed['status_label'],
+                    'body' => $composed['fallback_body'] ?? null,
+                ]
+            );
+
+            return true;
+        }
 
         if ($phone === '') {
             $this->notificationLogs->record(
@@ -88,7 +112,6 @@ class TaxiCustomerRideStatusNotificationService
             return false;
         }
 
-        $composed = $this->composer->composeStatus($ride, $event, $context, $settingsCompanyId);
         $templateName = $this->composer->statusTemplateName();
         $lang = $this->composer->statusTemplateLang();
 
@@ -159,9 +182,72 @@ class TaxiCustomerRideStatusNotificationService
 
         return RideRequestNotificationLog::on($conn)
             ->where('ride_request_id', $rideId)
-            ->where('channel', RideRequestNotificationLog::CHANNEL_WHATSAPP)
+            ->whereIn('channel', [
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::CHANNEL_APP,
+            ])
             ->where('status', RideRequestNotificationLog::STATUS_SENT)
             ->where('detail', $logDetail)
             ->exists();
+    }
+
+    /**
+     * @return list<array{event: string, label: string, at: string|null, channel: string}>
+     */
+    public function statusTimeline(string $conn, int $rideId): array
+    {
+        if ($rideId <= 0 || ! TaxiNotificationLogSchema::tableExists($conn)) {
+            return [];
+        }
+
+        $prefix = self::LOG_CONTEXT_PREFIX.':';
+        $rows = RideRequestNotificationLog::on($conn)
+            ->where('ride_request_id', $rideId)
+            ->where('status', RideRequestNotificationLog::STATUS_SENT)
+            ->whereIn('channel', [
+                RideRequestNotificationLog::CHANNEL_APP,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+            ])
+            ->where('detail', 'like', $prefix.'%')
+            ->orderBy('id')
+            ->get(['channel', 'detail', 'meta', 'created_at']);
+
+        $labels = WhatsAppBookingMessageComposer::statusEventLabels();
+        $out = [];
+        foreach ($rows as $row) {
+            $detail = (string) ($row->detail ?? '');
+            $event = str_starts_with($detail, $prefix)
+                ? substr($detail, strlen($prefix))
+                : (string) (data_get($row->meta, 'event') ?? '');
+            $event = trim(explode(':', $event, 2)[0]);
+            if ($event === '') {
+                continue;
+            }
+            $label = (string) (data_get($row->meta, 'status_label') ?: ($labels[$event] ?? $event));
+            $out[] = [
+                'event' => $event,
+                'label' => $label,
+                'at' => $row->created_at?->toIso8601String(),
+                'channel' => (string) $row->channel,
+            ];
+        }
+
+        return $out;
+    }
+
+    protected function rideUsesAppTracking(string $conn, RideRequest $ride): bool
+    {
+        $token = trim((string) ($ride->customer_track_token ?? ''));
+        if ($token !== '') {
+            return true;
+        }
+
+        if (! Schema::connection($conn)->hasColumn('ride_requests', 'customer_track_token')) {
+            return false;
+        }
+
+        $fresh = RideRequest::on($conn)->whereKey($ride->id)->value('customer_track_token');
+
+        return is_string($fresh) && trim($fresh) !== '';
     }
 }

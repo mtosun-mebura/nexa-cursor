@@ -25,7 +25,7 @@ class NearbyAvailableTaxiFleetService
 
     /**
      * Online taxi's van NEXA Suite-tenants binnen de straal (laatste bekende positie).
-     * Chauffeurs met een recente actieve rit krijgen busy=true maar blijven zichtbaar.
+     * Chauffeurs met een geaccepteerde/lopende rit zijn verborgen voor andere klanten.
      *
      * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool}>
      */
@@ -92,6 +92,10 @@ class NearbyAvailableTaxiFleetService
             if ($driverId <= 0) {
                 continue;
             }
+            // Bezet op een rit: niet tonen aan andere klanten op de vlootkaart.
+            if (isset($busyDriverIds[$driverId])) {
+                continue;
+            }
             $taxiLat = (float) $row->lat;
             $taxiLng = (float) $row->lng;
             if (! $this->isValidCoord($taxiLat, $taxiLng)) {
@@ -112,7 +116,7 @@ class NearbyAvailableTaxiFleetService
                 'lng' => $taxiLng,
                 'car_style' => TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type ?? null),
                 'distance_km' => $distanceKm,
-                'busy' => isset($busyDriverIds[$driverId]),
+                'busy' => false,
             ];
         }
 
@@ -148,13 +152,19 @@ class NearbyAvailableTaxiFleetService
         // Alleen recente/actieve ritten — oude vastzittende offered/accepted mogen de
         // live-kaart niet leegtrekken. Openstaande offers tellen niet als "bezet".
         $activeSince = now()->subHours(12);
+        $hasFulfilling = Schema::connection($connection)->hasColumn('ride_requests', 'fulfilling_company_id');
         $ids = RideRequest::on($connection)
-            ->whereIn('company_id', $companyIds)
             ->whereNotNull('driver_id')
             ->whereIn('status', [
                 RideRequest::STATUS_ACCEPTED,
                 RideRequest::STATUS_ASSIGNED,
             ])
+            ->where(function ($query) use ($companyIds, $hasFulfilling) {
+                $query->whereIn('company_id', $companyIds);
+                if ($hasFulfilling) {
+                    $query->orWhereIn('fulfilling_company_id', $companyIds);
+                }
+            })
             ->where(function ($query) use ($activeSince) {
                 $query->where('pickup_at', '>=', $activeSince)
                     ->orWhere(function ($inner) use ($activeSince) {

@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   AppState,
-  Image,
   Linking,
   Pressable,
   RefreshControl,
@@ -38,6 +37,8 @@ import { buildActiveNavigation } from '../api/contractNavigation';
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL, ColorPalette } from '../config';
+import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { APP_PAGE_TOP_INSET, APP_PAGE_HEADER_PAD_H } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { AppScrollView } from '../ui/AppScrollView';
 import { Card, ErrorText, GhostButton } from '../ui/components';
@@ -1765,18 +1766,12 @@ export function ContractHomeScreen() {
     <DriverAccentProvider accent={accent}>
       <View style={[styles.shell, { backgroundColor: colors.bg }]}>
         <View style={styles.topBar}>
-          {logoUri ? (
-            <Image
-              source={{ uri: logoUri }}
-              style={styles.logo}
-              resizeMode="contain"
-              accessibilityLabel={customerName || 'Bedrijfslogo'}
-            />
-          ) : (
-            <Text style={styles.logoFallback} numberOfLines={1}>
-              {customerName || 'Contract'}
-            </Text>
-          )}
+          <AppBrandLogo
+            bare
+            uri={logoUri}
+            fallbackLabel={customerName || 'Contract'}
+            accessibilityLabel={customerName || 'Bedrijfslogo'}
+          />
         </View>
 
         <View style={styles.body}>{body}</View>
@@ -1844,22 +1839,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       minHeight: 0,
     },
     topBar: {
-      paddingHorizontal: 20,
-      paddingTop: 4,
-      paddingBottom: 8,
+      paddingHorizontal: APP_PAGE_HEADER_PAD_H,
+      paddingTop: APP_PAGE_TOP_INSET + 2,
+      paddingBottom: 2,
       alignItems: 'center',
-      minHeight: 62,
-    },
-    logo: {
-      width: 220,
-      height: 60,
-    },
-    logoFallback: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      maxWidth: 240,
-      textAlign: 'center',
+      justifyContent: 'center',
+      minHeight: APP_LOGO_BAR_MIN_HEIGHT,
     },
     body: {
       flex: 1,

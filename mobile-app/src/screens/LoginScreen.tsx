@@ -1,16 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Image,
   ScrollView,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 import { loginWithPassword, requestLoginCode, verifyLoginCode } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ColorPalette } from '../config';
-import { useTheme } from '../theme/ThemeContext';
+import { useThemeColors } from '../theme/ThemeContext';
+import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import {
   ErrorText,
   Field,
@@ -21,14 +19,10 @@ import {
   SuccessText,
 } from '../ui/components';
 
-const logoLight = require('../../assets/nexa-taxi-logo.png');
-const logoDark = require('../../assets/nexa-taxi-logo-dark.png');
-
 export function LoginScreen({ onBack }: { onBack: () => void }) {
   const { setSession } = useAuth();
-  const { colors, colorScheme } = useTheme();
+  const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const logoSource = colorScheme === 'light' ? logoLight : logoDark;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -85,24 +79,15 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <Screen>
+    <Screen style={{ paddingTop: APP_PAGE_TOP_INSET, paddingHorizontal: 0 }}>
+      <AppPageHeader title="Inloggen" />
       <ScrollView
-        style={{ flex: 1 }}
+        style={styles.body}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
       >
-        <View style={styles.logoBar}>
-          <Image
-            source={logoSource}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityLabel="NEXA | taxi"
-          />
-        </View>
-        <Text style={styles.pageTitle}>Inloggen</Text>
-
         <Field
           label="E-mailadres"
           value={email}
@@ -160,23 +145,11 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function makeStyles(colors: ColorPalette) {
+function makeStyles(_colors: ColorPalette) {
   return StyleSheet.create({
-    logoBar: {
-      alignItems: 'center',
-      paddingTop: 4,
-      paddingBottom: 12,
-    },
-    logo: {
-      width: 160,
-      height: 40,
-    },
-    pageTitle: {
-      color: colors.text,
-      fontSize: 22,
-      fontWeight: '700',
-      marginBottom: 8,
-      textAlign: 'center',
+    body: {
+      flex: 1,
+      paddingHorizontal: 20,
     },
   });
 }
