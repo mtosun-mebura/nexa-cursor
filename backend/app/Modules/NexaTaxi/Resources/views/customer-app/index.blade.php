@@ -217,11 +217,10 @@
         }
         .profile-read-row dt {
             margin: 0;
-            font-size: .75rem;
+            font-size: .82rem;
             font-weight: 600;
             color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .04em;
+            letter-spacing: 0;
         }
         .profile-read-row dd {
             margin: 0;
@@ -320,9 +319,55 @@
         .theme-row.is-on .theme-radio { border-color: var(--blue, #2563eb); background: var(--blue, #2563eb); }
         .theme-row strong { display: block; font-size: .9rem; color: var(--text); }
         .theme-row span { display: block; font-size: .75rem; color: var(--muted); margin-top: 2px; }
-        .ride-card__title { margin: 8px 0 0; font-size: 1rem; font-weight: 700; }
-        .ride-card__line { margin: 6px 0 0; font-size: .9rem; color: var(--text); }
-        .ride-card__chevron { color: var(--muted); font-size: 1rem; line-height: 1; }
+        .ride-card__title { margin: 8px 0 0; font-size: 1rem; font-weight: 700; color: var(--text); }
+        .ride-card__title--searching {
+            display: flex; align-items: center; gap: 8px;
+            margin: 10px 0 8px; font-size: .95rem; font-weight: 700; color: #f59e0b;
+            min-height: 1.4em; line-height: 1.35;
+        }
+        html[data-theme="light"] .ride-card__title--searching { color: #b45309; }
+        .searching-title {
+            display: flex; align-items: center; gap: 8px;
+            margin: 10px 0 8px; font-size: .95rem; font-weight: 700; color: #f59e0b;
+            min-height: 1.4em; line-height: 1.35;
+        }
+        html[data-theme="light"] .searching-title { color: #b45309; }
+        .searching-title[hidden] { display: none !important; }
+        .searching-title__dot {
+            width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0;
+            background: currentColor;
+        }
+        .searching-title__text,
+        .js-searching-typed {
+            min-width: 0;
+            display: inline-block;
+            min-height: 1.35em;
+            line-height: 1.35;
+        }
+        .live-meta {
+            margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+            display: grid; gap: 12px;
+        }
+        .live-meta[hidden] { display: none !important; }
+        .live-meta__row {
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+        }
+        .live-meta__row > div { min-width: 0; }
+        .live-meta__row > div:last-child:not(:only-child) { text-align: right; }
+        .live-meta .ride-card__stop-value {
+            font-weight: 700; color: var(--text);
+        }
+        .ride-card__line { margin: 6px 0 0; font-size: .9rem; font-weight: 600; color: var(--text); }
+        .ride-card__chevron {
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--muted); line-height: 1; flex-shrink: 0;
+            width: 28px; height: 28px;
+        }
+        .ride-card__chevron-icon {
+            width: 22px; height: 22px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+        }
         .ride-card__expanded {
             margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
         }
@@ -383,8 +428,8 @@
         .field { margin-bottom: 12px; }
         .field:last-child { margin-bottom: 0; }
         .field label {
-            display: block; font-size: .75rem; font-weight: 600; color: var(--muted);
-            text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px;
+            display: block; font-size: .82rem; font-weight: 600; color: var(--muted);
+            letter-spacing: 0; margin-bottom: 6px;
         }
         .field input, .field textarea, .field select {
             width: 100%; border-radius: 12px; border: 1px solid var(--line);
@@ -489,24 +534,25 @@
             font-weight: 600;
         }
         .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
-        .row2 .field select,
-        .row2 .field .pickup-at-btn {
+        .row2 .field select {
             min-height: 3.5rem;
             height: 3.5rem;
             box-sizing: border-box;
         }
+        /* Zelfde hoogte/padding als .field input (Bestemming) */
         .pickup-at-btn {
-            width: 100%; border-radius: 14px; border: 1px solid var(--line);
-            background: var(--card2); color: var(--text); padding: 0 16px;
+            width: 100%; border-radius: 12px; border: 1px solid var(--line);
+            background: var(--card2); color: var(--text); padding: 12px 14px;
             font: inherit; text-align: left; cursor: pointer;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            overflow: hidden;
+            overflow: hidden; box-sizing: border-box;
+            min-height: calc(1em + 24px + 2px);
         }
         .pickup-at-btn:focus, .pickup-at-btn:active {
             border-color: rgba(37,99,235,.6); outline: none;
         }
         .pickup-at-btn__value {
-            font-weight: 700; font-size: 1.05rem; line-height: 1.25;
+            font-weight: 700; font-size: inherit; line-height: 1.25;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             min-width: 0;
         }
@@ -780,10 +826,30 @@
             display: inline-flex; align-items: center; gap: 8px;
             padding: 8px 12px; border-radius: 999px; font-size: .85rem; font-weight: 600;
             background: rgba(37,99,235,.18); color: #93c5fd;
+            border: 1px solid transparent;
         }
         html[data-theme="light"] .status-pill { color: #1d4ed8; }
         .status-pill.ok { background: rgba(34,197,94,.15); color: #16a34a; }
         .status-pill.warn { background: rgba(234,179,8,.15); color: #ca8a04; }
+        /* Native PhasePill: kleur-overloop, geen pulse-punt */
+        .status-pill.is-searching {
+            gap: 0;
+            background: rgba(37, 99, 235, 0.12);
+            border-color: #2563EB;
+            color: #2563EB;
+            animation: searching-pill-hue 3.6s linear infinite;
+        }
+        html[data-theme="light"] .status-pill.is-searching {
+            background: rgba(37, 99, 235, 0.1);
+        }
+        @keyframes searching-pill-hue {
+            0%, 100% { color: #2563EB; border-color: #2563EB; }
+            16.67% { color: #06B6D4; border-color: #06B6D4; }
+            33.33% { color: #14B8A6; border-color: #14B8A6; }
+            50% { color: #22C55E; border-color: #22C55E; }
+            66.67% { color: #14B8A6; border-color: #14B8A6; }
+            83.33% { color: #06B6D4; border-color: #06B6D4; }
+        }
         .ride-item {
             display: block; width: 100%; text-align: left; background: var(--card);
             border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 10px;
@@ -846,8 +912,8 @@
         .rides-hero.is-accepted .rides-hero__cta { background: #16a34a; }
         .rides-section {
             margin: 4px 0 10px;
-            font-size: .72rem; font-weight: 700; letter-spacing: .06em;
-            text-transform: uppercase; color: var(--muted);
+            font-size: .82rem; font-weight: 700; letter-spacing: 0;
+            color: var(--muted);
         }
         .ride-card {
             display: block; width: 100%; text-align: left;
@@ -857,6 +923,63 @@
             transition: border-color .15s ease, transform .15s ease;
         }
         .ride-card:active { transform: scale(.985); }
+        /* Actuele zoek-/geaccepteerde rit = alleen de live-bannerbox, geen buitenste ritkaart */
+        .ride-card--live-only {
+            position: relative;
+            padding: 0; border: 0; background: transparent; box-shadow: none;
+            cursor: default;
+        }
+        .ride-card--live-only:active { transform: none; }
+        .ride-card--live-only .ride-follow-host { display: block; }
+        .ride-card--live-only .live-banner { margin-bottom: 10px; }
+        .ride-card--live-only .ride-card__collapse {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 3;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .ride-card--live-only .live-banner.is-accepted {
+            padding-right: 44px;
+        }
+        .ride-card.is-accepted .ride-card__title {
+            color: var(--green);
+            font-weight: 700;
+        }
+        .ride-card__foot--meta {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .ride-card__foot--meta > div { min-width: 0; }
+        .ride-card__foot--meta > div:last-child { text-align: right; }
+        .ride-card--searching-full { cursor: default; }
+        .ride-card--searching-full:active { transform: none; }
+        .ride-card--searching-full .live-search-desc {
+            margin: 0 0 0; color: var(--muted); font-size: .9rem; line-height: 1.4;
+        }
+        .ride-card--searching-full .live-meta,
+        .ride-card--searching-full .live-route {
+            margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+        }
+        .ride-card--searching-full .live-meta + .live-route {
+            margin-top: 12px; padding-top: 0; border-top: 0;
+        }
+        .ride-card--searching-full .ride-card__cancel {
+            margin-top: 14px; width: 100%;
+        }
         .ride-card.is-active {
             border-color: rgba(37,99,235,.4);
             box-shadow: 0 8px 24px rgba(37,99,235,.12);
@@ -945,7 +1068,8 @@
             font-size: .82rem; font-weight: 700; color: var(--link); white-space: nowrap;
         }
         .ride-card__amount {
-            font-size: .88rem; font-weight: 800; color: var(--text); white-space: nowrap;
+            font-size: .94rem; font-weight: 700; color: var(--text); white-space: nowrap;
+            line-height: 1.25;
         }
         .ride-card__route {
             display: grid; grid-template-columns: 14px 1fr; gap: 0 10px; align-items: stretch;
@@ -965,14 +1089,14 @@
         .ride-card__dot.is-to { bottom: 4px; background: #22c55e; }
         .ride-card__stops { min-width: 0; display: grid; gap: 10px; }
         .ride-card__stop-label {
-            margin: 0; font-size: .68rem; font-weight: 700; color: var(--muted);
-            text-transform: uppercase; letter-spacing: .04em;
+            margin: 0; font-size: .82rem; font-weight: 600; color: var(--muted);
+            letter-spacing: 0;
         }
         .ride-card.is-accepted .ride-card__stop-label,
         .rides-hero.is-accepted .ride-card__stop-label,
         .live-route .ride-card__stop-label {
-            font-size: .68rem;
-            letter-spacing: .04em;
+            font-size: .82rem;
+            letter-spacing: 0;
         }
         .ride-card__stop-value {
             margin: 2px 0 0;
@@ -996,9 +1120,147 @@
         }
         .ride-card__foot {
             display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+            margin-top: 4px; padding-top: 0; border-top: none;
         }
-        .ride-card__when { font-size: .78rem; color: var(--muted); }
+        .ride-card__when {
+            font-size: 1.12rem; font-weight: 800; color: var(--text); line-height: 1.25;
+            letter-spacing: -0.02em;
+        }
+        .ride-stops {
+            position: relative;
+            display: grid;
+            gap: 16px;
+            margin-top: 14px;
+        }
+        .ride-stops::before {
+            content: '';
+            position: absolute;
+            left: 9px;
+            top: 16px;
+            bottom: 16px;
+            width: 2px;
+            background: var(--line);
+        }
+        .ride-stop__head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .ride-stop__dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+            position: relative;
+            z-index: 1;
+        }
+        .ride-stop__dot.is-pickup { background: #22c55e; }
+        .ride-stop__dot.is-dropoff {
+            background: #2563eb;
+            box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.18);
+        }
+        .ride-stop__label {
+            color: var(--muted);
+            font-size: .82rem;
+            font-weight: 600;
+        }
+        .ride-stop__main {
+            margin: 0 0 0 30px;
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.3;
+        }
+        .ride-stop__sub {
+            margin: 2px 0 0 30px;
+            color: var(--muted);
+            font-size: .82rem;
+            line-height: 1.35;
+        }
+        .ride-stats {
+            margin-top: 14px;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: rgba(148, 163, 184, 0.05);
+            padding: 12px 10px;
+        }
+        .ride-stats__metrics {
+            display: flex;
+            align-items: stretch;
+        }
+        .ride-stats__metric {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            text-align: center;
+        }
+        .ride-stats__metric svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 1.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .ride-stats__metric strong {
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 800;
+        }
+        .ride-stats__metric span {
+            color: var(--muted);
+            font-size: .7rem;
+            font-weight: 500;
+        }
+        .ride-stats__divider {
+            width: 1px;
+            background: var(--line);
+            margin: 4px 0;
+        }
+        .ride-stats__bags.is-spaced {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--line);
+        }
+        .ride-stats__bags-title {
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: .82rem;
+            font-weight: 600;
+            letter-spacing: 0;
+        }
+        .ride-stats__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .ride-stats__chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid var(--line);
+            color: var(--text);
+            font-size: .82rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .ride-stats__chip svg {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
         .ride-card__action {
             font-size: .78rem; font-weight: 700; color: var(--link);
             display: inline-flex; align-items: center; gap: 4px;
@@ -1041,6 +1303,27 @@
         }
         .live-banner h3 { margin: 0 0 6px; font-size: 1.05rem; }
         .live-banner p { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.4; }
+        .live-banner p.ride-card__when,
+        .live-banner p.ride-card__stop-value {
+            color: var(--text);
+            font-weight: 800;
+            font-size: 1.12rem;
+            line-height: 1.25;
+        }
+        .live-banner p.ride-stop__main {
+            margin: 0 0 0 30px;
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.3;
+        }
+        .live-banner p.ride-stop__sub {
+            margin: 2px 0 0 30px;
+            color: var(--muted);
+            font-size: .82rem;
+            font-weight: 400;
+            line-height: 1.35;
+        }
         .live-route {
             margin-top: 14px;
             padding-top: 12px;
@@ -1053,29 +1336,28 @@
             border-top: 1px solid var(--line);
         }
         .live-pickup[hidden] { display: none !important; }
+        .live-meta + .live-route,
         .live-pickup + .live-route {
             margin-top: 12px;
             padding-top: 0;
             border-top: 0;
         }
+        .live-banner .live-meta .ride-card__stop-label,
         .live-banner .live-pickup .ride-card__stop-label {
             margin: 0;
-            font-size: .68rem;
-            font-weight: 700;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-        .live-banner .live-pickup .ride-card__stop-value {
-            margin: 2px 0 0;
-            font-size: .9rem;
+            font-size: .82rem;
             font-weight: 600;
             color: var(--muted);
-            line-height: 1.3;
+            letter-spacing: 0;
         }
-        .live-banner .live-pickup.is-live-active .ride-card__stop-value {
-            font-weight: 700;
+        .live-banner .live-meta .ride-card__when,
+        .live-banner .live-meta .ride-card__stop-value,
+        .live-banner .live-pickup .ride-card__stop-value {
+            margin: 2px 0 0;
+            font-size: 1.12rem;
+            font-weight: 800;
             color: var(--text);
+            line-height: 1.25;
         }
         .live-eta {
             margin-top: 12px;
@@ -1083,11 +1365,10 @@
         .live-eta[hidden] { display: none !important; }
         .live-banner .live-eta .ride-card__stop-label {
             margin: 0;
-            font-size: .68rem;
-            font-weight: 700;
+            font-size: .82rem;
+            font-weight: 600;
             color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .04em;
+            letter-spacing: 0;
         }
         .live-banner .live-eta .ride-card__stop-value {
             margin: 2px 0 0;
@@ -1115,9 +1396,58 @@
             color: var(--muted);
             line-height: 1.4;
         }
-        .kv { display: grid; grid-template-columns: minmax(7rem, max-content) 1fr; gap: 6px 10px; font-size: .9rem; margin-top: 12px; }
-        .kv dt { color: var(--muted); }
-        .kv dd { margin: 0; font-weight: 600; }
+        .live-banner p.live-note.is-refund {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(6, 78, 59, 0.55);
+            border: 1px solid rgba(110, 231, 183, 0.4);
+            color: #A7F3D0;
+            font-size: .9rem;
+            line-height: 1.45;
+        }
+        .live-note__label {
+            display: block;
+            margin-bottom: 4px;
+            color: #6EE7B7;
+            font-size: .82rem;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+        .pickup-confirm {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(30, 58, 138, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.45);
+        }
+        .pickup-confirm__text {
+            margin: 0;
+            color: var(--text);
+            font-size: .95rem;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .pickup-confirm__actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .pickup-confirm__actions .btn { flex: 1; }
+        .kv {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .kv__row { min-width: 0; }
+        .kv__row .ride-card__stop-label { margin: 0; }
+        .kv__row .ride-card__stop-value {
+            margin: 2px 0 0;
+            font-size: .95rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.3;
+        }
         .live-driver-card {
             margin-top: 12px;
             padding: 12px;
@@ -1172,6 +1502,59 @@
         .live-driver-card__sub {
             margin: 2px 0 0;
             font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .live-driver-card__star { color: #F5B301; }
+        .live-banner.is-accepted #live-title {
+            color: var(--green);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .live-banner.is-accepted #live-text {
+            margin: 0;
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+        .live-price-after {
+            margin-top: 12px;
+        }
+        .live-price-after[hidden] { display: none !important; }
+        .live-status-updates {
+            margin-top: 14px;
+        }
+        .live-status-updates[hidden] { display: none !important; }
+        .live-status-updates__list {
+            display: grid;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .live-status-updates__row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .live-status-updates__dot {
+            width: 8px;
+            height: 8px;
+            margin-top: 6px;
+            border-radius: 999px;
+            background: var(--muted);
+            flex-shrink: 0;
+        }
+        .live-status-updates__dot.is-current { background: var(--green); }
+        .live-status-updates__label {
+            margin: 0;
+            font-size: .95rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.3;
+        }
+        .live-status-updates__label.is-current { color: var(--green); }
+        .live-status-updates__at {
+            margin: 2px 0 0;
+            font-size: .8rem;
             color: var(--muted);
         }
         .live-rating {
@@ -1642,35 +2025,39 @@
             <div class="map-wrap"><div id="live-map"></div></div>
             <div id="live-banner-park">
             <div class="live-banner" id="live-banner">
-                <div class="status-pill" id="live-pill"><span class="pulse"></span> Zoeken…</div>
-                <h3 id="live-title" style="margin-top:12px">We zoeken een taxi</h3>
-                <p id="live-text">Je rit staat op de marktplaats. Aangesloten taxibedrijven in de buurt ontvangen je verzoek.</p>
-                <div class="live-pickup" id="live-pickup-wrap" hidden>
-                    <p class="ride-card__stop-label">Ophaaltijd</p>
-                    <p class="ride-card__stop-value" id="live-pickup-at">—</p>
+                <div class="status-pill is-searching" id="live-pill">Zoeken…</div>
+                <div class="searching-title" id="live-searching-title" hidden>
+                    <span class="searching-title__dot" aria-hidden="true"></span>
+                    <span class="searching-title__text js-searching-typed" id="live-searching-typed"></span>
                 </div>
-                <div class="live-route ride-card__route" id="live-route" hidden>
-                    <div class="ride-card__spine" aria-hidden="true">
-                        <span class="ride-card__dot is-from"></span>
-                        <span class="ride-card__dot is-to"></span>
-                    </div>
-                    <div class="ride-card__stops">
-                        <div>
-                            <p class="ride-card__stop-label">Van</p>
-                            <p class="ride-card__stop-value" id="live-route-from">—</p>
+                <h3 id="live-title" style="margin-top:12px">We zoeken een taxi</h3>
+                <p id="live-text">Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.</p>
+                <div id="live-pickup-confirm" hidden></div>
+                <div class="live-meta" id="live-meta-wrap" hidden>
+                    <div class="live-meta__row">
+                        <div id="live-pickup-wrap">
+                            <p class="ride-card__stop-label">Datum</p>
+                            <p class="ride-card__when" id="live-pickup-at">—</p>
                         </div>
-                        <div>
-                            <p class="ride-card__stop-label">Naar</p>
-                            <p class="ride-card__stop-value" id="live-route-to">—</p>
+                        <div id="live-price-wrap" hidden>
+                            <p class="ride-card__stop-label">Prijs</p>
+                            <p class="ride-card__stop-value" id="live-price">—</p>
                         </div>
                     </div>
+                </div>
+                <div id="live-route" hidden></div>
+                <div id="live-stats" hidden></div>
+                <div class="live-price-after" id="live-price-after" hidden>
+                    <p class="ride-card__stop-label">Prijs</p>
+                    <p class="ride-card__stop-value" id="live-price-after-value">—</p>
                 </div>
                 <div class="live-eta" id="live-eta-wrap" hidden>
                     <p class="ride-card__stop-label">Verwachte aankomsttijd</p>
                     <p class="ride-card__stop-value" id="live-eta-value">—</p>
                 </div>
                 <div class="live-driver-card" id="live-driver-card" hidden></div>
-                <dl class="kv" id="live-details" hidden></dl>
+                <div class="kv" id="live-details" hidden></div>
+                <div class="live-status-updates" id="live-status-updates" hidden></div>
                 <p class="live-note" id="live-note" hidden></p>
                 <div class="live-rating" id="live-rating" hidden>
                     <p class="ride-card__stop-label" id="live-rating-label">Beoordeel je rit</p>
@@ -1895,6 +2282,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=45" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=51" defer></script>
 </body>
 </html>

@@ -24,7 +24,7 @@
         "NSPhotoLibraryUsageDescription": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
         "NSPhotoLibraryAddUsageDescription": "Nexa Taxi bewaart gekozen foto’s alleen voor je chauffeurprofiel.",
         "NSCameraUsageDescription": "Nexa Taxi gebruikt de camera optioneel voor profiel-, logo- en autouploads.",
-        "UIBackgroundModes": ["location", "fetch", "processing"],
+        "UIBackgroundModes": ["location", "fetch", "processing", "audio"],
         "ITSAppUsesNonExemptEncryption": false,
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,
@@ -72,7 +72,14 @@
         "expo-notifications",
         {
           "color": "#EF4444",
-          "defaultChannel": "driver-offers"
+          "defaultChannel": "driver-offers",
+          "sounds": [
+            "./assets/sounds/classic.wav",
+            "./assets/sounds/chime.wav",
+            "./assets/sounds/alert.wav",
+            "./assets/sounds/soft.wav",
+            "./assets/sounds/siren.wav"
+          ]
         }
       ],
       [

@@ -65,9 +65,20 @@ export type LiveRide = {
   cancellation_reason?: string | null;
   pickup_address?: string;
   dropoff_address?: string;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
+  pickup_at?: string | null;
   pickup_at_label?: string | null;
   passengers?: number;
+  distance_km?: number | null;
+  duration_seconds?: number | null;
   quoted_price?: number | null;
+  baggage?: {
+    items?: Array<{ key: string; label: string; qty: number }>;
+    summary?: string | null;
+  } | null;
   company?: { id: number; name: string; phone?: string } | null;
   vehicle?: {
     name?: string | null;
@@ -95,8 +106,16 @@ export type LiveRide = {
   eta_label?: string | null;
   vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
   poll_interval_ms?: number;
+  payment_status?: string | null;
+  payment_paid?: boolean;
   refund_business_days?: number | null;
+  refund_message?: string | null;
   can_download_invoice?: boolean;
+  pickup_confirmation?: {
+    status?: 'pending' | 'confirmed' | 'denied' | string | null;
+    prompt?: string | null;
+    can_answer?: boolean;
+  } | null;
 };
 
 export type BookResponse = {
@@ -219,6 +238,13 @@ export function payLive(token: string, returnUrl?: string) {
     method: 'POST',
     body: { token, return_url: returnUrl },
   });
+}
+
+export function confirmPickupLive(token: string, answer: 'yes' | 'no') {
+  return apiRequest<{ success?: boolean; message?: string; ride?: LiveRide }>(
+    '/api/taxi/v1/customer/live/pickup-confirm',
+    { method: 'POST', body: { token, answer } }
+  );
 }
 
 export function rateLive(token: string, stars: number, comment?: string | null) {

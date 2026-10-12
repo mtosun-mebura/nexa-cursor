@@ -14,6 +14,8 @@ class TaxiCustomerRideStatusNotificationService
 {
     public const LOG_CONTEXT_PREFIX = 'customer_status';
 
+    public const INVOICE_SENT_LABEL = 'Het factuur is naar je verstuurd.';
+
     public function __construct(
         protected WhatsAppBookingMessageComposer $composer,
         protected WhatsAppBusinessService $whatsapp,
@@ -228,7 +230,9 @@ class TaxiCustomerRideStatusNotificationService
             if ($event === '') {
                 continue;
             }
-            $label = (string) (data_get($row->meta, 'status_label') ?: ($labels[$event] ?? $event));
+            $label = $event === 'invoice_sent'
+                ? self::INVOICE_SENT_LABEL
+                : (string) (data_get($row->meta, 'status_label') ?: ($labels[$event] ?? $event));
             $out[] = [
                 'event' => $event,
                 'label' => $label,
@@ -243,7 +247,7 @@ class TaxiCustomerRideStatusNotificationService
     /**
      * Schrijf een status in de klant-tijdlijn zonder WhatsApp te versturen.
      */
-    public function recordAppStatus(string $conn, RideRequest $ride, string $event): void
+    public function recordAppStatus(string $conn, RideRequest $ride, string $event, ?string $label = null): void
     {
         $rideId = (int) $ride->id;
         $logDetail = self::LOG_CONTEXT_PREFIX.':'.$event;
@@ -251,7 +255,13 @@ class TaxiCustomerRideStatusNotificationService
             return;
         }
 
-        $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event] ?? $event;
+        $baseEvent = explode(':', $event, 2)[0];
+        $label = trim((string) ($label ?? ''));
+        if ($label === '') {
+            $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event]
+                ?? WhatsAppBookingMessageComposer::statusEventLabels()[$baseEvent]
+                ?? $event;
+        }
         $this->notificationLogs->record(
             $conn,
             $rideId,

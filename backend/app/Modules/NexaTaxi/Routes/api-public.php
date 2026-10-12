@@ -53,6 +53,8 @@ Route::prefix('v1/customer')->group(function () {
         ->middleware('throttle:taxi-customer-action');
     Route::post('live/rate', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'rateByToken'])
         ->middleware('throttle:taxi-customer-action');
+    Route::post('live/pickup-confirm', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'confirmPickupByToken'])
+        ->middleware('throttle:taxi-customer-action');
     Route::get('live/invoice', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'invoiceByToken'])
         ->middleware('throttle:taxi-customer-read');
 });

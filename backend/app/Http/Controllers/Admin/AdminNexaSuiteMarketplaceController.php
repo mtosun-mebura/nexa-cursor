@@ -10,6 +10,8 @@ use App\Services\ModuleDatabaseService;
 use App\Services\NexaSuiteMarketplaceBillingService;
 use App\Services\NexaSuiteMarketplaceDunningService;
 use App\Services\NexaSuiteMarketplaceInvoicePdfService;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
+use App\Modules\NexaTaxi\Services\RideSettlementEligibilityService;
 use App\Services\NexaSuiteMollieService;
 use App\Services\PaymentProviderService;
 use App\Support\Admin\AdminTenantScope;
@@ -165,6 +167,21 @@ class AdminNexaSuiteMarketplaceController extends Controller
         return view('admin.nexa-suite-bookings.show', [
             'invoice' => $invoice,
             'nav' => 'invoices',
+        ]);
+    }
+
+    public function procedure(): View
+    {
+        $this->ensureSuperAdmin();
+
+        return view('admin.nexa-suite-bookings.procedure', [
+            'nav' => 'procedure',
+            'pickupRadiusMeters' => MarketplacePickupConfirmationService::PICKUP_RADIUS_METERS,
+            'dropoffRadiusMeters' => MarketplacePickupConfirmationService::DROPOFF_RADIUS_METERS,
+            'gpsMaxAgeMinutes' => (int) (MarketplacePickupConfirmationService::GPS_MAX_AGE_SECONDS / 60),
+            'holdHours' => (int) config('taxi-dispatch.settlement_hold_hours', RideSettlementEligibilityService::HOLD_HOURS_DEFAULT),
+            'reviewHours' => RideSettlementEligibilityService::HOLD_HOURS_HIGH_RISK,
+            'signalHours' => (int) config('taxi-dispatch.customer_settlement_signal_hours', 48),
         ]);
     }
 

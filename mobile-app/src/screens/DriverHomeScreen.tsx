@@ -69,9 +69,9 @@ import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
   ensureDriverNotificationPermission,
-  notifyNewDriverOffer,
   setupDriverNotificationChannel,
 } from '../notifications/driverOffers';
+import { alertUnseenDriverOffers, rememberRideAlertTone } from '../notifications/offerAlertWatch';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
@@ -326,6 +326,12 @@ export function DriverHomeScreen() {
   const [selectedCancelReason, setSelectedCancelReason] = useState<string | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [proposeRideId, setProposeRideId] = useState<number | null>(null);
+  const [rideNotice, setRideNotice] = useState<{
+    title: string;
+    body: string;
+    primaryLabel: string;
+    rideId?: number;
+  } | null>(null);
   const [proposePickupAt, setProposePickupAt] = useState(() => defaultPickupDate(10));
   const [proposeBusy, setProposeBusy] = useState(false);
   const [settleRideId, setSettleRideId] = useState<number | null>(null);
@@ -338,8 +344,6 @@ export function DriverHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const seenOfferIds = useRef<Set<number>>(new Set());
-  const offersBootstrapped = useRef(false);
   const rideAlertToneRef = useRef<RideAlertTone>('classic');
   /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
   const rideToneDirtyRef = useRef(false);
@@ -409,36 +413,14 @@ export function DriverHomeScreen() {
   const needsVehicle = !vehicleLocked && !selectedVehicleId;
 
   const handleNewOffers = useCallback(async (offerList: DispatchOffer[], isOnlineNow: boolean) => {
-    const ids = offerList.map((o) => Number(o.id)).filter((id) => id > 0);
-    if (!offersBootstrapped.current) {
-      ids.forEach((id) => seenOfferIds.current.add(id));
-      offersBootstrapped.current = true;
-      return;
-    }
-    const fresh = offerList.filter((o) => {
-      const id = Number(o.id);
-      return id > 0 && !seenOfferIds.current.has(id);
-    });
-    if (!fresh.length || !isOnlineNow) return;
-
-    fresh.forEach((o) => seenOfferIds.current.add(Number(o.id)));
-    const priority = fresh[0];
-    const offerId = Number(priority.id);
+    const fresh = await alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
+    if (!fresh.length) return;
+    const offerId = Number(fresh[0].id);
     setShowArchived(false);
     persistDriverArchive(false);
     setTab('requests');
     persistDriverTab('requests');
     if (offerId > 0) setFocusOfferId(offerId);
-    const foreground = AppState.currentState === 'active';
-    if (foreground) {
-      await playRideAlertTone(rideAlertToneRef.current);
-    }
-    await notifyNewDriverOffer({
-      count: fresh.length,
-      pickup: priority.ride?.pickup_address,
-      dropoff: priority.ride?.dropoff_address,
-      playSound: !foreground,
-    });
   }, []);
 
   const refresh = useCallback(async () => {
@@ -468,6 +450,7 @@ export function DriverHomeScreen() {
       } else {
         setRideTone(nextTone);
         rideAlertToneRef.current = nextTone;
+        rememberRideAlertTone(nextTone);
       }
       setCompany(me.user.company_name || '');
       setLogoLight(me.user.company_logo_url || null);
@@ -667,7 +650,8 @@ export function DriverHomeScreen() {
       await refresh();
       goToTab('trips');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Accepteren mislukt.');
+      const msg = e instanceof ApiError ? e.message : 'Accepteren mislukt.';
+      if (!showRideConflictNotice(msg)) setError(msg);
     } finally {
       setBusyId(null);
     }
@@ -703,15 +687,37 @@ export function DriverHomeScreen() {
     );
   }
 
+  function showRideConflictNotice(message: string, blocking?: DriverActiveRide | null): boolean {
+    if (/gepland rond dit tijdstip|overlapping/i.test(message)) {
+      setError(null);
+      setRideNotice({
+        title: 'Rit overlapt',
+        body: message,
+        primaryLabel: 'Naar ritten',
+      });
+      return true;
+    }
+    if (/lopende rit|al een rit actief/i.test(message)) {
+      setError(null);
+      setRideNotice({
+        title: 'Er is al een rit actief',
+        body: message,
+        primaryLabel: blocking ? 'Naar actieve rit' : 'Naar ritten',
+        rideId: blocking?.id,
+      });
+      return true;
+    }
+    return false;
+  }
+
   function warnRideAlreadyActive(current: DriverActiveRide) {
-    Alert.alert(
-      'Er is al een rit actief',
-      'Rond eerst de lopende rit af voordat je een andere start.',
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        { text: 'Naar actieve rit', onPress: () => goToRide(current.id) },
-      ]
-    );
+    setError(null);
+    setRideNotice({
+      title: 'Er is al een rit actief',
+      body: 'Rond eerst de lopende rit af voordat je een andere start.',
+      primaryLabel: 'Naar actieve rit',
+      rideId: current.id,
+    });
   }
 
   async function onStartRide(rideId: number) {
@@ -724,15 +730,25 @@ export function DriverHomeScreen() {
     setBusyRideId(rideId);
     setError(null);
     try {
-      await startRide(driverToken, rideId);
+      const started = await startRide(driverToken, rideId);
       await refresh();
       goToTab('trips');
+      const pickupWarning = String(
+        (started as { pickup_warning?: string | null }).pickup_warning || ''
+      ).trim();
+      if (pickupWarning) {
+        setRideNotice({
+          title: 'Controleer het ophalen',
+          body: pickupWarning,
+          primaryLabel: 'Begrepen',
+        });
+      }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Rit starten mislukt.';
       const blockingNow = blockingAssignedRide(rideId);
       if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
         warnRideAlreadyActive(blockingNow);
-      } else {
+      } else if (!showRideConflictNotice(msg, blockingNow)) {
         setError(msg);
       }
     } finally {
@@ -820,8 +836,18 @@ export function DriverHomeScreen() {
     setBusyRideId(rideId);
     setError(null);
     try {
-      await completeRide(driverToken, rideId);
+      const completed = await completeRide(driverToken, rideId);
       await refresh();
+      const dropoffWarning = String(
+        (completed as { dropoff_warning?: string | null }).dropoff_warning || ''
+      ).trim();
+      if (dropoffWarning) {
+        setRideNotice({
+          title: 'Controleer de bestemming',
+          body: dropoffWarning,
+          primaryLabel: 'Begrepen',
+        });
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Rit afronden mislukt.');
     } finally {
@@ -1245,6 +1271,7 @@ export function DriverHomeScreen() {
   const chooseTone = async (key: RideAlertTone) => {
     setRideTone(key);
     rideAlertToneRef.current = key;
+    rememberRideAlertTone(key);
     rideToneDirtyRef.current = true;
     // Speel af zonder de selectie te blokkeren; save parallel zodat poll-refresh niet terugzet.
     void playRideAlertTone(key);
@@ -2037,6 +2064,35 @@ export function DriverHomeScreen() {
           </Pressable>
         </View>
       </AppModal>
+
+      <AppModal
+        visible={rideNotice != null}
+        onRequestClose={() => setRideNotice(null)}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.pickerTitle}>{rideNotice?.title}</Text>
+        <Text style={styles.noticeBody}>{rideNotice?.body}</Text>
+        <View style={styles.cancelActions}>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+            onPress={() => setRideNotice(null)}
+          >
+            <Text style={styles.cancelActionGhostText}>Sluiten</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+            onPress={() => {
+              const notice = rideNotice;
+              setRideNotice(null);
+              if (!notice) return;
+              if (notice.rideId) goToRide(notice.rideId);
+              else goToTab('trips');
+            }}
+          >
+            <Text style={styles.cancelActionPrimaryText}>{rideNotice?.primaryLabel}</Text>
+          </Pressable>
+        </View>
+      </AppModal>
       {driverToken && settleRide ? (
         <DriverSettleRideModal
           visible
@@ -2297,6 +2353,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 17,
       fontWeight: '700',
       marginBottom: 12,
+    },
+    noticeBody: {
+      color: colors.text,
+      fontSize: 16,
+      lineHeight: 23,
+      marginBottom: 16,
     },
     pickerItem: {
       flexDirection: 'row',

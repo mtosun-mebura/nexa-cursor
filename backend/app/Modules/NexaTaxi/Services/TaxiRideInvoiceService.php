@@ -334,7 +334,7 @@ class TaxiRideInvoiceService
 
         $invoice = $this->ensureInvoiceHasNumber($invoice);
 
-        return DB::transaction(function () use ($conn, $ride, $invoice, $email, $invoiceNumber, $sendableLeg) {
+        $invoice = DB::transaction(function () use ($conn, $ride, $invoice, $email, $invoiceNumber, $sendableLeg) {
             $invoice = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
             if (trim((string) $invoice->invoice_number) === '') {
                 $invoice = $this->ensureInvoiceHasNumber($invoice);
@@ -398,6 +398,15 @@ class TaxiRideInvoiceService
 
             return $invoice;
         });
+
+        app(TaxiCustomerRideStatusNotificationService::class)->recordAppStatus(
+            $conn,
+            $ride->fresh() ?? $ride,
+            'invoice_sent:'.(int) $invoice->id,
+            TaxiCustomerRideStatusNotificationService::INVOICE_SENT_LABEL
+        );
+
+        return $invoice;
     }
 
     protected function createInvoiceFromRide(RideRequest $ride, int $companyId): Invoice

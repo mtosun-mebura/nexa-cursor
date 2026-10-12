@@ -796,6 +796,11 @@ class RideClaimService
                 report($e);
             }
             try {
+                $ride = app(MarketplacePickupConfirmationService::class)->noteDropoff($conn, $ride, $driver);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+            try {
                 $ride = app(RideSettlementEligibilityService::class)->evaluateAfterCompletion($conn, $ride);
             } catch (\Throwable $e) {
                 report($e);

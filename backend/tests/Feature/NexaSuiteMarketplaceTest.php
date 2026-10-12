@@ -587,8 +587,15 @@ class NexaSuiteMarketplaceTest extends TestCase
             ->assertSee('NEXA Suite ritten', false);
 
         $this->actingAs($user)
+            ->get(route('admin.nexa-suite-bookings.procedure'))
+            ->assertOk()
+            ->assertSee('De chauffeur zegt dat je bent opgehaald. Klopt dat?', false)
+            ->assertSee('locatie onbekend', false);
+
+        $this->actingAs($user)
             ->get(route('admin.nexa-suite-bookings.settings'))
             ->assertOk()
+            ->assertSee('Werkwijze marktplaats', false)
             ->assertSee('name="tax_rate_percent"', false)
             ->assertSee('step="1"', false)
             ->assertDontSee('value="21.00"', false);

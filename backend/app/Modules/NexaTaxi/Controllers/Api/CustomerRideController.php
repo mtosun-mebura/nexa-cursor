@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\CustomerMarketplaceBookingService;
 use App\Modules\NexaTaxi\Services\CustomerRideLiveStatusService;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideCancelledMailer;
 use App\Modules\NexaTaxi\Services\TaxiPortalDataService;
 use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
@@ -157,6 +158,44 @@ class CustomerRideController extends Controller
 
         return response()->json([
             'success' => true,
+            'ride' => $live->livePayload($ride),
+        ]);
+    }
+
+    public function confirmPickupByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        MarketplacePickupConfirmationService $pickup,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'answer' => 'required|string|in:yes,no',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        try {
+            $ride = $pickup->answer(
+                $moduleDb->getModuleConnectionName('taxi'),
+                $ride,
+                $data['answer']
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Bevestigen mislukt.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $data['answer'] === 'yes'
+                ? 'Bedankt. We hebben genoteerd dat je bent opgehaald.'
+                : 'Bedankt. We controleren deze rit voordat de chauffeur wordt uitbetaald.',
             'ride' => $live->livePayload($ride),
         ]);
     }

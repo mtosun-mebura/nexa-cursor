@@ -44,6 +44,10 @@
                     met betaaltermijn en aanmaningen.
                 </p>
             @endif
+            <p class="mb-0">
+                Ophalen, de vraag aan de klant en wanneer de chauffeur wordt uitbetaald:
+                <a href="{{ route('admin.nexa-suite-bookings.procedure') }}" class="text-primary underline">Werkwijze marktplaats</a>.
+            </p>
             <ol class="list-decimal ps-5 mb-0 space-y-1">
                 <li><strong class="text-foreground">Mollie</strong> — platform-sleutel voor betalingen in de klant-app (<code>test_</code> / <code>live_</code>). Via Configuraties → Nexa Suite.</li>
                 <li><strong class="text-foreground">Fee %</strong> — bron voor zowel rit-inhouding (platform collect) als de bedragen op de maand-PDF.</li>

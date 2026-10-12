@@ -67,7 +67,7 @@ function eventKey(update: RideStatusUpdate): string {
 
 /** Minimaal altijd: accepted + en_route + started; verder alleen als aangevinkt. */
 function shouldNotify(event: string, enabled: string[] | undefined): boolean {
-  if (event === 'accepted' || event === 'en_route' || event === 'started') return true;
+  if (event === 'accepted' || event === 'en_route' || event === 'started' || event === 'invoice_sent') return true;
   if (!enabled || enabled.length === 0) return false;
   return enabled.includes(event);
 }
