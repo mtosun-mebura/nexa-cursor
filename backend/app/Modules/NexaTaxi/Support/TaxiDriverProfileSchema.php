@@ -12,11 +12,18 @@ final class TaxiDriverProfileSchema
     public static function ensure(string $connection): void
     {
         $key = $connection.':driver_profiles';
-        if (! empty(self::$ready[$key])) {
+        $schema = Schema::connection($connection);
+
+        // :memory: / RefreshDatabase wist tabellen tussen tests; cache alleen
+        // hergebruiken als de tabellen er écht nog zijn.
+        if (
+            ! empty(self::$ready[$key])
+            && $schema->hasTable('taxi_driver_profiles')
+            && $schema->hasTable('taxi_ride_ratings')
+        ) {
             return;
         }
 
-        $schema = Schema::connection($connection);
         if (! $schema->hasTable('taxi_driver_profiles')) {
             $schema->create('taxi_driver_profiles', function ($table) {
                 $table->unsignedBigInteger('driver_id')->primary();
@@ -41,5 +48,11 @@ final class TaxiDriverProfileSchema
         }
 
         self::$ready[$key] = true;
+    }
+
+    /** @internal tests */
+    public static function resetReadyCache(): void
+    {
+        self::$ready = [];
     }
 }
