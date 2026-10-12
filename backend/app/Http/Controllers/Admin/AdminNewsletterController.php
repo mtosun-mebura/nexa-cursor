@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\NewsletterCampaign;
 use App\Models\NewsletterProspect;
+use App\Models\TaxiProspect;
 use App\Services\NewsletterAiWriter;
 use App\Services\NewsletterHtmlCompiler;
 use App\Services\NewsletterLeadDiscoveryService;
 use App\Services\NewsletterSendService;
+use App\Services\TaxiPartnerFinder\KnvTaxiSourceAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -127,7 +129,7 @@ class AdminNewsletterController extends Controller
         ]);
     }
 
-    public function prospects(): View
+    public function prospects(KnvTaxiSourceAdapter $knv): View
     {
         $this->ensureSuperAdmin();
 
@@ -135,6 +137,12 @@ class AdminNewsletterController extends Controller
             'prospects' => NewsletterProspect::query()->orderByDesc('id')->get(),
             'provinces' => config('newsletter.provinces'),
             'subscribedCount' => NewsletterProspect::query()->subscribed()->count(),
+            'knvEnabled' => $knv->isEnabled(),
+            'taxiFinderStats' => [
+                'total' => TaxiProspect::query()->count(),
+                'knv_members' => TaxiProspect::query()->where('knv_member_status', TaxiProspect::KNV_MEMBER)->count(),
+                'with_email' => TaxiProspect::query()->withEmail()->count(),
+            ],
         ]);
     }
 

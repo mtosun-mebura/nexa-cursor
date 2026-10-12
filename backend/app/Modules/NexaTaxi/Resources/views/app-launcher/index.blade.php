@@ -10,6 +10,7 @@
     <title>Nexa Taxi</title>
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
+    @include('taxi::partials.pwa-brand-metrics')
     <style>
         :root {
             --blue: #2563eb;
@@ -64,10 +65,11 @@
         .app-logo-bar {
             display: flex;
             justify-content: center;
-            align-items: flex-end;
+            align-items: center;
+            min-height: var(--nexa-brand-logo-bar-min);
             padding-left: 1rem;
             padding-right: 1rem;
-            padding-bottom: 0.3rem;
+            padding-bottom: 0.2rem;
             padding-top: calc(var(--safe-top) + 0.35rem);
         }
         @media (max-width: 48rem) {
@@ -75,25 +77,15 @@
                 padding-top: max(calc(var(--safe-top) + 0.35rem), 3.75rem);
             }
         }
-        .app-logo-bar img {
-            display: block;
-            width: auto;
-            height: auto;
-            max-width: 11rem;
-            max-height: 2.75rem;
-            object-fit: contain;
-            object-position: center bottom;
-            margin: 0 auto;
-        }
         html[data-theme="dark"] .app-logo-light { display: none !important; }
         html[data-theme="light"] .app-logo-dark { display: none !important; }
         .app-nav-row {
             display: grid;
-            grid-template-columns: 2.75rem 1fr 2.75rem;
+            grid-template-columns: var(--nexa-page-side-slot) 1fr var(--nexa-page-side-slot);
             align-items: center;
             gap: 0.35rem;
-            min-height: 2.75rem;
-            padding: 0.15rem 0.75rem 0.55rem;
+            min-height: var(--nexa-brand-logo-bar-min);
+            padding: 0.25rem 0.75rem 0.4rem;
             max-width: 480px;
             margin: 0 auto;
             width: 100%;
@@ -102,18 +94,10 @@
         .app-nav-end {
             display: flex;
             align-items: center;
-            height: 2.25rem;
+            height: var(--nexa-page-side-slot);
         }
         .app-nav-start { justify-content: flex-start; }
         .app-nav-end { justify-content: flex-end; }
-        .app-nav-title {
-            margin: 0;
-            text-align: center;
-            font-size: 1.05rem;
-            font-weight: 700;
-            line-height: 1.2;
-            color: var(--text);
-        }
         .app-nav-end > .nexa-pwa-chrome-actions {
             position: static !important;
             top: auto !important;
@@ -217,13 +201,13 @@
     </div>
     <div class="app-nav-row">
         <div class="app-nav-start" aria-hidden="true"></div>
-        <h1 class="app-nav-title" id="app-nav-title">Nexa Taxi</h1>
+        <h1 class="app-nav-title" id="app-nav-title">Maak je keuze</h1>
         <div class="app-nav-end" id="launcher-theme-slot"></div>
     </div>
 </header>
 
 <div class="wrap">
-    <p class="sub" id="app-sub">Eén app: boeken, chauffeur, marketplace, network én contract.</p>
+    <p class="sub" id="app-sub" hidden></p>
 
     <div id="role-remembered" class="hidden">
         <p class="sub" id="remembered-label" style="margin:0">Je was eerder ingelogd.</p>
@@ -235,24 +219,19 @@
 
     <div id="home-picker" class="stack hidden">
         <a class="card primary" href="{{ $customerUrl }}?guest=1" data-role="customer-guest">
-            <span class="badge">Zonder account</span>
-            <h2>Ik wil een taxi boeken</h2>
-            <p>Direct boeken als gast. Locatie wordt automatisch bepaald.</p>
-        </a>
-        <a class="card" href="{{ $customerUrl }}?login=1" data-role="customer">
             <span class="badge">Klant</span>
-            <h2>Inloggen als klant</h2>
-            <p>Profiel, boekingen en live ritstatus met account.</p>
+            <h2>Taxi boeken</h2>
+            <p>Adres, prijs, boeken en live volgen.</p>
         </a>
         <button type="button" class="card" id="btn-staff-login" style="text-align:left;cursor:pointer;width:100%;font:inherit;">
-            <span class="badge">Chauffeur / contract / marketplace</span>
-            <h2>Inloggen met e-mail</h2>
-            <p>We bepalen automatisch of je chauffeur, contract, marketplace en/of network bent.</p>
+            <span class="badge">Chauffeur · NEXA-marktplaats · Netwerk · Contract</span>
+            <h2>Inloggen</h2>
+            <p>We bepalen automatisch welke schermen bij jouw rollen horen.</p>
         </button>
-        <a class="card" href="{{ url('/admin/login?marketplace=1') }}" data-role="company">
+        <a class="card" href="{{ route('taxi.app.marketplace') }}" data-role="company">
             <span class="badge">Taxibedrijf</span>
-            <h2>Aanmelden als taxibedrijf</h2>
-            <p>Marketplace zonder abonnement — alleen fee over Nexa Suite-ritten.</p>
+            <h2>Aanmelden op NEXA Taxi marktplaats</h2>
+            <p>Registreer je taxibedrijf op de NEXA Taxi marktplaats en ontvang ritten uit het NEXA-netwerk. Dit is geen aanmelding bij marktplaats.nl.</p>
         </a>
     </div>
 
@@ -358,16 +337,27 @@
         staffLogin.classList.add('hidden');
         roleScreens.classList.add('hidden');
     }
+    function setSub(text) {
+        if (!subEl) return;
+        var t = String(text || '').trim();
+        if (!t) {
+            subEl.textContent = '';
+            subEl.hidden = true;
+            return;
+        }
+        subEl.textContent = t;
+        subEl.hidden = false;
+    }
     function showHome() {
         hideAll();
-        titleEl.textContent = 'Nexa Taxi';
-        subEl.textContent = 'Eén app: boeken, chauffeur, marketplace, network én contract.';
+        titleEl.textContent = 'Maak je keuze';
+        setSub('');
         homePicker.classList.remove('hidden');
     }
     function showLogin() {
         hideAll();
         titleEl.textContent = 'Inloggen';
-        subEl.textContent = 'Na inloggen tonen we alleen de schermen die bij jouw rollen horen.';
+        setSub('We bepalen automatisch welke schermen bij jouw rollen horen.');
         staffLogin.classList.remove('hidden');
         loginError.textContent = '';
     }
@@ -394,13 +384,13 @@
         titleEl.textContent = 'Kies je scherm';
         var modes = (capabilities && capabilities.modes) || {};
         var bits = [];
-        if (modes.marketplace) bits.push('marketplace');
+        if (modes.marketplace) bits.push('NEXA Taxi marktplaats');
         if (modes.network) bits.push('network');
         if (modes.chauffeur && !modes.marketplace) bits.push('chauffeur');
         if (modes.contract) bits.push('contract');
-        subEl.textContent = bits.length
+        setSub(bits.length
             ? ('Account herkend: ' + bits.join(' + ') + '. Kies hoe je verder wilt.')
-            : 'Kies hoe je verder wilt.';
+            : 'Kies hoe je verder wilt.');
 
         if (screens.length === 1) {
             goScreen(screens[0]);

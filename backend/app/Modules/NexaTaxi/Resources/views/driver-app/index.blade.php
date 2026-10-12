@@ -2245,6 +2245,82 @@
         .profile-panel .profile-session-note {
             margin: 0 0 0.25rem;
         }
+        .profile-media {
+            margin: 0.85rem 0 0.35rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid var(--line, rgba(255,255,255,0.08));
+        }
+        .profile-media__title {
+            margin: 0 0 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .profile-media__hint {
+            margin: 0 0 0.65rem;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .profile-media__row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+        .profile-media__card {
+            appearance: none;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.35rem;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .profile-media__card:disabled {
+            opacity: 0.55;
+            cursor: wait;
+        }
+        .profile-media__preview {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 1px solid var(--line, rgba(255,255,255,0.12));
+            background: var(--card-elevated, var(--card));
+            object-fit: cover;
+            display: block;
+        }
+        .profile-media__preview.is-logo {
+            object-fit: contain;
+            background: transparent;
+        }
+        .profile-media__preview.is-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 1.5rem;
+            background: var(--card-elevated, var(--card));
+        }
+        .profile-media__label {
+            margin: 0;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            line-height: 1.25;
+            color: var(--text);
+        }
+        .profile-media__error {
+            margin: 0.5rem 0 0;
+            font-size: 0.8125rem;
+            color: #f87171;
+        }
         .profile-panel .btn,
         .earnings-panel .btn {
             margin-top: 0.75rem;
@@ -3504,7 +3580,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 0.75rem;
-            margin: 0.85rem 0 0.35rem;
+            margin: 1.25rem 0 0.35rem;
             padding: 0.85rem 1rem;
             border-radius: 0.75rem;
             border: 1px solid rgba(var(--accent-rgb), 0.45);
@@ -4332,11 +4408,37 @@
                             <dt class="profile-info__label">Accountstatus</dt>
                             <dd class="profile-info__value" id="profile-account-status">—</dd>
                         </div>
+                        <div class="profile-info__row" id="profile-rating-row" hidden>
+                            <dt class="profile-info__label">Beoordeling</dt>
+                            <dd class="profile-info__value" id="profile-rating">—</dd>
+                        </div>
                     </dl>
+                </div>
+                <div class="profile-media" id="profile-media">
+                    <p class="profile-media__title">Foto’s voor de klant</p>
+                    <p class="profile-media__hint">
+                        Profielfoto is verplicht voordat je een rit kunt accepteren. Logo en auto-foto zijn optioneel.
+                        PNG met transparante achtergrond blijft zichtbaar zonder vlak erachter.
+                    </p>
+                    <div class="profile-media__row">
+                        <button type="button" class="profile-media__card" data-media-kind="profile" id="profile-media-profile">
+                            <span class="profile-media__preview is-empty" id="profile-media-profile-preview" aria-hidden="true">👤</span>
+                            <p class="profile-media__label" id="profile-media-profile-label">Profielfoto (verplicht)</p>
+                        </button>
+                        <button type="button" class="profile-media__card" data-media-kind="logo" id="profile-media-logo">
+                            <span class="profile-media__preview is-empty is-logo" id="profile-media-logo-preview" aria-hidden="true">🏢</span>
+                            <p class="profile-media__label">Bedrijfslogo</p>
+                        </button>
+                        <button type="button" class="profile-media__card" data-media-kind="vehicle" id="profile-media-vehicle">
+                            <span class="profile-media__preview is-empty" id="profile-media-vehicle-preview" aria-hidden="true">🚗</span>
+                            <p class="profile-media__label">Auto</p>
+                        </button>
+                    </div>
+                    <input type="file" id="profile-media-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                    <p class="profile-media__error" id="profile-media-error" hidden></p>
                 </div>
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                 @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
-                <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
                 <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">
                     <strong>Handleiding</strong>
                     <span>Openen →</span>

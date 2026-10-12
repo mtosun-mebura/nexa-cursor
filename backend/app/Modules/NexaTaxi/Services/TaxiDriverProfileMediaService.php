@@ -149,8 +149,15 @@ class TaxiDriverProfileMediaService
     protected function storeFile(int $driverId, string $kind, UploadedFile $file): string
     {
         $this->validateImage($file);
-        $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+        $mime = strtolower((string) ($file->getMimeType() ?: ''));
+        // Extensie bij voorkeur uit MIME zodat PNG-transparantie niet als .jpg belandt.
+        $ext = match (true) {
+            str_contains($mime, 'png') => 'png',
+            str_contains($mime, 'webp') => 'webp',
+            str_contains($mime, 'gif') => 'gif',
+            default => strtolower($file->getClientOriginalExtension() ?: 'jpg'),
+        };
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
             $ext = 'jpg';
         }
         $dir = 'taxi-driver-media/'.$driverId;

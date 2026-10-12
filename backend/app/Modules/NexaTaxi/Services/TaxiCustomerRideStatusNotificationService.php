@@ -42,6 +42,11 @@ class TaxiCustomerRideStatusNotificationService
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
 
         if (! $this->dispatchSettings->customerWhatsappStatusEventEnabled($event, $settingsCompanyId)) {
+            // Rit afgerond hoort altijd in de app-tijdlijn, ook als het WhatsApp-bericht uit staat.
+            if ($event === WhatsAppBookingMessageComposer::EVENT_COMPLETED) {
+                $this->recordAppStatus($conn, $ride, $event);
+            }
+
             return false;
         }
         $rideId = (int) $ride->id;
@@ -233,6 +238,35 @@ class TaxiCustomerRideStatusNotificationService
         }
 
         return $out;
+    }
+
+    /**
+     * Schrijf een status in de klant-tijdlijn zonder WhatsApp te versturen.
+     */
+    public function recordAppStatus(string $conn, RideRequest $ride, string $event): void
+    {
+        $rideId = (int) $ride->id;
+        $logDetail = self::LOG_CONTEXT_PREFIX.':'.$event;
+        if ($this->alreadySent($conn, $rideId, $logDetail)) {
+            return;
+        }
+
+        $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event] ?? $event;
+        $this->notificationLogs->record(
+            $conn,
+            $rideId,
+            RideRequestNotificationLog::CHANNEL_APP,
+            RideRequestNotificationLog::STATUS_SENT,
+            trim((string) ($ride->customer_name ?: 'Klant')),
+            null,
+            null,
+            $logDetail,
+            [
+                'event' => $event,
+                'mode' => 'app',
+                'status_label' => $label,
+            ]
+        );
     }
 
     protected function rideUsesAppTracking(string $conn, RideRequest $ride): bool

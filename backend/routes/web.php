@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\AdminLegacyVacancyRedirectController;
 use App\Http\Controllers\Admin\AdminJobConfigurationTypeController;
 use App\Http\Controllers\Admin\AdminModuleController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
+use App\Http\Controllers\Admin\AdminTaxiPartnerFinderController;
 use App\Http\Controllers\Admin\AdminNexaPricingController;
 use App\Http\Controllers\Admin\AdminNexaSuiteMarketplaceController;
 use App\Http\Controllers\Admin\AdminNotificationController;
@@ -824,6 +825,19 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::post('versturen', [AdminNewsletterController::class, 'send'])->name('send.store');
         Route::get('{campaign}/edit', [AdminNewsletterController::class, 'edit'])->name('edit');
         Route::put('{campaign}', [AdminNewsletterController::class, 'update'])->name('update');
+    });
+
+    // Landelijke Taxi Partner Finder (onafhankelijk van boeking; voedt nieuwsbrieflijst)
+    Route::middleware('role:super-admin')->prefix('taxi-partner-finder')->name('taxi-partner-finder.')->group(function () {
+        Route::get('/', [AdminTaxiPartnerFinderController::class, 'index'])->name('index');
+        Route::get('export', [AdminTaxiPartnerFinderController::class, 'exportCsv'])->name('export');
+        Route::post('sync-knv', [AdminTaxiPartnerFinderController::class, 'syncKnv'])->name('sync-knv');
+        Route::post('import-csv', [AdminTaxiPartnerFinderController::class, 'importCsv'])->name('import-csv');
+        Route::post('prepare-invitations', [AdminTaxiPartnerFinderController::class, 'prepareInvitations'])->name('prepare-invitations');
+        Route::get('{prospect}', [AdminTaxiPartnerFinderController::class, 'show'])->name('show');
+        Route::put('{prospect}', [AdminTaxiPartnerFinderController::class, 'update'])->name('update');
+        Route::post('{prospect}/push-newsletter', [AdminTaxiPartnerFinderController::class, 'pushNewsletter'])->name('push-newsletter');
+        Route::post('{prospect}/opt-out', [AdminTaxiPartnerFinderController::class, 'optOut'])->name('opt-out');
     });
 
     // Candidates (Super Admin only)

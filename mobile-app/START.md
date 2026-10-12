@@ -27,10 +27,20 @@ Daarna mag Metro uit; de app praat alleen met de HTTPS-API (bijv. `nexasuite.onl
 ## Debug (hot reload, alleen tijdens ontwikkelen)
 
 ```bash
-npx expo start --lan   # fysieke iPhone + Mac op zelfde Wi‑Fi
+npm run start:ios          # simulator (zet DEVELOPER_DIR naar Xcode)
 # of
-npx expo start --localhost   # alleen simulator
+npm run start -- --lan     # fysieke iPhone + Mac op zelfde Wi‑Fi
+npm run ios                # native rebuild + simulator
 ```
+
+Als je `unable to find utility "simctl"` ziet: Xcode Command Line Tools wijzen naar alleen CLT.
+Eenmalig (wachtwoord nodig):
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+`npm run ios` / `npm run start:ios` zetten `DEVELOPER_DIR` al automatisch goed.
 
 Debug is **niet** wat eindgebruikers krijgen.
 

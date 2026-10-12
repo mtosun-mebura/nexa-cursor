@@ -7,7 +7,7 @@
 @if(in_array($section, ['styles', 'all'], true))
 <style>
     .ride-tone-picker {
-        margin: 0.35rem 0 1rem;
+        margin: 0.35rem 0 1.25rem;
         padding-top: 0.85rem;
         border-top: 1px solid var(--line, rgba(255,255,255,0.08));
     }

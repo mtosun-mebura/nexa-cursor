@@ -402,15 +402,33 @@
                                 <tr>
                                     <td class="min-w-56 text-secondary-foreground font-normal align-top">Statusberichten versturen bij</td>
                                     <td class="min-w-0 w-full align-top">
+                                        <p class="text-xs text-muted-foreground mb-2 max-w-2xl">
+                                            Eerste bevestiging gaat via WhatsApp (<code>nieuwe_boeking</code>). Statusupdates voor ritten met app-tracking verschijnen in de Nexa Taxi-app (melding + ritgeschiedenis). Zonder app-tracking blijft WhatsApp actief voor aangevinkte events.
+                                            <strong>Chauffeur toegewezen</strong> en <strong>Rit gestart</strong> zijn verplicht.
+                                        </p>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl">
+                                            @php
+                                                $requiredStatusEvents = \App\Services\WhatsAppBookingMessageComposer::requiredStatusEvents();
+                                            @endphp
                                             @foreach($statusEventOptions as $eventKey => $eventLabel)
-                                                <label class="inline-flex items-start gap-2 text-sm text-foreground cursor-pointer">
+                                                @php $isRequired = in_array($eventKey, $requiredStatusEvents, true); @endphp
+                                                <label class="inline-flex items-start gap-2 text-sm text-foreground {{ $isRequired ? '' : 'cursor-pointer' }}">
+                                                    @if($isRequired)
+                                                        <input type="hidden" name="WHATSAPP_RIDE_STATUS_EVENTS[]" value="{{ $eventKey }}">
+                                                    @endif
                                                     <input type="checkbox"
                                                            class="kt-checkbox mt-0.5"
-                                                           name="WHATSAPP_RIDE_STATUS_EVENTS[]"
+                                                           @if(! $isRequired) name="WHATSAPP_RIDE_STATUS_EVENTS[]" @endif
                                                            value="{{ $eventKey }}"
-                                                           @checked(in_array($eventKey, $selectedStatusEvents, true))>
-                                                    <span>{{ $eventLabel }} <span class="text-muted-foreground">({{ $eventKey }})</span></span>
+                                                           @checked($isRequired || in_array($eventKey, $selectedStatusEvents, true))
+                                                           @if($isRequired) disabled aria-disabled="true" @endif>
+                                                    <span>
+                                                        {{ $eventLabel }}
+                                                        <span class="text-muted-foreground">({{ $eventKey }})</span>
+                                                        @if($isRequired)
+                                                            <span class="text-muted-foreground"> — verplicht</span>
+                                                        @endif
+                                                    </span>
                                                 </label>
                                             @endforeach
                                         </div>

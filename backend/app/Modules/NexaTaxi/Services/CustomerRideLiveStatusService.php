@@ -234,6 +234,7 @@ class CustomerRideLiveStatusService
             ];
         $statusUpdates = app(TaxiCustomerRideStatusNotificationService::class)
             ->statusTimeline($conn, (int) $ride->id);
+        $statusUpdates = $this->ensureCompletedStatusUpdate($ride, $statusUpdates);
         // Voorkeur: opgeslagen customer_status op de rit, anders nieuwste timeline-entry.
         $payloadStatus = data_get($ride->booking_payload, 'customer_status');
         $payloadLabel = trim((string) (data_get($payloadStatus, 'label') ?? ''));
@@ -384,5 +385,36 @@ class CustomerRideLiveStatusService
             'label' => $label,
             'distance_km' => round($km, 2),
         ];
+    }
+
+    /**
+     * Afronden schrijft de status in de app-tijdlijn. Ontbreekt die (oudere rit of log uit),
+     * dan tonen we alsnog "Rit afgerond" als laatste statusupdate.
+     *
+     * @param  list<array{event: string, label: string, at: string|null, channel: string}>  $statusUpdates
+     * @return list<array{event: string, label: string, at: string|null, channel: string}>
+     */
+    protected function ensureCompletedStatusUpdate(RideRequest $ride, array $statusUpdates): array
+    {
+        if ((string) $ride->status !== RideRequest::STATUS_COMPLETED) {
+            return $statusUpdates;
+        }
+
+        foreach ($statusUpdates as $update) {
+            if (($update['event'] ?? '') === WhatsAppBookingMessageComposer::EVENT_COMPLETED) {
+                return $statusUpdates;
+            }
+        }
+
+        $label = WhatsAppBookingMessageComposer::statusEventLabels()[WhatsAppBookingMessageComposer::EVENT_COMPLETED]
+            ?? 'Rit afgerond';
+        $statusUpdates[] = [
+            'event' => WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+            'label' => $label,
+            'at' => $ride->updated_at?->toIso8601String(),
+            'channel' => 'app',
+        ];
+
+        return $statusUpdates;
     }
 }

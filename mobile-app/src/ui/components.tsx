@@ -175,10 +175,12 @@ export function Field({
             ]}
           />
           {confirmed && !showError ? (
-            <Text style={[styles.checkMark, { pointerEvents: 'none' }]}>✓</Text>
+            <Text style={styles.checkMark} pointerEvents="none">
+              ✓
+            </Text>
           ) : null}
           {accessory ? (
-            <View style={[styles.accessory, { pointerEvents: 'box-none' }]}>
+            <View style={styles.accessory} pointerEvents="box-none">
               {accessory}
             </View>
           ) : null}

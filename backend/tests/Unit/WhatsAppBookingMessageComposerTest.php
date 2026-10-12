@@ -49,18 +49,21 @@ class WhatsAppBookingMessageComposerTest extends TestCase
 
         $this->assertSame('Sara Jansen', $composed['template_params'][0]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][1]);
-        $this->assertSame('rit #99', $composed['template_params'][2]);
+        $this->assertSame('#99', $composed['template_params'][2]);
         $this->assertSame('+31612345678', $composed['template_params'][3]);
         $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][4]);
         $this->assertSame('CS Utrecht', $composed['template_params'][5]);
         $this->assertSame('2', $composed['template_params'][7]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][10]);
-        $this->assertCount(13, $composed['template_params']);
+        $this->assertCount(11, $composed['template_params']);
         $this->assertStringContainsString('Beste Sara Jansen', $composed['preview']);
         $this->assertStringContainsString('Jouw taxiverzoek', $composed['preview']);
         $this->assertStringContainsString('De gegevens zijn als volgt:', $composed['preview']);
-        $this->assertStringContainsString('Aanbieding/voertuig:', $composed['preview']);
-        $this->assertStringContainsString('App Store:', $composed['preview']);
+        $this->assertStringContainsString('Datum en tijd:', $composed['preview']);
+        $this->assertStringContainsString('Voertuig:', $composed['preview']);
+        $this->assertStringContainsString('Prijs:', $composed['preview']);
+        $this->assertStringContainsString('Wij houden u graag op de hoogte via WhatsApp.', $composed['preview']);
+        $this->assertStringNotContainsString('App Store:', $composed['preview']);
         $this->assertStringNotContainsString(' · ', $composed['preview']);
     }
 
@@ -97,7 +100,7 @@ class WhatsAppBookingMessageComposerTest extends TestCase
 
         $this->assertSame('Sara Jansen', $composed['template_params'][0]);
         $this->assertSame('Taxi Royaal', $composed['template_params'][1]);
-        $this->assertSame('Rit gestart — chauffeur onderweg', $composed['template_params'][2]);
+        $this->assertSame('De rit is gestart.', $composed['template_params'][2]);
         $this->assertSame('—', $composed['template_params'][3]);
         $this->assertSame('Piet', $composed['template_params'][4]);
         $this->assertSame('Dam 1, Amsterdam', $composed['template_params'][6]);
@@ -105,7 +108,7 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $this->assertCount(8, $composed['template_params']);
         $this->assertStringContainsString('Hierbij een statusupdate op jouw taxiverzoek:', $composed['preview']);
         $this->assertStringContainsString('Bedrijf: Taxi Royaal.', $composed['preview']);
-        $this->assertStringContainsString('Status: Rit gestart — chauffeur onderweg.', $composed['preview']);
+        $this->assertStringContainsString('Status: De rit is gestart.', $composed['preview']);
         $this->assertStringContainsString('Chauffeur: Piet', $composed['preview']);
         $this->assertStringContainsString('Kenteken: AB-123-C', $composed['preview']);
         $this->assertStringContainsString('Ophaaladres: Dam 1, Amsterdam', $composed['preview']);
@@ -142,9 +145,11 @@ class WhatsAppBookingMessageComposerTest extends TestCase
         $sample = $composer->sampleCustomerPreview();
 
         $this->assertCount(11, $sample['params']);
-        $this->assertStringContainsString('Aanbieding/voertuig:', $sample['details']);
-        $this->assertStringContainsString('Prijsindicatie:', $sample['details']);
-        $this->assertStringContainsString("Referentie: rit #1042\nTelefoon:", $sample['details']);
+        $this->assertStringContainsString('Voertuig:', $sample['details']);
+        $this->assertStringContainsString('Prijs:', $sample['details']);
+        $this->assertStringContainsString("Referentie: #2\nTelefoon:", $sample['details']);
+        $this->assertStringContainsString('Datum en tijd:', $sample['preview']);
+        $this->assertStringNotContainsString('App Store:', $sample['preview']);
         $this->assertStringNotContainsString(' · ', $sample['preview']);
     }
 

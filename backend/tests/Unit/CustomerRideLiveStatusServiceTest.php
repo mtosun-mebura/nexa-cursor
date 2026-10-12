@@ -142,5 +142,10 @@ class CustomerRideLiveStatusServiceTest extends TestCase
         $this->assertSame('completed', $payload['phase']);
         $this->assertTrue($payload['can_download_invoice']);
         $this->assertFalse($payload['can_cancel']);
+        $updates = $payload['status_updates'];
+        $this->assertNotEmpty($updates);
+        $latest = $updates[array_key_last($updates)];
+        $this->assertSame('completed', $latest['event']);
+        $this->assertSame('Rit afgerond', $latest['label']);
     }
 }

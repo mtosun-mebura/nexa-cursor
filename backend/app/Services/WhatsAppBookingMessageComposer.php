@@ -19,19 +19,15 @@ Referentie: {{3}}
 Telefoon: {{4}}
 Ophalen: {{5}}
 Afzetten: {{6}}
-Datum/tijd: {{7}}
+Datum en tijd: {{7}}
 Passagiers: {{8}}
-Aanbieding/voertuig: {{9}}
-Prijsindicatie: {{10}}
-
-Download de Nexa Taxi-app voor live statusupdates:
-App Store: {{12}}
-Google Play: {{13}}
+Voertuig: {{9}}
+Prijs: {{10}}
 
 Met vriendelijke groet,
 {{11}}
 
-Wij houden je graag op de hoogte via WhatsApp.
+Wij houden u graag op de hoogte via WhatsApp.
 TXT;
 
     /** Aanbevolen Meta body (dispatch). */
@@ -160,7 +156,7 @@ TXT;
             self::EVENT_DECLINED => 'Geweigerd',
             self::EVENT_EN_ROUTE => 'De chauffeur is onderweg naar jou.',
             self::EVENT_STARTED => 'De rit is gestart.',
-            self::EVENT_COMPLETED => 'De rit is afgerond.',
+            self::EVENT_COMPLETED => 'Rit afgerond',
             self::EVENT_CANCELLED => 'Rit geannuleerd',
             self::EVENT_REDISPATCHED => 'Opnieuw op zoek naar een chauffeur',
         ];
@@ -318,13 +314,10 @@ TXT;
             ? '€ '.number_format((float) $selected['price'], 2, ',', '.')
             : '';
 
-        $appStore = trim((string) config('nexa.app_store_url', ''));
-        $playStore = trim((string) config('nexa.play_store_url', ''));
-
         return [
             $customerName !== '' ? $customerName : 'klant',
             $companyName,
-            $ride->id ? 'rit #'.$ride->id : '—',
+            $ride->id ? '#'.$ride->id : '—',
             $phone !== '' ? $phone : '—',
             $pickup !== '' ? $pickup : '—',
             $dropoff !== '' ? $dropoff : '—',
@@ -333,8 +326,6 @@ TXT;
             $offer !== '' ? $offer : '—',
             $price !== '' ? $price : '—',
             $companyName,
-            $appStore !== '' ? $appStore : 'https://apps.apple.com/',
-            $playStore !== '' ? $playStore : 'https://play.google.com/store',
         ];
     }
 
@@ -685,27 +676,27 @@ TXT;
     public function sampleCustomerPreview(?array $detailFields = null): array
     {
         $params = [
-            'Jan de Vries',
-            'Taxi Voorbeeld',
-            'rit #1042',
-            '+31 6 12345678',
-            'Stationsplein 1, Amsterdam',
-            'Schiphol Airport',
-            '16-08-2026 14:30',
-            '2',
-            'Comfort',
-            '€ 45,00',
-            'Taxi Voorbeeld',
+            'Mehmet',
+            'Taxi bedrijf',
+            '#2',
+            '+3161234567890',
+            'P.C. Hoofdstraat 2, 1234AB, Amsterdam',
+            'Schiphol Vertrekpassage',
+            '11-08-2026 10:00',
+            '1',
+            'Mercedes E klasse',
+            '€150',
+            'Taxi bedrijf',
         ];
         $details = implode("\n", [
             'Referentie: '.$params[2],
             'Telefoon: '.$params[3],
             'Ophalen: '.$params[4],
             'Afzetten: '.$params[5],
-            'Datum/tijd: '.$params[6],
+            'Datum en tijd: '.$params[6],
             'Passagiers: '.$params[7],
-            'Aanbieding/voertuig: '.$params[8],
-            'Prijsindicatie: '.$params[9],
+            'Voertuig: '.$params[8],
+            'Prijs: '.$params[9],
         ]);
 
         return [

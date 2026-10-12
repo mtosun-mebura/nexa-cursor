@@ -96,6 +96,7 @@ export type LiveRide = {
   vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
   poll_interval_ms?: number;
   refund_business_days?: number | null;
+  can_download_invoice?: boolean;
 };
 
 export type BookResponse = {

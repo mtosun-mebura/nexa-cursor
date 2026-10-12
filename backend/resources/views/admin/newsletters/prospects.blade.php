@@ -5,18 +5,21 @@
 @include('admin.partials.ajax-action-button-styles')
 
 @section('content')
-<div class="kt-container-fixed min-w-0">
+<div class="kt-container-fixed min-w-0 w-full">
     <div class="pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">Klantenlijst</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0">
-            Zoek bedrijven op Google Places (branche + regio). We bewaren bedrijfsnaam, contactpersoon (voor de aanhef), adres, e-mail, telefoon en website. Afmelden is definitief.
+            Zoek bedrijven op Google Places (branche + regio) of via de landelijke Partner Finder (KNV-leden + CSV). We bewaren bedrijfsnaam, contactpersoon (voor de aanhef), adres, e-mail, telefoon en website. Afmelden is definitief. Gevonden bedrijven worden niet automatisch Nexa-partner.
         </p>
-        <div class="pt-3 flex w-full items-center justify-between gap-3">
+        <div class="pt-3 flex w-full flex-wrap items-center justify-between gap-3">
             <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
                 Terug
             </a>
-            <a href="{{ route('admin.newsletters.send') }}" class="kt-btn kt-btn-primary ms-auto">Naar versturen</a>
+            <div class="flex flex-wrap gap-2 ms-auto">
+                <a href="{{ route('admin.taxi-partner-finder.index') }}" class="kt-btn kt-btn-outline">Partner Finder</a>
+                <a href="{{ route('admin.newsletters.send') }}" class="kt-btn kt-btn-primary">Naar versturen</a>
+            </div>
         </div>
     </div>
 
@@ -30,6 +33,41 @@
             </ul>
         </div>
     @endif
+
+    <div class="kt-card mb-5 w-full min-w-0">
+        <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h5 class="kt-card-title mb-0">Landelijke Partner Finder</h5>
+                <p class="text-xs text-muted-foreground mt-1 mb-0">
+                    KNV-ledenlijst, CSV-import, deduplicatie en CRM-statussen voor directe nieuwsbriefbenadering.
+                    Werkt naast Google Places hieronder; maakt geen actieve taxipartners aan.
+                </p>
+            </div>
+            <a href="{{ route('admin.taxi-partner-finder.index') }}" class="kt-btn kt-btn-primary shrink-0">
+                Open Partner Finder
+            </a>
+        </div>
+        <div class="kt-card-content p-5">
+            @if(!empty($taxiFinderStats))
+                <p class="text-xs text-muted-foreground mb-3">
+                    {{ $taxiFinderStats['total'] ?? 0 }} prospects · {{ $taxiFinderStats['knv_members'] ?? 0 }} KNV · {{ $taxiFinderStats['with_email'] ?? 0 }} met e-mail
+                </p>
+            @endif
+            <div class="flex flex-wrap gap-2">
+                <form method="POST" action="{{ route('admin.taxi-partner-finder.sync-knv') }}" class="inline">
+                    @csrf
+                    <input type="hidden" name="push_newsletter" value="1">
+                    <button type="submit" class="kt-btn kt-btn-outline" @disabled(isset($knvEnabled) && ! $knvEnabled)>
+                        <i class="ki-filled ki-arrows-circle me-2"></i>
+                        KNV sync → klantenlijst
+                    </button>
+                </form>
+                <a href="{{ route('admin.taxi-partner-finder.index') }}#csv" class="kt-btn kt-btn-outline">
+                    KNV CSV importeren
+                </a>
+            </div>
+        </div>
+    </div>
 
     <div class="grid gap-5 lg:grid-cols-2 mb-5">
         <div class="kt-card">
@@ -159,6 +197,8 @@
             @php
                 $sourceLegend = [
                     'google_places' => ['label' => 'Google Places', 'icon' => 'ki-google'],
+                    'knv' => ['label' => 'KNV', 'icon' => 'ki-abstract-26'],
+                    'partner_finder' => ['label' => 'Partner Finder', 'icon' => 'ki-geolocation'],
                     'ai_web' => ['label' => 'AI-zoeken', 'icon' => 'ki-technology-4'],
                     'hunter' => ['label' => 'Hunter', 'icon' => 'ki-magnifier'],
                     'manual' => ['label' => 'Handmatig', 'icon' => 'ki-pencil'],
