@@ -771,8 +771,9 @@ class NexaTaxiBookingController extends Controller
         $dedupe = $request->input('dedupe', '1');
         $acceptLanguage = $request->input('accept-language', 'nl');
 
-        $cacheKey = 'nominatim_search:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails);
-        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage) {
+        $placesKey = $this->placesSearchKey();
+        $cacheKey = 'address_search:v2:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails.'|'.($placesKey !== '' ? 'biz' : 'geo'));
+        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage, $placesKey) {
             $query = [
                 'format' => $format,
                 'addressdetails' => $addressdetails,
@@ -789,12 +790,12 @@ class NexaTaxiBookingController extends Controller
             $response = Http::withHeaders([
                 'User-Agent' => config('app.name', 'NexaTaxiBooking').'/1.0 (address search)',
             ])->timeout(8)->get($url);
-            if (! $response->successful()) {
-                return [];
-            }
-            $body = $response->json();
+            $nominatim = $response->successful() && is_array($response->json()) ? $response->json() : [];
 
-            return is_array($body) ? $body : [];
+            return $this->mergeBusinessPlaces(
+                $this->searchBusinessPlaces($q, $placesKey, $countrycodes),
+                $nominatim
+            );
         });
 
         if (! is_array($data)) {
@@ -858,7 +859,10 @@ class NexaTaxiBookingController extends Controller
         $label = $this->formatNominatimAddressLabel($data);
         if ($label !== '') {
             $data['display_name'] = $label;
-            $data['name'] = $label;
+            $existingName = trim((string) ($data['name'] ?? ''));
+            if ($existingName === '' || strcasecmp($existingName, $label) === 0) {
+                $data['name'] = $label;
+            }
         }
 
         return $data;
@@ -911,7 +915,7 @@ class NexaTaxiBookingController extends Controller
                 $lead = $streetPart !== '' ? $streetPart : $displayName;
             }
         } elseif ($poiName !== '' && ! $isStreetAddress && strcasecmp($poiName, $street) !== 0) {
-            $lead = $poiName;
+            $lead = $streetPart !== '' ? ($poiName.', '.$streetPart) : $poiName;
         } else {
             $lead = $streetPart;
         }
@@ -945,6 +949,161 @@ class NexaTaxiBookingController extends Controller
         }
 
         return implode(', ', $parts);
+    }
+
+    /**
+     * In tests alleen een expliciete key, zodat een echte Maps-key in .env de suite niet naar Google stuurt.
+     */
+    private function placesSearchKey(): string
+    {
+        if (app()->runningUnitTests()) {
+            return trim((string) config('maps.address_business_search_key', ''));
+        }
+
+        return trim(app(\App\Services\EnvService::class)->getGoogleMapsApiKey());
+    }
+
+    /**
+     * Bedrijven (tandarts, winkel, …) via Google Places. Nominatim kent die vaak niet.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function searchBusinessPlaces(string $query, string $apiKey, string $countrycodes): array
+    {
+        $query = trim($query);
+        if ($apiKey === '' || mb_strlen($query) < 3) {
+            return [];
+        }
+
+        $params = [
+            'query' => $query,
+            'language' => 'nl',
+            'key' => $apiKey,
+        ];
+        if ($countrycodes === '' || $countrycodes === 'nl') {
+            $params['region'] = 'nl';
+        }
+
+        try {
+            $response = Http::timeout(6)->get('https://maps.googleapis.com/maps/api/place/textsearch/json', $params);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $results = $response->json('results');
+        if (! is_array($results)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (array_slice($results, 0, 5) as $place) {
+            if (! is_array($place)) {
+                continue;
+            }
+            $row = $this->mapGooglePlaceRow($place);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $place
+     * @return array<string, mixed>|null
+     */
+    private function mapGooglePlaceRow(array $place): ?array
+    {
+        $name = trim((string) ($place['name'] ?? ''));
+        $lat = $place['geometry']['location']['lat'] ?? null;
+        $lng = $place['geometry']['location']['lng'] ?? null;
+        if ($name === '' || ! is_numeric($lat) || ! is_numeric($lng)) {
+            return null;
+        }
+
+        $formatted = trim((string) ($place['formatted_address'] ?? ''));
+        $formatted = trim((string) (preg_replace('/,?\s*(Netherlands|Nederland)\s*$/iu', '', $formatted) ?? $formatted));
+        $address = $this->addressFromFormattedPlace($formatted, $name);
+
+        return [
+            'lat' => (string) $lat,
+            'lon' => (string) $lng,
+            'name' => $name,
+            'display_name' => $formatted !== '' && ! str_starts_with(mb_strtolower($formatted), mb_strtolower($name))
+                ? $name.', '.$formatted
+                : ($formatted !== '' ? $formatted : $name),
+            'category' => 'amenity',
+            'type' => 'business',
+            'class' => 'amenity',
+            'address' => $address,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function addressFromFormattedPlace(string $formatted, string $name): array
+    {
+        $parts = array_values(array_filter(array_map('trim', explode(',', $formatted)), fn ($part) => $part !== ''));
+        if ($parts !== [] && strcasecmp($parts[0], $name) === 0) {
+            array_shift($parts);
+        }
+
+        $street = $parts[0] ?? '';
+        $city = '';
+        if (count($parts) >= 2) {
+            $cityCandidate = $parts[1];
+            if (! preg_match('/\d{4}/', $cityCandidate)) {
+                $city = $cityCandidate;
+            } else {
+                $city = trim((string) preg_replace('/\b\d{4}\s*[A-Z]{2}\b/i', '', $parts[count($parts) - 1]));
+            }
+        }
+
+        $road = $street;
+        $house = '';
+        if (preg_match('/^(.*\D)\s+(\d+\s*[a-zA-Z\-]*)$/u', $street, $match)) {
+            $road = trim($match[1]);
+            $house = trim($match[2]);
+        }
+
+        return array_filter([
+            'road' => $road,
+            'house_number' => $house,
+            'city' => $city,
+        ], fn ($value) => $value !== '');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $businesses
+     * @param  list<mixed>  $nominatim
+     * @return list<mixed>
+     */
+    private function mergeBusinessPlaces(array $businesses, array $nominatim): array
+    {
+        $seen = [];
+        $merged = [];
+        foreach (array_merge($businesses, $nominatim) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $lat = isset($row['lat']) ? round((float) $row['lat'], 4) : null;
+            $lon = isset($row['lon']) ? round((float) $row['lon'], 4) : null;
+            $name = mb_strtolower(trim((string) ($row['name'] ?? '')));
+            $key = ($lat !== null && $lon !== null) ? $lat.','.$lon : $name;
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $merged[] = $row;
+        }
+
+        return $merged;
     }
 
     /**

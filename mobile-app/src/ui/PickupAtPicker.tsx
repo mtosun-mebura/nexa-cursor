@@ -11,10 +11,11 @@ import { defaultPickupDate, formatPickupAtLabel } from '../geo/route';
 import { useTheme } from '../theme/ThemeContext';
 import { AppModal } from './AppModal';
 
-const TIME_ITEM_H = 44;
-const TIME_VIEWPORT_H = 180;
-/** Padding zodat eerste/laatste items (o.a. 50/55) in het midden van de kolom kunnen staan. */
-const TIME_PAD = Math.max(0, (TIME_VIEWPORT_H - TIME_ITEM_H) / 2);
+const TIME_ITEM_H = 48;
+/** Exact 5 rijen: randuren/minuten blijven volledig zichtbaar (geen half-afsnijden). */
+const TIME_VIEWPORT_H = TIME_ITEM_H * 5;
+/** Padding zodat eerste/laatste items in het midden van de kolom kunnen staan. */
+const TIME_PAD = TIME_ITEM_H * 2;
 
 const QUICK_PRESETS: { minutes: number; label: string }[] = [
   { minutes: 10, label: 'Over 10 min' },
@@ -187,6 +188,8 @@ export function PickupAtField({
           ref={dayScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          style={styles.daysScroll}
           contentContainerStyle={styles.daysRow}
         >
           {days.map((d) => {
@@ -216,6 +219,7 @@ export function PickupAtField({
             snapToInterval={TIME_ITEM_H}
             decelerationRate="fast"
             nestedScrollEnabled
+            overScrollMode="never"
           >
             {hours.map((h) => {
               const active = draft.getHours() === h;
@@ -255,6 +259,7 @@ export function PickupAtField({
             snapToInterval={TIME_ITEM_H}
             decelerationRate="fast"
             nestedScrollEnabled
+            overScrollMode="never"
           >
             {minutes.map((m) => {
               const active = snapMinutes(draft.getMinutes()) === m;
@@ -317,20 +322,21 @@ function makeStyles(colors: ColorPalette) {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.inputBg,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      minHeight: 56,
     },
     triggerText: {
       color: colors.text,
-      fontSize: 16,
+      fontSize: 17,
       fontWeight: '700',
       flex: 1,
       paddingRight: 8,
     },
     chevron: {
       color: colors.muted,
-      fontSize: 12,
+      fontSize: 14,
     },
     sheet: {
       maxHeight: '78%',
@@ -375,9 +381,14 @@ function makeStyles(colors: ColorPalette) {
     quickChipTextActive: {
       color: '#FFFFFF',
     },
+    daysScroll: {
+      marginBottom: 0,
+      flexGrow: 0,
+    },
     daysRow: {
       gap: 8,
-      paddingBottom: 12,
+      paddingBottom: 0,
+      paddingRight: 4,
     },
     dayBtn: {
       minWidth: 76,
@@ -419,6 +430,7 @@ function makeStyles(colors: ColorPalette) {
       alignItems: 'center',
       gap: 8,
       height: TIME_VIEWPORT_H,
+      marginTop: 20,
       marginBottom: 12,
     },
     timeCol: {
@@ -428,6 +440,7 @@ function makeStyles(colors: ColorPalette) {
       borderColor: colors.border,
       borderRadius: 12,
       backgroundColor: colors.inputBg,
+      overflow: 'hidden',
     },
     timeColContent: {
       paddingVertical: TIME_PAD,
@@ -447,7 +460,7 @@ function makeStyles(colors: ColorPalette) {
     },
     timeText: {
       color: colors.muted,
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '600',
     },
     timeTextActive: {

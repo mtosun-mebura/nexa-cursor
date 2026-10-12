@@ -19,8 +19,8 @@
         launcherUrl: app.dataset.launcherUrl || '/taxi/app',
         googleMapsApiKey: (app.dataset.mapsKey || '').trim(),
         googleMapsMapId: (app.dataset.mapsMapId || '').trim(),
-        centerLat: parseFloat(app.dataset.centerLat || '52.3676'),
-        centerLng: parseFloat(app.dataset.centerLng || '4.9041'),
+        centerLat: parseFloat(app.dataset.centerLat || '52.2215'),
+        centerLng: parseFloat(app.dataset.centerLng || '6.8936'),
         marketplaceSectionKey: 'component:taxi.algemene_boekingsmodule',
         fleetRadiusKm: 50,
     };
@@ -655,12 +655,40 @@
         }
     }
 
-    function defaultPickupAt() {
-        const d = new Date(Date.now() + 10 * 60 * 1000);
+    const QUICK_PRESETS = [
+        { minutes: 10, label: 'Over 10 min' },
+        { minutes: 30, label: 'Over een half uur' },
+        { minutes: 60, label: 'Over 1 uur' },
+    ];
+
+    /** Zelfde afronding als native defaultPickupDate: volgende 5 minuten. */
+    function presetDate(minutesFromNow) {
+        const d = new Date(Date.now() + minutesFromNow * 60 * 1000);
         d.setSeconds(0, 0);
-        // Rond af naar dichtstbijzijnde 5 minuten.
-        d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5);
-        return toLocalInputValue(d);
+        const rem = d.getMinutes() % 5;
+        if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
+        return d;
+    }
+
+    function snapMinutes(m) {
+        return Math.min(55, Math.round(m / 5) * 5);
+    }
+
+    function sameMinute(a, b) {
+        return a.getFullYear() === b.getFullYear()
+            && a.getMonth() === b.getMonth()
+            && a.getDate() === b.getDate()
+            && a.getHours() === b.getHours()
+            && snapMinutes(a.getMinutes()) === snapMinutes(b.getMinutes());
+    }
+
+    function clampToFuture(d) {
+        const min = presetDate(5);
+        return d.getTime() < min.getTime() ? min : d;
+    }
+
+    function defaultPickupAt() {
+        return toLocalInputValue(presetDate(10));
     }
 
     function toLocalInputValue(date) {
@@ -726,7 +754,7 @@
         const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startSelected = new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const dayDiff = Math.round((startSelected - startToday) / 86400000);
-        const time = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         if (dayDiff === 0) return 'Vandaag ' + time;
         if (dayDiff === 1) return 'Morgen ' + time;
         const day = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -2046,7 +2074,7 @@
                     ? (/^station\b/i.test(poiName) ? poiName : ('Station ' + poiName))
                     : (streetPart || displayName);
             } else if (poiName && !isStreetAddress && poiName.toLowerCase() !== String(street).toLowerCase()) {
-                lead = poiName;
+                lead = streetPart ? (poiName + ', ' + streetPart) : poiName;
             } else {
                 lead = streetPart;
             }
@@ -2096,7 +2124,7 @@
         return value || normalizeNlAddressLabel(result.formatted_address || '');
     }
 
-    function mergeAddressSuggestions(googleItems, nominatimItems, query) {
+    function mergeAddressSuggestions(googleItems, nominatimItems, query, businessItems) {
         const wantsStation = queryWantsStation(query);
         const out = [];
         const seen = {};
@@ -2114,6 +2142,8 @@
         const google = Array.isArray(googleItems) ? googleItems : [];
         const nomi = Array.isArray(nominatimItems) ? nominatimItems : [];
 
+        const businesses = Array.isArray(businessItems) ? businessItems : [];
+        businesses.forEach(push);
         if (wantsStation) {
             google.filter(function (i) { return i.is_station; }).forEach(push);
             nomi.filter(function (i) { return i.is_station; }).forEach(push);
@@ -2121,7 +2151,7 @@
             nomi.forEach(push);
         } else {
             google.forEach(push);
-            if (!out.length) nomi.forEach(push);
+            nomi.forEach(push);
         }
         return out.slice(0, 8);
     }
@@ -2153,7 +2183,8 @@
         state.addressCache[key] = items;
     }
 
-    function fetchGoogleAddressPredictions(query) {
+    function fetchGoogleAddressPredictions(query, options) {
+        const opts = options || {};
         if (!cfg.googleMapsApiKey) return Promise.resolve([]);
         return loadGoogleMapsSdk().then(function () {
             if (!window.google || !google.maps || !google.maps.places || !google.maps.places.AutocompleteService) {
@@ -2165,7 +2196,7 @@
             // Bij stationszoekopdracht expliciet "Station …" meegeven zodat Google
             // het treinstation teruggeeft i.p.v. alleen de plaatsnaam.
             let input = String(query || '').trim();
-            if (queryWantsStation(input) && !/^station\b/i.test(input)) {
+            if (!opts.types && queryWantsStation(input) && !/^station\b/i.test(input)) {
                 input = 'Station ' + input.replace(/\bstation\b/gi, ' ').replace(/\s+/g, ' ').trim();
             }
             const request = {
@@ -2173,6 +2204,9 @@
                 language: 'nl',
                 componentRestrictions: { country: 'nl' },
             };
+            if (opts.types) {
+                request.types = opts.types;
+            }
             const biasLat = state.pickup && isFinite(state.pickup.lat) ? state.pickup.lat : cfg.centerLat;
             const biasLng = state.pickup && isFinite(state.pickup.lng) ? state.pickup.lng : cfg.centerLng;
             if (isFinite(biasLat) && isFinite(biasLng) && google.maps.LatLng) {
@@ -2403,17 +2437,20 @@
             }
             const seq = ++requestSeq;
 
-            const googleItems = await fetchGoogleAddressPredictions(q);
+            const predictions = await Promise.all([
+                fetchGoogleAddressPredictions(q),
+                fetchGoogleAddressPredictions(q, { types: ['establishment'] }),
+            ]);
             if (seq !== requestSeq) return;
+            const googleItems = predictions[0];
+            const businessItems = predictions[1];
 
             let nominatimItems = [];
-            // Bij stations altijd Nominatim meenemen: Google toont vaak alleen de plaatsnaam.
-            if (queryWantsStation(q) || !googleItems.length) {
-                nominatimItems = await fetchNominatimAddressPredictions(q);
-                if (seq !== requestSeq) return;
-            }
+            // Altijd meenemen: bedrijven uit de serverzoekopdracht en stations die Google mist.
+            nominatimItems = await fetchNominatimAddressPredictions(q);
+            if (seq !== requestSeq) return;
 
-            const merged = mergeAddressSuggestions(googleItems, nominatimItems, q);
+            const merged = mergeAddressSuggestions(googleItems, nominatimItems, q, businessItems);
             rememberAddressCache(cacheKey, merged);
             renderSuggestions(merged);
         }
@@ -2516,12 +2553,17 @@
                 btn.type = 'button';
                 btn.className = 'dt-day';
                 btn.dataset.ymd = day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-' + pad(day.getDate());
-                const wd = i === 0 ? 'Vandaag' : (i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' }));
+                const wd = i === 0 ? 'Vandaag' : (i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' }).replace(/\./g, ''));
+                const month = day.toLocaleDateString('nl-NL', { month: 'short' }).replace(/\./g, '').toLowerCase();
                 btn.innerHTML = '<span class="dt-day__wd">' + wd + '</span>'
-                    + '<span class="dt-day__nr">' + day.getDate() + '</span>';
+                    + '<span class="dt-day__nr">' + day.getDate() + '</span>'
+                    + '<span class="dt-day__month">' + month + '</span>';
                 btn.addEventListener('click', function () {
-                    draft = new Date(day.getFullYear(), day.getMonth(), day.getDate(), draft.getHours(), draft.getMinutes(), 0, 0);
-                    syncUi();
+                    draft = clampToFuture(new Date(
+                        day.getFullYear(), day.getMonth(), day.getDate(),
+                        draft.getHours(), draft.getMinutes(), 0, 0
+                    ));
+                    syncUi({ scroll: true });
                 });
                 daysEl.appendChild(btn);
                 dayButtons.push(btn);
@@ -2533,42 +2575,37 @@
             minutesEl.innerHTML = '';
             hourItems = [];
             minuteItems = [];
-            const makeSpacer = function () {
-                const node = document.createElement('div');
-                node.className = 'dt-item';
-                node.style.visibility = 'hidden';
-                node.textContent = '00';
-                return node;
-            };
-            hoursEl.appendChild(makeSpacer());
             for (let h = 0; h < 24; h++) {
                 const item = document.createElement('div');
                 item.className = 'dt-item';
                 item.dataset.value = String(h);
                 item.textContent = pad(h);
                 item.addEventListener('click', function () {
-                    draft.setHours(h);
+                    draft = clampToFuture(new Date(
+                        draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                        h, draft.getMinutes(), 0, 0
+                    ));
                     syncUi({ scroll: true });
                 });
                 hoursEl.appendChild(item);
                 hourItems.push(item);
             }
-            hoursEl.appendChild(makeSpacer());
 
-            minutesEl.appendChild(makeSpacer());
             for (let m = 0; m < 60; m += 5) {
                 const item = document.createElement('div');
                 item.className = 'dt-item';
                 item.dataset.value = String(m);
                 item.textContent = pad(m);
                 item.addEventListener('click', function () {
-                    draft.setMinutes(m);
+                    draft = clampToFuture(new Date(
+                        draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                        draft.getHours(), m, 0, 0
+                    ));
                     syncUi({ scroll: true });
                 });
                 minutesEl.appendChild(item);
                 minuteItems.push(item);
             }
-            minutesEl.appendChild(makeSpacer());
         }
 
         function nearestMinuteIndex(mins) {
@@ -2608,13 +2645,25 @@
                 item.classList.toggle('is-active', idx === minIdx);
             });
             document.querySelectorAll('#dt-quick .dt-chip').forEach(function (chip) {
-                chip.classList.remove('is-active');
+                const mins = parseInt(chip.dataset.quick, 10) || 0;
+                const active = sameMinute(draft, presetDate(mins));
+                chip.classList.toggle('is-active', active);
+                chip.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
+            const preview = el('dt-preview');
+            if (preview) preview.textContent = formatPickupLabel(toLocalInputValue(draft));
             if (opts.scroll !== false) {
                 syncingScroll = true;
                 scrollToActive(hoursEl, hourItems, draft.getHours());
                 scrollToActive(minutesEl, minuteItems, minIdx);
-                setTimeout(function () { syncingScroll = false; }, 50);
+                const activeDay = daysEl.querySelector('.dt-day.is-active');
+                if (activeDay && daysEl.clientWidth) {
+                    const rowBox = daysEl.getBoundingClientRect();
+                    const dayBox = activeDay.getBoundingClientRect();
+                    const delta = (dayBox.left + dayBox.width / 2) - (rowBox.left + rowBox.width / 2);
+                    daysEl.scrollLeft += delta;
+                }
+                setTimeout(function () { syncingScroll = false; }, 160);
             }
         }
 
@@ -2648,13 +2697,13 @@
 
         function openPicker() {
             draft = parseLocalInputValue(el('pickup-at').value || defaultPickupAt());
-            if (Number.isNaN(draft.getTime())) draft = parseLocalInputValue(defaultPickupAt());
+            if (Number.isNaN(draft.getTime())) draft = presetDate(10);
+            draft = clampToFuture(draft);
             overlay.hidden = false;
-            syncUi({ scroll: true });
-            const activeDay = daysEl.querySelector('.dt-day.is-active');
-            if (activeDay) {
-                activeDay.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
+            const paint = function () { syncUi({ scroll: true }); };
+            paint();
+            requestAnimationFrame(paint);
+            setTimeout(paint, 80);
         }
 
         function closePicker() {
@@ -2664,37 +2713,37 @@
         buildDays();
         buildTimeColumns();
         onScrollSnap(hoursEl, hourItems, function (idx) {
-            draft.setHours(idx);
+            const h = hourItems[idx] ? parseInt(hourItems[idx].dataset.value, 10) : idx;
+            draft = clampToFuture(new Date(
+                draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                h, draft.getMinutes(), 0, 0
+            ));
         });
         onScrollSnap(minutesEl, minuteItems, function (idx) {
             const item = minuteItems[idx];
-            if (item) draft.setMinutes(parseInt(item.dataset.value, 10));
+            const m = item ? parseInt(item.dataset.value, 10) : draft.getMinutes();
+            draft = clampToFuture(new Date(
+                draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                draft.getHours(), m, 0, 0
+            ));
         });
 
         openBtn.addEventListener('click', openPicker);
-        el('dt-close').addEventListener('click', closePicker);
-        el('dt-cancel').addEventListener('click', closePicker);
         overlay.addEventListener('click', function (event) {
             if (event.target === overlay) closePicker();
         });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !overlay.hidden) closePicker();
+        });
         el('dt-confirm').addEventListener('click', function () {
-            const now = new Date();
-            if (draft.getTime() < now.getTime() - 60000) {
-                toast('Kies een ophaaltijd in de toekomst.');
-                return;
-            }
+            draft = clampToFuture(draft);
             setPickupAtValue(toLocalInputValue(draft));
             closePicker();
         });
         document.querySelectorAll('#dt-quick .dt-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 const mins = parseInt(chip.dataset.quick, 10) || 10;
-                draft = new Date(Date.now() + mins * 60 * 1000);
-                draft.setSeconds(0, 0);
-                draft.setMinutes(Math.ceil(draft.getMinutes() / 5) * 5);
-                document.querySelectorAll('#dt-quick .dt-chip').forEach(function (c) {
-                    c.classList.toggle('is-active', c === chip);
-                });
+                draft = presetDate(mins);
                 syncUi({ scroll: true });
             });
         });
