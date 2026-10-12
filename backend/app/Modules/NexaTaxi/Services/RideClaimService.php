@@ -249,6 +249,11 @@ class RideClaimService
      */
     public function persistCustomerStatusEvent(RideRequest $ride, string $event, string $label): void
     {
+        $conn = $ride->getConnectionName() ?: $ride->getConnection()->getName();
+        if (! Schema::connection($conn)->hasColumn('ride_requests', 'booking_payload')) {
+            return;
+        }
+
         $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
         $payload['customer_status'] = [
             'event' => $event,

@@ -239,8 +239,17 @@ class TaxiDispatchBookingSettingsTest extends TestCase
             \App\Services\WhatsAppBookingMessageComposer::EVENT_COMPLETED,
             (int) $company->id
         ));
-        $this->assertFalse($service->customerWhatsappStatusEventEnabled(
+        // Accepted / en_route / started blijven verplicht, ook als alleen completed is aangevinkt.
+        $this->assertTrue($service->customerWhatsappStatusEventEnabled(
             \App\Services\WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
+            (int) $company->id
+        ));
+        $this->assertTrue($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_EN_ROUTE,
+            (int) $company->id
+        ));
+        $this->assertTrue($service->customerWhatsappStatusEventEnabled(
+            \App\Services\WhatsAppBookingMessageComposer::EVENT_STARTED,
             (int) $company->id
         ));
     }
