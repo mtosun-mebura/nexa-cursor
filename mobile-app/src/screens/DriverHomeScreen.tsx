@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
   acceptOffer,
@@ -34,6 +35,7 @@ import {
   proposePickup,
   releaseAcceptedRide,
   setDriverOnline,
+  markRideEnRoute,
   startRide,
   completeRide,
   fetchRideInvoice,
@@ -74,6 +76,7 @@ import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
+import { ImageCropModal } from '../ui/ImageCropModal';
 import { Card, ErrorText, GhostButton, Screen } from '../ui/components';
 import { DriverOfferCard } from '../ui/DriverOfferCard';
 import { DriverPlanningPanel } from '../ui/DriverPlanningPanel';
@@ -251,6 +254,20 @@ function openMapsForRide(ride: DriverActiveRide, dest: 'pickup' | 'dropoff' = 'p
   Linking.openURL(googleMapsDirUrl(address)).catch(() => undefined);
 }
 
+async function openPickupMapsAndNotify(
+  token: string | null | undefined,
+  ride: DriverActiveRide
+) {
+  if (token && ride?.id) {
+    try {
+      await markRideEnRoute(token, ride.id);
+    } catch {
+      /* navigatie toch openen */
+    }
+  }
+  openMapsForRide(ride, 'pickup');
+}
+
 function resolveMediaUrl(url?: string | null): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
@@ -281,6 +298,9 @@ export function DriverHomeScreen() {
   const [company, setCompany] = useState('');
   const [driverMedia, setDriverMedia] = useState<DriverMedia | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [cropUri, setCropUri] = useState<string | null>(null);
+  const [cropMime, setCropMime] = useState<string | null>(null);
+  const [cropKind, setCropKind] = useState<'profile' | 'logo' | 'vehicle' | null>(null);
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [canFilterContractRides, setCanFilterContractRides] = useState(false);
@@ -321,6 +341,8 @@ export function DriverHomeScreen() {
   const seenOfferIds = useRef<Set<number>>(new Set());
   const offersBootstrapped = useRef(false);
   const rideAlertToneRef = useRef<RideAlertTone>('classic');
+  /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
+  const rideToneDirtyRef = useRef(false);
   const styles = useMemo(() => makeStyles(colors, accentHex(accent)), [colors, accent]);
 
   useEffect(() => {
@@ -439,8 +461,14 @@ export function DriverHomeScreen() {
       const nextTone = normalizeRideAlertTone(me.user.ride_alert_tone);
       setAccent(nextAccent);
       persistDriverAccent(nextAccent);
-      setRideTone(nextTone);
-      rideAlertToneRef.current = nextTone;
+      if (rideToneDirtyRef.current) {
+        if (nextTone === rideAlertToneRef.current) {
+          rideToneDirtyRef.current = false;
+        }
+      } else {
+        setRideTone(nextTone);
+        rideAlertToneRef.current = nextTone;
+      }
       setCompany(me.user.company_name || '');
       setLogoLight(me.user.company_logo_url || null);
       setLogoDark(me.user.company_logo_dark_url || null);
@@ -1076,7 +1104,7 @@ export function DriverHomeScreen() {
                     highlighted={focusRideId === ride.id}
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
                     onCancel={
                       ride.can_cancel_with_reason
                         ? () => {
@@ -1102,7 +1130,7 @@ export function DriverHomeScreen() {
                     highlighted={focusRideId === ride.id}
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
                     onProposePickup={() => openProposePickup(ride)}
                     onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={
@@ -1217,12 +1245,14 @@ export function DriverHomeScreen() {
   const chooseTone = async (key: RideAlertTone) => {
     setRideTone(key);
     rideAlertToneRef.current = key;
-    await playRideAlertTone(key);
+    rideToneDirtyRef.current = true;
+    // Speel af zonder de selectie te blokkeren; save parallel zodat poll-refresh niet terugzet.
+    void playRideAlertTone(key);
     if (!driverToken) return;
     try {
       await updateDriverRideAlertTone(driverToken, key);
     } catch {
-      /* keuze blijft lokaal hoorbaar */
+      /* lokale keuze blijft via rideToneDirtyRef */
     }
   };
 
@@ -1231,33 +1261,78 @@ export function DriverHomeScreen() {
     Linking.openURL(url).catch(() => undefined);
   };
 
+  const chooseImageSource = (): Promise<'library' | 'files' | null> =>
+    new Promise((resolve) => {
+      Alert.alert('Afbeelding kiezen', 'Waar wil je de foto vandaan halen?', [
+        { text: 'Annuleren', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'Fotobibliotheek', onPress: () => resolve('library') },
+        { text: 'Bestanden', onPress: () => resolve('files') },
+      ]);
+    });
+
   const pickAndUploadMedia = async (kind: 'profile' | 'logo' | 'vehicle') => {
-    if (!driverToken || mediaBusy) return;
+    if (!driverToken || mediaBusy || cropUri) return;
     setError(null);
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        setError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
-        return;
-      }
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.85,
-        // Crop-UI (allowsEditing) is op iOS-simulator onbetrouwbaar; selectie volstaat.
-        allowsEditing: false,
-      });
-      if (picked.canceled || !picked.assets?.[0]?.uri) return;
+      const source = await chooseImageSource();
+      if (!source) return;
 
-      setMediaBusy(true);
-      const asset = picked.assets[0];
-      const uri = asset.uri;
-      const mime = asset.mimeType || null;
+      let uri: string | null = null;
+      let mime: string | null = null;
+
+      if (source === 'library') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+          return;
+        }
+        const picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 1,
+          allowsEditing: false,
+        });
+        if (picked.canceled || !picked.assets?.[0]?.uri) return;
+        uri = picked.assets[0].uri;
+        mime = picked.assets[0].mimeType || null;
+      } else {
+        const picked = await DocumentPicker.getDocumentAsync({
+          type: ['image/*'],
+          copyToCacheDirectory: true,
+          multiple: false,
+        });
+        if (picked.canceled || !picked.assets?.[0]?.uri) return;
+        uri = picked.assets[0].uri;
+        mime = picked.assets[0].mimeType || null;
+      }
+
+      setCropKind(kind);
+      setCropMime(mime);
+      setCropUri(uri);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Foto kiezen mislukt.'
+      );
+    }
+  };
+
+  const uploadCroppedMedia = async (cropped: {
+    uri: string;
+    mimeType: 'image/png' | 'image/jpeg';
+  }) => {
+    if (!driverToken || !cropKind) return;
+    const kind = cropKind;
+    setCropUri(null);
+    setCropMime(null);
+    setCropKind(null);
+    setMediaBusy(true);
+    setError(null);
+    try {
       const res =
         kind === 'profile'
-          ? await uploadDriverProfilePhoto(driverToken, uri, mime)
+          ? await uploadDriverProfilePhoto(driverToken, cropped.uri, cropped.mimeType)
           : kind === 'logo'
-            ? await uploadDriverCompanyLogo(driverToken, uri, mime)
-            : await uploadDriverVehiclePhoto(driverToken, uri, mime);
+            ? await uploadDriverCompanyLogo(driverToken, cropped.uri, cropped.mimeType)
+            : await uploadDriverVehiclePhoto(driverToken, cropped.uri, cropped.mimeType);
       if (res.media) setDriverMedia(res.media);
     } catch (e) {
       setError(
@@ -1265,7 +1340,7 @@ export function DriverHomeScreen() {
           ? e.message
           : e instanceof Error
             ? e.message
-            : 'Foto kiezen of uploaden mislukt.'
+            : 'Foto uploaden mislukt.'
       );
     } finally {
       setMediaBusy(false);
@@ -1342,7 +1417,7 @@ export function DriverHomeScreen() {
             {driverMedia?.company_logo_url ? (
               <Image
                 source={{ uri: driverMedia.company_logo_url }}
-                style={styles.mediaPreview}
+                style={[styles.mediaPreview, styles.mediaPreviewTransparent]}
                 resizeMode="contain"
               />
             ) : (
@@ -1571,7 +1646,7 @@ export function DriverHomeScreen() {
                     variant="overdue"
                     busy={busyRideId === ride.id}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
                     onProposePickup={() => openProposePickup(ride)}
                     onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={
@@ -1597,7 +1672,7 @@ export function DriverHomeScreen() {
                     variant="overdue"
                     busy={busyRideId === ride.id}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => openMapsForRide(ride, 'pickup')}
+                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
                     onProposePickup={() => openProposePickup(ride)}
                     onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={
@@ -1686,6 +1761,26 @@ export function DriverHomeScreen() {
   return (
     <DriverAccentProvider accent={accent}>
     <Screen style={{ paddingHorizontal: 0, paddingTop: APP_PAGE_TOP_INSET, paddingBottom: 0 }}>
+      <ImageCropModal
+        visible={!!cropUri}
+        uri={cropUri}
+        sourceMimeType={cropMime}
+        preferPng={cropKind === 'logo'}
+        aspectRatio={cropKind === 'profile' ? 1 : 4 / 3}
+        title={
+          cropKind === 'profile'
+            ? 'Profielfoto bijsnijden'
+            : cropKind === 'logo'
+              ? 'Logo bijsnijden'
+              : 'Auto-foto bijsnijden'
+        }
+        onCancel={() => {
+          setCropUri(null);
+          setCropMime(null);
+          setCropKind(null);
+        }}
+        onConfirm={(result) => void uploadCroppedMedia(result)}
+      />
       <View style={styles.topBar}>
         <View style={styles.onlineBox}>
           <Text style={styles.onlineLabel}>{online ? 'Online' : 'Offline'}</Text>
@@ -1697,7 +1792,7 @@ export function DriverHomeScreen() {
           />
         </View>
 
-        <View style={[styles.logoCenter, { pointerEvents: 'none' }]}>
+        <View style={styles.logoCenter} pointerEvents="none">
           <AppBrandLogo
             bare
             uri={logoUri}
@@ -2353,6 +2448,9 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    mediaPreviewTransparent: {
+      backgroundColor: 'transparent',
+    },
     mediaPreviewEmpty: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -2447,6 +2545,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginBottom: 12,
     },
     guideLink: {
+      marginTop: 20,
       borderWidth: 1.5,
       borderRadius: 14,
       minHeight: 52,

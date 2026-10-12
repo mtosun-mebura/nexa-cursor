@@ -234,6 +234,26 @@ class CustomerRideLiveStatusService
             ];
         $statusUpdates = app(TaxiCustomerRideStatusNotificationService::class)
             ->statusTimeline($conn, (int) $ride->id);
+        // Voorkeur: opgeslagen customer_status op de rit, anders nieuwste timeline-entry.
+        $payloadStatus = data_get($ride->booking_payload, 'customer_status');
+        $payloadLabel = trim((string) (data_get($payloadStatus, 'label') ?? ''));
+        if ($payloadLabel !== '' && in_array($status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+            RideRequest::STATUS_COMPLETED,
+        ], true)) {
+            $statusLabel = $payloadLabel;
+        } elseif ($statusUpdates !== [] && in_array($status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+            RideRequest::STATUS_COMPLETED,
+        ], true)) {
+            $latestUpdate = $statusUpdates[array_key_last($statusUpdates)] ?? null;
+            $latestLabel = trim((string) ($latestUpdate['label'] ?? ''));
+            if ($latestLabel !== '') {
+                $statusLabel = $latestLabel;
+            }
+        }
         $ratingPayload = app(TaxiRideRatingService::class)->payloadForRide($conn, $ride);
 
         return [

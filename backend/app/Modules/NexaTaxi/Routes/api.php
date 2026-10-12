@@ -151,6 +151,9 @@ Route::prefix('v1/driver')
         Route::post('dispatch/rides/{ride}/propose-pickup', [DriverDispatchController::class, 'proposePickup'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
+        Route::post('dispatch/rides/{ride}/en-route', [DriverDispatchController::class, 'enRoute'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
         Route::post('dispatch/rides/{ride}/start', [DriverDispatchController::class, 'start'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');

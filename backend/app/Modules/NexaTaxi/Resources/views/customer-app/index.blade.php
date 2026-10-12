@@ -15,6 +15,7 @@
     <title>Nexa Taxi – Boeken</title>
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
+    @include('taxi::partials.pwa-brand-metrics')
     <style>
         :root {
             --blue: #2563eb;
@@ -76,10 +77,11 @@
         .app-logo-bar {
             display: flex;
             justify-content: center;
-            align-items: flex-end;
+            align-items: center;
+            min-height: var(--nexa-brand-logo-bar-min);
             padding-left: 1rem;
             padding-right: 1rem;
-            padding-bottom: 0.3rem;
+            padding-bottom: 0.2rem;
             padding-top: calc(var(--safe-top) + 0.35rem);
         }
         @media (max-width: 48rem) {
@@ -88,44 +90,25 @@
                 padding-top: max(calc(var(--safe-top) + 0.35rem), 3.75rem);
             }
         }
-        .app-logo-bar img {
-            display: block;
-            width: auto;
-            height: auto;
-            max-width: 11rem;
-            max-height: 2.75rem;
-            object-fit: contain;
-            object-position: center bottom;
-            margin: 0 auto;
-        }
         html[data-theme="dark"] .app-logo-light { display: none !important; }
         html[data-theme="light"] .app-logo-dark { display: none !important; }
 
         .app-nav-row {
             display: grid;
-            grid-template-columns: 2.75rem 1fr 2.75rem;
+            grid-template-columns: var(--nexa-page-side-slot) 1fr var(--nexa-page-side-slot);
             align-items: center;
             gap: 0.35rem;
-            min-height: 2.75rem;
-            padding: 0.15rem 0.75rem 0.55rem;
+            min-height: var(--nexa-brand-logo-bar-min);
+            padding: 0.25rem 0.75rem 0.4rem;
         }
         .app-nav-start,
         .app-nav-end {
             display: flex;
             align-items: center;
-            height: 2.25rem;
+            height: var(--nexa-page-side-slot);
         }
         .app-nav-start { justify-content: flex-start; }
         .app-nav-end { justify-content: flex-end; }
-        .app-nav-title {
-            margin: 0;
-            text-align: center;
-            font-size: 1.05rem;
-            font-weight: 700;
-            line-height: 1.2;
-            color: var(--text);
-            min-width: 0;
-        }
         .app-nav-back {
             width: 2.25rem;
             height: 2.25rem;
@@ -1010,6 +993,25 @@
             font-weight: 700;
             color: var(--text);
         }
+        .live-eta {
+            margin-top: 12px;
+        }
+        .live-eta[hidden] { display: none !important; }
+        .live-banner .live-eta .ride-card__stop-label {
+            margin: 0;
+            font-size: .68rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .live-banner .live-eta .ride-card__stop-value {
+            margin: 2px 0 0;
+            font-size: .9rem;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.3;
+        }
         .live-actions {
             display: flex; flex-direction: column; gap: 8px; margin-top: 14px;
         }
@@ -1029,9 +1031,147 @@
             color: var(--muted);
             line-height: 1.4;
         }
-        .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: .9rem; margin-top: 12px; }
+        .kv { display: grid; grid-template-columns: minmax(7rem, max-content) 1fr; gap: 6px 10px; font-size: .9rem; margin-top: 12px; }
         .kv dt { color: var(--muted); }
         .kv dd { margin: 0; font-weight: 600; }
+        .live-driver-card {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: transparent;
+            display: grid;
+            gap: 10px;
+        }
+        .live-driver-card__logo {
+            width: 120px;
+            height: 40px;
+            object-fit: contain;
+            object-position: left center;
+            background: transparent;
+            display: block;
+        }
+        .live-driver-card__row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .live-driver-card__photo-btn {
+            appearance: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+            line-height: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .live-driver-card__avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            object-fit: cover;
+            background: var(--nexa-pwa-input-bg, rgba(148,163,184,.12));
+            display: block;
+        }
+        .live-driver-card__meta {
+            flex: 1;
+            min-width: 0;
+        }
+        .live-driver-card__name {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .live-driver-card__sub {
+            margin: 2px 0 0;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .live-rating {
+            margin-top: 14px;
+            display: grid;
+            gap: 10px;
+        }
+        .live-rating[hidden] { display: none !important; }
+        .live-rating__stars {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .live-rating__star {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            padding: 4px;
+            margin: 0;
+            font-size: 1.75rem;
+            line-height: 1;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .live-rating__star.is-on { color: #F5B301; }
+        .live-rating__comment {
+            width: 100%;
+            min-height: 64px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: var(--nexa-pwa-input-bg, transparent);
+            color: var(--text);
+            padding: 10px 12px;
+            font: inherit;
+            resize: vertical;
+        }
+        .live-rating__done {
+            margin: 0;
+            font-size: .9rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+        .live-driver-card__vehicle {
+            width: 72px;
+            height: 52px;
+            object-fit: contain;
+            background: transparent;
+            border-radius: 8px;
+            display: block;
+        }
+        .photo-preview-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 90;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: max(16px, var(--safe-top)) 16px max(16px, var(--safe-bottom));
+        }
+        .photo-preview-overlay[hidden] { display: none !important; }
+        .photo-preview-panel {
+            width: min(100%, 420px);
+            max-height: min(88dvh, 560px);
+            background: #0b0f19;
+            border: 1px solid rgba(148,163,184,.18);
+            border-radius: 1rem;
+            padding: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,.45);
+        }
+        html[data-theme="light"] .photo-preview-panel {
+            background: #ffffff;
+            box-shadow: 0 18px 40px rgba(15,23,42,.18);
+        }
+        .photo-preview-panel img {
+            display: block;
+            width: 100%;
+            max-height: min(75dvh, 480px);
+            object-fit: contain;
+            background: transparent;
+            border-radius: 12px;
+        }
         .toast {
             position: fixed; left: 16px; right: 16px; bottom: calc(100px + var(--safe-bottom));
             background: #facc15;
@@ -1428,8 +1568,26 @@
                         </div>
                     </div>
                 </div>
+                <div class="live-eta" id="live-eta-wrap" hidden>
+                    <p class="ride-card__stop-label">Verwachte aankomsttijd</p>
+                    <p class="ride-card__stop-value" id="live-eta-value">—</p>
+                </div>
+                <div class="live-driver-card" id="live-driver-card" hidden></div>
                 <dl class="kv" id="live-details" hidden></dl>
                 <p class="live-note" id="live-note" hidden></p>
+                <div class="live-rating" id="live-rating" hidden>
+                    <p class="ride-card__stop-label" id="live-rating-label">Beoordeel je rit</p>
+                    <div class="live-rating__stars" id="live-rating-stars" role="group" aria-label="Sterren">
+                        <button type="button" class="live-rating__star" data-stars="1" aria-label="1 ster">★</button>
+                        <button type="button" class="live-rating__star" data-stars="2" aria-label="2 sterren">★</button>
+                        <button type="button" class="live-rating__star" data-stars="3" aria-label="3 sterren">★</button>
+                        <button type="button" class="live-rating__star" data-stars="4" aria-label="4 sterren">★</button>
+                        <button type="button" class="live-rating__star" data-stars="5" aria-label="5 sterren">★</button>
+                    </div>
+                    <textarea id="live-rating-comment" class="live-rating__comment" rows="2" placeholder="Optionele opmerking" hidden></textarea>
+                    <button type="button" class="btn btn-primary" id="btn-live-rate" hidden>Beoordeling versturen</button>
+                    <p class="live-rating__done" id="live-rating-done" hidden></p>
+                </div>
                 <div class="live-actions" id="live-actions" hidden>
                     <button type="button" class="btn btn-primary" id="btn-live-pay" hidden>Opnieuw betalen</button>
                     <button type="button" class="btn" id="btn-live-wait" hidden>Blijven wachten</button>
@@ -1563,6 +1721,12 @@
     </nav>
 
     <div id="toast" class="toast" hidden></div>
+
+    <div id="photo-preview-overlay" class="photo-preview-overlay" hidden>
+        <div class="photo-preview-panel" role="dialog" aria-modal="true" aria-label="Vergrote foto">
+            <img id="photo-preview-image" src="" alt="">
+        </div>
+    </div>
 
     <div id="pickup-datetime-overlay" class="dt-overlay" hidden>
         <div class="dt-sheet" role="dialog" aria-modal="true" aria-labelledby="dt-sheet-title">

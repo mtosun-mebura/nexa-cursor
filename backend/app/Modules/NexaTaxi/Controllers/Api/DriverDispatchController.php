@@ -313,6 +313,31 @@ class DriverDispatchController extends Controller
         ]);
     }
 
+    public function enRoute(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $updated = $claim->markEnRouteToPickup($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan status niet bijwerken.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Klant is geïnformeerd: chauffeur onderweg.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($updated),
+            ],
+        ]);
+    }
+
     public function start(
         Request $request,
         int $ride,

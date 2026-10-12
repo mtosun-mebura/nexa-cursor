@@ -180,6 +180,8 @@ class RideRequestController extends Controller
 
         $maps = app(EnvService::class)->mapsFormSettings();
         $rideTrack = app(RideTrackService::class)->mapPayload($conn, $ride_request);
+        $rideRating = app(\App\Modules\NexaTaxi\Services\TaxiRideRatingService::class)
+            ->payloadForRide($conn, $ride_request);
 
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
@@ -195,6 +197,7 @@ class RideRequestController extends Controller
             'googleMapsMapId' => $maps['GOOGLE_MAPS_MAP_ID'],
             'googleMapsZoom' => (int) $maps['GOOGLE_MAPS_ZOOM'],
             'rideTrack' => $rideTrack,
+            'rideRating' => $rideRating,
         ]);
     }
 

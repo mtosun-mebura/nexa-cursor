@@ -352,6 +352,7 @@
             phase: (meta && meta.phase) || prev.phase || 'searching',
             status_label: (meta && meta.status_label) || prev.status_label || 'Zoeken…',
             payment_failure_status: (meta && meta.payment_failure_status) || prev.payment_failure_status || null,
+            rating: (meta && meta.rating !== undefined) ? meta.rating : (prev.rating || null),
         });
         writeGuestRides(list);
         refreshActiveRideUi();
@@ -362,7 +363,12 @@
         if (!token) return;
         const clean = {};
         Object.keys(patch || {}).forEach(function (key) {
-            if (patch[key] !== undefined && patch[key] !== null && patch[key] !== '') {
+            if (patch[key] === undefined) return;
+            if (key === 'rating') {
+                clean[key] = patch[key];
+                return;
+            }
+            if (patch[key] !== null && patch[key] !== '') {
                 clean[key] = patch[key];
             }
         });
@@ -372,6 +378,117 @@
         });
         writeGuestRides(list);
         refreshActiveRideUi();
+    }
+
+    let liveRateStars = 0;
+
+    function hideLiveRating() {
+        const box = el('live-rating');
+        if (box) box.hidden = true;
+        liveRateStars = 0;
+        syncLiveRatingStars(0);
+        const comment = el('live-rating-comment');
+        const btn = el('btn-live-rate');
+        const done = el('live-rating-done');
+        const stars = el('live-rating-stars');
+        if (comment) {
+            comment.hidden = true;
+            comment.value = '';
+        }
+        if (btn) btn.hidden = true;
+        if (done) {
+            done.hidden = true;
+            done.textContent = '';
+        }
+        if (stars) stars.hidden = true;
+    }
+
+    function syncLiveRatingStars(n) {
+        const wrap = el('live-rating-stars');
+        if (!wrap) return;
+        wrap.querySelectorAll('.live-rating__star').forEach(function (btn) {
+            const v = Number(btn.getAttribute('data-stars') || 0);
+            btn.classList.toggle('is-on', v > 0 && v <= n);
+        });
+    }
+
+    function renderLiveRating(ride) {
+        const box = el('live-rating');
+        if (!box) return;
+        const rating = ride && ride.rating ? ride.rating : null;
+        if (!rating || (!rating.can_rate && !rating.rated)) {
+            hideLiveRating();
+            return;
+        }
+        box.hidden = false;
+        const label = el('live-rating-label');
+        const stars = el('live-rating-stars');
+        const comment = el('live-rating-comment');
+        const btn = el('btn-live-rate');
+        const done = el('live-rating-done');
+        if (rating.rated && rating.stars) {
+            if (label) label.textContent = 'Jouw beoordeling';
+            if (stars) stars.hidden = true;
+            if (comment) comment.hidden = true;
+            if (btn) btn.hidden = true;
+            if (done) {
+                done.hidden = false;
+                done.textContent = '★'.repeat(Number(rating.stars))
+                    + '☆'.repeat(Math.max(0, 5 - Number(rating.stars)))
+                    + (rating.comment ? (' — ' + rating.comment) : '');
+            }
+            return;
+        }
+        if (label) label.textContent = 'Beoordeel je rit';
+        if (stars) stars.hidden = false;
+        if (comment) comment.hidden = false;
+        if (btn) {
+            btn.hidden = false;
+            btn.disabled = false;
+            btn.textContent = 'Beoordeling versturen';
+        }
+        if (done) {
+            done.hidden = true;
+            done.textContent = '';
+        }
+        syncLiveRatingStars(liveRateStars);
+    }
+
+    async function submitLiveRating() {
+        const token = state.trackToken;
+        if (!token) return;
+        if (liveRateStars < 1) {
+            alert('Kies 1 tot 5 sterren.');
+            return;
+        }
+        const btn = el('btn-live-rate');
+        const comment = el('live-rating-comment');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Bezig…';
+        }
+        try {
+            const data = await api(cfg.apiBase + '/live/rate', {
+                method: 'POST',
+                body: {
+                    token: token,
+                    stars: liveRateStars,
+                    comment: comment && comment.value ? comment.value.trim() : null,
+                },
+            });
+            if (data && data.ride) {
+                renderLive(data.ride);
+            } else if (data && data.rating) {
+                renderLiveRating({ rating: data.rating, phase: 'completed' });
+            }
+            liveRateStars = 0;
+        } catch (e) {
+            alert((e && e.message) || 'Beoordeling opslaan mislukt.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Beoordeling versturen';
+            }
+        }
     }
 
     function isActiveRidePhase(phase) {
@@ -458,7 +575,7 @@
         const meta = el('active-ride-meta');
         if (title) {
             title.textContent = active.phase === 'accepted'
-                ? 'Taxi onderweg'
+                ? (active.status_label || 'Taxi onderweg')
                 : 'Openstaande rit';
         }
         if (meta) {
@@ -2788,12 +2905,28 @@
                 phase: ride.phase || 'other',
                 status_label: ride.status_label || ride.status || '',
                 payment_failure_status: ride.payment_failure_status || null,
+                rating: ride.rating || null,
             });
+        }
+
+        if (ride && ride.phase !== 'completed') {
+            hideLiveRating();
         }
 
         if (note) {
             note.hidden = true;
             note.textContent = '';
+        }
+        const liveDriverCard = el('live-driver-card');
+        if (liveDriverCard && ride.phase !== 'accepted') {
+            liveDriverCard.hidden = true;
+            liveDriverCard.innerHTML = '';
+        }
+        const liveEtaWrap = el('live-eta-wrap');
+        const liveEtaValue = el('live-eta-value');
+        if (liveEtaWrap && ride.phase !== 'accepted') {
+            liveEtaWrap.hidden = true;
+            if (liveEtaValue) liveEtaValue.textContent = '—';
         }
 
         if (ride.phase === 'awaiting_payment') {
@@ -2859,22 +2992,87 @@
             }
             pill.className = 'status-pill ok';
             pill.textContent = 'Geaccepteerd';
-            title.textContent = ride.eta_label ? ('Arriveert ' + ride.eta_label) : 'Taxi onderweg';
+            title.textContent = ride.status_label || 'De chauffeur is onderweg naar jou.';
             text.textContent = 'Details van je toegewezen taxi:';
+            if (liveEtaWrap && liveEtaValue) {
+                if (ride.eta_label) {
+                    liveEtaValue.textContent = ride.eta_label;
+                    liveEtaWrap.hidden = false;
+                } else {
+                    liveEtaValue.textContent = '—';
+                    liveEtaWrap.hidden = true;
+                }
+            }
+            const driverCard = el('live-driver-card');
+            const hasDriverMedia = !!(ride.driver || ride.vehicle);
+            if (driverCard) {
+                if (hasDriverMedia) {
+                    let html = '';
+                    if (ride.driver && ride.driver.company_logo_url) {
+                        html += '<img class="live-driver-card__logo" src="'
+                            + escapeHtml(ride.driver.company_logo_url)
+                            + '" alt="" decoding="async">';
+                    }
+                    html += '<div class="live-driver-card__row">';
+                    if (ride.driver && ride.driver.photo_url) {
+                        html += '<button type="button" class="live-driver-card__photo-btn" data-photo-preview="'
+                            + escapeHtml(ride.driver.photo_url)
+                            + '" aria-label="Profielfoto vergroten">'
+                            + '<img class="live-driver-card__avatar" src="'
+                            + escapeHtml(ride.driver.photo_url)
+                            + '" alt="" decoding="async"></button>';
+                    }
+                    html += '<div class="live-driver-card__meta">';
+                    if (ride.driver && ride.driver.name) {
+                        html += '<p class="live-driver-card__name">' + escapeHtml(ride.driver.name) + '</p>';
+                    }
+                    if (ride.driver && ride.driver.rating_avg != null) {
+                        html += '<p class="live-driver-card__sub">★ '
+                            + Number(ride.driver.rating_avg).toFixed(1)
+                            + (ride.driver.rating_count ? ' (' + ride.driver.rating_count + ')' : '')
+                            + '</p>';
+                    }
+                    if (ride.vehicle && ride.vehicle.license_plate) {
+                        html += '<p class="live-driver-card__sub">'
+                            + escapeHtml(ride.vehicle.license_plate) + '</p>';
+                    }
+                    if (ride.vehicle && ride.vehicle.name) {
+                        html += '<p class="live-driver-card__sub">'
+                            + escapeHtml(ride.vehicle.name) + '</p>';
+                    }
+                    html += '</div>';
+                    if (ride.vehicle && ride.vehicle.photo_url) {
+                        html += '<button type="button" class="live-driver-card__photo-btn" data-photo-preview="'
+                            + escapeHtml(ride.vehicle.photo_url)
+                            + '" aria-label="Autofoto vergroten">'
+                            + '<img class="live-driver-card__vehicle" src="'
+                            + escapeHtml(ride.vehicle.photo_url)
+                            + '" alt="" decoding="async"></button>';
+                    }
+                    html += '</div>';
+                    driverCard.innerHTML = html;
+                    driverCard.hidden = false;
+                } else {
+                    driverCard.innerHTML = '';
+                    driverCard.hidden = true;
+                }
+            }
             const rows = [];
-            if (ride.company && ride.company.name) rows.push(['Bedrijf', ride.company.name]);
-            if (ride.vehicle && ride.vehicle.license_plate) rows.push(['Kenteken', ride.vehicle.license_plate]);
-            if (ride.vehicle && ride.vehicle.name) rows.push(['Auto', ride.vehicle.name]);
-            if (ride.driver && ride.driver.name) rows.push(['Chauffeur', ride.driver.name]);
-            if (ride.eta_label) rows.push(['ETA', ride.eta_label]);
+            if (ride.company && ride.company.name) rows.push(['Centrale', ride.company.name]);
+            if (!hasDriverMedia) {
+                if (ride.vehicle && ride.vehicle.license_plate) rows.push(['Kenteken', ride.vehicle.license_plate]);
+                if (ride.vehicle && ride.vehicle.name) rows.push(['Auto', ride.vehicle.name]);
+                if (ride.driver && ride.driver.name) rows.push(['Chauffeur', ride.driver.name]);
+            }
             details.innerHTML = rows.map(([k, v]) => '<dt>' + k + '</dt><dd>' + escapeHtml(v) + '</dd>').join('');
             details.hidden = rows.length === 0;
         } else if (ride.phase === 'completed') {
             pill.className = 'status-pill ok';
             pill.textContent = 'Voltooid';
-            title.textContent = 'Rit afgerond';
-            text.textContent = 'Bedankt voor je rit met Nexa Taxi. Je kunt hieronder je factuur downloaden.';
+            title.textContent = ride.status_label || 'De rit is afgerond.';
+            text.textContent = 'Bedankt voor je rit met Nexa Taxi. Beoordeel je rit hieronder of download je factuur.';
             details.hidden = true;
+            renderLiveRating(ride);
             stopLivePoll();
         } else if (ride.phase === 'cancelled') {
             pill.className = 'status-pill warn';
@@ -3284,7 +3482,9 @@
                 + '"' + attrs + '>'
                 + '<div class="rides-hero__eyebrow">'
                 + (ride.phase === 'searching' ? '<span class="pulse"></span>' : '')
-                + escapeHtml(ride.phase === 'accepted' ? 'Taxi onderweg' : 'Openstaande rit')
+                + escapeHtml(ride.phase === 'accepted'
+                    ? (ride.status_label || 'Taxi onderweg')
+                    : 'Openstaande rit')
                 + '</div>'
                 + '<h3 class="rides-hero__title">' + escapeHtml(pill) + '</h3>'
                 + '<div class="live-route ride-card__route" style="margin-top:10px;padding-top:0;border:0">'
@@ -3330,6 +3530,13 @@
             + '<div><p class="ride-card__stop-label">Naar</p>'
             + '<p class="ride-card__stop-value">' + escapeHtml(to) + '</p></div>'
             + '</div></div>'
+            + (ride.rating && ride.rating.rated && ride.rating.stars
+                ? ('<p class="ride-card__rating" style="margin:8px 0 0;font-size:.85rem;color:var(--muted)">'
+                    + 'Beoordeling: ' + '★'.repeat(Number(ride.rating.stars))
+                    + '☆'.repeat(Math.max(0, 5 - Number(ride.rating.stars)))
+                    + (ride.rating.comment ? (' — ' + escapeHtml(String(ride.rating.comment))) : '')
+                    + '</p>')
+                : '')
             + '<div class="ride-card__foot">'
             + '<span class="ride-card__when">' + escapeHtml(when || '—') + '</span>'
             + '<span class="ride-card__action">'
@@ -3561,6 +3768,7 @@
                     status_label: ride.status_label || r.status_label || '',
                     payment_failure_status: ride.payment_failure_status || r.payment_failure_status || null,
                     amount: r.amount || '',
+                    rating: ride.rating || r.rating || null,
                 };
                 updateGuestRideByToken(r.token, next);
                 return next;
@@ -3582,6 +3790,7 @@
                 phase: r.phase,
                 payment_failure_status: r.payment_failure_status || null,
                 amount: r.amount || '',
+                rating: r.rating || null,
                 can_download_invoice: r.phase === 'completed',
             };
         }));
@@ -3727,6 +3936,17 @@
             downloadRideInvoice({ fromList: false });
         });
     }
+    const liveRatingStars = el('live-rating-stars');
+    if (liveRatingStars) {
+        liveRatingStars.addEventListener('click', function (ev) {
+            const btn = ev.target && ev.target.closest ? ev.target.closest('[data-stars]') : null;
+            if (!btn) return;
+            liveRateStars = Number(btn.getAttribute('data-stars') || 0);
+            syncLiveRatingStars(liveRateStars);
+        });
+    }
+    const btnLiveRate = el('btn-live-rate');
+    if (btnLiveRate) btnLiveRate.addEventListener('click', submitLiveRating);
     el('btn-rides-book').addEventListener('click', () => {
         if (state.showArchivedRides) {
             state.showArchivedRides = false;
@@ -3812,12 +4032,49 @@
         }
     });
 
+    function openPhotoPreview(url) {
+        const overlay = el('photo-preview-overlay');
+        const img = el('photo-preview-image');
+        if (!overlay || !img || !url) return;
+        img.src = url;
+        overlay.hidden = false;
+    }
+
+    function closePhotoPreview() {
+        const overlay = el('photo-preview-overlay');
+        const img = el('photo-preview-image');
+        if (img) img.removeAttribute('src');
+        if (overlay) overlay.hidden = true;
+    }
+
+    function bindPhotoPreview() {
+        document.addEventListener('click', function (ev) {
+            const btn = ev.target && ev.target.closest
+                ? ev.target.closest('[data-photo-preview]')
+                : null;
+            if (btn) {
+                ev.preventDefault();
+                openPhotoPreview(btn.getAttribute('data-photo-preview'));
+                return;
+            }
+            const overlay = el('photo-preview-overlay');
+            if (!overlay || overlay.hidden) return;
+            if (ev.target === overlay || (ev.target && ev.target.id === 'photo-preview-image')) {
+                closePhotoPreview();
+            }
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') closePhotoPreview();
+        });
+    }
+
     bindPickupLocationNotice();
     bindAddressClearButtons();
     bindAddressSearch();
     bindPickupDateTimePicker();
     bindBaggageSteppers();
     bindKeyboardTabbarVisibility();
+    bindPhotoPreview();
     setPickupAtValue(defaultPickupAt(), { silent: true });
     // Prefetch Maps SDK early.
     loadGoogleMapsSdk().catch(function () {});

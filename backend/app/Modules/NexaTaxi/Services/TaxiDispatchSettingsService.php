@@ -901,22 +901,32 @@ class TaxiDispatchSettingsService
     {
         $stored = GeneralSetting::get(self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS, null, $companyId);
         if ($stored !== null && $stored !== '') {
-            return $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+            $events = $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+        } else {
+            $fallback = $this->normalizeCustomerWhatsappStatusEvents(
+                app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+                allowEmpty: false
+            );
+
+            $events = array_values(array_filter(
+                $fallback,
+                fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
+            ));
         }
 
-        $fallback = $this->normalizeCustomerWhatsappStatusEvents(
-            app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
-            allowEmpty: false
-        );
-
-        return array_values(array_filter(
-            $fallback,
-            fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
-        ));
+        // Verplichte events (accepted / en_route / started) altijd meenemen.
+        return array_values(array_unique(array_merge(
+            WhatsAppBookingMessageComposer::requiredStatusEvents(),
+            $events
+        )));
     }
 
     public function customerWhatsappStatusEventEnabled(string $event, ?int $companyId = null): bool
     {
+        if (in_array($event, WhatsAppBookingMessageComposer::requiredStatusEvents(), true)) {
+            return true;
+        }
+
         return in_array($event, $this->customerWhatsappStatusEvents($companyId), true);
     }
 

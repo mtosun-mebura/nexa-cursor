@@ -3,6 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const GUEST_RIDES_KEY = 'nexa_taxi_guest_rides';
 export const ARCHIVED_RIDES_KEY = 'nexa_taxi_customer_archived_rides';
 
+export type GuestRideRating = {
+  rated?: boolean;
+  stars?: number | null;
+  comment?: string | null;
+  can_rate?: boolean;
+};
+
 export type GuestRide = {
   id: number;
   token: string;
@@ -12,6 +19,7 @@ export type GuestRide = {
   phase: string;
   status_label: string;
   quoted_price?: number | null;
+  rating?: GuestRideRating | null;
 };
 
 export function isActiveRidePhase(phase?: string | null): boolean {
@@ -75,6 +83,7 @@ export async function saveGuestRide(
     status_label: meta.status_label || prev?.status_label || 'Zoeken…',
     quoted_price:
       meta.quoted_price !== undefined ? meta.quoted_price : prev?.quoted_price ?? null,
+    rating: meta.rating !== undefined ? meta.rating : prev?.rating ?? null,
   };
   const filtered = list.filter((r) => r.token !== token && Number(r.id) !== id);
   const out = [next, ...filtered].slice(0, 50);
