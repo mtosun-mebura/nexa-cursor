@@ -772,7 +772,7 @@ class NexaTaxiBookingController extends Controller
         $acceptLanguage = $request->input('accept-language', 'nl');
 
         $placesKey = $this->placesSearchKey();
-        $cacheKey = 'address_search:v2:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails.'|'.($placesKey !== '' ? 'biz' : 'geo'));
+        $cacheKey = 'address_search:v3:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails.'|'.($placesKey !== '' ? 'biz' : 'geo'));
         $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage, $placesKey) {
             $query = [
                 'format' => $format,
@@ -856,16 +856,59 @@ class NexaTaxiBookingController extends Controller
      */
     private function formatReverseGeocodePayload(array $data): array
     {
+        if (isset($data['address']) && is_array($data['address'])) {
+            unset($data['address']['postcode']);
+            foreach (['city', 'town', 'village', 'municipality', 'suburb', 'neighbourhood', 'hamlet'] as $key) {
+                if (isset($data['address'][$key]) && is_string($data['address'][$key])) {
+                    $data['address'][$key] = $this->stripPostcodeFromPart($data['address'][$key]);
+                }
+            }
+        }
+
         $label = $this->formatNominatimAddressLabel($data);
         if ($label !== '') {
             $data['display_name'] = $label;
+            $road = trim((string) ($data['address']['road'] ?? ''));
+            $number = trim((string) ($data['address']['house_number'] ?? ''));
+            $streetLine = trim($road.' '.$number);
             $existingName = trim((string) ($data['name'] ?? ''));
-            if ($existingName === '' || strcasecmp($existingName, $label) === 0) {
-                $data['name'] = $label;
+            $nameIsAddress = $existingName === ''
+                || strcasecmp($existingName, $label) === 0
+                || preg_match('/\d{4}\s*[A-Z]{2}/i', $existingName) === 1
+                || ($streetLine !== '' && str_starts_with(mb_strtolower($existingName), mb_strtolower($streetLine)));
+            if ($nameIsAddress) {
+                $data['name'] = $streetLine !== '' ? $streetLine : $label;
             }
         }
 
         return $data;
+    }
+
+    private function stripPostcodeFromPart(string $part): string
+    {
+        $clean = trim((string) preg_replace('/\b\d{4}\s*[A-Z]{2}\b/i', ' ', $part));
+        $clean = trim((string) preg_replace('/\s{2,}/', ' ', $clean));
+
+        return trim($clean, " \t,");
+    }
+
+    private function stripPostcodeFromLabel(string $label): string
+    {
+        $parts = array_values(array_filter(array_map(
+            fn (string $part) => $this->stripPostcodeFromPart($part),
+            explode(',', $label)
+        ), fn (string $part) => $part !== ''));
+
+        $unique = [];
+        foreach ($parts as $part) {
+            $key = mb_strtolower($part);
+            if (isset($unique[$key])) {
+                continue;
+            }
+            $unique[$key] = $part;
+        }
+
+        return implode(', ', array_values($unique));
     }
 
     /**
@@ -920,10 +963,11 @@ class NexaTaxiBookingController extends Controller
             $lead = $streetPart;
         }
 
-        $second = trim((string) $city);
+        $second = $this->stripPostcodeFromPart(trim((string) $city));
         $value = trim(implode(', ', array_filter([$lead, $second], fn ($v) => trim((string) $v) !== '')));
+        $value = $this->stripPostcodeFromLabel($value);
 
-        return $value !== '' ? $value : $this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName);
+        return $value !== '' ? $value : $this->stripPostcodeFromLabel($this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName));
     }
 
     private function normalizeNlAddressLabel(string $raw): string
@@ -1050,18 +1094,42 @@ class NexaTaxiBookingController extends Controller
     private function addressFromFormattedPlace(string $formatted, string $name): array
     {
         $parts = array_values(array_filter(array_map('trim', explode(',', $formatted)), fn ($part) => $part !== ''));
-        if ($parts !== [] && strcasecmp($parts[0], $name) === 0) {
-            array_shift($parts);
-        }
+        $parts = array_values(array_filter($parts, function (string $part): bool {
+            return ! preg_match('/^(nederland|netherlands|the netherlands)$/i', $part);
+        }));
 
-        $street = $parts[0] ?? '';
+        $street = '';
         $city = '';
-        if (count($parts) >= 2) {
-            $cityCandidate = $parts[1];
-            if (! preg_match('/\d{4}/', $cityCandidate)) {
-                $city = $cityCandidate;
-            } else {
-                $city = trim((string) preg_replace('/\b\d{4}\s*[A-Z]{2}\b/i', '', $parts[count($parts) - 1]));
+        foreach ($parts as $part) {
+            if (preg_match('/^\d{4}\s*[A-Z]{2}\s+(.+)$/i', $part, $postcodeCity)) {
+                $city = trim($postcodeCity[1]);
+                continue;
+            }
+            if (preg_match('/^\d{4}\s*[A-Z]{2}$/i', $part)) {
+                continue;
+            }
+            if ($street === '' && preg_match('/\d/', $part)) {
+                $street = $part;
+                continue;
+            }
+        }
+        if ($city === '') {
+            for ($i = count($parts) - 1; $i >= 0; $i--) {
+                $candidate = $this->stripPostcodeFromPart($parts[$i]);
+                if ($candidate === '' || strcasecmp($candidate, $street) === 0) {
+                    continue;
+                }
+                if (strcasecmp($candidate, $name) === 0 && $street !== '') {
+                    continue;
+                }
+                $city = $candidate;
+                break;
+            }
+        }
+        if ($street === '' && isset($parts[0])) {
+            $fallback = $this->stripPostcodeFromPart($parts[0]);
+            if ($fallback !== '' && strcasecmp($fallback, $city) !== 0) {
+                $street = $fallback;
             }
         }
 

@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerAbsence;
+use App\Modules\NexaTaxi\Services\ContractDestinationArrivalService;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractPortalAutoBoardService;
 use App\Modules\NexaTaxi\Services\ContractPortalRideLifecycleService;
@@ -59,10 +60,43 @@ class ContractPortalController extends Controller
                         'name' => $p->full_name,
                         'phone' => $p->phone,
                         'pickup_address' => $p->pickup_address,
+                        'map_color' => $this->mapColorValue($p->map_color),
                         'absent_today' => $absence !== null,
                         'absence_reason' => $absence?->reason,
                     ];
                 })->values(),
+            ],
+        ]);
+    }
+
+    public function updateMapColor(
+        Request $request,
+        int $passenger,
+        TaxiContractPortalAccessService $access
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        if (! $access->canAccessPassenger($conn, $context, $passenger)) {
+            return response()->json(['message' => 'Geen toegang tot deze passagier.'], 403);
+        }
+
+        $data = $request->validate([
+            'map_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
+        $model = TransportPassenger::on($conn)->find($passenger);
+        if (! $model) {
+            return response()->json(['message' => 'Passagier niet gevonden.'], 404);
+        }
+
+        $color = strtoupper($data['map_color']);
+        $model->update(['map_color' => $color]);
+
+        return response()->json([
+            'data' => [
+                'id' => (int) $model->id,
+                'map_color' => $color,
             ],
         ]);
     }
@@ -460,6 +494,81 @@ class ContractPortalController extends Controller
         ]);
     }
 
+    public function location(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDestinationArrivalService $arrival
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        if (! $access->isContractant($context)) {
+            return response()->json(['message' => 'Alleen de contractant kan de locatie doorgeven.'], 403);
+        }
+
+        $data = $request->validate([
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+        ]);
+
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $arrival->rememberDriverPosition($conn, (int) $request->user()->id, (float) $data['lat'], (float) $data['lng']);
+        $updated = $arrival->observe(
+            $conn,
+            (int) $request->user()->id,
+            $passengerIds,
+            (float) $data['lat'],
+            (float) $data['lng']
+        );
+
+        return response()->json([
+            'data' => [
+                'updated' => $updated,
+                'dwell_minutes' => ContractDestinationArrivalService::DWELL_MINUTES,
+            ],
+        ]);
+    }
+
+    public function reachDestinations(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDestinationArrivalService $arrival
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        if (! $access->isContractant($context)) {
+            return response()->json(['message' => 'Alleen de contractant kan de bestemming bevestigen.'], 403);
+        }
+
+        $data = $request->validate([
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $lat = isset($data['lat']) ? (float) $data['lat'] : null;
+        $lng = isset($data['lng']) ? (float) $data['lng'] : null;
+        $result = $arrival->markAll($conn, $passengerIds, $lat, $lng);
+
+        $blocked = match ($result['reason']) {
+            'no_location' => 'Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.',
+            'too_far' => 'Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.',
+            'none' => 'Er is geen openstaande bestemming.',
+            default => null,
+        };
+        if ($blocked !== null || $result['updated'] < 1) {
+            return response()->json([
+                'message' => $blocked ?? 'De bestemming kan niet op bereikt gezet worden.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Bestemming bereikt.',
+            'data' => [
+                'updated' => $result['updated'],
+            ],
+        ]);
+    }
+
     public function absences(Request $request, TaxiContractPortalAccessService $access): JsonResponse
     {
         $conn = $request->attributes->get('taxi_contract_conn');
@@ -679,13 +788,17 @@ class ContractPortalController extends Controller
 
         $stopsByPassenger = $pickupStops->groupBy('transport_passenger_id');
 
+        $arrival = app(ContractDestinationArrivalService::class);
+
         return $passengers->map(function (TransportPassenger $p) use (
+            $conn,
             $stopsByPassenger,
             $destinationsByRideId,
             $directionByRideId,
             $absenceMap,
             $tz,
-            $canOperateRides
+            $canOperateRides,
+            $arrival
         ) {
             $absence = $absenceMap->get($p->id);
             $stops = ($stopsByPassenger->get($p->id) ?? collect())
@@ -699,12 +812,14 @@ class ContractPortalController extends Controller
                 })
                 ->values();
             $legs = $stops->map(function (RideStop $stop) use (
+                $conn,
                 $destinationsByRideId,
                 $directionByRideId,
                 $absence,
                 $tz,
                 $p,
-                $canOperateRides
+                $canOperateRides,
+                $arrival
             ) {
                 $ride = $stop->ride;
                 $destination = null;
@@ -798,6 +913,13 @@ class ContractPortalController extends Controller
                             RideRequest::STATUS_PENDING_DISPATCH,
                         ], true),
                     'status_banner' => ContractPortalRideStatus::bannerLabel($statusKey),
+                    'vehicle_location' => $this->vehicleLocationForParent(
+                        $conn,
+                        $arrival,
+                        $ride,
+                        $statusKey,
+                        $canOperateRides
+                    ),
                 ];
             })->values()->all();
 
@@ -812,6 +934,7 @@ class ContractPortalController extends Controller
             return [
                 'passenger_id' => (int) $p->id,
                 'name' => $p->full_name,
+                'map_color' => $this->mapColorValue($p->map_color),
                 'pickup_address' => $p->pickup_address,
                 'pickup_lat' => $this->coordValue($p->pickup_lat),
                 'pickup_lng' => $this->coordValue($p->pickup_lng),
@@ -881,6 +1004,35 @@ class ContractPortalController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Live taxi-positie voor de contractouder, alleen zolang de rit onderweg is.
+     *
+     * @return array{lat: float, lng: float, updated_at: string}|null
+     */
+    private function vehicleLocationForParent(
+        string $conn,
+        ContractDestinationArrivalService $arrival,
+        ?RideRequest $ride,
+        string $statusKey,
+        bool $canOperateRides
+    ): ?array {
+        if ($canOperateRides || ! $ride) {
+            return null;
+        }
+        if (! in_array($statusKey, ['en_route', 'arrived', 'picked_up'], true)) {
+            return null;
+        }
+
+        return $arrival->freshDriverPosition($conn, (int) ($ride->driver_id ?? 0));
+    }
+
+    private function mapColorValue(mixed $value): ?string
+    {
+        $color = strtoupper(trim((string) $value));
+
+        return preg_match('/^#[0-9A-F]{6}$/', $color) === 1 ? $color : null;
     }
 
     private function coordValue(mixed $value): ?float

@@ -2138,39 +2138,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               ) : null}
             </View>
           </Pressable>
-          {(() => {
-            const confirm =
-              (isLiveMatch ? live?.pickup_confirmation : null) ?? ride.pickup_confirmation ?? null;
-            if (!confirm?.can_answer) return null;
-            const prompt =
-              confirm.prompt || 'De chauffeur zegt dat je bent opgehaald. Klopt dat?';
-            const answering = pickupAnswerToken === ride.token;
-            return (
-              <View style={styles.pickupConfirm}>
-                <Text style={styles.pickupConfirmText}>{prompt}</Text>
-                <View style={styles.pickupConfirmActions}>
-                  <Pressable
-                    style={styles.pickupConfirmYes}
-                    disabled={answering}
-                    onPress={() => answerPickup(ride.token, 'yes')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ja, ik ben opgehaald"
-                  >
-                    <Text style={styles.pickupConfirmYesText}>{answering ? '…' : 'Ja'}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.pickupConfirmNo}
-                    disabled={answering}
-                    onPress={() => answerPickup(ride.token, 'no')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Nee, ik ben niet opgehaald"
-                  >
-                    <Text style={styles.pickupConfirmNoText}>Nee</Text>
-                  </Pressable>
-                </View>
-              </View>
-            );
-          })()}
         </View>
 
         {expanded ? (
@@ -2516,6 +2483,27 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
 
   const refundDays = Math.max(1, Number(live?.refund_business_days) || 10);
+  const pickupPinInfo = [...guestRides].reduce<{ pin: string; prompt: string } | null>((found, ride) => {
+    if (found) return found;
+    const confirm =
+      (ride.token === trackToken ? live?.pickup_confirmation : null) ?? ride.pickup_confirmation ?? null;
+    const pin = String(confirm?.pin || '').replace(/\D/g, '');
+    if (pin.length !== 4) return found;
+    return {
+      pin,
+      prompt: confirm?.prompt || 'Geef deze ophaalcode aan de chauffeur om de rit te starten.',
+    };
+  }, null) ||
+    (() => {
+      const pin = String(live?.pickup_confirmation?.pin || '').replace(/\D/g, '');
+      if (pin.length !== 4) return null;
+      return {
+        pin,
+        prompt:
+          live?.pickup_confirmation?.prompt ||
+          'Geef deze ophaalcode aan de chauffeur om de rit te starten.',
+      };
+    })();
 
   return (
     <Screen style={styles.shell}>
@@ -2563,6 +2551,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           (hasActiveRide && isRidesTabBadgePhase(live?.phase) ? 1 : 0)
         }
       />
+
+      {pickupPinInfo && (tab === 'rides' || tab === 'book') ? (
+        <View style={styles.pickupPinBanner} pointerEvents="box-none">
+          <Text style={styles.pickupPinBannerLabel}>Ophaalcode voor de chauffeur</Text>
+          <Text
+            style={styles.pickupPinDigits}
+            accessibilityLabel={`Ophaalcode ${pickupPinInfo.pin}`}
+          >
+            {pickupPinInfo.pin}
+          </Text>
+          <Text style={styles.pickupPinBannerHint}>{pickupPinInfo.prompt}</Text>
+        </View>
+      ) : null}
 
       <AppModal
         visible={cancelConfirmOpen}
@@ -3036,51 +3037,6 @@ function makeStyles(colors: ColorPalette) {
       color: '#A7F3D0',
       fontSize: 14,
       lineHeight: 20,
-    },
-    pickupConfirm: {
-      marginTop: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: 'rgba(30, 58, 138, 0.35)',
-      borderWidth: 1,
-      borderColor: 'rgba(147, 197, 253, 0.45)',
-      gap: 10,
-    },
-    pickupConfirmText: {
-      color: colors.text,
-      fontSize: 15,
-      fontWeight: '600',
-      lineHeight: 21,
-    },
-    pickupConfirmActions: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    pickupConfirmYes: {
-      flex: 1,
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    pickupConfirmYesText: {
-      color: '#fff',
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    pickupConfirmNo: {
-      flex: 1,
-      borderRadius: 10,
-      paddingVertical: 10,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    pickupConfirmNoText: {
-      color: colors.text,
-      fontSize: 15,
-      fontWeight: '700',
     },
     rideCardBody: {
       paddingHorizontal: 14,
@@ -3692,6 +3648,46 @@ function makeStyles(colors: ColorPalette) {
       lineHeight: 21,
       marginBottom: 16,
     },
+    pickupPinBanner: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 88,
+      zIndex: 40,
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    pickupPinBannerLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+      marginBottom: 4,
+    },
+    pickupPinDigits: {
+      color: colors.text,
+      fontSize: 36,
+      fontWeight: '800',
+      letterSpacing: 8,
+      fontVariant: ['tabular-nums'],
+    },
+    pickupPinBannerHint: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+      marginTop: 6,
+    },
     confirmActions: {
       flexDirection: 'row',
       alignItems: 'stretch',
@@ -3730,6 +3726,20 @@ function makeStyles(colors: ColorPalette) {
     },
     confirmDangerText: {
       color: colors.danger,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    confirmPrimaryBtn: {
+      borderRadius: 14,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      marginTop: 8,
+      width: '100%',
+    },
+    confirmPrimaryText: {
+      color: '#fff',
       fontSize: 16,
       fontWeight: '700',
     },

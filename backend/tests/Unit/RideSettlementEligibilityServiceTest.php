@@ -325,6 +325,30 @@ class RideSettlementEligibilityServiceTest extends TestCase
         $this->assertSame('away', $pickup->classify(true, 52.0, 6.0, 53.0, 6.0, 250)['result']);
     }
 
+    #[Test]
+    public function ensure_pin_creates_four_digit_code_for_marketplace_ride(): void
+    {
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'booking_payload' => ['channel' => RideRequest::SOURCE_NEXA_SUITE],
+        ]);
+
+        $pickup = app(MarketplacePickupConfirmationService::class);
+        $this->assertTrue($pickup->appliesTo($ride));
+
+        $withPin = $pickup->ensurePin('module_taxi', $ride);
+        $pin = (string) data_get($withPin->booking_payload, 'pickup_confirmation.pin', '');
+
+        $this->assertMatchesRegularExpression('/^\d{4}$/', $pin);
+        $this->assertSame('pending', data_get($withPin->booking_payload, 'pickup_confirmation.status'));
+        $this->assertSame($pin, $pickup->customerPayload($withPin)['pin'] ?? null);
+        $this->assertTrue($pickup->driverPayload($withPin)['requires_pin'] ?? false);
+        $this->assertArrayNotHasKey('pin', $pickup->driverPayload($withPin) ?? []);
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */

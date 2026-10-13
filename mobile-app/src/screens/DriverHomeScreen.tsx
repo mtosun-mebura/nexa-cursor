@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,9 @@ import {
   DriverVehicle,
   fetchDriverInbox,
   fetchDriverMe,
+  fetchDriverReviews,
   fetchDriverVehicles,
+  DriverReview,
   fetchDriverPlanningWeek,
   inboxDataFromResponse,
   mergeCompletedRides,
@@ -71,7 +74,12 @@ import {
   ensureDriverNotificationPermission,
   setupDriverNotificationChannel,
 } from '../notifications/driverOffers';
-import { alertUnseenDriverOffers, rememberRideAlertTone } from '../notifications/offerAlertWatch';
+import {
+  alertPickupDenials,
+  alertUnseenDriverOffers,
+  primeRideAlertAudio,
+  rememberRideAlertTone,
+} from '../notifications/offerAlertWatch';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
@@ -103,13 +111,7 @@ const DRIVER_ARCHIVE_SEEN_KEY = 'nexa.driver.archive.seen';
 const DRIVER_ACCENT_KEY = 'nexa.driver.accent';
 const DRIVER_RIDE_KIND_KEY = 'nexa.driver.ride_kind';
 const DRIVER_RIDE_PERIOD_KEY = 'nexa.driver.ride_period';
-const DRIVER_TABS: DriverTabKey[] = [
-  'trips',
-  'requests',
-  'planning',
-  'earnings',
-  'profile',
-];
+const REVIEW_STAR = '#F5B301';
 
 type RideKindFilter = 'all' | 'taxi' | 'contract';
 const RIDE_KIND_OPTIONS: { key: RideKindFilter; label: string }[] = [
@@ -124,8 +126,11 @@ const RIDE_PERIOD_OPTIONS: { key: RidePeriodFilter; label: string }[] = [
   { key: 'week', label: 'Week' },
 ];
 
-function isDriverTab(value: string | null): value is DriverTabKey {
-  return !!value && (DRIVER_TABS as string[]).includes(value);
+function reviewDateLabel(iso?: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function isRideKindFilter(value: string | null): value is RideKindFilter {
@@ -180,8 +185,19 @@ function persistRidePeriodFilter(period: RidePeriodFilter) {
   AsyncStorage.setItem(DRIVER_RIDE_PERIOD_KEY, period).catch(() => undefined);
 }
 
+/**
+ * Alleen in-memory: tab blijft staan bij een remount in dezelfde sessie.
+ * Na uitloggen / nieuwe login altijd weer Ritten (niet Profiel).
+ */
+let lastDriverTab: DriverTabKey = 'trips';
+
 function persistDriverTab(key: DriverTabKey) {
-  AsyncStorage.setItem(DRIVER_TAB_KEY, key).catch(() => undefined);
+  lastDriverTab = key;
+}
+
+function resetDriverTabToTrips() {
+  lastDriverTab = 'trips';
+  AsyncStorage.removeItem(DRIVER_TAB_KEY).catch(() => undefined);
 }
 
 function persistDriverArchive(open: boolean) {
@@ -271,17 +287,28 @@ async function openPickupMapsAndNotify(
 function resolveMediaUrl(url?: string | null): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith('//')) return `https:${raw}`;
   if (raw.startsWith('/')) return `${API_BASE_URL}${raw}`;
-  return `${API_BASE_URL}/${raw}`;
+  if (!/^https?:\/\//i.test(raw)) return `${API_BASE_URL}/${raw}`;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      const base = new URL(API_BASE_URL);
+      parsed.protocol = base.protocol;
+      parsed.host = base.host;
+      return parsed.toString();
+    }
+  } catch {
+    /* absolute url laten staan */
+  }
+  return raw;
 }
 
 export function DriverHomeScreen() {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
   const { driverToken, logout, capabilities, setActiveScreen } = useAuth();
-  const [tab, setTab] = useState<DriverTabKey>('trips');
+  const [tab, setTab] = useState<DriverTabKey>(() => lastDriverTab);
   const [showArchived, setShowArchived] = useState(false);
   const [focusRideId, setFocusRideId] = useState<number | null>(null);
   const [focusOfferId, setFocusOfferId] = useState<number | null>(null);
@@ -297,6 +324,10 @@ export function DriverHomeScreen() {
   const [rideTone, setRideTone] = useState<RideAlertTone>('classic');
   const [company, setCompany] = useState('');
   const [driverMedia, setDriverMedia] = useState<DriverMedia | null>(null);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [reviews, setReviews] = useState<DriverReview[]>([]);
+  const [reviewsBusy, setReviewsBusy] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [cropUri, setCropUri] = useState<string | null>(null);
   const [cropMime, setCropMime] = useState<string | null>(null);
@@ -336,11 +367,19 @@ export function DriverHomeScreen() {
   const [proposeBusy, setProposeBusy] = useState(false);
   const [settleRideId, setSettleRideId] = useState<number | null>(null);
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
+  const [pinRideId, setPinRideId] = useState<number | null>(null);
+  const [pickupPin, setPickupPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinBusy, setPinBusy] = useState(false);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [assignedUntil, setAssignedUntil] = useState<string | null>(null);
   const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false);
+  const [vehiclePhotoAsk, setVehiclePhotoAsk] = useState<DriverVehicle | null>(null);
+  const [focusVehiclePhoto, setFocusVehiclePhoto] = useState(false);
+  const profileScrollRef = useRef<ScrollView>(null);
+  const vehiclePhotoRef = useRef<View>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -353,7 +392,6 @@ export function DriverHomeScreen() {
     (async () => {
       try {
         const [
-          savedTab,
           savedArchive,
           savedAccent,
           savedArchivedRides,
@@ -361,7 +399,6 @@ export function DriverHomeScreen() {
           savedRideKind,
           savedRidePeriod,
         ] = await Promise.all([
-          AsyncStorage.getItem(DRIVER_TAB_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVE_KEY),
           AsyncStorage.getItem(DRIVER_ACCENT_KEY),
           AsyncStorage.getItem(DRIVER_ARCHIVED_RIDES_KEY),
@@ -369,7 +406,7 @@ export function DriverHomeScreen() {
           AsyncStorage.getItem(DRIVER_RIDE_KIND_KEY),
           AsyncStorage.getItem(DRIVER_RIDE_PERIOD_KEY),
         ]);
-        if (isDriverTab(savedTab)) setTab(savedTab);
+        AsyncStorage.removeItem(DRIVER_TAB_KEY).catch(() => undefined);
         if (savedArchive === '1') setShowArchived(true);
         if (savedAccent) setAccent(normalizeDriverAccent(savedAccent));
         if (isRideKindFilter(savedRideKind)) setRideKindFilter(savedRideKind);
@@ -468,7 +505,15 @@ export function DriverHomeScreen() {
 
       const locked = !!vehiclesRes.locked;
       const list = Array.isArray(vehiclesRes.data) ? vehiclesRes.data : [];
-      setVehicles(list);
+      setVehicles((previous) =>
+        list.map((vehicle) => {
+          const prior = previous.find((item) => item.id === vehicle.id);
+          return {
+            ...vehicle,
+            photo_url: vehicle.photo_url || prior?.photo_url || null,
+          };
+        })
+      );
       setVehicleLocked(locked);
       setAssignedUntil(vehiclesRes.assigned_until || null);
       let resolvedVehicleId: number | null = selectedVehicleId;
@@ -512,6 +557,20 @@ export function DriverHomeScreen() {
         completedFromPlanning = [];
       }
       setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
+      const pickupDenied = await alertPickupDenials({
+        rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
+        alert: inboxData.pickupDeniedAlert,
+      });
+      if (pickupDenied) {
+        setRideNotice({
+          title: pickupDenied.title,
+          body: pickupDenied.body,
+          primaryLabel: 'Begrepen',
+          rideId: pickupDenied.rideId,
+        });
+        setTab('trips');
+        persistDriverTab('trips');
+      }
       setCancelReasons(inboxData.cancelReasons);
       await handleNewOffers(inboxData.offers, isOnlineNow);
     } catch (e) {
@@ -522,7 +581,12 @@ export function DriverHomeScreen() {
   useEffect(() => {
     setupDriverNotificationChannel().catch(() => undefined);
     ensureDriverNotificationPermission().catch(() => undefined);
+    primeRideAlertAudio();
   }, []);
+
+  useEffect(() => {
+    if (online) primeRideAlertAudio();
+  }, [online]);
 
   useEffect(() => {
     refresh().catch(() => undefined);
@@ -543,10 +607,15 @@ export function DriverHomeScreen() {
   }, [refresh]);
 
   useEffect(() => {
-    return addDriverOfferNotificationResponseListener(() => {
-      goToArchive(false);
-      goToTab('requests');
-    });
+    return addDriverOfferNotificationResponseListener(
+      () => {
+        goToArchive(false);
+        goToTab('requests');
+      },
+      () => {
+        goToTab('trips');
+      }
+    );
   }, []);
 
   // Houd GPS-posts gelijk met admin refresh_seconds zolang de chauffeur online is
@@ -563,9 +632,35 @@ export function DriverHomeScreen() {
     }).catch(() => undefined);
   }, [driverToken, online, selectedVehicleId, gpsRefreshSeconds]);
 
+  useEffect(() => {
+    if (!focusVehiclePhoto || tab !== 'profile') return;
+    const timer = setTimeout(() => {
+      const target = vehiclePhotoRef.current;
+      const scroller = profileScrollRef.current;
+      if (!target || !scroller) {
+        setFocusVehiclePhoto(false);
+        return;
+      }
+      target.measureLayout(
+        scroller as unknown as number,
+        (_x, y) => {
+          scroller.scrollTo({ y: Math.max(0, y - 12), animated: true });
+          setFocusVehiclePhoto(false);
+        },
+        () => setFocusVehiclePhoto(false)
+      );
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [focusVehiclePhoto, tab]);
+
   async function selectVehicle(id: number) {
+    const previousId = selectedVehicleId;
+    const next = vehicles.find((vehicle) => vehicle.id === id) || null;
     setSelectedVehicleId(id);
     setVehiclePickerOpen(false);
+    if (previousId != null && previousId !== id && next) {
+      setVehiclePhotoAsk(next);
+    }
     if (!driverToken || !online) return;
     try {
       await setDriverOnline(driverToken, true, id);
@@ -720,6 +815,24 @@ export function DriverHomeScreen() {
     });
   }
 
+  function findRideById(rideId: number): DriverActiveRide | null {
+    const pool = [activeRide, ...parkedRides, ...scheduledRides, ...overdueScheduledRides];
+    return pool.find((r) => r && Number(r.id) === rideId) || null;
+  }
+
+  function rideNeedsPickupPin(ride: DriverActiveRide | null): boolean {
+    if (!ride || String(ride.status || '') !== 'accepted') return false;
+    if (ride.pickup_confirmation?.requires_pin === true) return true;
+    if (ride.pickup_confirmation?.method === 'pin') return true;
+    return isMarketplaceRide(ride);
+  }
+
+  function openPickupPin(rideId: number) {
+    setPinRideId(rideId);
+    setPickupPin('');
+    setPinError(null);
+  }
+
   async function onStartRide(rideId: number) {
     if (!driverToken) return;
     const blocking = blockingAssignedRide(rideId);
@@ -727,10 +840,30 @@ export function DriverHomeScreen() {
       warnRideAlreadyActive(blocking);
       return;
     }
-    setBusyRideId(rideId);
+    const ride = findRideById(rideId);
+    if (rideNeedsPickupPin(ride)) {
+      openPickupPin(rideId);
+      return;
+    }
+    await submitStartRide(rideId);
+  }
+
+  async function submitStartRide(rideId: number, pin?: string) {
+    if (!driverToken) return;
+    const blocking = blockingAssignedRide(rideId);
+    if (blocking) {
+      warnRideAlreadyActive(blocking);
+      return;
+    }
+    const usePin = !!pin;
+    if (usePin) setPinBusy(true);
+    else setBusyRideId(rideId);
     setError(null);
+    setPinError(null);
     try {
-      const started = await startRide(driverToken, rideId);
+      const started = await startRide(driverToken, rideId, pin ? { pin } : undefined);
+      setPinRideId(null);
+      setPickupPin('');
       await refresh();
       goToTab('trips');
       const pickupWarning = String(
@@ -745,14 +878,19 @@ export function DriverHomeScreen() {
       }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Rit starten mislukt.';
-      const blockingNow = blockingAssignedRide(rideId);
-      if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
-        warnRideAlreadyActive(blockingNow);
-      } else if (!showRideConflictNotice(msg, blockingNow)) {
-        setError(msg);
+      if (usePin) {
+        setPinError(msg);
+      } else {
+        const blockingNow = blockingAssignedRide(rideId);
+        if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
+          warnRideAlreadyActive(blockingNow);
+        } else if (!showRideConflictNotice(msg, blockingNow)) {
+          setError(msg);
+        }
       }
     } finally {
-      setBusyRideId(null);
+      if (usePin) setPinBusy(false);
+      else setBusyRideId(null);
     }
   }
 
@@ -1091,6 +1229,7 @@ export function DriverHomeScreen() {
                   busy={busyRideId === activeRideFiltered.id}
                   highlighted={focusRideId === activeRideFiltered.id}
                   onHighlightEnd={() => setFocusRideId(null)}
+                  onStart={() => onStartRide(activeRideFiltered.id)}
                   onOpenMaps={() => openMapsForRide(activeRideFiltered, 'dropoff')}
                   onComplete={() => requestCompleteRide(activeRideFiltered)}
                   onCancel={
@@ -1113,6 +1252,7 @@ export function DriverHomeScreen() {
                 busy={busyRideId === ride.id}
                 highlighted={focusRideId === ride.id}
                 onHighlightEnd={() => setFocusRideId(null)}
+                onStart={() => onStartRide(ride.id)}
                 onOpenMaps={() => openMapsForRide(ride, 'dropoff')}
                 onComplete={() => requestCompleteRide(ride)}
               />
@@ -1297,6 +1437,22 @@ export function DriverHomeScreen() {
       ]);
     });
 
+  async function openReviews() {
+    setReviewsOpen(true);
+    if (!driverToken) return;
+    setReviewsBusy(true);
+    setReviewsError(null);
+    try {
+      const res = await fetchDriverReviews(driverToken);
+      setReviews(Array.isArray(res.reviews) ? res.reviews : []);
+    } catch (e) {
+      setReviews([]);
+      setReviewsError(e instanceof ApiError ? e.message : 'Beoordelingen laden mislukt.');
+    } finally {
+      setReviewsBusy(false);
+    }
+  }
+
   const pickAndUploadMedia = async (kind: 'profile' | 'logo' | 'vehicle') => {
     if (!driverToken || mediaBusy || cropUri) return;
     setError(null);
@@ -1348,19 +1504,40 @@ export function DriverHomeScreen() {
   }) => {
     if (!driverToken || !cropKind) return;
     const kind = cropKind;
+    const vehicleId = selectedVehicleId;
     setCropUri(null);
     setCropMime(null);
     setCropKind(null);
+    if (kind === 'vehicle' && !vehicleId) {
+      setError('Kies eerst een voertuig.');
+      return;
+    }
     setMediaBusy(true);
     setError(null);
     try {
-      const res =
-        kind === 'profile'
-          ? await uploadDriverProfilePhoto(driverToken, cropped.uri, cropped.mimeType)
-          : kind === 'logo'
-            ? await uploadDriverCompanyLogo(driverToken, cropped.uri, cropped.mimeType)
-            : await uploadDriverVehiclePhoto(driverToken, cropped.uri, cropped.mimeType);
-      if (res.media) setDriverMedia(res.media);
+      if (kind === 'vehicle') {
+        const res = await uploadDriverVehiclePhoto(
+          driverToken,
+          cropped.uri,
+          cropped.mimeType,
+          vehicleId
+        );
+        if (res.media) setDriverMedia(res.media);
+        const photoUrl = res.vehicle?.photo_url || res.media?.vehicle_photo_url || null;
+        if (vehicleId && photoUrl) {
+          setVehicles((list) =>
+            list.map((vehicle) =>
+              vehicle.id === vehicleId ? { ...vehicle, photo_url: photoUrl } : vehicle
+            )
+          );
+        }
+      } else {
+        const res =
+          kind === 'profile'
+            ? await uploadDriverProfilePhoto(driverToken, cropped.uri, cropped.mimeType)
+            : await uploadDriverCompanyLogo(driverToken, cropped.uri, cropped.mimeType);
+        if (res.media) setDriverMedia(res.media);
+      }
     } catch (e) {
       setError(
         e instanceof ApiError
@@ -1376,6 +1553,7 @@ export function DriverHomeScreen() {
 
   const profilePanel = (
     <ScrollView
+      ref={profileScrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={styles.scroll}
       keyboardShouldPersistTaps="handled"
@@ -1403,15 +1581,23 @@ export function DriverHomeScreen() {
           <Text style={styles.profileLabel}>Accountstatus</Text>
           <Text style={styles.profileValue}>{accountStatusLabel(accountActive, online)}</Text>
         </View>
-        {driverMedia?.rating_avg != null ? (
-          <View style={styles.profileRow}>
-            <Text style={styles.profileLabel}>Beoordeling</Text>
+        <Pressable
+          style={styles.profileRow}
+          onPress={() => void openReviews()}
+          accessibilityRole="button"
+          accessibilityLabel="Beoordelingen bekijken"
+        >
+          <Text style={styles.profileLabel}>Beoordeling</Text>
+          <View style={styles.ratingValue}>
+            <Ionicons name="star" size={16} color={REVIEW_STAR} />
             <Text style={styles.profileValue}>
-              ★ {Number(driverMedia.rating_avg).toFixed(1)}
-              {driverMedia.rating_count ? ` (${driverMedia.rating_count})` : ''}
+              {driverMedia?.rating_avg != null
+                ? Number(driverMedia.rating_avg).toFixed(1)
+                : '—'}
+              {driverMedia?.rating_count ? ` (${driverMedia.rating_count})` : ''}
             </Text>
           </View>
-        ) : null}
+        </Pressable>
 
         <View style={styles.profileDivider} />
         <Text style={styles.profileSection}>Foto’s voor de klant</Text>
@@ -1454,20 +1640,29 @@ export function DriverHomeScreen() {
             )}
             <Text style={styles.mediaUploadLabel}>Bedrijfslogo</Text>
           </Pressable>
+          <View ref={vehiclePhotoRef} collapsable={false} style={styles.mediaUploadCard}>
           <Pressable
-            style={styles.mediaUploadCard}
+            style={styles.mediaUploadPress}
             onPress={() => pickAndUploadMedia('vehicle')}
             disabled={mediaBusy}
           >
-            {driverMedia?.vehicle_photo_url ? (
-              <Image source={{ uri: driverMedia.vehicle_photo_url }} style={styles.mediaPreview} />
+            {resolveMediaUrl(selectedVehicle?.photo_url) ? (
+              <Image
+                source={{ uri: resolveMediaUrl(selectedVehicle?.photo_url) || '' }}
+                style={styles.mediaPreview}
+              />
             ) : (
               <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
                 <Ionicons name="car" size={28} color={colors.muted} />
               </View>
             )}
-            <Text style={styles.mediaUploadLabel}>Auto</Text>
+            <Text style={styles.mediaUploadLabel}>
+              {selectedVehicle
+                ? `Auto · ${vehicleDisplayLabel(selectedVehicle)}`
+                : 'Auto'}
+            </Text>
           </Pressable>
+          </View>
         </View>
 
         <View style={styles.profileDivider} />
@@ -1554,6 +1749,8 @@ export function DriverHomeScreen() {
         <Pressable
           style={styles.logoutBtn}
           onPress={async () => {
+            resetDriverTabToTrips();
+            setTab('trips');
             await stopDriverLocationTracking();
             await logout();
           }}
@@ -1909,6 +2106,83 @@ export function DriverHomeScreen() {
       />
 
       <AppModal
+        visible={reviewsOpen}
+        onRequestClose={() => setReviewsOpen(false)}
+        panelStyle={styles.reviewsModal}
+      >
+        <Text style={styles.pickerTitle}>Beoordelingen</Text>
+        {reviewsBusy ? <Text style={styles.hint}>Laden…</Text> : null}
+        {reviewsError ? <Text style={styles.reviewsError}>{reviewsError}</Text> : null}
+        {!reviewsBusy && !reviewsError && reviews.length === 0 ? (
+          <Text style={styles.hint}>Nog geen beoordelingen.</Text>
+        ) : null}
+        <ScrollView
+          style={styles.reviewsScroll}
+          contentContainerStyle={styles.reviewsScrollContent}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {reviews.map((review) => {
+            const stars = Math.max(0, Math.min(5, Number(review.stars) || 0));
+            const route = [review.pickup_address, review.dropoff_address].filter(Boolean).join(' → ');
+            return (
+              <View key={review.id} style={styles.reviewItem}>
+                <View style={styles.reviewHead}>
+                  <View style={styles.reviewStars}>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Ionicons
+                        key={n}
+                        name={n <= stars ? 'star' : 'star-outline'}
+                        size={16}
+                        color={REVIEW_STAR}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.reviewDate}>{reviewDateLabel(review.created_at)}</Text>
+                </View>
+                {review.customer_name ? (
+                  <Text style={styles.reviewName}>{review.customer_name}</Text>
+                ) : null}
+                {route ? <Text style={styles.reviewRoute}>{route}</Text> : null}
+                {review.comment ? <Text style={styles.reviewComment}>{review.comment}</Text> : null}
+              </View>
+            );
+          })}
+        </ScrollView>
+        <GhostButton title="Sluiten" onPress={() => setReviewsOpen(false)} />
+      </AppModal>
+
+      <AppModal
+        visible={vehiclePhotoAsk != null}
+        onRequestClose={() => setVehiclePhotoAsk(null)}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.pickerTitle}>Foto van dit voertuig</Text>
+        <Text style={styles.noticeBody}>
+          Wil je een andere foto uploaden voor{' '}
+          {vehiclePhotoAsk ? vehicleDisplayLabel(vehiclePhotoAsk) : 'dit voertuig'}?
+        </Text>
+        <View style={styles.cancelActions}>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+            onPress={() => setVehiclePhotoAsk(null)}
+          >
+            <Text style={styles.cancelActionGhostText}>Nee</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+            onPress={() => {
+              setVehiclePhotoAsk(null);
+              goToTab('profile');
+              setFocusVehiclePhoto(true);
+            }}
+          >
+            <Text style={styles.cancelActionPrimaryText}>Ja</Text>
+          </Pressable>
+        </View>
+      </AppModal>
+
+      <AppModal
         visible={vehiclePickerOpen}
         onRequestClose={() => setVehiclePickerOpen(false)}
         panelStyle={styles.vehicleModalCard}
@@ -2060,6 +2334,62 @@ export function DriverHomeScreen() {
           >
             <Text style={styles.cancelActionPrimaryText}>
               {proposeBusy ? 'Versturen…' : 'Voorstellen'}
+            </Text>
+          </Pressable>
+        </View>
+      </AppModal>
+
+      <AppModal
+        visible={pinRideId != null}
+        onRequestClose={() => {
+          if (pinBusy) return;
+          setPinRideId(null);
+          setPickupPin('');
+          setPinError(null);
+        }}
+        dismissDisabled={pinBusy}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.pickerTitle}>Ophaalcode</Text>
+        <Text style={styles.noticeBody}>
+          Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.
+        </Text>
+        <TextInput
+          value={pickupPin}
+          onChangeText={(v) => {
+            setPickupPin(v.replace(/\D/g, '').slice(0, 4));
+            setPinError(null);
+          }}
+          keyboardType="number-pad"
+          maxLength={4}
+          placeholder="••••"
+          placeholderTextColor={colors.muted}
+          style={styles.pinInput}
+          editable={!pinBusy}
+          autoFocus
+        />
+        {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
+        <View style={styles.cancelActions}>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+            disabled={pinBusy}
+            onPress={() => {
+              setPinRideId(null);
+              setPickupPin('');
+              setPinError(null);
+            }}
+          >
+            <Text style={styles.cancelActionGhostText}>Annuleren</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionPrimary, pinBusy && { opacity: 0.55 }]}
+            disabled={pinBusy || pickupPin.length !== 4 || pinRideId == null}
+            onPress={() => {
+              if (pinRideId != null) void submitStartRide(pinRideId, pickupPin);
+            }}
+          >
+            <Text style={styles.cancelActionPrimaryText}>
+              {pinBusy ? 'Bezig…' : 'Start rit'}
             </Text>
           </Pressable>
         </View>
@@ -2360,6 +2690,25 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       lineHeight: 23,
       marginBottom: 16,
     },
+    pinInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '700',
+      letterSpacing: 10,
+      textAlign: 'center',
+      paddingVertical: 14,
+      marginBottom: 10,
+    },
+    pinError: {
+      color: colors.danger,
+      fontSize: 14,
+      marginBottom: 10,
+      textAlign: 'center',
+    },
     pickerItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2466,6 +2815,66 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       textTransform: 'uppercase',
       marginBottom: 3,
     },
+    ratingValue: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 1,
+    },
+    reviewsModal: {
+      maxHeight: '80%',
+      paddingHorizontal: 18,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    reviewsScroll: {
+      maxHeight: 420,
+    },
+    reviewsScrollContent: {
+      paddingBottom: 8,
+      gap: 12,
+    },
+    reviewsError: {
+      color: '#F87171',
+      fontSize: 14,
+      marginBottom: 8,
+    },
+    reviewItem: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: 10,
+      gap: 4,
+    },
+    reviewHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    reviewStars: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+    },
+    reviewDate: {
+      color: colors.muted,
+      fontSize: 12,
+    },
+    reviewName: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    reviewRoute: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    reviewComment: {
+      color: colors.text,
+      fontSize: 14,
+      lineHeight: 20,
+    },
     profileValue: {
       color: colors.text,
       fontSize: 16,
@@ -2499,6 +2908,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       width: '30%',
       minWidth: 96,
       flexGrow: 1,
+      alignItems: 'center',
+      gap: 6,
+    },
+    mediaUploadPress: {
+      width: '100%',
       alignItems: 'center',
       gap: 6,
     },

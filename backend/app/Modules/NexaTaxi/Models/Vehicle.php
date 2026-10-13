@@ -27,6 +27,7 @@ class Vehicle extends Model
         'notes',
         'image_url',
         'show_photo',
+        'driver_photo_path',
     ];
 
     protected $casts = [

@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Models\TransportGroupMember;
 use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -211,6 +212,8 @@ class TransportPassengerController extends Controller
     /** @return array<string, mixed> */
     private function validatePassenger(Request $request): array
     {
+        app(TaxiContractvervoerSchemaService::class)->ensurePassengerMapColorColumn($this->moduleConnection());
+
         return $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -219,6 +222,7 @@ class TransportPassengerController extends Controller
             'pickup_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'pickup_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'notes' => ['nullable', 'string'],
+            'map_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
     }
 

@@ -42,7 +42,13 @@ export async function ensureDriverNotificationPermission(): Promise<boolean> {
       ) {
         return true;
       }
-      const asked = await Notifications!.requestPermissionsAsync();
+      const asked = await Notifications!.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       return !!(
         asked.granted ||
         asked.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
@@ -124,8 +130,66 @@ export async function notifyNewDriverOffer(opts: {
       content: {
         title,
         body,
-        sound: playSound ? rideAlertNotificationSound(tone) : undefined,
+        // iOS standby: content.sound is het betrouwbare geluidspad (niet expo-audio).
+        sound: playSound ? rideAlertNotificationSound(tone) : false,
         data: { type: 'driver_offer', screen: 'requests' },
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+        ...(Platform.OS === 'android'
+          ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
+          : {}),
+      },
+      trigger: null,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Banner in de app als de klant zegt dat die niet is opgehaald. */
+export async function notifyPickupDenied(opts: {
+  title: string;
+  body: string;
+  rideId?: number | null;
+  playSound?: boolean;
+  tone?: string | null;
+}): Promise<void> {
+  const title = String(opts.title || '').trim() || 'Klant niet opgehaald';
+  const body = String(opts.body || '').trim();
+  if (!body) return;
+  const playSound = opts.playSound !== false;
+  const tone = normalizeRideAlertTone(opts.tone);
+
+  try {
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate();
+    } else {
+      Vibration.vibrate([0, 180, 80, 180]);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (!Notifications) return;
+  const ok = await ensureDriverNotificationPermission();
+  if (!ok) return;
+
+  try {
+    const channelId =
+      Platform.OS === 'android'
+        ? playSound
+          ? await ensureOfferChannel(tone)
+          : await ensureSilentOfferChannel()
+        : undefined;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: playSound ? rideAlertNotificationSound(tone) : false,
+        data: {
+          type: 'pickup_denied',
+          screen: 'trips',
+          ride_id: opts.rideId ?? null,
+        },
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
         ...(Platform.OS === 'android'
           ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
@@ -156,12 +220,14 @@ export async function setupDriverNotificationChannel(): Promise<void> {
 }
 
 export function addDriverOfferNotificationResponseListener(
-  onOpenRequests: () => void
+  onOpenRequests: () => void,
+  onOpenTrips?: () => void
 ): () => void {
   if (!Notifications) return () => undefined;
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
     const type = response.notification.request.content.data?.type;
     if (type === 'driver_offer') onOpenRequests();
+    if (type === 'pickup_denied') onOpenTrips?.();
   });
   return () => sub.remove();
 }

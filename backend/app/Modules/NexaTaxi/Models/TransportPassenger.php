@@ -19,6 +19,7 @@ class TransportPassenger extends Model
         'pickup_lng',
         'notes',
         'active',
+        'map_color',
     ];
 
     protected $casts = [

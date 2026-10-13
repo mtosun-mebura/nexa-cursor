@@ -131,4 +131,49 @@ class NexaTaxiBookingAddressSearchStationTest extends TestCase
         $this->assertStringContainsString('Glanerbrug', (string) ($data[0]['display_name'] ?? ''));
         $this->assertSame('52.2211', (string) ($data[0]['lat'] ?? ''));
     }
+
+    #[Test]
+    public function street_suggestions_drop_postcode_and_do_not_repeat_the_street(): void
+    {
+        config(['maps.address_business_search_key' => 'test-places-key']);
+
+        Http::fake([
+            'nominatim.openstreetmap.org/search*' => Http::response([], 200),
+            'maps.googleapis.com/maps/api/place/textsearch/json*' => Http::response([
+                'status' => 'OK',
+                'results' => [
+                    [
+                        'name' => 'Roomweg 100',
+                        'formatted_address' => 'Roomweg 100, 5752 SG Deurne, Nederland',
+                        'geometry' => ['location' => ['lat' => 51.461, 'lng' => 5.795]],
+                    ],
+                    [
+                        'name' => 'Roomweg 100, Enschede',
+                        'formatted_address' => 'Roomweg 100, Enschede, Nederland',
+                        'geometry' => ['location' => ['lat' => 52.221, 'lng' => 6.893]],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/nexa-taxi/booking/address-search?'.http_build_query([
+            'q' => 'Roomweg 100',
+            'countrycodes' => 'nl',
+            'limit' => 8,
+        ]));
+
+        $response->assertOk();
+        $labels = array_map(
+            fn ($row) => (string) ($row['display_name'] ?? ''),
+            $response->json()
+        );
+        $this->assertSame([
+            'Roomweg 100, Deurne',
+            'Roomweg 100, Enschede',
+        ], $labels);
+        $this->assertSame('Roomweg', $response->json('0.address.road'));
+        $this->assertSame('100', $response->json('0.address.house_number'));
+        $this->assertSame('Deurne', $response->json('0.address.city'));
+        $this->assertArrayNotHasKey('postcode', $response->json('0.address') ?? []);
+    }
 }

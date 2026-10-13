@@ -41,6 +41,7 @@ export type ContractLeg = {
   can_board?: boolean;
   can_skip?: boolean;
   status_banner?: string | null;
+  vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
 };
 
 export type ContractDayItem = {
@@ -61,6 +62,7 @@ export type ContractDayItem = {
   can_cancel?: boolean;
   absence_id?: number | null;
   absence_reason?: string | null;
+  map_color?: string | null;
   legs?: ContractLeg[];
 };
 
@@ -110,6 +112,7 @@ export type ContractPassenger = {
   name: string;
   phone?: string | null;
   pickup_address?: string | null;
+  map_color?: string | null;
   absent_today?: boolean;
   absence_reason?: string | null;
 };
@@ -200,5 +203,29 @@ export function skipContractPassenger(token: string, rideStopId: number) {
   return apiRequest<{ message?: string; data?: { ride_stop_id?: number; status?: string } }>(
     `/api/taxi/v1/contract/stops/${rideStopId}/skip`,
     { method: 'POST', token }
+  );
+}
+
+export function updateContractPassengerColor(token: string, passengerId: number, mapColor: string) {
+  return apiRequest<{ data?: { id?: number; map_color?: string } }>(
+    `/api/taxi/v1/contract/passengers/${passengerId}/map-color`,
+    { method: 'PUT', token, body: { map_color: mapColor } }
+  );
+}
+
+export function postContractLocation(token: string, lat: number, lng: number) {
+  return apiRequest<{ data?: { updated?: number; dwell_minutes?: number } }>(
+    '/api/taxi/v1/contract/location',
+    { method: 'POST', token, body: { lat, lng } }
+  );
+}
+
+export function reachContractDestinations(
+  token: string,
+  coords?: { lat: number; lng: number } | null
+) {
+  return apiRequest<{ message?: string; data?: { updated?: number } }>(
+    '/api/taxi/v1/contract/destinations/reached',
+    { method: 'POST', token, body: coords || {} }
   );
 }

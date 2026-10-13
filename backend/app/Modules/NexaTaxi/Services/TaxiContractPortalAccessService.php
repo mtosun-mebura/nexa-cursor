@@ -84,6 +84,8 @@ class TaxiContractPortalAccessService
      */
     public function visiblePassengers(string $conn, array $context): Collection
     {
+        app(TaxiContractvervoerSchemaService::class)->ensurePassengerMapColorColumn($conn);
+
         $customerId = (int) $context['transport_customer_id'];
         $companyId = (int) $context['company_id'];
 

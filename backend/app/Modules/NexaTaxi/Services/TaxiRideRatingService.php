@@ -99,4 +99,40 @@ class TaxiRideRatingService
 
         return $this->payloadForRide($conn, $ride);
     }
+
+    /**
+     * @return list<array{id: int, stars: int, comment: ?string, created_at: ?string, pickup_address: ?string, dropoff_address: ?string, customer_name: ?string}>
+     */
+    public function listForDriver(string $conn, int $driverId): array
+    {
+        TaxiDriverProfileSchema::ensure($conn);
+        if ($driverId <= 0) {
+            return [];
+        }
+
+        $rows = TaxiRideRating::on($conn)
+            ->where('driver_id', $driverId)
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
+
+        $rides = RideRequest::on($conn)
+            ->whereIn('id', $rows->pluck('ride_request_id')->filter()->all())
+            ->get()
+            ->keyBy('id');
+
+        return $rows->map(function (TaxiRideRating $row) use ($rides) {
+            $ride = $rides->get($row->ride_request_id);
+
+            return [
+                'id' => (int) $row->id,
+                'stars' => (int) $row->stars,
+                'comment' => $row->comment !== null ? (string) $row->comment : null,
+                'created_at' => $row->created_at?->toIso8601String(),
+                'pickup_address' => $ride?->pickup_address,
+                'dropoff_address' => $ride?->dropoff_address,
+                'customer_name' => $ride?->customer_name,
+            ];
+        })->values()->all();
+    }
 }

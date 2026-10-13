@@ -112,6 +112,8 @@ export type LiveRide = {
   refund_message?: string | null;
   can_download_invoice?: boolean;
   pickup_confirmation?: {
+    method?: 'pin' | string | null;
+    pin?: string | null;
     status?: 'pending' | 'confirmed' | 'denied' | string | null;
     prompt?: string | null;
     can_answer?: boolean;

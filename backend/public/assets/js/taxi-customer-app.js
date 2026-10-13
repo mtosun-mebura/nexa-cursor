@@ -4328,17 +4328,15 @@
 
     function pickupConfirmHtml(ride, token) {
         const confirm = ride && ride.pickup_confirmation;
-        if (!confirm || !confirm.can_answer) return '';
-        const prompt = confirm.prompt || 'De chauffeur zegt dat je bent opgehaald. Klopt dat?';
-        const track = String(token || ride.token || '');
-        return '<div class="pickup-confirm">'
+        const pin = String((confirm && confirm.pin) || '').replace(/\D/g, '');
+        if (!confirm || pin.length !== 4) return '';
+        const prompt = confirm.prompt || 'Geef deze ophaalcode aan de chauffeur om de rit te starten.';
+        return '<div class="pickup-confirm pickup-confirm--pin">'
+            + '<p class="pickup-confirm__label">Ophaalcode voor de chauffeur</p>'
+            + '<p class="pickup-confirm__pin" aria-label="Ophaalcode ' + escapeHtml(pin) + '">'
+            + escapeHtml(pin) + '</p>'
             + '<p class="pickup-confirm__text">' + escapeHtml(prompt) + '</p>'
-            + '<div class="pickup-confirm__actions">'
-            + '<button type="button" class="btn btn-primary" data-pickup-answer="yes" data-pickup-token="'
-            + escapeHtml(track) + '">Ja</button>'
-            + '<button type="button" class="btn btn-outline" data-pickup-answer="no" data-pickup-token="'
-            + escapeHtml(track) + '">Nee</button>'
-            + '</div></div>';
+            + '</div>';
     }
 
     async function submitPickupAnswer(token, answer) {

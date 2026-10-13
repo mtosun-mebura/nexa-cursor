@@ -4,6 +4,8 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\TaxiDriverProfile;
+use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverProfileSchema;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\UploadedFile;
@@ -123,17 +125,45 @@ class TaxiDriverProfileMediaService
         return $this->publicPayload($driver);
     }
 
-    public function storeVehiclePhoto(User $driver, UploadedFile $file): array
+    /**
+     * Foto hoort bij dit kenteken/voertuig, niet bij de chauffeur.
+     *
+     * @return array{id: int, photo_url: ?string}
+     */
+    public function storeVehiclePhoto(User $driver, UploadedFile $file, int $companyId, int $vehicleId): array
     {
-        $path = $this->storeFile((int) $driver->id, 'vehicle', $file);
-        $row = $this->firstOrCreate((int) $driver->id);
-        if ($row->vehicle_photo_path && $row->vehicle_photo_path !== $path) {
-            Storage::disk('public')->delete($row->vehicle_photo_path);
+        $conn = $this->connection();
+        TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
+        $vehicle = Vehicle::on($conn)
+            ->where('company_id', $companyId)
+            ->whereKey($vehicleId)
+            ->first();
+        if (! $vehicle) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => ['Kies eerst een voertuig.'],
+            ]);
         }
-        $row->vehicle_photo_path = $path;
-        $row->save();
 
-        return $this->publicPayload($driver);
+        $path = $this->storeFile((int) $driver->id, 'vehicle-'.$vehicleId, $file);
+        if (! is_string($path) || $path === '') {
+            throw ValidationException::withMessages(['photo' => ['Upload mislukt.']]);
+        }
+        $previous = is_string($vehicle->driver_photo_path) ? $vehicle->driver_photo_path : '';
+        if ($previous !== '' && $previous !== $path) {
+            Storage::disk('public')->delete($previous);
+        }
+        $vehicle->driver_photo_path = $path;
+        $vehicle->save();
+
+        return [
+            'id' => (int) $vehicle->id,
+            'photo_url' => Storage::disk('public')->url($path),
+        ];
+    }
+
+    public function publicUrlFor(?string $path): ?string
+    {
+        return $this->publicUrl($path);
     }
 
     public function applyRating(int $driverId, int $stars): void
