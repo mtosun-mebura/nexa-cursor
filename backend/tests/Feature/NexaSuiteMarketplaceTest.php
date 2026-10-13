@@ -589,8 +589,8 @@ class NexaSuiteMarketplaceTest extends TestCase
         $this->actingAs($user)
             ->get(route('admin.nexa-suite-bookings.procedure'))
             ->assertOk()
-            ->assertSee('De chauffeur zegt dat je bent opgehaald. Klopt dat?', false)
-            ->assertSee('locatie onbekend', false);
+            ->assertSee('4-cijferige ophaalcode', false)
+            ->assertSee('Klant opgehaald — voer code in', false);
 
         $this->actingAs($user)
             ->get(route('admin.nexa-suite-bookings.settings'))
