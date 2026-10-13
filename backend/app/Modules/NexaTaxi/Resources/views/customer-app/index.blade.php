@@ -1705,6 +1705,7 @@
      data-taxi-car-url="{{ asset('images/gps/car-sedan.png').'?v='.filemtime(public_path('images/gps/car-sedan.png')) }}"
      data-taxi-van-url="{{ asset('images/gps/car-van.png').'?v='.filemtime(public_path('images/gps/car-van.png')) }}"
      data-taxi-bus-url="{{ asset('images/gps/car-bus.png').'?v='.filemtime(public_path('images/gps/car-bus.png')) }}"
+     data-drop-pin-url="{{ asset('assets/img/marker-drop-green.png').'?v='.filemtime(public_path('assets/img/marker-drop-green.png')) }}"
      data-launcher-url="{{ $launcherUrl }}"
      data-maps-key="{{ $googleMapsApiKey }}"
      data-maps-map-id="{{ $googleMapsMapId }}"
@@ -2282,6 +2283,6 @@
     window.addEventListener('nexa-customer-screen', mountTheme);
 })();
 </script>
-<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=51" defer></script>
+<script src="{{ asset('assets/js/taxi-customer-app.js') }}?v=52" defer></script>
 </body>
 </html>

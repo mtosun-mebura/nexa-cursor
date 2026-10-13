@@ -54,6 +54,8 @@ export function Field({
   inputRef,
   returnKeyType,
   onSubmitEditing,
+  onClear,
+  clearAccessibilityLabel,
   error,
 }: {
   label: string;
@@ -78,6 +80,9 @@ export function Field({
   inputRef?: React.RefObject<TextInput | null>;
   returnKeyType?: 'done' | 'next' | 'search' | 'go';
   onSubmitEditing?: () => void;
+  /** Wis-kruisje rechts in het veld (zichtbaar bij niet-lege waarde). */
+  onClear?: () => void;
+  clearAccessibilityLabel?: string;
   error?: string | null;
 }) {
   const colors = useThemeColors();
@@ -151,7 +156,8 @@ export function Field({
     textAlignVertical: (multiline ? 'top' : 'center') as 'top' | 'center',
   };
 
-  const useWrap = !!accessory || (!!confirmed && !showError);
+  const showClear = !!onClear && value.trim().length > 0;
+  const useWrap = !!accessory || (!!confirmed && !showError) || !!onClear;
 
   return (
     <View style={styles.field}>
@@ -171,13 +177,24 @@ export function Field({
               styles.input,
               styles.inputInWrap,
               multiline && styles.inputMultiline,
-              !!accessory && styles.inputWithAccessory,
+              (!!accessory || showClear) && styles.inputWithAccessory,
             ]}
           />
           {confirmed && !showError ? (
             <Text style={styles.checkMark} pointerEvents="none">
               ✓
             </Text>
+          ) : null}
+          {showClear ? (
+            <Pressable
+              onPress={onClear}
+              hitSlop={8}
+              style={styles.clearBtn}
+              accessibilityRole="button"
+              accessibilityLabel={clearAccessibilityLabel || `${label} wissen`}
+            >
+              <Ionicons name="close-circle" size={20} color={colors.muted} />
+            </Pressable>
           ) : null}
           {accessory ? (
             <View style={styles.accessory} pointerEvents="box-none">
@@ -353,6 +370,13 @@ function makeStyles(colors: ColorPalette) {
       paddingRight: 4,
     },
     accessory: {
+      marginLeft: 2,
+    },
+    clearBtn: {
+      width: 32,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
       marginLeft: 2,
     },
     passwordToggle: {

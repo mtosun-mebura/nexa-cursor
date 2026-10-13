@@ -16,6 +16,7 @@
         taxiCarUrl: app.dataset.taxiCarUrl || '/images/gps/car-sedan.png',
         taxiVanUrl: app.dataset.taxiVanUrl || '/images/gps/car-van.png',
         taxiBusUrl: app.dataset.taxiBusUrl || '/images/gps/car-bus.png',
+        dropPinUrl: app.dataset.dropPinUrl || '/assets/img/marker-drop-green.png',
         launcherUrl: app.dataset.launcherUrl || '/taxi/app',
         googleMapsApiKey: (app.dataset.mapsKey || '').trim(),
         googleMapsMapId: (app.dataset.mapsMapId || '').trim(),
@@ -908,17 +909,13 @@
     }
 
     function dropoffMarkerIcon() {
-        // Klassieke Maps-druppel (bestemming), groen.
+        // Scherpe druppel (204×267, getoond op 36×47).
+        const w = 36;
+        const h = 47;
         return {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">' +
-                '<path fill="#22c55e" stroke="#ffffff" stroke-width="1.5" ' +
-                'd="M14 1C7.4 1 2 6.4 2 13c0 9.1 12 25 12 25s12-15.9 12-25C26 6.4 20.6 1 14 1z"/>' +
-                '<circle cx="14" cy="13" r="4.5" fill="#ffffff"/>' +
-                '</svg>'
-            ),
-            scaledSize: new google.maps.Size(28, 40),
-            anchor: new google.maps.Point(14, 40),
+            url: cfg.dropPinUrl,
+            scaledSize: new google.maps.Size(w, h),
+            anchor: new google.maps.Point(w / 2, h),
         };
     }
 

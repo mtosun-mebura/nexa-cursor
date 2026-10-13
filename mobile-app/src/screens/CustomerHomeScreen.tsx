@@ -1514,6 +1514,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           error={fieldErrors.pickup}
           returnKeyType="next"
           onSubmitEditing={focusDropoffField}
+          onClear={() => {
+            if (pickupSuggestTimer.current) clearTimeout(pickupSuggestTimer.current);
+            pickupSuggestSeq.current += 1;
+            setPickupQuery('');
+            setPickup(null);
+            setPickupSuggestions([]);
+            setFieldErrors((e) => ({ ...e, pickup: undefined }));
+          }}
+          clearAccessibilityLabel="Ophaaladres wissen"
           rightAccessory={
             <Pressable
               onPress={() => loadPickup({ focusDropoff: true })}
@@ -1561,6 +1570,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           error={fieldErrors.dropoff}
           returnKeyType="done"
           onSubmitEditing={() => Keyboard.dismiss()}
+          onClear={() => {
+            if (dropoffSuggestTimer.current) clearTimeout(dropoffSuggestTimer.current);
+            dropoffSuggestSeq.current += 1;
+            setDropoffQuery('');
+            setDropoff(null);
+            setDropoffSuggestions([]);
+            setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+          }}
+          clearAccessibilityLabel="Bestemming wissen"
         />
         {dropoffSuggestions.map((s, i) => (
           <Pressable
