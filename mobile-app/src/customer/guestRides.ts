@@ -64,10 +64,69 @@ export function rideArchiveKey(ride: { id?: number | null; token?: string | null
   return token ? `token:${token}` : '';
 }
 
+const ADDRESS_SKIP_RE =
+  /^(nederland|netherlands|the netherlands|belgië|belgie|belgium|duitsland|germany|overijssel|gelderland|noord-holland|zuid-holland|utrecht|limburg|noord-brabant|friesland|fryslân|fryslan|groningen|drenthe|zeeland|flevoland)$/i;
+
+function partHasHouseNumber(part: string): boolean {
+  return (
+    /\b\d{1,5}[a-zA-Z]?(?:[-/]\d{1,5}[a-zA-Z]?)?\b/.test(part) &&
+    !/^\d{4}\s*[A-Za-z]{2}\b/.test(part)
+  );
+}
+
+/** Straat + huisnummer, en de plaats. Zonder wijk, postcode, provincie of land. */
+export function bookingAddressParts(value?: string | null): { street: string; city: string } {
+  const text = String(value || '').trim();
+  if (!text) return { street: '', city: '' };
+
+  let parts = text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2 && /^\d+[a-zA-Z-]*$/.test(parts[0]) && !/^\d/.test(parts[1])) {
+    parts = [`${parts[1]} ${parts[0]}`, ...parts.slice(2)];
+  } else if (parts.length >= 2 && /^\d+[a-zA-Z-]*$/.test(parts[1]) && !/\d/.test(parts[0])) {
+    parts = [`${parts[0]} ${parts[1]}`, ...parts.slice(2)];
+  }
+
+  let cityFromPostcode = '';
+  const kept: string[] = [];
+  parts.forEach((part) => {
+    if (ADDRESS_SKIP_RE.test(part)) return;
+    if (/^\d{4}\s*[A-Za-z]{2}$/.test(part)) return;
+    const withCity = part.match(/^(\d{4}\s*[A-Za-z]{2})\s+(.+)$/);
+    if (withCity) {
+      cityFromPostcode = withCity[2].trim();
+      return;
+    }
+    kept.push(part);
+  });
+
+  const street = kept.find(partHasHouseNumber) || '';
+  let city = cityFromPostcode;
+  if (!city) {
+    const last = kept[kept.length - 1] || '';
+    if (last && last !== street) city = last;
+  }
+  const streetLine =
+    street ||
+    kept.find((part) => part.toLowerCase() !== city.toLowerCase()) ||
+    '';
+  const cityLine =
+    streetLine && city && streetLine.toLowerCase() === city.toLowerCase() ? '' : city;
+
+  return { street: streetLine, city: cityLine };
+}
+
+export function bookingAddressLine(value?: string | null): string {
+  const parts = bookingAddressParts(value);
+  if (parts.street && parts.city) return `${parts.street}, ${parts.city}`;
+  return parts.street || parts.city || '';
+}
+
 export function shortAddress(value?: string | null): string {
-  const raw = String(value || '').trim();
-  if (!raw) return 'Onbekend';
-  return raw.split(',')[0].trim() || raw;
+  return bookingAddressLine(value) || 'Onbekend';
 }
 
 export async function loadGuestRides(): Promise<GuestRide[]> {
@@ -259,15 +318,12 @@ function pickupAtOrPrevious(next?: string | null, prev?: string | null): string 
 const WEEKDAYS = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'] as const;
 const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'] as const;
 
-/** Bedrijfsnaam of straat op de eerste regel, de rest (straat, plaats) eronder. */
+/** Straat en huisnummer op de eerste regel, de plaats eronder. */
 export function splitRideAddress(address?: string | null): { main: string; sub: string } {
-  const text = String(address || '').trim();
-  if (!text) return { main: '—', sub: '' };
-  const comma = text.indexOf(',');
-  if (comma > 0 && comma < text.length - 1) {
-    return { main: text.slice(0, comma).trim(), sub: text.slice(comma + 1).trim() };
-  }
-  return { main: text, sub: '' };
+  const parts = bookingAddressParts(address);
+  if (!parts.street && !parts.city) return { main: '—', sub: '' };
+  if (!parts.street) return { main: parts.city, sub: '' };
+  return { main: parts.street, sub: parts.city };
 }
 
 function formatDutchPickup(day: number, month: number, year: number, hh: string, mm: string): string {
