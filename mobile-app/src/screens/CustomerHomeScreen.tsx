@@ -70,6 +70,7 @@ import {
   rideArchiveKey,
   saveGuestRide,
   setRideArchived,
+  bookingAddressLine,
   shortAddress,
   splitRideAddress,
   updateGuestRide,
@@ -885,17 +886,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [tab, bookMountKey]);
 
   function applySuggestion(item: AddressSuggestion, kind: 'pickup' | 'dropoff') {
-    const point = { lat: item.lat, lng: item.lng, address: item.label };
+    const label = bookingAddressLine(item.label) || item.label;
+    const point = { lat: item.lat, lng: item.lng, address: label };
     if (kind === 'pickup') {
       setPickup(point);
-      setPickupQuery(item.label);
+      setPickupQuery(label);
       setPickupSuggestions([]);
       // Alleen focus naar bestemming — scroll naar map pas na bestemming.
       focusDropoffField();
       return;
     }
     setDropoff(point);
-    setDropoffQuery(item.label);
+    setDropoffQuery(label);
     setDropoffSuggestions([]);
     // Pas hier naar de map navigeren (na gekozen bestemming).
     scrollToMap();

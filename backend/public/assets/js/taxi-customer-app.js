@@ -909,9 +909,9 @@
     }
 
     function dropoffMarkerIcon() {
-        // Scherpe druppel (204×267, getoond op 36×47).
-        const w = 36;
-        const h = 47;
+        // Scherpe druppel (204×267, getoond op 24×31).
+        const w = 24;
+        const h = 31;
         return {
             url: cfg.dropPinUrl,
             scaledSize: new google.maps.Size(w, h),
@@ -2197,11 +2197,9 @@
         const street = byType.route || byType.pedestrian || '';
         const number = byType.street_number || '';
         const streetPart = [street, number].filter(Boolean).join(' ').trim();
-        const postcode = byType.postal_code || '';
         const city = byType.locality || byType.postal_town || byType.administrative_area_level_2 || '';
-        const second = [postcode, city].filter(Boolean).join(' ').trim();
-        const value = [streetPart, second].filter(Boolean).join(', ').trim();
-        return value || normalizeNlAddressLabel(result.formatted_address || '');
+        const value = [streetPart, city].filter(Boolean).join(', ').trim();
+        return value || bookingAddressLine(result.formatted_address || '');
     }
 
     function mergeAddressSuggestions(googleItems, nominatimItems, query, businessItems) {
@@ -2353,6 +2351,7 @@
                     resolve({
                         lat: typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat),
                         lng: typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng),
+                        address: formatGoogleGeocodeAddress(results[0]),
                     });
                 });
             });
@@ -2482,7 +2481,8 @@
 
         async function selectSuggestion(item) {
             hideList();
-            const address = String((item && (item.address || item.label)) || '').trim();
+            const rawAddress = String((item && (item.address || item.label)) || '').trim();
+            let address = bookingAddressLine(rawAddress) || rawAddress;
             if (!address) return;
             input.value = address;
             syncAddressClearButton(inputId);
@@ -2499,6 +2499,13 @@
             if (!coords || !isFinite(coords.lat) || !isFinite(coords.lng)) {
                 toast('Adres gevonden, maar locatie kon niet worden bepaald. Probeer een ander adres.');
                 return;
+            }
+            const precise = bookingAddressLine(coords.address || '');
+            const preciseStreet = precise.split(',')[0] || '';
+            if (precise && /\d/.test(preciseStreet)) {
+                address = precise;
+                input.value = address;
+                syncAddressClearButton(inputId);
             }
             onPicked({ lat: coords.lat, lng: coords.lng, address: address });
         }
@@ -3713,11 +3720,57 @@
         }[c]));
     }
 
+    function bookingAddressParts(value) {
+        const text = String(value || '').trim();
+        if (!text) return { street: '', city: '' };
+
+        let parts = text.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+        if (parts.length >= 2 && /^\d+[a-zA-Z\-]*$/.test(parts[0]) && !/^\d/.test(parts[1])) {
+            parts = [parts[1] + ' ' + parts[0]].concat(parts.slice(2));
+        } else if (parts.length >= 2 && /^\d+[a-zA-Z\-]*$/.test(parts[1]) && !/\d/.test(parts[0])) {
+            parts = [parts[0] + ' ' + parts[1]].concat(parts.slice(2));
+        }
+
+        const skipPlace = /^(nederland|netherlands|the netherlands|belgië|belgie|belgium|duitsland|germany|overijssel|gelderland|noord-holland|zuid-holland|utrecht|limburg|noord-brabant|friesland|fryslân|fryslan|groningen|drenthe|zeeland|flevoland)$/i;
+        let cityFromPostcode = '';
+        const kept = [];
+        parts.forEach(function (part) {
+            if (skipPlace.test(part)) return;
+            if (/^\d{4}\s*[A-Za-z]{2}$/.test(part)) return;
+            const withCity = part.match(/^(\d{4}\s*[A-Za-z]{2})\s+(.+)$/);
+            if (withCity) {
+                cityFromPostcode = withCity[2].trim();
+                return;
+            }
+            kept.push(part);
+        });
+
+        function hasHouseNumber(part) {
+            return /\b\d{1,5}[a-zA-Z]?(?:[-\/]\d{1,5}[a-zA-Z]?)?\b/.test(part)
+                && !/^\d{4}\s*[A-Za-z]{2}\b/.test(part);
+        }
+
+        const street = kept.find(hasHouseNumber) || '';
+        let city = cityFromPostcode;
+        if (!city) {
+            const last = kept[kept.length - 1] || '';
+            if (last && last !== street) city = last;
+        }
+        const streetLine = street || kept.find(function (part) {
+            return part.toLowerCase() !== String(city).toLowerCase();
+        }) || '';
+        const cityLine = streetLine && city && streetLine.toLowerCase() === city.toLowerCase() ? '' : city;
+        return { street: streetLine, city: cityLine };
+    }
+
+    function bookingAddressLine(value) {
+        const parts = bookingAddressParts(value);
+        if (parts.street && parts.city) return parts.street + ', ' + parts.city;
+        return parts.street || parts.city || '';
+    }
+
     function shortAddress(value) {
-        const raw = String(value || '').trim();
-        if (!raw) return 'Onbekend';
-        const normalized = normalizeNlAddressLabel(raw);
-        return normalized.split(',')[0].trim() || normalized || raw;
+        return bookingAddressLine(value) || 'Onbekend';
     }
 
     function formatRideWhen(at) {
@@ -3769,13 +3822,10 @@
     }
 
     function splitRideAddress(address) {
-        const text = String(address || '').trim();
-        if (!text) return { main: '—', sub: '' };
-        const comma = text.indexOf(',');
-        if (comma > 0 && comma < text.length - 1) {
-            return { main: text.slice(0, comma).trim(), sub: text.slice(comma + 1).trim() };
-        }
-        return { main: text, sub: '' };
+        const parts = bookingAddressParts(address);
+        if (!parts.street && !parts.city) return { main: '—', sub: '' };
+        if (!parts.street) return { main: parts.city, sub: '' };
+        return { main: parts.street, sub: parts.city };
     }
 
     function formatTripDistance(km) {
