@@ -72,22 +72,29 @@ function isNlPostcode(value?: string | null): boolean {
   return /^\d{4}\s*[A-Z]{2}$/i.test(String(value || '').trim());
 }
 
+function stripPostcode(value?: string | null): string {
+  return String(value || '')
+    .replace(/\b\d{4}\s*[A-Z]{2}\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .trim()
+    .replace(/^,|,$/g, '')
+    .trim();
+}
+
 function cityFromNominatim(
   displayName?: string | null,
   address?: NominatimAddress | null
 ): string {
-  const fromAddress = String(
-    address?.city ||
-      address?.town ||
-      address?.village ||
-      address?.municipality ||
-      ''
-  ).trim();
-  if (fromAddress) return fromAddress;
+  const fromAddress = stripPostcode(
+    address?.city || address?.town || address?.village || address?.municipality || ''
+  );
+  if (fromAddress && !isNlPostcode(fromAddress)) return fromAddress;
 
   const parts = String(displayName || '')
     .split(',')
-    .map((p) => p.trim())
+    .map((p) => stripPostcode(p))
     .filter((p) => p && !isNlPostcode(p) && !NL_REGION_RE.test(p));
   // Laatste bruikbare deel vóór provincie/land is meestal de stad
   return parts.length >= 2 ? parts[parts.length - 1] : '';
@@ -220,61 +227,41 @@ export type AddressSuggestion = {
   lng: number;
 };
 
-/** Uniekere labels voor zoeksuggesties (huisnr / postcode / buurt / POI). */
+/** Suggestie: straat + huisnummer en plaats. Geen postcode of wijk. */
 function suggestionLabel(
   displayName: string | null | undefined,
   address?: NominatimAddress | null,
   poiName?: string | null
 ): string {
   const { street, number } = streetPartsFromNominatim(displayName, address, poiName);
-  const city = cityFromNominatim(displayName, address);
-  const area = String(address?.suburb || address?.neighbourhood || address?.hamlet || '').trim();
-  const postcode = String(address?.postcode || '').trim();
-  const poi = String(poiName || '').trim();
-  const streetPart = [street, number].filter(Boolean).join(' ').trim();
-
-  // Postcode uit display_name als address die mist (onderscheidt segmenten van dezelfde straat)
-  const postcodeFromDisplay =
-    postcode ||
-    (String(displayName || '').match(/\b(\d{4}\s*[A-Z]{2})\b/i)?.[1] || '')
-      .replace(/\s+/, ' ')
-      .trim();
+  const city = stripPostcode(cityFromNominatim(displayName, address));
+  const poi = stripPostcode(poiName);
+  const streetPart = stripPostcode([street, number].filter(Boolean).join(' '));
 
   const withCity = (label: string): string => {
-    const base = String(label || '').trim();
+    const base = stripPostcode(label);
     if (!base) return '';
-    if (!city) return base;
-    if (base.toLowerCase().includes(city.toLowerCase())) return base;
+    if (!city || base.toLowerCase().includes(city.toLowerCase())) return base;
     return `${base}, ${city}`;
   };
 
+  const poiIsStreet =
+    !poi ||
+    isNlPostcode(poi) ||
+    poi.toLowerCase() === street.toLowerCase() ||
+    poi.toLowerCase() === streetPart.toLowerCase() ||
+    (streetPart !== '' && poi.toLowerCase().startsWith(streetPart.toLowerCase())) ||
+    (streetPart !== '' && streetPart.toLowerCase().includes(poi.toLowerCase()));
+
   if (streetPart) {
-    if (
-      poi &&
-      !isNlPostcode(poi) &&
-      poi.toLowerCase() !== street.toLowerCase() &&
-      !streetPart.toLowerCase().includes(poi.toLowerCase())
-    ) {
-      return withCity(`${poi}, ${streetPart}`);
-    }
-    if (number) return withCity(streetPart);
-    if (postcodeFromDisplay) return withCity(`${streetPart}, ${postcodeFromDisplay}`);
-    if (area && city && area.toLowerCase() !== city.toLowerCase()) {
-      return withCity(`${streetPart}, ${area}`);
-    }
+    if (!poiIsStreet) return withCity(`${poi}, ${streetPart}`);
     return withCity(streetPart);
   }
 
-  // Geen kale postcodes als "adres"
-  if (poi && !isNlPostcode(poi)) {
-    if (postcodeFromDisplay) return withCity(`${poi}, ${postcodeFromDisplay}`);
-    return withCity(poi);
-  }
+  if (poi && !isNlPostcode(poi)) return withCity(poi);
 
-  const compact = compactAddressLabel(displayName, address, poiName);
-  if (compact && isNlPostcode(compact.split(',')[0]?.trim())) {
-    return '';
-  }
+  const compact = stripPostcode(compactAddressLabel(displayName, address, poiName));
+  if (compact && isNlPostcode(compact.split(',')[0]?.trim())) return '';
   return withCity(compact);
 }
 

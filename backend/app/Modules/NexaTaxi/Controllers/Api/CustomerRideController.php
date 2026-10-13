@@ -195,7 +195,7 @@ class CustomerRideController extends Controller
             'success' => true,
             'message' => $data['answer'] === 'yes'
                 ? 'Bedankt. We hebben genoteerd dat je bent opgehaald.'
-                : 'Bedankt. We controleren deze rit voordat de chauffeur wordt uitbetaald.',
+                : 'De chauffeur krijgt bericht dat je niet bent opgehaald.',
             'ride' => $live->livePayload($ride),
         ]);
     }

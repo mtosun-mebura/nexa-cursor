@@ -224,9 +224,27 @@ final class TaxiContractvervoerSchemaService
         $this->ensureCustomerOrganizationTypeColumn($connection);
         $this->ensureCustomerArchivedAtColumn($connection);
         $this->ensureCustomerArchiveKeepPastRidesColumn($connection);
+        $this->ensurePassengerMapColorColumn($connection);
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
         $this->ensureTransportGroupReturnTripColumns($connection);
+    }
+
+    public function ensurePassengerMapColorColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('transport_passengers')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('transport_passengers');
+        if (in_array('map_color', $cols, true)) {
+            return;
+        }
+
+        $schema->table('transport_passengers', function (Blueprint $table) {
+            $table->string('map_color', 7)->nullable();
+        });
     }
 
     public function ensureTransportGroupReturnTripColumns(?string $connection = null): void

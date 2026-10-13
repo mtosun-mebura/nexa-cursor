@@ -204,6 +204,15 @@ class RideClaimService
         $result['pickup_proposed'] = $pickupProposed;
         $result['pickup_changed'] = $pickupProposed;
 
+        if (! empty($result['ride'])) {
+            try {
+                $result['ride'] = app(MarketplacePickupConfirmationService::class)
+                    ->ensurePin($conn, $result['ride']);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         return $result;
     }
 

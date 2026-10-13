@@ -61,6 +61,9 @@ Route::prefix('v1/contract')
             ->middleware('throttle:taxi-driver-read');
         Route::get('passengers', [ContractPortalController::class, 'passengers'])
             ->middleware('throttle:taxi-contract-poll');
+        Route::put('passengers/{passenger}/map-color', [ContractPortalController::class, 'updateMapColor'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('passenger');
         Route::get('today', [ContractPortalController::class, 'today'])
             ->middleware('throttle:taxi-contract-poll');
         Route::get('week', [ContractPortalController::class, 'week'])
@@ -87,6 +90,10 @@ Route::prefix('v1/contract')
         Route::post('stops/{rideStop}/complete', [ContractPortalController::class, 'completeRide'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('rideStop');
+        Route::post('location', [ContractPortalController::class, 'location'])
+            ->middleware('throttle:taxi-contract-poll');
+        Route::post('destinations/reached', [ContractPortalController::class, 'reachDestinations'])
+            ->middleware('throttle:taxi-driver-action');
     });
 
 Route::prefix('v1/driver')
@@ -100,6 +107,8 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-action');
 
         Route::get('profile/media', [DriverProfileMediaController::class, 'show'])
+            ->middleware('throttle:taxi-driver-read');
+        Route::get('profile/ratings', [DriverProfileMediaController::class, 'ratings'])
             ->middleware('throttle:taxi-driver-read');
         Route::post('profile/photo', [DriverProfileMediaController::class, 'uploadProfilePhoto'])
             ->middleware('throttle:taxi-driver-action');

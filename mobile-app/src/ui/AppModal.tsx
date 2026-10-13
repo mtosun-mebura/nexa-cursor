@@ -45,23 +45,30 @@ export function AppModal({
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
 
   const body = (
-    <View style={[styles.root, isSheet ? styles.rootSheet : styles.rootCenter]}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 36 : 48}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-        <Pressable
-          style={styles.scrim}
-          disabled={dismissDisabled}
-          onPress={() => {
-            if (!dismissDisabled) onRequestClose();
-          }}
-          accessibilityLabel="Sluiten"
-        />
+    <View style={[styles.root, isSheet ? styles.rootSheet : styles.rootCenter]} pointerEvents="box-none">
+      <BlurView
+        pointerEvents="none"
+        intensity={Platform.OS === 'ios' ? 36 : 48}
+        tint="dark"
+        style={styles.backdrop}
+      />
+      <Pressable
+        style={styles.scrim}
+        disabled={dismissDisabled}
+        onPress={() => {
+          if (!dismissDisabled) onRequestClose();
+        }}
+        accessibilityLabel="Sluiten"
+      />
+      <View pointerEvents="box-none" style={isSheet ? styles.sheetLayer : styles.centerLayer}>
+        <View
+          pointerEvents="auto"
+          collapsable={false}
+          style={[isSheet ? styles.sheet : styles.panel, panelStyle]}
+        >
+          {children}
+        </View>
       </View>
-      <View style={[isSheet ? styles.sheet : styles.panel, panelStyle]}>{children}</View>
     </View>
   );
 
@@ -93,7 +100,6 @@ function makeStyles(colors: ColorPalette) {
     flex: { flex: 1 },
     root: {
       flex: 1,
-      paddingHorizontal: 24,
     },
     rootCenter: {
       justifyContent: 'center',
@@ -103,9 +109,26 @@ function makeStyles(colors: ColorPalette) {
       justifyContent: 'flex-end',
       paddingHorizontal: 0,
     },
+    backdrop: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 0,
+    },
     scrim: {
       ...StyleSheet.absoluteFill,
+      zIndex: 1,
       backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    },
+    centerLayer: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 2,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    sheetLayer: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 2,
+      justifyContent: 'flex-end',
     },
     panel: {
       width: '100%',

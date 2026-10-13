@@ -315,7 +315,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   const secondaryLabel = 'Weigeren';
   const baggage = baggageLines(ride);
   const showBaggage = baggage.length > 0 && !(baggage.length === 1 && baggage[0] === 'Geen');
-  const showMetrics = !!(distance || duration || passengersLabel);
+  const showMetrics = true;
   const showStats = showMetrics || showBaggage;
   const showOfferSecondary = !isTrip && !marketplace;
   const proposalStatus = String(ride?.pickup_proposal?.status || '');
@@ -326,6 +326,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     ride?.status === 'accepted' &&
     !!props.onStart &&
     (!showOverdueUi || proposalStatus === 'accepted');
+  const needsPickupPin =
+    !!ride?.pickup_confirmation?.requires_pin || ride?.pickup_confirmation?.method === 'pin';
   const canComplete = isTrip && tripVariant === 'active' && !canStart && !!props.onComplete;
   const canCancel = isTrip && !!ride?.can_cancel_with_reason && !!props.onCancel && !isCompletedTrip;
   const canArchive = isCompletedTrip && !!props.onArchive;
@@ -565,33 +567,25 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             <View style={styles.stats}>
               {showMetrics ? (
                 <View style={styles.metricsRow}>
-                  {distance ? (
-                    <View style={styles.metric}>
-                      <Ionicons name="navigate-outline" size={14} color={colors.muted} />
-                      <Text style={styles.metricValue}>{distance}</Text>
-                      <Text style={styles.metricLabel}>afstand</Text>
-                    </View>
-                  ) : null}
-                  {distance && (duration || passengersLabel) ? (
-                    <View style={styles.metricDivider} />
-                  ) : null}
-                  {duration ? (
-                    <View style={styles.metric}>
-                      <Ionicons name="time-outline" size={14} color={colors.muted} />
-                      <Text style={styles.metricValue}>{duration}</Text>
-                      <Text style={styles.metricLabel}>rijtijd</Text>
-                    </View>
-                  ) : null}
-                  {duration && passengersLabel ? <View style={styles.metricDivider} /> : null}
-                  {passengersLabel ? (
-                    <View style={styles.metric}>
-                      <Ionicons name="people-outline" size={14} color={colors.muted} />
-                      <Text style={styles.metricValue}>{passengersLabel}</Text>
-                      <Text style={styles.metricLabel}>
-                        {Number(passengersLabel) === 1 ? 'persoon' : 'personen'}
-                      </Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.metric}>
+                    <Ionicons name="navigate-outline" size={14} color={colors.muted} />
+                    <Text style={styles.metricValue}>{distance || '—'}</Text>
+                    <Text style={styles.metricLabel}>afstand</Text>
+                  </View>
+                  <View style={styles.metricDivider} />
+                  <View style={styles.metric}>
+                    <Ionicons name="time-outline" size={14} color={colors.muted} />
+                    <Text style={styles.metricValue}>{duration || '—'}</Text>
+                    <Text style={styles.metricLabel}>rijtijd</Text>
+                  </View>
+                  <View style={styles.metricDivider} />
+                  <View style={styles.metric}>
+                    <Ionicons name="people-outline" size={14} color={colors.muted} />
+                    <Text style={styles.metricValue}>{passengersLabel || '—'}</Text>
+                    <Text style={styles.metricLabel}>
+                      {Number(passengersLabel) === 1 ? 'persoon' : 'personen'}
+                    </Text>
+                  </View>
                 </View>
               ) : null}
               {showBaggage ? (
@@ -698,7 +692,9 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 disabled={busy}
                 onPress={props.onStart}
               >
-                <Text style={styles.btnPrimaryText}>Klant opgehaald rit starten</Text>
+                <Text style={styles.btnPrimaryText}>
+                  {needsPickupPin ? 'Klant opgehaald — voer code in' : 'Klant opgehaald rit starten'}
+                </Text>
               </Pressable>
             ) : null}
             {canComplete ? (

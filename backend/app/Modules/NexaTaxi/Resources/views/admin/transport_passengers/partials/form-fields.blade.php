@@ -44,6 +44,26 @@
         </td>
     </tr>
     <tr>
+        <td class="text-secondary-foreground font-normal">Kaartkleur</td>
+        <td>
+            @php
+                $mapColor = old('map_color', isset($passenger) ? ($passenger->map_color ?? '') : '');
+            @endphp
+            <select name="map_color" class="kt-select admin-field-fit" data-kt-select="true">
+                <option value="" @selected($mapColor === '')>Automatisch</option>
+                <option value="#2563EB" @selected($mapColor === '#2563EB')>Blauw</option>
+                <option value="#F59E0B" @selected($mapColor === '#F59E0B')>Amber</option>
+                <option value="#10B981" @selected($mapColor === '#10B981')>Groen</option>
+                <option value="#EC4899" @selected($mapColor === '#EC4899')>Roze</option>
+                <option value="#7C3AED" @selected($mapColor === '#7C3AED')>Paars</option>
+                <option value="#EF4444" @selected($mapColor === '#EF4444')>Rood</option>
+                <option value="#06B6D4" @selected($mapColor === '#06B6D4')>Cyaan</option>
+                <option value="#F97316" @selected($mapColor === '#F97316')>Oranje</option>
+            </select>
+            <p class="text-sm text-muted-foreground mt-1 mb-0">Kleur van dit kind op de kaart van de contractouder.</p>
+        </td>
+    </tr>
+    <tr>
         <td class="text-secondary-foreground font-normal align-top pt-3">Notities</td>
         <td>
             <textarea name="notes" rows="3" class="kt-textarea w-full" placeholder="Bijv. rolstoel, begeleider, opmerkingen voor chauffeur...">{{ old('notes', $passenger->notes ?? '') }}</textarea>

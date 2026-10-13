@@ -116,6 +116,7 @@ export async function apiUpload<T>(
     uri: string;
     fileName?: string;
     mimeType?: string;
+    fields?: Record<string, string>;
   }
 ): Promise<T> {
   const name = options.fileName || 'photo.jpg';
@@ -134,6 +135,9 @@ export async function apiUpload<T>(
 
   const form = new FormData();
   form.append(options.fieldName || 'photo', blob, name);
+  for (const [key, value] of Object.entries(options.fields || {})) {
+    if (value !== '') form.append(key, value);
+  }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',

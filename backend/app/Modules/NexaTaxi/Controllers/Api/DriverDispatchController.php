@@ -197,6 +197,7 @@ class DriverDispatchController extends Controller
 
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
         $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
+        $pickupDeniedAlert = Cache::get(MarketplacePickupConfirmationService::DRIVER_DENIED_ALERT_PREFIX.(int) $user->id);
 
         $waitingRideIds = $offers
             ->concat($pendingApprovalOffers)
@@ -251,6 +252,7 @@ class DriverDispatchController extends Controller
                         ->values(),
                     'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
                     'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
+                    'pickup_denied_alert' => is_array($pickupDeniedAlert) ? $pickupDeniedAlert : null,
                 ],
                 'meta' => array_merge(
                     [
@@ -347,8 +349,42 @@ class DriverDispatchController extends Controller
     ): JsonResponse {
         $conn = $moduleDb->getModuleConnectionName('taxi');
 
+        $existing = RideRequest::on($conn)->find($ride);
+        $driver = $request->user();
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        $pickup = app(MarketplacePickupConfirmationService::class);
+
+        // Marktplaats: ophaal-PIN verplicht (Uber-achtig) vóór actieve rit.
+        if (
+            $existing
+            && $existing->isVisibleToDriver((int) $driver->id, $vehicleId)
+            && $pickup->appliesTo($existing)
+            && $existing->status === RideRequest::STATUS_ACCEPTED
+        ) {
+            $validated = $request->validate([
+                'pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            ]);
+
+            try {
+                $started = $pickup->startWithPin($conn, $existing, $driver, $validated['pin']);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+
+            return response()->json([
+                'message' => 'Rit gestart.',
+                'pickup_warning' => $started['warning'],
+                'data' => [
+                    'ride' => TaxiDispatchOfferResource::rideSummary($started['ride']),
+                ],
+            ]);
+        }
+
         try {
-            $started = $claim->startRide($conn, $request->user(), $ride);
+            $started = $claim->startRide($conn, $driver, $ride);
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
@@ -356,18 +392,8 @@ class DriverDispatchController extends Controller
             ], 409);
         }
 
-        $pickupWarning = null;
-        try {
-            $noted = app(MarketplacePickupConfirmationService::class)->noteStart($conn, $started, $request->user());
-            $started = $noted['ride'];
-            $pickupWarning = $noted['warning'];
-        } catch (\Throwable $e) {
-            report($e);
-        }
-
         return response()->json([
             'message' => 'Rit gestart.',
-            'pickup_warning' => $pickupWarning,
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($started),
             ],

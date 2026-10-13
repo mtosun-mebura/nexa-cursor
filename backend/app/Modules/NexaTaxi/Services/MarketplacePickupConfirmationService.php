@@ -9,27 +9,79 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Marktplaats: de chauffeur mag altijd starten. GPS is een waarschuwing.
- * De klant bevestigt het ophalen; uitbetaling volgt die bevestiging plus de bestaande risico's.
+ * Marktplaats: Uber-achtige ophaal-PIN.
+ * Klant ziet de code; chauffeur voert die in; pas dan wordt de rit actief.
  */
 class MarketplacePickupConfirmationService
 {
-    public const PROMPT = 'De chauffeur zegt dat je bent opgehaald. Klopt dat?';
-
     public const PICKUP_RADIUS_METERS = 250;
 
     public const DROPOFF_RADIUS_METERS = 400;
 
     public const GPS_MAX_AGE_SECONDS = 180;
 
+    public const DRIVER_DENIED_ALERT_PREFIX = 'taxi_driver_pickup_denied_alert:';
+
     /**
-     * @return array{ride: RideRequest, warning: ?string}
+     * Zorg dat er een 4-cijferige PIN op de rit staat (zichtbaar voor de klant).
      */
-    public function noteStart(string $conn, RideRequest $ride, User $driver): array
+    public function ensurePin(string $conn, RideRequest $ride): RideRequest
     {
         $ride = $ride->fresh() ?? $ride;
         if (! $this->appliesTo($ride) || ! $this->hasPayloadColumn($conn)) {
-            return ['ride' => $ride, 'warning' => null];
+            return $ride;
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $pin = preg_replace('/\D+/', '', (string) data_get($payload, 'pickup_confirmation.pin', ''));
+        $status = (string) data_get($payload, 'pickup_confirmation.status', '');
+
+        if (strlen($pin) === 4 && in_array($status, ['pending', 'confirmed'], true)) {
+            return $ride;
+        }
+
+        if ($status === 'confirmed' && strlen($pin) === 4) {
+            return $ride;
+        }
+
+        $payload['pickup_confirmation'] = [
+            'method' => 'pin',
+            'status' => $status === 'confirmed' ? 'confirmed' : 'pending',
+            'pin' => $this->generatePin(),
+            'created_at' => now()->toIso8601String(),
+        ];
+        $ride->booking_payload = $payload;
+        $ride->save();
+
+        return $ride->fresh() ?? $ride;
+    }
+
+    /**
+     * Chauffeur start met PIN: controleer code, noteer GPS, start rit.
+     *
+     * @return array{ride: RideRequest, warning: ?string}
+     */
+    public function startWithPin(string $conn, RideRequest $ride, User $driver, string $pin): array
+    {
+        $ride = $this->ensurePin($conn, $ride);
+        if (! $this->appliesTo($ride)) {
+            throw ValidationException::withMessages([
+                'pin' => ['Deze rit gebruikt geen ophaalcode.'],
+            ]);
+        }
+
+        if ($ride->status !== RideRequest::STATUS_ACCEPTED) {
+            throw ValidationException::withMessages([
+                'ride' => ['Deze rit kan niet worden gestart.'],
+            ]);
+        }
+
+        $expected = preg_replace('/\D+/', '', (string) data_get($ride->booking_payload, 'pickup_confirmation.pin', ''));
+        $given = preg_replace('/\D+/', '', $pin);
+        if (strlen($expected) !== 4 || $given !== $expected) {
+            throw ValidationException::withMessages([
+                'pin' => ['Ophaalcode onjuist. Vraag de code aan de klant en probeer opnieuw.'],
+            ]);
         }
 
         $fix = $this->driverFix($conn, (int) $driver->id);
@@ -43,29 +95,33 @@ class MarketplacePickupConfirmationService
         );
 
         $warning = match ($class['result']) {
-            'away' => 'Je staat ongeveer '.(int) $class['distance_meters'].' m van het ophaalpunt. De rit start wel. De klant moet bevestigen dat die is opgehaald. Zonder die bevestiging gaat de uitbetaling naar controle.',
-            'unknown' => 'Je locatie is niet bruikbaar (ontbreekt of ouder dan 3 minuten). De rit start wel en wordt gemarkeerd als locatie onbekend. Zonder bevestiging van de klant gaat de uitbetaling naar controle.',
+            'away' => 'Je staat ongeveer '.(int) $class['distance_meters'].' m van het ophaalpunt. De rit start wel (code klopte).',
+            'unknown' => 'Je locatie is niet bruikbaar. De rit start wel (code klopte).',
             default => null,
         };
 
         $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
-        $existing = (string) data_get($payload, 'pickup_confirmation.status', '');
-        if (! in_array($existing, ['confirmed', 'denied'], true)) {
-            $payload['pickup_confirmation'] = [
-                'status' => 'pending',
-                'prompt' => self::PROMPT,
-                'asked_at' => now()->toIso8601String(),
-            ];
-        }
+        $payload['pickup_confirmation'] = [
+            'method' => 'pin',
+            'status' => 'confirmed',
+            'pin' => $expected,
+            'confirmed_at' => now()->toIso8601String(),
+            'created_at' => data_get($payload, 'pickup_confirmation.created_at') ?: now()->toIso8601String(),
+        ];
         $payload['pickup_location_check'] = [
             'result' => $class['result'],
             'distance_meters' => $class['distance_meters'],
             'warning' => $warning,
         ];
+        if (! $ride->driver_id) {
+            $ride->driver_id = (int) $driver->id;
+        }
         $ride->booking_payload = $payload;
         $ride->save();
 
-        return ['ride' => $ride->fresh() ?? $ride, 'warning' => $warning];
+        $started = app(RideClaimService::class)->startRide($conn, $driver, (int) $ride->id);
+
+        return ['ride' => $started->fresh() ?? $started, 'warning' => $warning];
     }
 
     public function noteDropoff(string $conn, RideRequest $ride, User $driver): RideRequest
@@ -102,46 +158,14 @@ class MarketplacePickupConfirmationService
         return $ride->fresh() ?? $ride;
     }
 
+    /**
+     * Legacy Ja/Nee-endpoint: niet meer de primaire flow.
+     */
     public function answer(string $conn, RideRequest $ride, string $answer): RideRequest
     {
-        $ride = $ride->fresh() ?? $ride;
-        if (! $this->appliesTo($ride)) {
-            throw ValidationException::withMessages([
-                'ride' => ['Deze rit vraagt geen ophaalbevestiging.'],
-            ]);
-        }
-        if (! $this->hasPayloadColumn($conn)) {
-            throw ValidationException::withMessages([
-                'ride' => ['Ophaalbevestiging is nu niet beschikbaar.'],
-            ]);
-        }
-
-        $status = $answer === 'yes' ? 'confirmed' : 'denied';
-        $settlement = (string) ($ride->settlement_status ?? '');
-        if (in_array($settlement, [
-            RideRequest::SETTLEMENT_SETTLED,
-            RideRequest::SETTLEMENT_REJECTED,
-        ], true)) {
-            throw ValidationException::withMessages([
-                'ride' => ['Deze rit kan niet meer bevestigd worden.'],
-            ]);
-        }
-
-        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
-        $payload['pickup_confirmation'] = [
-            'status' => $status,
-            'prompt' => self::PROMPT,
-            'answered_at' => now()->toIso8601String(),
-        ];
-        $ride->booking_payload = $payload;
-        $ride->save();
-        $ride = $ride->fresh() ?? $ride;
-
-        if ($ride->status !== RideRequest::STATUS_COMPLETED) {
-            return $ride;
-        }
-
-        return app(RideSettlementEligibilityService::class)->evaluateAfterCompletion($conn, $ride);
+        throw ValidationException::withMessages([
+            'ride' => ['Gebruik de ophaalcode. De chauffeur vraagt de code aan jou om de rit te starten.'],
+        ]);
     }
 
     /**
@@ -154,24 +178,56 @@ class MarketplacePickupConfirmationService
         }
 
         $status = (string) data_get($ride->booking_payload, 'pickup_confirmation.status', '');
-        if (! in_array($status, ['pending', 'confirmed', 'denied'], true)) {
+        $pin = preg_replace('/\D+/', '', (string) data_get($ride->booking_payload, 'pickup_confirmation.pin', ''));
+        if (strlen($pin) !== 4) {
             return null;
         }
 
-        $settlement = (string) ($ride->settlement_status ?? '');
-        $closed = in_array($settlement, [
-            RideRequest::SETTLEMENT_SETTLED,
-            RideRequest::SETTLEMENT_REJECTED,
-        ], true);
-        $openRide = in_array($ride->status, [
+        $showPin = in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
             RideRequest::STATUS_ASSIGNED,
-            RideRequest::STATUS_COMPLETED,
-        ], true);
+        ], true) && $status !== 'confirmed';
+
+        // Na start mag de klant de code nog kort zien tot afronden (handig bij verwarring).
+        if ($status === 'confirmed' && $ride->status === RideRequest::STATUS_ASSIGNED) {
+            $showPin = true;
+        }
+
+        if (! $showPin && $status !== 'confirmed') {
+            return null;
+        }
 
         return [
+            'method' => 'pin',
+            'status' => $status ?: 'pending',
+            'pin' => $pin,
+            'prompt' => 'Geef deze ophaalcode aan de chauffeur om de rit te starten.',
+            'can_answer' => false,
+        ];
+    }
+
+    /**
+     * Chauffeur ziet géén PIN — alleen of er een code nodig is.
+     *
+     * @return array{method: string, status: string, requires_pin: bool}|null
+     */
+    public function driverPayload(RideRequest $ride): ?array
+    {
+        if (! $this->appliesTo($ride)) {
+            return null;
+        }
+
+        $status = (string) data_get($ride->booking_payload, 'pickup_confirmation.status', 'pending');
+        if ($status === '') {
+            $status = 'pending';
+        }
+
+        return [
+            'method' => 'pin',
             'status' => $status,
-            'prompt' => self::PROMPT,
-            'can_answer' => $status === 'pending' && $openRide && ! $closed,
+            'requires_pin' => $ride->status === RideRequest::STATUS_ACCEPTED && $status !== 'confirmed',
+            'can_reask' => false,
+            'awaiting_customer' => false,
         ];
     }
 
@@ -205,6 +261,11 @@ class MarketplacePickupConfirmationService
         }
 
         return $ride->isNexaSuiteBooking() || $ride->canStartWithoutPickupProposal();
+    }
+
+    private function generatePin(): string
+    {
+        return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
     }
 
     /**

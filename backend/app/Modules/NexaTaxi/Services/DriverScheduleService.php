@@ -356,6 +356,7 @@ class DriverScheduleService
     {
         $this->ensureReady($connection);
         TaxiDispatchSchema::ensureVehicleIdColumn($connection);
+        TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($connection);
 
         $locked = $this->currentForDriver($connection, $companyId, $driverId);
         $occupied = $this->occupiedVehicleIdsForOthers($connection, $companyId, $driverId);
@@ -364,7 +365,7 @@ class DriverScheduleService
             ->where('company_id', $companyId)
             ->where('active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'license_plate', 'type']);
+            ->get(['id', 'name', 'license_plate', 'type', 'driver_photo_path']);
 
         if ($locked) {
             $assigned = $vehicles->firstWhere('id', (int) $locked->vehicle_id)
@@ -792,16 +793,19 @@ class DriverScheduleService
     }
 
     /**
-     * @return array{id: int, name: string, license_plate: ?string, type: string}
+     * @return array{id: int, name: string, license_plate: ?string, type: string, label: string, photo_url: ?string}
      */
     private function mapVehicle(Vehicle $vehicle): array
     {
+        $path = is_string($vehicle->driver_photo_path ?? null) ? $vehicle->driver_photo_path : null;
+
         return [
             'id' => (int) $vehicle->id,
             'name' => (string) ($vehicle->name ?? ''),
             'license_plate' => trim((string) ($vehicle->license_plate ?? '')) ?: null,
             'type' => (string) ($vehicle->type ?? ''),
             'label' => $vehicle->fleetLabel(),
+            'photo_url' => app(TaxiDriverProfileMediaService::class)->publicUrlFor($path),
         ];
     }
 

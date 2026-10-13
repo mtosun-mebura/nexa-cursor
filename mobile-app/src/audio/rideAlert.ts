@@ -29,8 +29,8 @@ export function rideAlertNotificationSound(tone?: string | null): string {
   return `${normalizeRideAlertTone(tone)}.wav`;
 }
 
-let modeReady = false;
 let current: AudioPlayer | null = null;
+let playChain: Promise<boolean> = Promise.resolve(false);
 
 export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
   const key = String(value || '').toLowerCase();
@@ -39,8 +39,11 @@ export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
     : 'classic';
 }
 
-async function ensureAudioMode(): Promise<void> {
-  if (modeReady) return;
+/**
+ * AVAudioSession .playback + playsInSilentMode: speelt ook bij iPhone stille stand
+ * (mute-schakelaar). Media-volume 0 blijft stil. Background: UIBackgroundModes audio.
+ */
+export async function prepareRideAlertAudio(): Promise<void> {
   await setAudioModeAsync({
     allowsRecording: false,
     playsInSilentMode: true,
@@ -49,43 +52,92 @@ async function ensureAudioMode(): Promise<void> {
     interruptionMode: 'doNotMix',
   });
   await setIsAudioActiveAsync(true);
-  modeReady = true;
 }
 
-export async function playRideAlertTone(tone?: string | null): Promise<void> {
-  const key = normalizeRideAlertTone(tone);
-
+function releasePlayer(player: AudioPlayer | null): void {
+  if (!player) return;
   try {
-    await ensureAudioMode();
+    player.pause();
+  } catch {
+    /* ignore */
+  }
+  try {
+    player.remove();
+  } catch {
+    /* ignore */
+  }
+}
 
-    if (current) {
+function waitUntilLoaded(player: AudioPlayer, timeoutMs = 2500): Promise<boolean> {
+  if (player.isLoaded) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const started = Date.now();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(poll);
       try {
-        current.pause();
-        current.remove();
+        sub.remove();
       } catch {
         /* ignore */
       }
+      resolve(ok);
+    };
+    const sub = player.addListener('playbackStatusUpdate', () => {
+      if (player.isLoaded) finish(true);
+    });
+    const poll = setInterval(() => {
+      if (player.isLoaded) {
+        finish(true);
+      } else if (Date.now() - started >= timeoutMs) {
+        finish(false);
+      }
+    }, 40);
+  });
+}
+
+async function playOnce(key: RideAlertTone): Promise<boolean> {
+  try {
+    // Elke keer opnieuw: iOS deactiveert de sessie vaak na achtergrond/GPS-wake.
+    await prepareRideAlertAudio();
+
+    if (current) {
+      releasePlayer(current);
       current = null;
     }
 
     const player = createAudioPlayer(SOURCES[key], {
-      updateInterval: 200,
+      updateInterval: 100,
       keepAudioSessionActive: true,
     });
     player.volume = 1;
     player.loop = false;
+    current = player;
+
+    await waitUntilLoaded(player);
+    await setIsAudioActiveAsync(true);
+
     player.addListener('playbackStatusUpdate', (status) => {
       if (!status.didJustFinish) return;
-      try {
-        player.remove();
-      } catch {
-        /* ignore */
-      }
+      releasePlayer(player);
       if (current === player) current = null;
     });
-    current = player;
+
     player.play();
+    return true;
   } catch {
-    /* geluid niet beschikbaar */
+    return false;
   }
+}
+
+/** Speelt de gekozen toon; true als starten lukte. Werkt in stille stand en achtergrond. */
+export function playRideAlertTone(tone?: string | null): Promise<boolean> {
+  const key = normalizeRideAlertTone(tone);
+  const run = playChain.then(() => playOnce(key));
+  playChain = run.then(
+    () => false,
+    () => false
+  );
+  return run;
 }

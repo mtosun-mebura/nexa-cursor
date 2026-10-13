@@ -2,16 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   AppState,
   Linking,
   Pressable,
   RefreshControl,
+  Image,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import {
   ContractAbsence,
   ContractDayItem,
@@ -28,14 +32,19 @@ import {
   fetchContractPassengers,
   fetchContractToday,
   fetchContractWeek,
+  postContractLocation,
+  reachContractDestinations,
   skipContractPassenger,
   startContractRide,
   storeContractAbsence,
   updateContractAccent,
+  updateContractPassengerColor,
 } from '../api/contract';
 import { buildActiveNavigation } from '../api/contractNavigation';
+import { DARK_MAP_STYLE, fetchDrivingRoute, type LatLng } from '../geo/route';
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { playRideAlertTone } from '../audio/rideAlert';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { APP_PAGE_TOP_INSET, APP_PAGE_HEADER_PAD_H } from '../ui/AppPageHeader';
@@ -149,14 +158,6 @@ function legDisplayLabel(leg?: ContractLeg | null): string {
   return String(leg?.leg_label || 'Rit').trim() || 'Rit';
 }
 
-function ritLabel(legKey?: string | null, legLabel?: string | null): string {
-  const key = String(legKey || '').toLowerCase();
-  if (key === 'retour' || /terug|retour/i.test(String(legLabel || ''))) return 'Terugweg';
-  if (key === 'heen' || /heen/i.test(String(legLabel || ''))) return 'Heenweg';
-  const label = String(legLabel || '').trim();
-  return label || 'Rit';
-}
-
 function isExpiredStatus(status?: string | null, statusKey?: string | null): boolean {
   const key = String(statusKey || '').toLowerCase();
   if (key === 'expired') return true;
@@ -169,32 +170,43 @@ function isAbsentStatus(status?: string | null, statusKey?: string | null): bool
   return /afwezig|afgemeld/i.test(String(status || ''));
 }
 
+/** Adres als stoptekst. Coördinaten toont Google Maps als “Met speld”. */
+function mapsStopLabel(stop: ContractNavStop): string {
+  return String(stop.address || '').trim();
+}
+
+/** Opent de route in de Google Maps-app. Adressen, geen coördinaten, anders staat er “Met speld”. */
+async function openPassengerRoute(stops: ContractNavStop[]) {
+  const points: string[] = [];
+  for (const stop of stops) {
+    const label = mapsStopLabel(stop);
+    if (!label) continue;
+    if (points[points.length - 1]?.toLowerCase() === label.toLowerCase()) continue;
+    points.push(label);
+  }
+  if (points.length === 0) return;
+
+  const segments = ['Current+Location', ...points.map((point) => encodeURIComponent(point))];
+  await Linking.openURL(`https://www.google.com/maps/dir/${segments.join('/')}`);
+}
+
 const OVERDUE_RED = '#EF4444';
 const DEST_GREEN = '#22C55E';
 const ABSENT_GREY = '#94A3B8';
 
-function openMapsAddress(address?: string | null) {
-  const text = String(address || '').trim();
-  if (!text) return;
-  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(text)}`;
-  Linking.openURL(url).catch(() => undefined);
-}
-
-function openMapsStops(stops: ContractNavStop[]) {
-  const withAddr = stops
-    .map((s) => String(s.address || '').trim())
-    .filter(Boolean);
-  if (withAddr.length === 0) return;
-  if (withAddr.length === 1) {
-    openMapsAddress(withAddr[0]);
-    return;
+function placeTaxiOnLines(raw: LatLng, lines: LatLng[][]): LatLng {
+  let best: LatLng | null = null;
+  let bestDistance = Infinity;
+  for (const line of lines) {
+    const snapped = snapToRoute(raw, line);
+    if (snapped === raw) continue;
+    const distance = haversineMeters(raw, snapped);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = snapped;
+    }
   }
-  const destination = withAddr[withAddr.length - 1];
-  const waypoints = withAddr.slice(0, -1).map(encodeURIComponent).join('|');
-  const url =
-    `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` +
-    (waypoints ? `&waypoints=${waypoints}` : '');
-  Linking.openURL(url).catch(() => undefined);
+  return best ?? raw;
 }
 
 function itemHasVisibleRide(item: ContractDayItem): boolean {
@@ -265,6 +277,145 @@ function legStatusKey(leg: ContractLeg, item: ContractDayItem): string {
   return String(leg.status_key || item.status_key || item.day_status || '').toLowerCase();
 }
 
+const DEST_REACH_RADIUS_M = 250;
+
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** Open bestemmingen met coördinaten, zodat bevestigen lokaal kan zien of de auto er staat. */
+function openDestinationCoords(items: ContractDayItem[]): Array<{ lat: number; lng: number }> {
+  const closed = new Set(['completed', 'absent', 'skipped', 'not_taken', 'none', 'expired']);
+  const points: Array<{ lat: number; lng: number }> = [];
+  for (const item of items) {
+    for (const leg of itemLegs(item)) {
+      const key = String(leg.status_key || '').toLowerCase();
+      if (closed.has(key) || legIsExpired(leg) || legIsTerminal(leg, item)) continue;
+      const lat = Number(leg.destination_lat);
+      const lng = Number(leg.destination_lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      points.push({ lat, lng });
+    }
+  }
+  return points;
+}
+
+const CHILD_MAP_COLORS = [
+  '#2563EB',
+  '#F59E0B',
+  '#10B981',
+  '#EC4899',
+  '#7C3AED',
+  '#EF4444',
+  '#06B6D4',
+  '#F97316',
+] as const;
+
+const CHILD_COLOR_LABELS = ['Blauw', 'Amber', 'Groen', 'Roze', 'Paars', 'Rood', 'Cyaan', 'Oranje'];
+
+const CHILD_RIDE_SKIP = new Set(['completed', 'absent', 'not_taken', 'expired', 'none', 'skipped']);
+const CHILD_RIDE_LIVE = new Set(['picked_up', 'en_route', 'arrived']);
+
+function childMapColor(passengerId: number, stored?: string | null): string {
+  const raw = String(stored || '').trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(raw)) return raw.toUpperCase();
+  return CHILD_MAP_COLORS[Math.abs(passengerId) % CHILD_MAP_COLORS.length];
+}
+
+function mapPoint(lat?: number | null, lng?: number | null): LatLng | null {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude === 0 && longitude === 0) return null;
+  return { latitude, longitude };
+}
+
+type ChildMapRide = {
+  passengerId: number;
+  name: string;
+  color: string;
+  inTaxi: boolean;
+  pickup: LatLng | null;
+  dropoff: LatLng | null;
+  vehicle: LatLng | null;
+};
+
+function childMapRides(items: ContractDayItem[]): ChildMapRide[] {
+  const rides: ChildMapRide[] = [];
+  for (const item of items) {
+    const legs = itemLegs(item).filter((leg) => !CHILD_RIDE_SKIP.has(legStatusKey(leg, item)));
+    if (legs.length === 0) continue;
+    const leg = legs.find((row) => CHILD_RIDE_LIVE.has(legStatusKey(row, item))) || legs[0];
+    const key = legStatusKey(leg, item);
+    rides.push({
+      passengerId: item.passenger_id,
+      name: item.name || 'Kind',
+      color: childMapColor(item.passenger_id, item.map_color),
+      inTaxi: key === 'picked_up',
+      pickup: mapPoint(leg.pickup_lat ?? item.pickup_lat, leg.pickup_lng ?? item.pickup_lng),
+      dropoff: mapPoint(leg.destination_lat, leg.destination_lng),
+      vehicle: mapPoint(leg.vehicle_location?.lat, leg.vehicle_location?.lng),
+    });
+  }
+  return rides;
+}
+
+function haversineMeters(a: LatLng, b: LatLng): number {
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function projectSegment(point: LatLng, start: LatLng, end: LatLng): LatLng {
+  const abLat = end.latitude - start.latitude;
+  const abLng = end.longitude - start.longitude;
+  const denom = abLat * abLat + abLng * abLng;
+  if (denom === 0) return start;
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.latitude - start.latitude) * abLat + (point.longitude - start.longitude) * abLng) / denom)
+  );
+  return { latitude: start.latitude + t * abLat, longitude: start.longitude + t * abLng };
+}
+
+/** Zet de taxi op de ritlijn als de gps daar dichtbij ligt. */
+function snapToRoute(point: LatLng, line: LatLng[], maxMeters = 400): LatLng {
+  if (line.length < 2) return point;
+  let best = line[0];
+  let bestDistance = Infinity;
+  for (let i = 0; i < line.length - 1; i += 1) {
+    const projected = projectSegment(point, line[i], line[i + 1]);
+    const distance = haversineMeters(point, projected);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = projected;
+    }
+  }
+  return bestDistance <= maxMeters ? best : point;
+}
+
+function offsetPoint(point: LatLng, index: number): LatLng {
+  const meters = 18 + index * 12;
+  const angle = (index * 55 * Math.PI) / 180;
+  return {
+    latitude: point.latitude + (meters * Math.cos(angle)) / 111320,
+    longitude:
+      point.longitude +
+      (meters * Math.sin(angle)) / (111320 * Math.cos((point.latitude * Math.PI) / 180)),
+  };
+}
+
+const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
+
 /** Banner voor ouders/contractant — gebruikt API-tekst of lokale fallback. */
 function legStatusBanner(leg: ContractLeg, item: ContractDayItem): string {
   const api = String(leg.status_banner || '').trim();
@@ -279,6 +430,38 @@ function legStatusBanner(leg: ContractLeg, item: ContractDayItem): string {
   if (key === 'expired') return 'Ophaalmoment verlopen';
   if (key === 'planned') return 'Nog niet opgehaald';
   return String(leg.status || item.status || 'Gepland');
+}
+
+function PulsingIcon({
+  name,
+  color,
+  size,
+  pulseToken,
+}: {
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  color: string;
+  size: number;
+  pulseToken: number;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!pulseToken) return;
+    scale.setValue(1);
+    const beat = Animated.sequence([
+      Animated.timing(scale, { toValue: 1.45, duration: 180, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]);
+    const anim = Animated.loop(beat, { iterations: 5 });
+    anim.start();
+    return () => anim.stop();
+  }, [pulseToken, scale]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Ionicons name={name} size={size} color={color} />
+    </Animated.View>
+  );
 }
 
 function bannerTone(
@@ -403,7 +586,19 @@ export function ContractHomeScreen() {
   const [absenceReason, setAbsenceReason] = useState('');
   const [absenceBusy, setAbsenceBusy] = useState(false);
   const [rideActionStopId, setRideActionStopId] = useState<number | null>(null);
+  const [destReachOpen, setDestReachOpen] = useState(false);
+  const [destReachBusy, setDestReachBusy] = useState(false);
+  const [destReachError, setDestReachError] = useState<string | null>(null);
+  const ignoreDestOpenUntil = useRef(0);
+  const [childRouteLines, setChildRouteLines] = useState<Record<number, LatLng[]>>({});
+  const [colorPassengerId, setColorPassengerId] = useState<number | null>(null);
+  const [colorOverrides, setColorOverrides] = useState<Record<number, string>>({});
+  const [colorError, setColorError] = useState<string | null>(null);
   const [expandedRideKeys, setExpandedRideKeys] = useState<Record<string, true>>({});
+  const [iconPulse, setIconPulse] = useState<Record<string, number>>({});
+  const [destBtnPulse, setDestBtnPulse] = useState(0);
+  const destBtnScale = useRef(new Animated.Value(1)).current;
+  const statusSeenRef = useRef<Map<string, string> | null>(null);
   const multi = (capabilities?.screens?.length || 0) > 1;
   const canOperateRides = isContractant || isContractantRole(portalRole);
   const accentHex = driverAccentHex(accent);
@@ -419,6 +614,11 @@ export function ContractHomeScreen() {
   const seenRideIds = useRef<Set<number>>(new Set());
   const ridesBootstrapped = useRef(false);
   const hasLoadedOnceRef = useRef(false);
+  const lastFixRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [driverFix, setDriverFix] = useState<LatLng | null>(null);
+  const lastLocationPostRef = useRef(0);
+  const parentMapRef = useRef<MapView | null>(null);
+  const parentMapFittedKey = useRef('');
 
   const handleNewContractRides = useCallback(async (todayData: ContractToday | null) => {
     const openLegs: ContractLeg[] = [];
@@ -639,6 +839,53 @@ export function ContractHomeScreen() {
   }, [contractToken, refresh, pollToday]);
 
   useEffect(() => {
+    if (!canOperateRides || !contractToken) return;
+    let stopped = false;
+    let sub: Location.LocationSubscription | null = null;
+
+    const remember = (lat: number, lng: number, post: boolean) => {
+      if (stopped || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      lastFixRef.current = { lat, lng };
+      setDriverFix({ latitude: lat, longitude: lng });
+      if (!post) return;
+      const now = Date.now();
+      if (now - lastLocationPostRef.current < 15000) return;
+      lastLocationPostRef.current = now;
+      void postContractLocation(contractToken, lat, lng)
+        .then((res) => {
+          if ((res.data?.updated || 0) > 0) void pollToday();
+        })
+        .catch(() => undefined);
+    };
+
+    (async () => {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (stopped || perm.status !== 'granted') return;
+
+      const last = await Location.getLastKnownPositionAsync();
+      if (last) remember(last.coords.latitude, last.coords.longitude, false);
+
+      sub = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 8,
+          timeInterval: 3000,
+        },
+        (pos) => remember(pos.coords.latitude, pos.coords.longitude, true)
+      );
+
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        .then((current) => remember(current.coords.latitude, current.coords.longitude, true))
+        .catch(() => undefined);
+    })().catch(() => undefined);
+
+    return () => {
+      stopped = true;
+      sub?.remove();
+    };
+  }, [canOperateRides, contractToken, pollToday]);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh(undefined, { silent: true });
     });
@@ -824,6 +1071,59 @@ export function ContractHomeScreen() {
     ]);
   }
 
+  function openDestReach() {
+    if (Date.now() < ignoreDestOpenUntil.current) return;
+    setDestReachError(null);
+    bumpPulses(destinationPulseKeys());
+    setDestBtnPulse((n) => n + 1);
+    setDestReachOpen(true);
+  }
+
+  function closeDestReach() {
+    if (destReachBusy) return;
+    ignoreDestOpenUntil.current = Date.now() + 700;
+    setDestReachOpen(false);
+  }
+
+  async function confirmReachAllDestinations() {
+    if (!contractToken || destReachBusy) return;
+    setDestReachBusy(true);
+    setDestReachError(null);
+    try {
+      const fix = lastFixRef.current;
+      if (!fix) {
+        setDestReachError(
+          'Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.'
+        );
+        return;
+      }
+      const points = openDestinationCoords(todayItems);
+      const near = points.some(
+        (point) => distanceMeters(fix.lat, fix.lng, point.lat, point.lng) <= DEST_REACH_RADIUS_M
+      );
+      if (points.length > 0 && !near) {
+        setDestReachError(
+          'Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.'
+        );
+        return;
+      }
+      const res = await reachContractDestinations(contractToken, fix);
+      if ((res.data?.updated || 0) < 1) {
+        setDestReachError(res.message || 'De bestemming kan niet op bereikt gezet worden.');
+        return;
+      }
+      bumpPulses(destinationPulseKeys());
+      setDestBtnPulse((n) => n + 1);
+      ignoreDestOpenUntil.current = Date.now() + 700;
+      setDestReachOpen(false);
+      await refresh();
+    } catch (e) {
+      setDestReachError(apiErrorMessage(e, 'Bestemming bijwerken mislukt.'));
+    } finally {
+      setDestReachBusy(false);
+    }
+  }
+
   async function chooseAccent(key: string) {
     const next = normalizeDriverAccent(key);
     setAccent(next);
@@ -844,6 +1144,131 @@ export function ContractHomeScreen() {
     () => (today?.items || []).filter(itemHasVisibleRide),
     [today]
   );
+  const navStops = useMemo(
+    () => buildActiveNavigation(today?.items || []).stops || [],
+    [today?.items]
+  );
+  const childRides = useMemo(
+    () =>
+      childMapRides(todayItems).map((ride) => ({
+        ...ride,
+        color: colorOverrides[ride.passengerId] || ride.color,
+      })),
+    [todayItems, colorOverrides]
+  );
+  const childRouteKey = useMemo(
+    () =>
+      childRides
+        .map(
+          (ride) =>
+            `${ride.passengerId}:${ride.pickup?.latitude ?? ''},${ride.pickup?.longitude ?? ''}:${ride.dropoff?.latitude ?? ''},${ride.dropoff?.longitude ?? ''}`
+        )
+        .join('|'),
+    [childRides]
+  );
+  const taxiOnMap = useMemo(() => {
+    const fromRide = [...childRides]
+      .sort((a, b) => Number(b.inTaxi) - Number(a.inTaxi))
+      .find((ride) => ride.vehicle)?.vehicle;
+    const raw = canOperateRides ? driverFix : fromRide;
+    if (!raw) return null;
+    const lines = childRides
+      .map((ride) => childRouteLines[ride.passengerId])
+      .filter((line): line is LatLng[] => !!line && line.length > 1);
+    return placeTaxiOnLines(raw, lines);
+  }, [canOperateRides, driverFix, childRides, childRouteLines]);
+  const passengerPins = useMemo(() => {
+    const pins: Array<{
+      key: string;
+      coordinate: LatLng;
+      color: string;
+      label: string;
+      kind: 'pickup' | 'destination';
+    }> = [];
+    const seenDest = new Set<string>();
+    childRides.forEach((ride, index) => {
+      const label = ride.name.split(' ')[0] || ride.name;
+      const pickup = ride.inTaxi && taxiOnMap ? offsetPoint(taxiOnMap, index) : ride.pickup;
+      if (pickup) {
+        pins.push({
+          key: `pick-${ride.passengerId}`,
+          coordinate: pickup,
+          color: ride.color,
+          label,
+          kind: 'pickup',
+        });
+      }
+      if (!ride.dropoff) return;
+      const destKey = `${ride.dropoff.latitude.toFixed(4)},${ride.dropoff.longitude.toFixed(4)}`;
+      if (seenDest.has(destKey)) return;
+      seenDest.add(destKey);
+      pins.push({
+        key: `dest-${destKey}`,
+        coordinate: ride.dropoff,
+        color: DEST_GREEN,
+        label: '',
+        kind: 'destination',
+      });
+    });
+    return pins;
+  }, [childRides, taxiOnMap]);
+
+  useEffect(() => {
+    if (!childRouteKey) {
+      setChildRouteLines({});
+      return;
+    }
+    let cancelled = false;
+    const jobs = childRides.filter((ride) => ride.pickup && ride.dropoff);
+    void (async () => {
+      const next: Record<number, LatLng[]> = {};
+      await Promise.all(
+        jobs.map(async (ride) => {
+          const route = await fetchDrivingRoute(
+            { lat: ride.pickup!.latitude, lng: ride.pickup!.longitude },
+            { lat: ride.dropoff!.latitude, lng: ride.dropoff!.longitude }
+          );
+          next[ride.passengerId] = route.coordinates;
+        })
+      );
+      if (!cancelled) setChildRouteLines(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [childRouteKey]);
+
+  useEffect(() => {
+    if (!taxiOnMap || !parentMapRef.current) return;
+    parentMapRef.current.animateCamera(
+      {
+        center: { latitude: taxiOnMap.latitude, longitude: taxiOnMap.longitude },
+        zoom: 15,
+      },
+      { duration: 700 }
+    );
+  }, [taxiOnMap?.latitude, taxiOnMap?.longitude]);
+
+  useEffect(() => {
+    if (taxiOnMap || !parentMapRef.current) return;
+    const points: LatLng[] = [];
+    for (const ride of childRides) {
+      const line = childRouteLines[ride.passengerId];
+      if (line && line.length > 0) points.push(...line);
+      else {
+        if (ride.pickup) points.push(ride.pickup);
+        if (ride.dropoff) points.push(ride.dropoff);
+      }
+    }
+    if (points.length === 0) return;
+    const key = points.map((point) => `${point.latitude.toFixed(4)},${point.longitude.toFixed(4)}`).join('|');
+    if (key === parentMapFittedKey.current) return;
+    parentMapFittedKey.current = key;
+    parentMapRef.current.fitToCoordinates(points, {
+      edgePadding: { top: 48, right: 48, bottom: 48, left: 48 },
+      animated: true,
+    });
+  }, [taxiOnMap, childRides, childRouteLines]);
 
   const actionableTripKeys = useMemo(() => {
     const date = today?.date || '';
@@ -946,17 +1371,6 @@ export function ContractHomeScreen() {
       .map((item) => ({ ...item, _date: selectedWeekDay?.date }));
   }, [selectedWeekDay]);
 
-  const activeNav = useMemo(
-    () => buildActiveNavigation(today?.items || []),
-    [today?.items]
-  );
-  const navStops = activeNav.stops || [];
-  const hasActiveNav = Boolean(activeNav.leg_key) || navStops.length > 0;
-  const navRit = hasActiveNav
-    ? ritLabel(activeNav.leg_key, activeNav.leg_label)
-    : 'Geen actieve rit';
-  const navHubLabel = activeNav.hub_label;
-  const navHubAddress = activeNav.hub_address;
   const tripsBadge = useMemo(() => {
     if (tab === 'trips') return 0;
     const seen = new Set(tripsSeenKeys);
@@ -971,6 +1385,64 @@ export function ContractHomeScreen() {
   ): string {
     return `${dateLabel || 'd'}:${item.passenger_id}:${leg.ride_stop_id ?? leg.leg_key ?? index}`;
   }
+
+  const bumpPulses = useCallback((keys: string[]) => {
+    if (keys.length === 0) return;
+    setIconPulse((prev) => {
+      const next = { ...prev };
+      for (const key of keys) next[key] = (next[key] || 0) + 1;
+      return next;
+    });
+  }, []);
+
+  const destinationPulseKeys = useCallback(() => {
+    const keys: string[] = [];
+    todayItems.forEach((item) => {
+      itemLegs(item).forEach((leg, index) => {
+        const status = legStatusKey(leg, item);
+        if (status === 'absent' || status === 'not_taken') return;
+        keys.push(`dest:${rideExpandKey(item, leg, index, today?.date)}`);
+      });
+    });
+    return keys;
+  }, [todayItems, today?.date]);
+
+  useEffect(() => {
+    const next = new Map<string, string>();
+    todayItems.forEach((item) => {
+      itemLegs(item).forEach((leg, index) => {
+        next.set(rideExpandKey(item, leg, index, today?.date), legStatusKey(leg, item));
+      });
+    });
+    const prev = statusSeenRef.current;
+    statusSeenRef.current = next;
+    if (!prev || canOperateRides) return;
+    const keys: string[] = [];
+    for (const [id, status] of next) {
+      const before = prev.get(id);
+      if (!before || before === status) continue;
+      const wasBoarded = before === 'picked_up' || before === 'completed';
+      if ((status === 'picked_up' || status === 'completed') && !wasBoarded) {
+        keys.push(`pickup:${id}`);
+      }
+      if (status === 'completed') keys.push(`dest:${id}`);
+    }
+    if (keys.length === 0) return;
+    bumpPulses(keys);
+    void playRideAlertTone('chime');
+  }, [todayItems, today?.date, canOperateRides, bumpPulses]);
+
+  useEffect(() => {
+    if (!destBtnPulse) return;
+    destBtnScale.setValue(1);
+    const beat = Animated.sequence([
+      Animated.timing(destBtnScale, { toValue: 1.06, duration: 160, useNativeDriver: true }),
+      Animated.timing(destBtnScale, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]);
+    const anim = Animated.loop(beat, { iterations: 4 });
+    anim.start();
+    return () => anim.stop();
+  }, [destBtnPulse, destBtnScale]);
 
   function toggleRideExpanded(key: string) {
     setExpandedRideKeys((prev) => {
@@ -1144,6 +1616,30 @@ export function ContractHomeScreen() {
                       {pickup.main}
                       {dropoff.main ? ` → ${dropoff.main}` : ''}
                     </Text>
+                    <View style={styles.rideCollapsedIcons}>
+                      <View style={styles.rideCollapsedIcon}>
+                        <PulsingIcon
+                          name="navigate-outline"
+                          size={18}
+                          color={absent ? ABSENT_GREY : boardedColor}
+                          pulseToken={iconPulse[`pickup:${expandKey}`] || 0}
+                        />
+                        <Text style={[styles.rideCollapsedIconLabel, { color: absent ? ABSENT_GREY : boardedColor }]}>
+                          Opgehaald
+                        </Text>
+                      </View>
+                      <View style={styles.rideCollapsedIcon}>
+                        <PulsingIcon
+                          name="flag-outline"
+                          size={18}
+                          color={destinationColor}
+                          pulseToken={iconPulse[`dest:${expandKey}`] || 0}
+                        />
+                        <Text style={[styles.rideCollapsedIconLabel, { color: destinationColor }]}>
+                          {destinationLabel}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 ) : null}
               </Pressable>
@@ -1173,7 +1669,8 @@ export function ContractHomeScreen() {
                 </Text>
                 {canOperateRides && showBoard ? (
                   <Text style={styles.statusBannerHint}>
-                    Markeer Opgehaald of Overslaan. Zonder keuze: automatisch opgehaald
+                    Markeer Opgehaald of Overslaan.{'\n'}
+                    Zonder keuze: automatisch opgehaald
                     {typeof today?.auto_board_grace_minutes === 'number'
                       ? ` ${today.auto_board_grace_minutes} min`
                       : ' enkele minuten'}{' '}
@@ -1218,16 +1715,19 @@ export function ContractHomeScreen() {
                   ]}
                   disabled={!showBoard || rideActionStopId != null}
                   onPress={() => {
-                    if (showBoard) void onBoardLeg(leg.ride_stop_id);
+                    if (!showBoard) return;
+                    if (canOperateRides) bumpPulses([`pickup:${expandKey}`]);
+                    void onBoardLeg(leg.ride_stop_id);
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={isPickedUp ? 'Opgehaald' : 'Nog niet opgehaald'}
                   accessibilityState={{ disabled: !showBoard }}
                 >
-                  <Ionicons
+                  <PulsingIcon
                     name="navigate-outline"
                     size={22}
                     color={absent ? ABSENT_GREY : boardedColor}
+                    pulseToken={iconPulse[`pickup:${expandKey}`] || 0}
                   />
                   <Text
                     style={[
@@ -1241,14 +1741,22 @@ export function ContractHomeScreen() {
                     Opgehaald
                   </Text>
                 </Pressable>
-                <View
+                <Pressable
                   style={styles.rideIconTab}
-                  accessibilityRole="text"
+                  disabled={!canOperateRides || isAtDestination}
+                  onPress={openDestReach}
+                  accessibilityRole="button"
                   accessibilityLabel={
                     isAtDestination ? `${destinationLabel}: ja` : `${destinationLabel}: nog niet`
                   }
+                  accessibilityState={{ disabled: !canOperateRides || isAtDestination }}
                 >
-                  <Ionicons name="flag-outline" size={22} color={destinationColor} />
+                  <PulsingIcon
+                    name="flag-outline"
+                    size={22}
+                    color={destinationColor}
+                    pulseToken={iconPulse[`dest:${expandKey}`] || 0}
+                  />
                   <Text
                     style={[styles.rideIconLabel, { color: destinationColor }]}
                     numberOfLines={1}
@@ -1257,7 +1765,7 @@ export function ContractHomeScreen() {
                   >
                     {destinationLabel}
                   </Text>
-                </View>
+                </Pressable>
                 {showStart ? (
                   <Pressable
                     style={[
@@ -1409,6 +1917,16 @@ export function ContractHomeScreen() {
         <View style={styles.destBanner}>
           <Text style={styles.destLabel}>Bestemming</Text>
           <Text style={styles.destValue}>{openDestinationSummary}</Text>
+          {canOperateRides ? (
+            <Animated.View style={{ transform: [{ scale: destBtnScale }] }}>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={openDestReach}
+              >
+                <Text style={styles.primaryBtnText}>Bestemming bereikt</Text>
+              </Pressable>
+            </Animated.View>
+          ) : null}
         </View>
       ) : null}
       {filteredTodayItems.length === 0 ? (
@@ -1537,86 +2055,166 @@ export function ContractHomeScreen() {
     </AppScrollView>
   );
 
-  const navigationPanel = (
-    <AppScrollView
-      persistKey="contract-navigation"
-      contentContainerStyle={styles.scroll}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
-      }
-    >
-      <ErrorText>{error}</ErrorText>
-      <ScreenHeader
-        title="Navigatie"
-        right={<Text style={styles.navRitLabel}>Rit: {navRit}</Text>}
-      />
+  async function saveChildColor(passengerId: number, mapColor: string) {
+    const color = mapColor.toUpperCase();
+    setColorOverrides((prev) => ({ ...prev, [passengerId]: color }));
+    setPassengers((rows) =>
+      rows.map((row) => (row.id === passengerId ? { ...row, map_color: color } : row))
+    );
+    setToday((current) =>
+      current
+        ? {
+            ...current,
+            items: current.items.map((item) =>
+              item.passenger_id === passengerId ? { ...item, map_color: color } : item
+            ),
+          }
+        : current
+    );
+    setColorPassengerId(null);
+    if (!contractToken) return;
+    try {
+      await updateContractPassengerColor(contractToken, passengerId, color);
+    } catch (e) {
+      setError(apiErrorMessage(e, 'Kleur opslaan mislukt.'));
+    }
+  }
 
-      {navHubAddress ? (
-        <View style={styles.navHubBanner}>
-          <Text style={styles.navHubLabel}>{navHubLabel || 'Doel'}</Text>
-          <Text style={styles.navHubValue}>{navHubAddress}</Text>
+  const colorPassengerName =
+    passengers.find((row) => row.id === colorPassengerId)?.name ||
+    childRides.find((ride) => ride.passengerId === colorPassengerId)?.name ||
+    'Kind';
+  const colorPassengerStored =
+    passengers.find((row) => row.id === colorPassengerId)?.map_color ||
+    todayItems.find((item) => item.passenger_id === colorPassengerId)?.map_color ||
+    null;
+
+  const parentNavigation = (
+    <View style={styles.parentNav}>
+      <View style={styles.parentNavHeader}>
+        <ScreenHeader title="Navigatie" />
+      </View>
+      <MapView
+        key={colorScheme}
+        ref={parentMapRef}
+        style={styles.parentNavMap}
+        provider={PROVIDER_GOOGLE}
+        {...(colorScheme === 'dark' ? { customMapStyle: DARK_MAP_STYLE } : {})}
+        initialRegion={{
+          latitude: taxiOnMap?.latitude || childRides[0]?.pickup?.latitude || 52.22,
+          longitude: taxiOnMap?.longitude || childRides[0]?.pickup?.longitude || 6.89,
+          latitudeDelta: 0.08,
+          longitudeDelta: 0.08,
+        }}
+        showsUserLocation={false}
+        showsMyLocationButton={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
+        toolbarEnabled={false}
+      >
+        {childRides.map((ride) => {
+          const line =
+            childRouteLines[ride.passengerId] ||
+            (ride.pickup && ride.dropoff ? [ride.pickup, ride.dropoff] : []);
+          if (line.length < 2) return null;
+          return (
+            <Polyline
+              key={`route-${ride.passengerId}`}
+              coordinates={line}
+              strokeColor={ride.color}
+              strokeWidth={5}
+            />
+          );
+        })}
+        {passengerPins.map((pin) => (
+          <Marker
+            key={pin.key}
+            coordinate={pin.coordinate}
+            title={pin.kind === 'destination' ? 'Bestemming' : pin.label}
+            anchor={{ x: 0.5, y: 1 }}
+            tracksViewChanges
+            zIndex={pin.kind === 'destination' ? 40 : 30}
+          >
+            <View style={styles.childMarker}>
+              {pin.kind === 'pickup' && pin.label ? (
+                <Text style={[styles.childMarkerName, styles.passengerPinLabel, { backgroundColor: pin.color }]} numberOfLines={1}>
+                  {pin.label}
+                </Text>
+              ) : null}
+              <View
+                style={[
+                  pin.kind === 'destination' ? styles.destinationPinHead : styles.passengerPinHead,
+                  { backgroundColor: pin.color },
+                ]}
+              />
+              <View
+                style={[
+                  pin.kind === 'destination' ? styles.destinationPinTail : styles.passengerPinTail,
+                  { borderTopColor: pin.color },
+                ]}
+              />
+            </View>
+          </Marker>
+        ))}
+        {taxiOnMap ? (
+          <Marker
+            coordinate={taxiOnMap}
+            title="Taxi"
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges
+          >
+            <Image source={taxiCarYellow} style={styles.taxiMarker} resizeMode="contain" />
+          </Marker>
+        ) : null}
+      </MapView>
+      {childRides.length === 0 && !taxiOnMap ? (
+        <View style={styles.parentNavEmpty} pointerEvents="none">
+          <Text style={styles.parentNavEmptyText}>Geen open rit om te volgen.</Text>
         </View>
       ) : null}
-
-      {navStops.length === 0 ? (
-        <Card>
-          <Text style={styles.emptyHint}>Geen openstaande stops voor navigatie vandaag.</Text>
-        </Card>
-      ) : (
-        <>
-          <Text style={styles.sectionLabel}>Route ({navStops.length} stops)</Text>
-          <View style={styles.navStopList}>
-            {navStops.map((stop, index) => {
-              const isPickup = String(stop.kind || '').toLowerCase() === 'pickup';
-              const title =
-                stop.name ||
-                stop.label ||
-                (isPickup ? 'Ophalen' : 'Afzetten') ||
-                `Stop ${index + 1}`;
-              const addr = splitAddress(stop.address);
-              return (
-                <Pressable
-                  key={`nav-${index}-${stop.address || index}`}
-                  style={styles.navStopChip}
-                  onPress={() => openMapsAddress(stop.address)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${title}: ${stop.address || ''}`}
-                >
-                  <View
-                    style={[
-                      styles.navStopIndex,
-                      { backgroundColor: isPickup ? hexAlpha(DEST_GREEN, 0.2) : hexAlpha(accentHex, 0.2) },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.navStopIndexText,
-                        { color: isPickup ? DEST_GREEN : accentHex },
-                      ]}
-                    >
-                      {index + 1}
-                    </Text>
-                  </View>
-                  <View style={styles.navStopBody}>
-                    <Text style={styles.navStopTitle} numberOfLines={1}>
-                      {title}
-                    </Text>
-                    <Text style={styles.navStopAddr} numberOfLines={2}>
-                      {addr.main}
-                      {addr.sub ? `, ${addr.sub}` : ''}
-                    </Text>
-                  </View>
-                  <Ionicons name="navigate-outline" size={18} color={colors.muted} />
-                </Pressable>
-              );
-            })}
-          </View>
-          <Pressable style={styles.primaryBtn} onPress={() => openMapsStops(navStops)}>
-            <Text style={styles.primaryBtnText}>Start navigatie</Text>
-          </Pressable>
-        </>
-      )}
-    </AppScrollView>
+      {canOperateRides ? (
+        <Pressable
+          style={[styles.primaryBtn, styles.navStartBtn, navStops.length === 0 && { opacity: 0.5 }]}
+          disabled={navStops.length === 0}
+          onPress={() => {
+            void openPassengerRoute(navStops).catch(() => undefined);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Start navigatie"
+        >
+          <Text style={styles.primaryBtnText}>Start navigatie</Text>
+        </Pressable>
+      ) : null}
+      {passengers.length > 0 || childRides.length > 0 ? (
+        <Text style={styles.childLegendHint}>
+          Tik op de naam van een kind om de kleur aan te passen.
+        </Text>
+      ) : null}
+      <View style={styles.childLegend}>
+        {(passengers.length > 0 ? passengers : childRides.map((ride) => ({
+          id: ride.passengerId,
+          name: ride.name,
+          map_color: ride.color,
+        }))).map((child) => {
+          const rideColor = childRides.find((ride) => ride.passengerId === child.id)?.color;
+          const color = rideColor || childMapColor(child.id, child.map_color);
+          return (
+            <Pressable
+              key={`legend-${child.id}`}
+              style={styles.childLegendItem}
+              onPress={() => setColorPassengerId(child.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Kleur van ${child.name}`}
+            >
+              <View style={[styles.childLegendDot, { backgroundColor: color }]} />
+              <Text style={styles.childLegendName} numberOfLines={1}>
+                {child.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 
   const absencesPanel = (
@@ -1756,7 +2354,7 @@ export function ContractHomeScreen() {
 
   let body: React.ReactNode = tripsPanel;
   if (tab === 'planning') body = planningPanel;
-  else if (tab === 'navigation') body = navigationPanel;
+  else if (tab === 'navigation') body = parentNavigation;
   else if (tab === 'absences') body = absencesPanel;
   else if (tab === 'profile') body = profilePanel;
 
@@ -1826,6 +2424,61 @@ export function ContractHomeScreen() {
             </Text>
           </Pressable>
           <GhostButton title="Annuleren" onPress={() => setAbsenceOpen(false)} />
+        </AppModal>
+
+        <AppModal
+          visible={destReachOpen}
+          onRequestClose={closeDestReach}
+          dismissDisabled={destReachBusy}
+        >
+          <ScreenHeader title="Bestemming bereikt" />
+          <Text style={styles.hint}>
+            Dit zet de bestemming op bereikt voor de passagiers bij de bestemming waar de auto staat.
+          </Text>
+          <ErrorText>{destReachError}</ErrorText>
+          <Pressable
+            style={[styles.primaryBtn, destReachBusy && { opacity: 0.6 }]}
+            disabled={destReachBusy}
+            onPress={() => void confirmReachAllDestinations()}
+          >
+            <Text style={styles.primaryBtnText}>
+              {destReachBusy ? 'Bezig…' : 'Bevestigen'}
+            </Text>
+          </Pressable>
+          <GhostButton title="Annuleren" onPress={closeDestReach} />
+        </AppModal>
+
+        <AppModal
+          visible={colorPassengerId != null}
+          onRequestClose={() => setColorPassengerId(null)}
+        >
+          <ScreenHeader title="Kleur van het kind" />
+          <Text style={styles.hint}>{colorPassengerName}</Text>
+          <View style={styles.colorGrid}>
+            {CHILD_MAP_COLORS.map((swatch, index) => {
+              const current =
+                (colorPassengerId != null ? colorOverrides[colorPassengerId] : null) ||
+                childMapColor(colorPassengerId || 0, colorPassengerStored);
+              const selected = current.toUpperCase() === swatch.toUpperCase();
+              return (
+                <Pressable
+                  key={swatch}
+                  hitSlop={6}
+                  style={[
+                    styles.colorSwatch,
+                    { backgroundColor: swatch },
+                    selected && styles.colorSwatchSelected,
+                  ]}
+                  onPress={() => {
+                    if (colorPassengerId != null) void saveChildColor(colorPassengerId, swatch);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={CHILD_COLOR_LABELS[index] || 'Kleur'}
+                />
+              );
+            })}
+          </View>
+          <GhostButton title="Annuleren" onPress={() => setColorPassengerId(null)} />
         </AppModal>
       </View>
     </DriverAccentProvider>
@@ -2013,6 +2666,147 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '700',
       lineHeight: 21,
     },
+    parentNav: {
+      flex: 1,
+      minHeight: 0,
+    },
+    parentNavHeader: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
+    },
+    parentNavMap: {
+      flex: 1,
+      minHeight: 280,
+    },
+    navStartBtn: {
+      marginHorizontal: 16,
+      marginTop: 10,
+      marginBottom: 0,
+    },
+    parentNavEmpty: {
+      position: 'absolute',
+      left: 24,
+      right: 24,
+      top: '46%',
+      alignItems: 'center',
+    },
+    parentNavEmptyText: {
+      color: colors.text,
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    childMarker: {
+      alignItems: 'center',
+    },
+    passengerPinLabel: {
+      marginTop: 0,
+      marginBottom: 2,
+    },
+    passengerPinHead: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: '#fff',
+    },
+    passengerPinTail: {
+      width: 0,
+      height: 0,
+      marginTop: -1,
+      borderLeftWidth: 6,
+      borderRightWidth: 6,
+      borderTopWidth: 8,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+    },
+    destinationPinHead: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 3,
+      borderColor: '#fff',
+    },
+    destinationPinTail: {
+      width: 0,
+      height: 0,
+      marginTop: -1,
+      borderLeftWidth: 10,
+      borderRightWidth: 10,
+      borderTopWidth: 14,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+    },
+    childMarkerName: {
+      marginTop: 2,
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: '800',
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 6,
+      overflow: 'hidden',
+      maxWidth: 88,
+    },
+    childLegendHint: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 16,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    childLegend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    childLegendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: colors.card,
+    },
+    childLegendDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    childLegendName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      maxWidth: 140,
+    },
+    colorGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginTop: 8,
+      marginBottom: 8,
+    },
+    colorSwatch: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    colorSwatchSelected: {
+      borderWidth: 3,
+      borderColor: colors.text,
+    },
+    taxiMarker: {
+      width: 26,
+      height: 39,
+    },
     sectionLabel: {
       color: colors.muted,
       fontSize: 12,
@@ -2097,6 +2891,21 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 13,
       fontWeight: '600',
       lineHeight: 18,
+    },
+    rideCollapsedIcons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+      marginTop: 6,
+    },
+    rideCollapsedIcon: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    rideCollapsedIconLabel: {
+      fontSize: 11,
+      fontWeight: '700',
     },
     badge: {
       alignSelf: 'flex-start',
@@ -2240,7 +3049,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     statusBanner: {
       marginTop: 10,
-      marginBottom: 4,
+      marginBottom: 16,
       borderRadius: 10,
       paddingVertical: 10,
       paddingHorizontal: 12,
@@ -2272,7 +3081,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: accentHex,
       fontSize: 13,
       fontWeight: '800',
-      textAlign: 'center',
+      textAlign: 'left',
     },
     statusBannerTextSuccess: { color: DEST_GREEN },
     statusBannerTextInfo: { color: '#60A5FA' },
@@ -2284,7 +3093,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 11,
       lineHeight: 15,
       fontWeight: '500',
-      textAlign: 'center',
+      textAlign: 'left',
     },
     rideIconBar: {
       flexDirection: 'row',

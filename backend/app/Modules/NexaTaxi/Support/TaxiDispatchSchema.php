@@ -197,6 +197,27 @@ final class TaxiDispatchSchema
         self::$ready[$key] = true;
     }
 
+    public static function ensureVehicleDriverPhotoColumn(string $connection): void
+    {
+        $key = $connection.':vehicle-driver-photo';
+        if (! empty(self::$ready[$key])) {
+            return;
+        }
+
+        $schema = Schema::connection($connection);
+        if (! $schema->hasTable('vehicles')) {
+            return;
+        }
+
+        if (! $schema->hasColumn('vehicles', 'driver_photo_path')) {
+            $schema->table('vehicles', function ($table) {
+                $table->string('driver_photo_path', 512)->nullable();
+            });
+        }
+
+        self::$ready[$key] = true;
+    }
+
     public static function resetCache(): void
     {
         self::$ready = [];

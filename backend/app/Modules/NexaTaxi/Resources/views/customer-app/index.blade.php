@@ -1414,6 +1414,25 @@
             font-weight: 700;
             letter-spacing: 0;
         }
+        .pickup-confirm--pin {
+            text-align: center;
+        }
+        .pickup-confirm__label {
+            margin: 0 0 6px;
+            font-size: .78rem;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+        .pickup-confirm__pin {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: .35em;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
         .pickup-confirm {
             margin-top: 12px;
             padding: 12px 14px;

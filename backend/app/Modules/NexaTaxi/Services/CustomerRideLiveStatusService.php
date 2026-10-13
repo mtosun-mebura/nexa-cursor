@@ -258,6 +258,14 @@ class CustomerRideLiveStatusService
             }
         }
         $ratingPayload = app(TaxiRideRatingService::class)->payloadForRide($conn, $ride);
+        $pickupService = app(MarketplacePickupConfirmationService::class);
+        if ($pickupService->appliesTo($ride)) {
+            try {
+                $ride = $pickupService->ensurePin($conn, $ride);
+            } catch (\Throwable) {
+                // Live-status blijft beschikbaar als PIN-aanmaak faalt.
+            }
+        }
 
         return [
             'id' => (int) $ride->id,
@@ -315,7 +323,7 @@ class CustomerRideLiveStatusService
                 'name' => (string) ($vehicle->name ?? ''),
                 'license_plate' => preg_replace('/\s+/', '', (string) ($vehicle->license_plate ?? '')) ?: null,
                 'label' => $vehicle->fleetLabel(),
-                'photo_url' => $driverMedia['vehicle_photo_url'] ?? null,
+                'photo_url' => $this->vehiclePhotoUrl($conn, $vehicle),
             ] : null,
             'driver' => $driver ? [
                 'id' => (int) $driver->id,
@@ -328,7 +336,7 @@ class CustomerRideLiveStatusService
             'status_updates' => $statusUpdates,
             'status_notify_events' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
             'rating' => $ratingPayload,
-            'pickup_confirmation' => app(MarketplacePickupConfirmationService::class)->customerPayload($ride),
+            'pickup_confirmation' => $pickupService->customerPayload($ride),
             'vehicle_location' => $driverLoc,
             'eta_minutes' => $eta['minutes'] ?? null,
             'eta_label' => $eta['label'] ?? null,
@@ -534,5 +542,17 @@ class CustomerRideLiveStatusService
             RidePayment::STATUS_REFUND_FAILED => RideRequest::PAYMENT_STATUS_REFUND_FAILED,
             default => $paymentStatus,
         };
+    }
+
+    private function vehiclePhotoUrl(string $conn, Vehicle $vehicle): ?string
+    {
+        TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
+        if (! Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
+            return null;
+        }
+
+        $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+
+        return app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
     }
 }

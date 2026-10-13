@@ -202,6 +202,8 @@ class TaxiDispatchOfferResource
         }
 
         $canHandOverToNetwork = self::canHandOverToNetwork($ride);
+        $tripMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
+        $tripSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
 
         return [
             'id' => $ride->id,
@@ -264,13 +266,14 @@ class TaxiDispatchOfferResource
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'passengers' => (int) $ride->passengers,
+            'pickup_confirmation' => app(\App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService::class)->driverPayload($ride),
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,
             'baggage' => self::baggagePayload($ride),
-            'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
-            'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
-            'duration_minutes' => $ride->duration_minutes,
+            'distance_km' => $tripMeters > 0 ? round($tripMeters / 1000, 1) : null,
+            'duration_seconds' => $tripSeconds > 0 ? $tripSeconds : null,
+            'duration_minutes' => $tripSeconds > 0 ? (int) round($tripSeconds / 60) : null,
             'stops' => $stopsMeta,
             'schedule' => $schedule,
             'payment' => $includeBilling ? $payments->paymentSummaryForRide($ride) : null,
@@ -409,6 +412,8 @@ class TaxiDispatchOfferResource
         $feeBreakdown = self::feeBreakdownForDriver($ride);
         $isNetwork = $ride->isNetworkFulfilled()
             || ($feeBreakdown !== null && ! empty($feeBreakdown['is_network']));
+        $planMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
+        $planSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
 
         return [
             'id' => $ride->id,
@@ -438,6 +443,9 @@ class TaxiDispatchOfferResource
             'planning_date' => ContractTransportTimezone::asAmsterdamWall($pickupAt)?->toDateString(),
             'customer_name' => $ride->customer_name,
             'passengers' => (int) $ride->passengers,
+            'distance_km' => $planMeters > 0 ? round($planMeters / 1000, 1) : null,
+            'duration_seconds' => $planSeconds > 0 ? $planSeconds : null,
+            'duration_minutes' => $planSeconds > 0 ? (int) round($planSeconds / 60) : null,
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
         ];
     }

@@ -31,6 +31,8 @@ export type GuestRide = {
   refund_business_days?: number | null;
   payment_status?: string | null;
   pickup_confirmation?: {
+    method?: string | null;
+    pin?: string | null;
     status?: string | null;
     prompt?: string | null;
     can_answer?: boolean;
@@ -39,9 +41,10 @@ export type GuestRide = {
 
 export function rideNeedsLivePoll(ride: {
   phase?: string | null;
-  pickup_confirmation?: { can_answer?: boolean } | null;
+  pickup_confirmation?: { can_answer?: boolean; pin?: string | null } | null;
 }): boolean {
-  return isActiveRidePhase(ride.phase) || ride.pickup_confirmation?.can_answer === true;
+  const hasPin = String(ride.pickup_confirmation?.pin || '').replace(/\D/g, '').length === 4;
+  return isActiveRidePhase(ride.phase) || ride.pickup_confirmation?.can_answer === true || hasPin;
 }
 
 export function isActiveRidePhase(phase?: string | null): boolean {

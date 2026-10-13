@@ -16,7 +16,8 @@ class RideSettlementEligibilityService
 
     public const HOLD_HOURS_DEFAULT = 24;
 
-    public const HOLD_HOURS_HIGH_RISK = 72;
+    /** Handmatige controle bij risico (geen 72u meer — chauffeur wil snel uitbetaling). */
+    public const HOLD_HOURS_HIGH_RISK = 6;
 
     public const DISTANCE_RATIO_MIN = 0.35;
 

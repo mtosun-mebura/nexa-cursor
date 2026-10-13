@@ -10,6 +10,16 @@ export type DriverMedia = {
   rating_count?: number;
 };
 
+export type DriverReview = {
+  id: number;
+  stars: number;
+  comment?: string | null;
+  created_at?: string | null;
+  pickup_address?: string | null;
+  dropoff_address?: string | null;
+  customer_name?: string | null;
+};
+
 export type DriverUser = {
   id: number;
   name: string;
@@ -41,6 +51,7 @@ export type DriverVehicle = {
   license_plate?: string | null;
   type?: string;
   label?: string;
+  photo_url?: string | null;
 };
 
 export type DriverVehiclesResponse = {
@@ -71,6 +82,12 @@ export type DispatchOfferRide = {
   payment?: RidePaymentSummary | null;
   invoice?: RideInvoiceSummary | null;
   passengers?: number | null;
+  pickup_confirmation?: {
+    method?: 'pin' | string | null;
+    status?: 'pending' | 'confirmed' | 'denied' | string | null;
+    requires_pin?: boolean;
+    can_reask?: boolean;
+  } | null;
   distance_km?: number | null;
   duration_seconds?: number | null;
   duration_minutes?: number | null;
@@ -173,6 +190,7 @@ export type DriverInboxData = {
   archivedOverdueScheduledRides: DriverActiveRide[];
   completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
+  pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
 };
 
 function asRideList(raw: unknown): DriverActiveRide[] {
@@ -189,6 +207,10 @@ function asOfferList(raw: unknown): DispatchOffer[] {
     (offer): offer is DispatchOffer =>
       !!offer && typeof offer === 'object' && Number((offer as DispatchOffer).id) > 0
   );
+}
+
+export function fetchDriverReviews(token: string) {
+  return apiRequest<{ reviews?: DriverReview[] }>('/api/taxi/v1/driver/profile/ratings', { token });
 }
 
 export function fetchDriverMe(token: string) {
@@ -265,17 +287,21 @@ export function uploadDriverCompanyLogo(
 export function uploadDriverVehiclePhoto(
   token: string,
   uri: string,
-  mimeType?: string | null
+  mimeType?: string | null,
+  vehicleId?: number | null
 ) {
-  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
-    '/api/taxi/v1/driver/profile/vehicle-photo',
-    {
-      token,
-      uri,
-      fileName: uploadPhotoFileName('vehicle', mimeType),
-      mimeType: mimeType || undefined,
-    }
-  );
+  return apiUpload<{
+    success?: boolean;
+    media?: DriverMedia;
+    message?: string;
+    vehicle?: { id?: number; photo_url?: string | null };
+  }>('/api/taxi/v1/driver/profile/vehicle-photo', {
+    token,
+    uri,
+    fileName: uploadPhotoFileName('vehicle', mimeType),
+    mimeType: mimeType || undefined,
+    fields: vehicleId ? { vehicle_id: String(vehicleId) } : undefined,
+  });
 }
 
 export function fetchDriverVehicles(token: string) {
@@ -354,6 +380,7 @@ export function inboxDataFromResponse(inbox: {
     overdue_scheduled_rides?: DriverActiveRide[];
     archived_overdue_scheduled_rides?: DriverActiveRide[];
     completed_rides?: DriverActiveRide[];
+    pickup_denied_alert?: { ride_id?: number; title?: string; message?: string } | null;
   };
   offers?: DispatchOffer[];
   meta?: { driver_cancel_reasons?: DriverCancelReason[] };
@@ -373,6 +400,10 @@ export function inboxDataFromResponse(inbox: {
     cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
       ? inbox.meta.driver_cancel_reasons
       : [],
+    pickupDeniedAlert:
+      inbox?.data?.pickup_denied_alert && typeof inbox.data.pickup_denied_alert === 'object'
+        ? inbox.data.pickup_denied_alert
+        : null,
   };
 }
 
@@ -409,10 +440,12 @@ export function markRideEnRoute(token: string, rideId: number) {
   });
 }
 
-export function startRide(token: string, rideId: number) {
+export function startRide(token: string, rideId: number, opts?: { pin?: string }) {
+  const pin = String(opts?.pin || '').replace(/\D/g, '');
   return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/start`, {
     method: 'POST',
     token,
+    body: pin.length === 4 ? { pin } : {},
   });
 }
 
@@ -723,11 +756,18 @@ export function mergeCompletedRides(
       if (!item || String(item.status || '') !== 'completed') continue;
       const id = Number(item.id);
       if (!id) continue;
+      const prev = byId.get(id);
+      const incoming = item as DriverActiveRide;
       byId.set(id, {
-        ...item,
+        ...(prev || {}),
+        ...incoming,
         id,
-        pickup_at: item.pickup_at ?? undefined,
-      } as DriverActiveRide);
+        pickup_at: incoming.pickup_at ?? prev?.pickup_at ?? undefined,
+        distance_km: incoming.distance_km ?? prev?.distance_km ?? null,
+        duration_seconds: incoming.duration_seconds ?? prev?.duration_seconds ?? null,
+        duration_minutes: incoming.duration_minutes ?? prev?.duration_minutes ?? null,
+        passengers: incoming.passengers ?? prev?.passengers ?? null,
+      });
     }
   }
   return [...byId.values()].sort((a, b) => {
