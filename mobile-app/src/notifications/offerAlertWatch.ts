@@ -120,7 +120,8 @@ async function checkOnce(input: {
       rides: [data.activeRide, ...data.parkedAssignedRides],
       alert: data.pickupDeniedAlert,
     });
-    await alertNextPickupDeparture({
+    // Vertrekmelding mag de ritaanvraag niet tegenhouden (route-lookup kan blijven hangen).
+    void alertNextPickupDeparture({
       scheduled: data.scheduledRides,
       activeRide: data.activeRide,
       origin: input.origin,
@@ -131,10 +132,7 @@ async function checkOnce(input: {
   const ready = (await SecureStore.getItemAsync(READY_KEY)) === '1';
   const seen = await loadSeen();
   if (!ready) {
-    ids.forEach((id) => seen.add(id));
-    await saveSeen(seen);
     await SecureStore.setItemAsync(READY_KEY, '1');
-    return [];
   }
 
   const fresh = offers.filter((offer) => {

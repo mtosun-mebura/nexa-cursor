@@ -4,11 +4,12 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RideDispatchService
 {
@@ -68,10 +69,11 @@ class RideDispatchService
         }
 
         $driverIds = array_values(array_filter(
-            $this->drivers->onlineDriverIdsForCompany(
+            $this->driverIdsForOffer(
                 $conn,
                 $companyId,
                 $batch,
+                $enforcePickupRadius,
                 $pickupLat,
                 $pickupLng,
                 $maxKm
@@ -152,13 +154,38 @@ class RideDispatchService
             static fn (int $id): bool => $id > 0
         )));
 
+        $seed = $ride->fresh() ?? $ride;
+        if ($seed->isOwnTenantFleetRide()) {
+            $ownerId = (int) $seed->company_id;
+            if ($ownerId > 0) {
+                $ids = [$ownerId];
+            }
+        }
+
         foreach ($ids as $companyId) {
             $current = $ride->fresh() ?? $ride;
             if ($current->driver_id) {
                 return;
             }
-            // Marketplace: alleen chauffeurs binnen de ingestelde straal van de ophaallocatie.
-            $this->startDispatch($conn, $current, $companyId, [], $assignCompany, true, 'marketplace');
+            // Marktplaats (native app / NEXA Suite) en partners: alleen binnen de straal.
+            // Eigen website/tenant: elke online chauffeur, zonder marktplaatsstraal.
+            // Niemand online: fallback naar de chauffeur-rol.
+            $limitToRadius = ! $current->isOwnTenantFleetRide()
+                && (! $assignCompany || $this->rideRequiresMarketplaceRadius($current));
+            $this->startDispatch(
+                $conn,
+                $current,
+                $companyId,
+                [],
+                $assignCompany,
+                $limitToRadius,
+                $limitToRadius && $this->rideRequiresMarketplaceRadius($current) ? 'marketplace' : 'network'
+            );
+        }
+
+        $fresh = $ride->fresh() ?? $ride;
+        if (! $fresh->driver_id) {
+            $this->dispatchOwnRideToNetworkIfFleetFull($conn, $fresh);
         }
     }
 
@@ -256,12 +283,13 @@ class RideDispatchService
             ? [(int) $ride->company_id]
             : $ride->marketplaceCandidateCompanyIds();
 
-        // Network auto: partners pas ná fallback-seconden, binnen max. radius.
+        // Netwerk alleen als de eigen vloot geen vrij voertuig meer heeft (niet op tijd).
         $ownerId = (int) ($ride->company_id ?? 0);
         $partnerCompanyIds = [];
         if ($ownerId > 0
+            && $ride->isOwnTenantFleetRide()
             && $this->dispatchSettings->networkMode($ownerId) === TaxiDispatchSettingsService::NETWORK_MODE_AUTO
-            && $this->ownerNetworkFallbackElapsed($conn, $ride, $ownerId)
+            && ! $this->ownFleetHasFreeCapacity($conn, $ownerId)
         ) {
             foreach ($this->dispatchSettings->networkPartnerCompanyIds($ownerId) as $partnerId) {
                 if ($partnerId !== $ownerId) {
@@ -292,9 +320,7 @@ class RideDispatchService
         $driverIdsToNotify = [];
         $partnerLookup = array_fill_keys($partnerCompanyIds, true);
         $partnerRadius = $partnerCompanyIds !== [] ? $this->networkRadiusFilter($ride) : null;
-        $marketplaceRadius = $ride->isUnclaimedMarketplaceBooking() || (
-            $ride->isNexaSuiteBooking() && (int) ($ride->company_id ?? 0) <= 0
-        )
+        $marketplaceRadius = $this->rideRequiresMarketplaceRadius($ride)
             ? $this->marketplaceRadiusFilter($ride)
             : null;
 
@@ -309,16 +335,20 @@ class RideDispatchService
             $pickupLat = null;
             $pickupLng = null;
             $maxKm = null;
+            $enforceRadius = false;
             if ($isPartner) {
                 [$pickupLat, $pickupLng, $maxKm] = $partnerRadius;
+                $enforceRadius = true;
             } elseif ($marketplaceRadius !== null) {
                 [$pickupLat, $pickupLng, $maxKm] = $marketplaceRadius;
+                $enforceRadius = true;
             }
 
-            $driverIds = $this->drivers->onlineDriverIdsForCompany(
+            $driverIds = $this->driverIdsForOffer(
                 $conn,
                 $companyId,
                 $batch,
+                $enforceRadius,
                 $pickupLat,
                 $pickupLng,
                 $maxKm,
@@ -393,10 +423,8 @@ class RideDispatchService
                 continue;
             }
 
-            // Marketplace: alleen chauffeurs binnen de ingestelde straal rond de pickup.
-            if ($ride->isUnclaimedMarketplaceBooking() || (
-                $ride->isNexaSuiteBooking() && (int) ($ride->company_id ?? 0) <= 0
-            )) {
+            // Marktplaats (native app / NEXA Suite): alleen binnen de ingestelde straal.
+            if ($this->rideRequiresMarketplaceRadius($ride)) {
                 $radius = $this->marketplaceRadiusFilter($ride);
                 if ($radius === null || ! $this->driverWithinPickupRadius($conn, $driverId, $radius)) {
                     continue;
@@ -534,6 +562,23 @@ class RideDispatchService
     }
 
     /**
+     * Native-app- en andere marktplaatsritten: straal uit de boeking.
+     * Eigen website/tenant: geen marktplaatsstraal.
+     */
+    protected function rideRequiresMarketplaceRadius(RideRequest $ride): bool
+    {
+        if ($ride->isOwnTenantFleetRide()) {
+            return false;
+        }
+
+        if ($ride->isCustomerAppMarketplaceBooking() || $ride->isUnclaimedMarketplaceBooking()) {
+            return true;
+        }
+
+        return $ride->isNexaSuiteBooking() && (int) ($ride->company_id ?? 0) <= 0;
+    }
+
+    /**
      * @return array{0: float, 1: float, 2: int}|null pickupLat, pickupLng, maxRadiusKm — null = niet bruikbaar
      */
     protected function networkRadiusFilter(RideRequest $ride): ?array
@@ -614,24 +659,160 @@ class RideDispatchService
     }
 
     /**
-     * Auto-network: pas na fallback-seconden sinds eerste eigen-vloot-aanbod.
+     * Eigen website-rit naar netwerkpartners alleen als elk eigen voertuig op een lopende rit zit.
+     * Partners blijven binnen de al ingestelde network-straal.
      */
-    protected function ownerNetworkFallbackElapsed(string $conn, RideRequest $ride, int $ownerId): bool
+    protected function dispatchOwnRideToNetworkIfFleetFull(string $conn, RideRequest $ride): void
     {
-        if ($ownerId <= 0) {
+        if (! $ride->isOwnTenantFleetRide() || $ride->driver_id) {
+            return;
+        }
+
+        $ownerId = (int) $ride->company_id;
+        if ($this->dispatchSettings->networkMode($ownerId) !== TaxiDispatchSettingsService::NETWORK_MODE_AUTO) {
+            return;
+        }
+
+        if ($this->ownFleetHasFreeCapacity($conn, $ownerId)) {
+            return;
+        }
+
+        $this->startNetworkPartnerDispatch($conn, $ride);
+    }
+
+    /**
+     * Vrij = een actief eigen voertuig zonder lopende rit (status assigned die de chauffeur blokkeert).
+     * Zonder voertuigregistratie: een online chauffeur die niet op zo'n rit zit.
+     * Niemand online telt niet als "alles bezet"; de eigen push/rol-fallback blijft dan alleen.
+     */
+    protected function ownFleetHasFreeCapacity(string $conn, int $companyId): bool
+    {
+        if ($companyId <= 0) {
             return false;
         }
 
-        $fallbackSeconds = $this->dispatchSettings->networkFallbackSeconds($ownerId);
-        $firstOfferAt = RideDispatchOffer::on($conn)
-            ->where('ride_request_id', $ride->id)
-            ->where('company_id', $ownerId)
-            ->min('offered_at');
+        $busyVehicleIds = [];
+        $busyDriverIds = [];
+        $hasFulfiller = Schema::connection($conn)->hasColumn('ride_requests', 'fulfilling_company_id');
+        $assigned = RideRequest::on($conn)
+            ->where('status', RideRequest::STATUS_ASSIGNED)
+            ->where(function ($q) use ($companyId, $hasFulfiller) {
+                $q->where('company_id', $companyId);
+                if ($hasFulfiller) {
+                    $q->orWhere('fulfilling_company_id', $companyId);
+                }
+            })
+            ->get();
 
-        if ($firstOfferAt === null) {
-            return false;
+        foreach ($assigned as $ride) {
+            if (! $ride->blocksDriverFromOtherRides()) {
+                continue;
+            }
+            if ((int) ($ride->vehicle_id ?? 0) > 0) {
+                $busyVehicleIds[] = (int) $ride->vehicle_id;
+            }
+            if ((int) ($ride->driver_id ?? 0) > 0) {
+                $busyDriverIds[] = (int) $ride->driver_id;
+            }
         }
 
-        return Carbon::parse($firstOfferAt)->addSeconds($fallbackSeconds)->lte(now());
+        if (TaxiDispatchSchema::driverAvailabilityExists($conn)
+            && Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id')
+            && $busyDriverIds !== []
+        ) {
+            $held = \App\Modules\NexaTaxi\Models\DriverAvailability::on($conn)
+                ->where('company_id', $companyId)
+                ->whereIn('driver_id', $busyDriverIds)
+                ->whereNotNull('vehicle_id')
+                ->pluck('vehicle_id');
+            foreach ($held as $vehicleId) {
+                $busyVehicleIds[] = (int) $vehicleId;
+            }
+        }
+
+        $busyVehicleIds = array_values(array_unique($busyVehicleIds));
+        $busyDriverIds = array_values(array_unique($busyDriverIds));
+
+        if (Schema::connection($conn)->hasTable('vehicles')) {
+            $vehicles = Vehicle::on($conn)->where('company_id', $companyId);
+            if (Schema::connection($conn)->hasColumn('vehicles', 'active')) {
+                $vehicles->where('active', true);
+            }
+            $activeIds = $vehicles->pluck('id')->map(fn ($id) => (int) $id)->all();
+            if ($activeIds !== []) {
+                foreach ($activeIds as $vehicleId) {
+                    if (! in_array($vehicleId, $busyVehicleIds, true)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        if (! TaxiDispatchSchema::driverAvailabilityExists($conn)) {
+            return true;
+        }
+
+        $onlineIds = \App\Modules\NexaTaxi\Models\DriverAvailability::on($conn)
+            ->where('company_id', $companyId)
+            ->where('is_online', true)
+            ->pluck('driver_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($onlineIds === []) {
+            return true;
+        }
+
+        foreach ($onlineIds as $driverId) {
+            if (! in_array($driverId, $busyDriverIds, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Eigen vloot: elke online chauffeur. Niemand online: rol-fallback (batch).
+     * Straal (marktplaats/partner): alleen de batch binnen die straal.
+     *
+     * @return list<int>
+     */
+    protected function driverIdsForOffer(
+        string $conn,
+        int $companyId,
+        int $batch,
+        bool $enforcePickupRadius,
+        ?float $pickupLat,
+        ?float $pickupLng,
+        ?int $maxKm,
+    ): array {
+        if ($enforcePickupRadius) {
+            return $this->drivers->onlineDriverIdsForCompany(
+                $conn,
+                $companyId,
+                $batch,
+                $pickupLat,
+                $pickupLng,
+                $maxKm,
+            );
+        }
+
+        $online = $this->drivers->onlineDriverIdsForCompany(
+            $conn,
+            $companyId,
+            max($batch, 500),
+            null,
+            null,
+            null,
+            false,
+        );
+        if ($online !== []) {
+            return $online;
+        }
+
+        return $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
     }
 }
