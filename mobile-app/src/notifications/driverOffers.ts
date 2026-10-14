@@ -90,12 +90,23 @@ async function ensureOfferChannel(tone: RideAlertTone): Promise<string> {
   return channelId;
 }
 
+export async function setDriverOfferBadge(count: number): Promise<void> {
+  if (!Notifications) return;
+  const next = Math.max(0, Math.min(99, Math.round(count)));
+  try {
+    await Notifications.setBadgeCountAsync(next);
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function notifyNewDriverOffer(opts: {
   count: number;
   pickup?: string | null;
   dropoff?: string | null;
   playSound?: boolean;
   tone?: string | null;
+  badge?: number;
 }): Promise<void> {
   const pickup = String(opts.pickup || '').trim() || 'Nieuwe rit';
   const dropoff = String(opts.dropoff || '').trim();
@@ -104,6 +115,8 @@ export async function notifyNewDriverOffer(opts: {
     opts.count > 1 ? `${opts.count} nieuwe ritaanvragen` : 'Nieuwe ritaanvraag';
   const playSound = opts.playSound !== false;
   const tone = normalizeRideAlertTone(opts.tone);
+  const badge =
+    opts.badge != null && Number.isFinite(opts.badge) ? Math.max(0, Math.round(opts.badge)) : undefined;
 
   try {
     if (Platform.OS === 'ios') {
@@ -119,29 +132,39 @@ export async function notifyNewDriverOffer(opts: {
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
 
-  try {
-    const channelId =
-      Platform.OS === 'android'
-        ? playSound
-          ? await ensureOfferChannel(tone)
-          : await ensureSilentOfferChannel()
-        : undefined;
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        // iOS standby: content.sound is het betrouwbare geluidspad (niet expo-audio).
-        sound: playSound ? rideAlertNotificationSound(tone) : false,
-        data: { type: 'driver_offer', screen: 'requests' },
-        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
-        ...(Platform.OS === 'android'
-          ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
-          : {}),
-      },
-      trigger: null,
-    });
-  } catch {
-    /* ignore */
+  const sounds: Array<string | false> = playSound
+    ? [rideAlertNotificationSound(tone), rideAlertNotificationSound('alert'), 'default']
+    : [false];
+  for (const sound of sounds) {
+    try {
+      const channelTone =
+        sound === rideAlertNotificationSound('alert') || sound === 'default' ? 'alert' : tone;
+      const channelId =
+        Platform.OS === 'android'
+          ? sound
+            ? await ensureOfferChannel(channelTone)
+            : await ensureSilentOfferChannel()
+          : undefined;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          // iOS standby: content.sound is het betrouwbare geluidspad (niet expo-audio).
+          sound,
+          ...(badge != null ? { badge } : {}),
+          data: { type: 'driver_offer', screen: 'requests' },
+          ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+          ...(Platform.OS === 'android'
+            ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
+            : {}),
+        },
+        trigger: null,
+      });
+      if (badge != null) await setDriverOfferBadge(badge);
+      return;
+    } catch {
+      /* volgend geluid: Alert, daarna het systeemgeluid */
+    }
   }
 }
 
@@ -202,6 +225,55 @@ export async function notifyPickupDenied(opts: {
   }
 }
 
+/** Seintje dat de chauffeur nu moet vertrekken naar de volgende geaccepteerde klant. */
+export async function notifyPickupDeparture(opts: {
+  title: string;
+  body: string;
+  rideId?: number | null;
+}): Promise<void> {
+  const title = String(opts.title || '').trim() || 'Tijd om te vertrekken';
+  const body = String(opts.body || '').trim();
+  if (!body) return;
+
+  try {
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate();
+    } else {
+      Vibration.vibrate([0, 180, 80, 180]);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (!Notifications) return;
+  const ok = await ensureDriverNotificationPermission();
+  if (!ok) return;
+
+  try {
+    const channelId =
+      Platform.OS === 'android' ? await ensureOfferChannel('classic') : undefined;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: rideAlertNotificationSound('classic'),
+        data: {
+          type: 'pickup_departure',
+          screen: 'trips',
+          ride_id: opts.rideId ?? null,
+        },
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+        ...(Platform.OS === 'android'
+          ? { channelId: channelId || 'driver-offers', color: '#F59E0B' }
+          : {}),
+      },
+      trigger: null,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   // Fallback-kanaal + alle toonvarianten (sound zit vast op channel-creatie)
@@ -227,7 +299,7 @@ export function addDriverOfferNotificationResponseListener(
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
     const type = response.notification.request.content.data?.type;
     if (type === 'driver_offer') onOpenRequests();
-    if (type === 'pickup_denied') onOpenTrips?.();
+    if (type === 'pickup_denied' || type === 'pickup_departure') onOpenTrips?.();
   });
   return () => sub.remove();
 }

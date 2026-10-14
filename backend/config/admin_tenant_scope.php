@@ -12,6 +12,7 @@ return [
         'admin.tenant.switch',
         'admin.tenant-setup-checklist',
         'admin.nexa-network.*',
+        'admin.uitleg',
         'admin.handleiding.*',
         'admin.companies.*',
         'admin.modules.index',

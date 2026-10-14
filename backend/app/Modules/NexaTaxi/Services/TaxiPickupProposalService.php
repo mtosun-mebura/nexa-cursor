@@ -86,6 +86,19 @@ class TaxiPickupProposalService
 
     public function sendProposalWhatsapp(string $conn, RideRequest $ride, ?User $driver = null): bool
     {
+        if ($ride->isNexaSuiteBooking()) {
+            $this->logProposal(
+                $conn,
+                (int) $ride->id,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                trim((string) ($ride->customer_phone ?? '')) ?: null,
+                $driver?->id,
+                'Marktplaats-rit: ophaalvoorstel gaat via de app, niet via WhatsApp.'
+            );
+
+            return false;
+        }
+
         $companyId = (int) ($ride->company_id ?? 0);
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
         $phone = trim((string) ($ride->customer_phone ?? ''));

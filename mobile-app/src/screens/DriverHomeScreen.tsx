@@ -79,7 +79,9 @@ import {
   alertUnseenDriverOffers,
   primeRideAlertAudio,
   rememberRideAlertTone,
+  clearDriverOfferBadge,
 } from '../notifications/offerAlertWatch';
+import { alertNextPickupDeparture } from '../notifications/pickupDeparture';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
@@ -570,6 +572,25 @@ export function DriverHomeScreen() {
         });
         setTab('trips');
         persistDriverTab('trips');
+      } else {
+        try {
+          const departure = await alertNextPickupDeparture({
+            scheduled: inboxData.scheduledRides,
+            activeRide: inboxData.activeRide,
+          });
+          if (departure) {
+            setRideNotice({
+              title: departure.title,
+              body: departure.body,
+              primaryLabel: 'Begrepen',
+              rideId: departure.rideId,
+            });
+            setTab('trips');
+            persistDriverTab('trips');
+          }
+        } catch {
+          /* vertrekmelding mag de inbox niet breken */
+        }
       }
       setCancelReasons(inboxData.cancelReasons);
       await handleNewOffers(inboxData.offers, isOnlineNow);
@@ -600,6 +621,7 @@ export function DriverHomeScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
+        clearDriverOfferBadge().catch(() => undefined);
         refresh().catch(() => undefined);
       }
     });

@@ -8,7 +8,6 @@ use App\Modules\NexaTaxi\Support\TaxiNotificationLogSchema;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 class TaxiCustomerRideStatusNotificationService
 {
@@ -40,6 +39,13 @@ class TaxiCustomerRideStatusNotificationService
             $ride = $ride->fresh() ?? $ride;
         }
 
+        // Marktplaats loopt via de klant-app. WhatsApp blijft voor website-boekingen.
+        if ($ride->isNexaSuiteBooking()) {
+            $this->recordAppStatus($conn, $ride, $event);
+
+            return true;
+        }
+
         $companyId = (int) ($ride->company_id ?? 0);
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
 
@@ -66,28 +72,6 @@ class TaxiCustomerRideStatusNotificationService
         $composed = $this->composer->composeStatus($ride, $event, $context, $settingsCompanyId);
         $customerName = trim((string) ($ride->customer_name ?: 'Klant'));
         $phone = trim((string) ($ride->customer_phone ?? ''));
-
-        // App-tracking: status alleen in de app (timeline + lokale push), niet via WhatsApp.
-        if ($this->rideUsesAppTracking($conn, $ride)) {
-            $this->notificationLogs->record(
-                $conn,
-                $rideId,
-                RideRequestNotificationLog::CHANNEL_APP,
-                RideRequestNotificationLog::STATUS_SENT,
-                $customerName,
-                null,
-                null,
-                $logDetail,
-                [
-                    'event' => $event,
-                    'mode' => 'app',
-                    'status_label' => $composed['status_label'],
-                    'body' => $composed['fallback_body'] ?? null,
-                ]
-            );
-
-            return true;
-        }
 
         if ($phone === '') {
             $this->notificationLogs->record(
@@ -277,21 +261,5 @@ class TaxiCustomerRideStatusNotificationService
                 'status_label' => $label,
             ]
         );
-    }
-
-    protected function rideUsesAppTracking(string $conn, RideRequest $ride): bool
-    {
-        $token = trim((string) ($ride->customer_track_token ?? ''));
-        if ($token !== '') {
-            return true;
-        }
-
-        if (! Schema::connection($conn)->hasColumn('ride_requests', 'customer_track_token')) {
-            return false;
-        }
-
-        $fresh = RideRequest::on($conn)->whereKey($ride->id)->value('customer_track_token');
-
-        return is_string($fresh) && trim($fresh) !== '';
     }
 }

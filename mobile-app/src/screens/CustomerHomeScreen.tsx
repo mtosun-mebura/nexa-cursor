@@ -123,6 +123,21 @@ const BAGGAGE_ROWS: {
   { key: 'pets', label: 'Huisdieren', hint: 'Optioneel', special: true, max: 2 },
 ];
 
+function isSameTaxi(
+  taxi: { lat: number; lng: number },
+  loc: { lat: number; lng: number } | null
+): boolean {
+  if (!loc) return false;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(taxi.lat - loc.lat);
+  const dLng = toRad(taxi.lng - loc.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(loc.lat)) * Math.cos(toRad(taxi.lat)) * Math.sin(dLng / 2) ** 2;
+  const meters = 2 * 6371000 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return meters < 200;
+}
+
 function formatBaggageSummary(
   baggage?: Record<string, number> | null,
   special?: Record<string, number> | null
@@ -174,11 +189,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [profileSaved, setProfileSaved] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
+  const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
   const [rateComment, setRateComment] = useState('');
   const [rateModalToken, setRateModalToken] = useState<string | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
   const prevLivePhase = useRef<string | null>(null);
+  const completedAnnounced = useRef<Set<number>>(new Set());
 
   const hasActiveRide = !!(live && trackToken && isActiveRidePhase(live.phase));
 
@@ -233,25 +250,20 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [bookMountKey, setBookMountKey] = useState(0);
 
   const offer: QuoteOffer | null = quote?.offers?.[0] || null;
-  const freeTaxis = nearbyTaxis.filter((t) => !t.busy);
-  /** Na acceptatie: alleen de gekoppelde taxi tonen/volgen, geen vloot meer. */
-  const followingAssignedTaxi = !!(
-    live &&
-    trackToken &&
-    live.accepted &&
-    isActiveRidePhase(live.phase)
-  );
-  const linkedTaxiLoc = useMemo(() => {
-    if (!followingAssignedTaxi) return null;
-    const loc = live?.vehicle_location;
+  const activeTaxiLoc = useMemo(() => {
+    if (!live || !trackToken || !isActiveRidePhase(live.phase)) return null;
+    const loc = live.vehicle_location;
     const lat = loc?.lat != null ? Number(loc.lat) : NaN;
     const lng = loc?.lng != null ? Number(loc.lng) : NaN;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     if (lat === 0 && lng === 0) return null;
     return { lat, lng };
-  }, [followingAssignedTaxi, live?.vehicle_location?.lat, live?.vehicle_location?.lng]);
-  const freeNearby = followingAssignedTaxi ? (linkedTaxiLoc ? 1 : 0) : freeTaxis.length;
-  const canDispatch = followingAssignedTaxi ? true : freeNearby > 0;
+  }, [live, trackToken, live?.phase, live?.vehicle_location?.lat, live?.vehicle_location?.lng]);
+  const freeTaxis = nearbyTaxis.filter(
+    (taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc)
+  );
+  const freeNearby = freeTaxis.length;
+  const canDispatch = freeNearby > 0;
   const unavailableMessage =
     quote?.marketplace?.unavailable_message ||
     'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie. Je krijgt een melding zodra er weer een taxi beschikbaar is.';
@@ -500,7 +512,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup?.lat, pickup?.lng]);
 
   useEffect(() => {
-    if (followingAssignedTaxi) return;
     const map = mapRef.current;
     if (!map) return;
     const coords: LatLng[] = [];
@@ -535,7 +546,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       animated: true,
     });
   }, [
-    followingAssignedTaxi,
     pickup?.lat,
     pickup?.lng,
     dropoff?.lat,
@@ -662,11 +672,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt]);
 
   const refreshFleet = useCallback(async () => {
-    // Tijdens gekoppelde rit geen vloot ophalen — alleen de eigen taxi via live-status.
-    if (followingAssignedTaxi) {
-      setNearbyTaxis([]);
-      return;
-    }
     const origin = pickup
       ? { lat: pickup.lat, lng: pickup.lng }
       : fleetOrigin;
@@ -676,33 +681,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         lng: origin.lng,
         radiusKm: 50,
       });
-      setNearbyTaxis(vehicles.filter((t) => !t.busy));
+      setNearbyTaxis(vehicles.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc)));
     } catch {
       /* behoud vorige markers */
     }
-  }, [pickup, fleetOrigin, followingAssignedTaxi]);
+  }, [pickup, fleetOrigin, activeTaxiLoc]);
 
   useEffect(() => {
     refreshFleet();
-    if (followingAssignedTaxi) return;
     const t = setInterval(refreshFleet, 4000);
     return () => clearInterval(t);
-  }, [refreshFleet, followingAssignedTaxi]);
-
-  // Kaart volgt de gekoppelde taxi.
-  useEffect(() => {
-    if (!linkedTaxiLoc || !mapRef.current) return;
-    mapRef.current.animateCamera(
-      {
-        center: {
-          latitude: linkedTaxiLoc.lat,
-          longitude: linkedTaxiLoc.lng,
-        },
-        zoom: 15,
-      },
-      { duration: 600 }
-    );
-  }, [linkedTaxiLoc?.lat, linkedTaxiLoc?.lng]);
+  }, [refreshFleet]);
 
   useEffect(() => {
     if (!pickup || !dropoff) {
@@ -751,15 +740,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             prevLivePhase.current = ride.phase;
             setLive(ride);
             notifyNewRideStatusUpdates(ride).catch(() => undefined);
-            if (ride.phase === 'completed') {
-              setExpandedRideKey(rideArchiveKey({ id: ride.id, token: trackToken }));
-              setTab('rides');
-              AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
-              if (
-                previousPhase &&
-                previousPhase !== 'completed' &&
-                ride.rating?.can_rate
-              ) {
+            const rideId = Number(ride.id) || 0;
+            if (
+              ride.phase === 'completed' &&
+              previousPhase &&
+              previousPhase !== 'completed' &&
+              rideId > 0 &&
+              !completedAnnounced.current.has(rideId)
+            ) {
+              completedAnnounced.current.add(rideId);
+              if (ride.rating?.can_rate) {
                 setRateStars(0);
                 setRateComment('');
                 setRateError(null);
@@ -774,6 +764,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         const tracked = list.find((ride) => ride.token === trackToken);
         if (tracked && !rideNeedsLivePoll(tracked)) {
           await persistTrack(null);
+          if (!cancelled) setTrackToken(null);
         }
         const stillActive = list.some((ride) => ride.token && rideNeedsLivePoll(ride));
         if (!stillActive) return;
@@ -952,14 +943,57 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
-    if (!quote?.payment?.booking || !quote?.payment?.mollie_configured) {
+    let paymentQuote = quote;
+    if (!paymentQuote?.payment && pickup && dropoff) {
+      try {
+        const metrics = routeMetrics || estimateRouteMetrics(pickup, dropoff);
+        paymentQuote = await fetchQuote({
+          ...metrics,
+          passengers: Math.max(1, Math.min(20, parseInt(passengers, 10) || 1)),
+          pickup_lat: pickup.lat,
+          pickup_lng: pickup.lng,
+          pickup_at: formatPickupAtPayload(pickupAt),
+          marketplace_radius_km: 50,
+          ...baggagePayload,
+        });
+        setQuote(paymentQuote);
+      } catch {
+        const msg = 'De prijs kon niet worden opgehaald. Probeer het zo opnieuw.';
+        setError(msg);
+        Alert.alert('Prijs niet beschikbaar', msg);
+        return;
+      }
+    }
+
+    if (
+      paymentQuote?.payment?.deferred_until_taxi ||
+      paymentQuote?.marketplace?.taxi_available === false
+    ) {
+      const msg =
+        paymentQuote?.marketplace?.unavailable_message ||
+        'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie.';
+      setError(msg);
+      Alert.alert('Geen taxi beschikbaar', msg);
+      return;
+    }
+
+    if (paymentQuote?.payment?.mollie_configured === false) {
+      const msg =
+        'Online betalen staat uit omdat de Mollie-koppeling van Nexa Suite niet is ingesteld.';
+      setError(msg);
+      Alert.alert('Betaling niet beschikbaar', msg);
+      return;
+    }
+
+    if (!paymentQuote?.payment?.booking) {
       const msg = 'Online betalen is momenteel niet beschikbaar. Probeer het later opnieuw.';
       setError(msg);
       Alert.alert('Betaling niet beschikbaar', msg);
       return;
     }
 
-    if (!pickup || !dropoff || !offer) return;
+    const bookedOffer = paymentQuote?.offers?.[0] || offer;
+    if (!pickup || !dropoff || !bookedOffer) return;
 
     setBusy(true);
     setError(null);
@@ -982,7 +1016,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         phone: phone.trim(),
         email: email.trim(),
         remarks: remarks.trim() || null,
-        selected_offer_id: offer.id || null,
+        selected_offer_id: bookedOffer.id || null,
         payment_method: 'booking',
         return_url: CUSTOMER_PAYMENT_RETURN_URL,
         marketplace_radius_km: 50,
@@ -998,7 +1032,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         to: dropoff.address,
         phase: data.live?.phase || 'awaiting_payment',
         status_label: data.live?.status_label || 'Betaling',
-        quoted_price: data.live?.quoted_price ?? offer.price ?? null,
+        quoted_price: data.live?.quoted_price ?? bookedOffer.price ?? null,
         passengers: data.live?.passengers ?? passengerCount,
         baggage_summary:
           data.live?.baggage?.summary ||
@@ -1255,31 +1289,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             tracksViewChanges={false}
           />
         ) : null}
-        {followingAssignedTaxi
-          ? linkedTaxiLoc
-            ? (
-              <Marker
-                key="linked-taxi"
-                coordinate={{
-                  latitude: linkedTaxiLoc.lat,
-                  longitude: linkedTaxiLoc.lng,
-                }}
-                title={live?.driver?.name || 'Jouw taxi'}
-                description={
-                  live?.vehicle?.license_plate || live?.vehicle?.label || 'Onderweg'
-                }
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <Image
-                  source={taxiCarYellow}
-                  style={styles.taxiMarker}
-                  resizeMode="contain"
-                />
-              </Marker>
-              )
-            : null
-          : freeTaxis.map((taxi) => (
+        {freeTaxis.map((taxi) => (
               <Marker
                 key={taxi.id}
                 coordinate={{ latitude: taxi.lat, longitude: taxi.lng }}
@@ -1297,7 +1307,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 />
               </Marker>
             ))}
-        {!followingAssignedTaxi && routeCoords.length > 1 ? (
+        {routeCoords.length > 1 ? (
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
       </MapView>
@@ -1316,7 +1326,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         >
           <Text style={styles.zoomBtnText}>−</Text>
         </Pressable>
-        {pickup && dropoff && !followingAssignedTaxi ? (
+        {pickup && dropoff ? (
           <Pressable
             onPress={fitMapToRoute}
             style={styles.zoomBtn}
@@ -1326,34 +1336,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             <Ionicons name="navigate" size={18} color={colors.text} />
           </Pressable>
         ) : null}
-        {followingAssignedTaxi && linkedTaxiLoc ? (
-          <Pressable
-            onPress={() => {
-              mapRef.current?.animateCamera(
-                {
-                  center: {
-                    latitude: linkedTaxiLoc.lat,
-                    longitude: linkedTaxiLoc.lng,
-                  },
-                  zoom: 15,
-                },
-                { duration: 400 }
-              );
-            }}
-            style={styles.zoomBtn}
-            accessibilityLabel="Volg taxi"
-          >
-            <Ionicons name="navigate" size={18} color={colors.text} />
-          </Pressable>
-        ) : null}
       </View>
       <View style={styles.fleetBadge}>
         <Text style={styles.fleetBadgeText}>
-          {followingAssignedTaxi
-            ? linkedTaxiLoc
-              ? 'Jouw taxi · live volgen'
-              : 'Chauffeur gekoppeld…'
-            : `${freeNearby} taxi${freeNearby === 1 ? '' : '’s'} online`}
+          {`${freeNearby} taxi${freeNearby === 1 ? '' : '’s'} online`}
         </Text>
       </View>
     </View>
@@ -1467,11 +1453,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <Text style={styles.routeSummary}>{routeSummary}</Text>
       )}
-      {quoteBusy ? (
-        <Text style={[styles.meta, styles.quotePriceCenter]}>Bezig met berekenen…</Text>
-      ) : (
-        <Text style={[styles.price, styles.quotePriceCenter]}>{displayPrice}</Text>
-      )}
+      <View style={styles.quotePriceSlot}>
+        <Text
+          style={quoteBusy ? styles.quotePriceBusy : styles.price}
+          numberOfLines={1}
+        >
+          {quoteBusy ? 'Bezig met berekenen…' : displayPrice}
+        </Text>
+      </View>
       <Text style={[styles.meta, styles.quoteMetaCenter]}>
         {freeNearby > 0
           ? `${freeNearby} taxi${freeNearby === 1 ? '' : '’s'} in de buurt`
@@ -1905,6 +1894,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       storedKm ??
       (estimated ? Math.round(estimated.distance_meters / 100) / 10 : null);
     const durationSeconds = storedSeconds ?? estimated?.duration_seconds ?? null;
+    const ridePin = phase === 'searching' ? null : pickupPinForRide(ride);
     // Alle zoekritten (ook “blijven wachten”) gebruiken dezelfde box: geen status_label “Aangeboden”
     if (phase === 'searching') {
       const needsDecision = !!(isLiveMatch && live?.needs_unaccepted_decision);
@@ -2138,6 +2128,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               ) : null}
             </View>
           </Pressable>
+          {active && ridePin && !ridePin.started && hiddenPinKeys.includes(ridePin.key) ? (
+            <Pressable
+              onPress={() => setHiddenPinKeys((keys) => keys.filter((key) => key !== ridePin.key))}
+              style={styles.pinShowBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Ophaalcode tonen"
+            >
+              <Ionicons name="keypad-outline" size={18} color="#0B1220" />
+              <Text style={styles.pinShowBtnText}>Ophaalcode</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {expanded ? (
@@ -2483,27 +2484,33 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
 
   const refundDays = Math.max(1, Number(live?.refund_business_days) || 10);
-  const pickupPinInfo = [...guestRides].reduce<{ pin: string; prompt: string } | null>((found, ride) => {
-    if (found) return found;
+
+  function pickupPinForRide(ride: GuestRide): { pin: string; prompt: string; started: boolean; key: string } | null {
     const confirm =
       (ride.token === trackToken ? live?.pickup_confirmation : null) ?? ride.pickup_confirmation ?? null;
     const pin = String(confirm?.pin || '').replace(/\D/g, '');
-    if (pin.length !== 4) return found;
+    if (pin.length !== 4) return null;
+    const rideStatus = ride.token === trackToken ? String(live?.status || '') : '';
     return {
       pin,
       prompt: confirm?.prompt || 'Geef deze ophaalcode aan de chauffeur om de rit te starten.',
+      started: rideStatus === 'assigned' || confirm?.status === 'confirmed',
+      key: `${ride.token}:${pin}`,
     };
-  }, null) ||
-    (() => {
-      const pin = String(live?.pickup_confirmation?.pin || '').replace(/\D/g, '');
-      if (pin.length !== 4) return null;
-      return {
-        pin,
-        prompt:
-          live?.pickup_confirmation?.prompt ||
-          'Geef deze ophaalcode aan de chauffeur om de rit te starten.',
-      };
-    })();
+  }
+
+  const pickupPinInfo = (() => {
+    const ride =
+      (trackToken
+        ? guestRides.find((item) => item.token === trackToken && isActiveRidePhase(item.phase))
+        : null) ||
+      guestRides.find((item) => isActiveRidePhase(item.phase)) ||
+      null;
+    if (!ride) return null;
+    const info = pickupPinForRide(ride);
+    if (!info || info.started || hiddenPinKeys.includes(info.key)) return null;
+    return info;
+  })();
 
   return (
     <Screen style={styles.shell}>
@@ -2552,8 +2559,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         }
       />
 
-      {pickupPinInfo && (tab === 'rides' || tab === 'book') ? (
+      {pickupPinInfo && tab === 'rides' ? (
         <View style={styles.pickupPinBanner} pointerEvents="box-none">
+          <Pressable
+            onPress={() =>
+              setHiddenPinKeys((keys) =>
+                keys.includes(pickupPinInfo.key) ? keys : [...keys, pickupPinInfo.key]
+              )
+            }
+            hitSlop={10}
+            style={styles.pickupPinClose}
+            accessibilityRole="button"
+            accessibilityLabel="Ophaalcode sluiten"
+          >
+            <Ionicons name="close" size={22} color="#0B1220" />
+          </Pressable>
           <Text style={styles.pickupPinBannerLabel}>Ophaalcode voor de chauffeur</Text>
           <Text
             style={styles.pickupPinDigits}
@@ -3180,9 +3200,18 @@ function makeStyles(colors: ColorPalette) {
       paddingVertical: 12,
       marginBottom: 4,
     },
-    quotePriceCenter: {
-      textAlign: 'center',
+    quotePriceSlot: {
+      height: 40,
       marginTop: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quotePriceBusy: {
+      color: colors.muted,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 40,
+      textAlign: 'center',
     },
     quoteMetaCenter: {
       textAlign: 'center',
@@ -3557,6 +3586,8 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 28,
       fontWeight: '700',
+      lineHeight: 40,
+      textAlign: 'center',
     },
     nameRow: {
       flexDirection: 'row',
@@ -3655,38 +3686,63 @@ function makeStyles(colors: ColorPalette) {
       bottom: 88,
       zIndex: 40,
       borderRadius: 16,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.primary,
+      paddingTop: 16,
+      paddingBottom: 14,
+      paddingHorizontal: 36,
+      backgroundColor: '#F59E0B',
       alignItems: 'center',
       shadowColor: '#000',
-      shadowOpacity: 0.18,
+      shadowOpacity: 0.28,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },
       elevation: 6,
     },
+    pickupPinClose: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     pickupPinBannerLabel: {
-      color: colors.muted,
+      color: '#0B1220',
       fontSize: 12,
       fontWeight: '700',
       letterSpacing: 0.3,
       marginBottom: 4,
+      textAlign: 'center',
     },
     pickupPinDigits: {
-      color: colors.text,
+      color: '#0B1220',
       fontSize: 36,
       fontWeight: '800',
       letterSpacing: 8,
       fontVariant: ['tabular-nums'],
     },
     pickupPinBannerHint: {
-      color: colors.muted,
+      color: '#0B1220',
       fontSize: 13,
       lineHeight: 18,
       textAlign: 'center',
       marginTop: 6,
+    },
+    pinShowBtn: {
+      marginTop: 12,
+      borderRadius: 12,
+      backgroundColor: '#F59E0B',
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    pinShowBtnText: {
+      color: '#0B1220',
+      fontSize: 15,
+      fontWeight: '700',
     },
     confirmActions: {
       flexDirection: 'row',
