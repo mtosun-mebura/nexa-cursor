@@ -124,6 +124,16 @@ class TaxiBookingNotificationService
     ): void {
         $rideId = (int) $ride->id;
 
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->recordWhatsappSkipped(
+                $conn,
+                $rideId,
+                'Marktplaats-rit gaat via de app, niet via WhatsApp.'
+            );
+
+            return;
+        }
+
         if (! $this->dispatchSettings->companyBookingWhatsappNotifyEnabled($companyId)) {
             return;
         }
@@ -180,6 +190,21 @@ class TaxiBookingNotificationService
         array $context = []
     ): void {
         $rideId = (int) $ride->id;
+
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                (string) ($ride->customer_name ?: 'Klant'),
+                trim((string) ($ride->customer_phone ?? '')) ?: null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': Marktplaats-rit gaat via de app, niet via WhatsApp.'
+            );
+
+            return;
+        }
 
         if (! $this->whatsapp->isConfigured($companyId)) {
             $this->notificationLogs->record(

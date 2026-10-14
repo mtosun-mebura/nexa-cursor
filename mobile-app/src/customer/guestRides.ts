@@ -41,10 +41,14 @@ export type GuestRide = {
 
 export function rideNeedsLivePoll(ride: {
   phase?: string | null;
-  pickup_confirmation?: { can_answer?: boolean; pin?: string | null } | null;
+  pickup_confirmation?: { can_answer?: boolean; pin?: string | null; status?: string | null } | null;
 }): boolean {
-  const hasPin = String(ride.pickup_confirmation?.pin || '').replace(/\D/g, '').length === 4;
-  return isActiveRidePhase(ride.phase) || ride.pickup_confirmation?.can_answer === true || hasPin;
+  const phase = String(ride.phase || '');
+  if (phase === 'completed' || phase === 'cancelled') return false;
+  const pinOpen =
+    String(ride.pickup_confirmation?.pin || '').replace(/\D/g, '').length === 4 &&
+    ride.pickup_confirmation?.status !== 'confirmed';
+  return isActiveRidePhase(phase) || ride.pickup_confirmation?.can_answer === true || pinOpen;
 }
 
 export function isActiveRidePhase(phase?: string | null): boolean {

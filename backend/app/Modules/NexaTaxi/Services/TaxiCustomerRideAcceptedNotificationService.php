@@ -360,15 +360,8 @@ class TaxiCustomerRideAcceptedNotificationService
     ): void {
         $rideId = (int) $ride->id;
 
-        // Ritten met app-tracking: status via app (niet WhatsApp).
-        if (trim((string) ($ride->customer_track_token ?? '')) !== '') {
-            $settingsCompanyId = $companyId > 0 ? $companyId : null;
-            if (! $this->dispatchSettings->customerWhatsappStatusEventEnabled(
-                WhatsAppBookingMessageComposer::EVENT_ACCEPTED,
-                $settingsCompanyId
-            )) {
-                return;
-            }
+        // Marktplaats: status via de app. WhatsApp alleen bij een website-boeking.
+        if ($ride->isNexaSuiteBooking()) {
             app(TaxiCustomerRideStatusNotificationService::class)->notify(
                 $conn,
                 $ride,

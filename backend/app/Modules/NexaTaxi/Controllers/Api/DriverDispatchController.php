@@ -302,8 +302,12 @@ class DriverDispatchController extends Controller
             ], 409);
         }
 
-        $message = ! empty($result['pickup_proposed'])
-            ? 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.'
+        $proposed = ! empty($result['pickup_proposed']);
+        $viaApp = $proposed && ($result['ride']->isNexaSuiteBooking() ?? false);
+        $message = $proposed
+            ? ($viaApp
+                ? 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant in de app.'
+                : 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.')
             : 'Rit geaccepteerd.';
 
         return response()->json([
@@ -654,7 +658,9 @@ class DriverDispatchController extends Controller
         }
 
         return response()->json([
-            'message' => 'Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.',
+            'message' => $updated->isNexaSuiteBooking()
+                ? 'Nieuw ophaalmoment voorgesteld aan de klant in de app.'
+                : 'Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.',
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($updated, true),
             ],

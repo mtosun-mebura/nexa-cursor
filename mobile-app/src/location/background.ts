@@ -55,7 +55,15 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
 
   // GPS-wake is de enige JS die op het vergrendelscherm nog draait.
   try {
-    await alertUnseenDriverOffers({ token, minIntervalMs: 4000 });
+    await alertUnseenDriverOffers({
+      token,
+      minIntervalMs: 4000,
+      fromBackground: true,
+      origin: {
+        lat: latest.coords.latitude,
+        lng: latest.coords.longitude,
+      },
+    });
   } catch {
     /* inbox-check mag de locatiepost niet breken */
   }

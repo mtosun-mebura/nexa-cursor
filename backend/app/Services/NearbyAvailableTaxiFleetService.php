@@ -72,7 +72,10 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
-        $busyDriverIds = $this->busyDriverIds($conn, $companyIds);
+        $busyDriverIds = $this->busyDriverIds($conn, $companyIds, array_values(array_unique(array_map(
+            static fn ($row) => (int) $row->driver_id,
+            $rows->all()
+        ))));
         $hasVehicleColumn = Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id');
         $vehicleIds = [];
         foreach ($rows as $row) {
@@ -141,11 +144,22 @@ class NearbyAvailableTaxiFleetService
 
     /**
      * @param  list<int>  $companyIds
+     * @param  list<int>  $driverIds  Online chauffeurs op de kaart. Als die bekend zijn, telt elke
+     *                                geaccepteerde of lopende rit van die chauffeur, ook als de rit
+     *                                bij een ander bedrijf staat.
      * @return array<int, true>
      */
-    private function busyDriverIds(string $connection, array $companyIds): array
+    private function busyDriverIds(string $connection, array $companyIds, array $driverIds = []): array
     {
-        if ($companyIds === [] || ! Schema::connection($connection)->hasTable('ride_requests')) {
+        if (! Schema::connection($connection)->hasTable('ride_requests')) {
+            return [];
+        }
+
+        $driverIds = array_values(array_filter(
+            array_map(static fn ($id) => (int) $id, $driverIds),
+            static fn (int $id) => $id > 0
+        ));
+        if ($companyIds === [] && $driverIds === []) {
             return [];
         }
 
@@ -153,25 +167,28 @@ class NearbyAvailableTaxiFleetService
         // live-kaart niet leegtrekken. Openstaande offers tellen niet als "bezet".
         $activeSince = now()->subHours(12);
         $hasFulfilling = Schema::connection($connection)->hasColumn('ride_requests', 'fulfilling_company_id');
-        $ids = RideRequest::on($connection)
+        $query = RideRequest::on($connection)
             ->whereNotNull('driver_id')
             ->whereIn('status', [
                 RideRequest::STATUS_ACCEPTED,
                 RideRequest::STATUS_ASSIGNED,
             ])
-            ->where(function ($query) use ($companyIds, $hasFulfilling) {
+            ->where(function ($query) use ($activeSince) {
+                $query->where('pickup_at', '>=', $activeSince)
+                    ->orWhere('updated_at', '>=', $activeSince);
+            });
+        if ($driverIds !== []) {
+            $query->whereIn('driver_id', $driverIds);
+        } else {
+            $query->where(function ($query) use ($companyIds, $hasFulfilling) {
                 $query->whereIn('company_id', $companyIds);
                 if ($hasFulfilling) {
                     $query->orWhereIn('fulfilling_company_id', $companyIds);
                 }
-            })
-            ->where(function ($query) use ($activeSince) {
-                $query->where('pickup_at', '>=', $activeSince)
-                    ->orWhere(function ($inner) use ($activeSince) {
-                        $inner->whereNull('pickup_at')
-                            ->where('updated_at', '>=', $activeSince);
-                    });
-            })
+            });
+        }
+
+        $ids = $query
             ->pluck('driver_id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)

@@ -8,12 +8,14 @@ import {
   type DriverActiveRide,
 } from '../api/driver';
 import { normalizeRideAlertTone, playRideAlertTone, prepareRideAlertAudio } from '../audio/rideAlert';
-import { notifyNewDriverOffer, notifyPickupDenied } from './driverOffers';
+import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
+import { alertNextPickupDeparture } from './pickupDeparture';
 
 const SEEN_KEY = 'nexa_taxi_seen_offer_ids';
 const READY_KEY = 'nexa_taxi_offers_seen_ready';
 const TONE_KEY = 'nexa_taxi_ride_alert_tone';
 const DENIED_KEY = 'nexa_taxi_pickup_denied_notified';
+const BADGE_KEY = 'nexa_taxi_offer_badge';
 
 let chain: Promise<unknown> = Promise.resolve();
 let lastBackgroundCheck = 0;
@@ -30,6 +32,30 @@ export function primeRideAlertAudio(): void {
   prepareRideAlertAudio().catch(() => {
     audioPrimed = false;
   });
+}
+
+async function addOfferBadge(extra: number): Promise<number> {
+  const add = Math.max(0, Math.round(extra));
+  let current = 0;
+  try {
+    current = Number(await SecureStore.getItemAsync(BADGE_KEY)) || 0;
+  } catch {
+    current = 0;
+  }
+  const next = Math.max(0, Math.min(99, current + add));
+  await SecureStore.setItemAsync(BADGE_KEY, String(next));
+  await setDriverOfferBadge(next);
+  return next;
+}
+
+/** Cijfer op het icoon weghalen zodra de chauffeur de app weer opent. */
+export async function clearDriverOfferBadge(): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(BADGE_KEY, '0');
+  } catch {
+    /* ignore */
+  }
+  await setDriverOfferBadge(0);
 }
 
 async function loadSeen(): Promise<Set<number>> {
@@ -59,6 +85,8 @@ export function alertUnseenDriverOffers(input: {
   offers?: DispatchOffer[];
   online?: boolean;
   minIntervalMs?: number;
+  origin?: { lat: number; lng: number } | null;
+  fromBackground?: boolean;
 }): Promise<DispatchOffer[]> {
   const run = chain.then(() => checkOnce(input));
   chain = run.then(
@@ -73,6 +101,8 @@ async function checkOnce(input: {
   offers?: DispatchOffer[];
   online?: boolean;
   minIntervalMs?: number;
+  origin?: { lat: number; lng: number } | null;
+  fromBackground?: boolean;
 }): Promise<DispatchOffer[]> {
   const minIntervalMs = input.minIntervalMs ?? 0;
   const now = Date.now();
@@ -90,6 +120,11 @@ async function checkOnce(input: {
       rides: [data.activeRide, ...data.parkedAssignedRides],
       alert: data.pickupDeniedAlert,
     });
+    await alertNextPickupDeparture({
+      scheduled: data.scheduledRides,
+      activeRide: data.activeRide,
+      origin: input.origin,
+    }).catch(() => undefined);
   }
 
   const ids = offers.map((offer) => Number(offer.id)).filter((id) => id > 0);
@@ -114,27 +149,35 @@ async function checkOnce(input: {
   const storedTone = await SecureStore.getItemAsync(TONE_KEY);
   const tone = normalizeRideAlertTone(storedTone);
   const priority = fresh[0];
-  const inForeground = AppState.currentState === 'active';
+  const inForeground = !input.fromBackground && AppState.currentState === 'active';
+  const badge = inForeground ? undefined : await addOfferBadge(fresh.length);
 
   if (inForeground) {
-    await playRideAlertTone(tone);
+    const played = await playRideAlertTone(tone);
+    if (!played) await playRideAlertTone('alert');
     await notifyNewDriverOffer({
       count: fresh.length,
       pickup: priority.ride?.pickup_address,
       dropoff: priority.ride?.dropoff_address,
       playSound: false,
-      tone,
+      tone: played ? tone : 'alert',
+      badge,
     });
   } else {
-    // Melding+geluid eerst: GPS-wake heeft weinig tijd; app-audio is hier vaak stil.
+    // Melding + geluid eerst. De GPS-taak heeft weinig tijd; een stil app-geluid
+    // mag de melding niet tegenhouden. Lukt het gekozen ritgeluid niet, dan Alert.
+    const played = playRideAlertTone(tone);
     await notifyNewDriverOffer({
       count: fresh.length,
       pickup: priority.ride?.pickup_address,
       dropoff: priority.ride?.dropoff_address,
       playSound: true,
       tone,
+      badge,
     });
-    void playRideAlertTone(tone);
+    if (!(await played)) {
+      await playRideAlertTone('alert');
+    }
   }
   return fresh;
 }
