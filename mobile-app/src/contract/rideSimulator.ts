@@ -59,6 +59,47 @@ export function advanceAlong(
   return { point: last, meters: target, done: true };
 }
 
+function nearestVertex(line: LatLng[], point: LatLng): { index: number; meters: number } {
+  let index = 0;
+  let meters = Infinity;
+  for (let i = 0; i < line.length; i += 1) {
+    const distance = haversineMeters(line[i], point);
+    if (distance < meters) {
+      meters = distance;
+      index = i;
+    }
+  }
+  return { index, meters };
+}
+
+/**
+ * Stuk van een al getekende navigatielijn tussen twee punten.
+ * Zo rijdt de simulator over dezelfde lijn als op de kaart.
+ */
+export function pathAlongDisplayedLines(
+  lines: LatLng[][],
+  from: LatLng,
+  to: LatLng,
+  maxMeters = 80
+): LatLng[] | null {
+  let best: LatLng[] | null = null;
+  let bestScore = Infinity;
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    const start = nearestVertex(line, from);
+    const end = nearestVertex(line, to);
+    if (start.meters > maxMeters || end.meters > maxMeters) continue;
+    if (end.index <= start.index) continue;
+    const slice = line.slice(start.index, end.index + 1);
+    const score = start.meters + end.meters;
+    if (score < bestScore) {
+      bestScore = score;
+      best = slice;
+    }
+  }
+  return best;
+}
+
 export function stopLabel(stop: SimulatorStop | undefined): string {
   if (!stop) return 'Rit klaar';
   if (stop.kind === 'pickup') return `Ophalen ${stop.name}`;

@@ -94,6 +94,8 @@ Route::prefix('v1/contract')
             ->middleware('throttle:taxi-contract-poll');
         Route::post('destinations/reached', [ContractPortalController::class, 'reachDestinations'])
             ->middleware('throttle:taxi-driver-action');
+        Route::post('today/reset', [ContractPortalController::class, 'resetToday'])
+            ->middleware('throttle:taxi-driver-action');
     });
 
 Route::prefix('v1/driver')

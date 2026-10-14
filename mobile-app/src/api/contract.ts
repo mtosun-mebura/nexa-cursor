@@ -222,6 +222,13 @@ export function postContractLocation(token: string, lat: number, lng: number) {
   );
 }
 
+export function resetContractToday(token: string) {
+  return apiRequest<{ message?: string; data?: { rides?: number } }>(
+    '/api/taxi/v1/contract/today/reset',
+    { method: 'POST', token }
+  );
+}
+
 export function reachContractDestinations(
   token: string,
   coords?: { lat: number; lng: number } | null
