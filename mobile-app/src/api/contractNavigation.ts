@@ -18,6 +18,8 @@ type WaveRow = {
   destination_address: string;
   destination_lat?: number | null;
   destination_lng?: number | null;
+  ride_stop_id?: number | null;
+  destination_reached?: boolean;
 };
 
 export type ActiveNavigation = NonNullable<ContractToday['navigation']>;
@@ -67,6 +69,8 @@ function collectRows(items: ContractDayItem[]): WaveRow[] {
         destination_address: String(leg.destination_address || item.destination_address || '').trim(),
         destination_lat: leg.destination_lat,
         destination_lng: leg.destination_lng,
+        ride_stop_id: leg.ride_stop_id ?? null,
+        destination_reached: Boolean(leg.destination_reached),
       });
     }
   }
@@ -289,4 +293,65 @@ export function buildActiveNavigation(
     },
     wave
   );
+}
+
+export type SimulatorStop = {
+  kind: 'pickup' | 'dropoff';
+  lat: number;
+  lng: number;
+  rideStopId: number | null;
+  name: string;
+  address: string;
+};
+
+function finiteCoord(lat?: number | null, lng?: number | null): { lat: number; lng: number } | null {
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return null;
+  if (Math.abs(la) < 0.0001 && Math.abs(ln) < 0.0001) return null;
+  return { lat: la, lng: ln };
+}
+
+/**
+ * Haltes voor de ritsimulator: eerst open ophaalpunten, daarna bestemmingen.
+ * Elke passagier blijft een eigen ophaalstop, ook bij hetzelfde adres.
+ */
+export function buildSimulatorStops(items: ContractDayItem[], now: Date = new Date()): SimulatorStop[] {
+  const wave = selectActiveWave(collectRows(items), now);
+  const stops: SimulatorStop[] = [];
+
+  for (const row of wave) {
+    if (row.picked_up) continue;
+    const point = finiteCoord(row.pickup_lat, row.pickup_lng);
+    const stopId = Number(row.ride_stop_id);
+    if (!point || !Number.isFinite(stopId) || stopId <= 0) continue;
+    stops.push({
+      kind: 'pickup',
+      lat: point.lat,
+      lng: point.lng,
+      rideStopId: stopId,
+      name: row.name || 'Passagier',
+      address: row.pickup_address,
+    });
+  }
+
+  const seenDest = new Set<string>();
+  for (const row of wave) {
+    if (row.destination_reached) continue;
+    const point = finiteCoord(row.destination_lat, row.destination_lng);
+    if (!point) continue;
+    const key = `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`;
+    if (seenDest.has(key)) continue;
+    seenDest.add(key);
+    stops.push({
+      kind: 'dropoff',
+      lat: point.lat,
+      lng: point.lng,
+      rideStopId: null,
+      name: row.name || 'Bestemming',
+      address: row.destination_address,
+    });
+  }
+
+  return stops;
 }

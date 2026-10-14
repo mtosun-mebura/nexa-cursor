@@ -21,7 +21,7 @@ class ContractPortalRideLifecycleService
 
     public function startFromStop(string $conn, User $user, array $context, int $rideStopId): RideRequest
     {
-        $this->assertContractant($context);
+        $this->assertCanOperate($user, $context);
 
         $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
         $ride = $stop->ride;
@@ -89,7 +89,7 @@ class ContractPortalRideLifecycleService
      */
     public function boardFromStop(string $conn, User $user, array $context, int $rideStopId): RideStop
     {
-        $this->assertContractant($context);
+        $this->assertCanOperate($user, $context);
 
         $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
         $ride = $stop->ride;
@@ -134,7 +134,7 @@ class ContractPortalRideLifecycleService
      */
     public function skipFromStop(string $conn, User $user, array $context, int $rideStopId): RideStop
     {
-        $this->assertContractant($context);
+        $this->assertCanOperate($user, $context);
 
         $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
         $ride = $stop->ride;
@@ -160,7 +160,7 @@ class ContractPortalRideLifecycleService
 
     public function completeFromStop(string $conn, User $user, array $context, int $rideStopId): RideRequest
     {
-        $this->assertContractant($context);
+        $this->assertCanOperate($user, $context);
 
         $stop = $this->resolvePickupStop($conn, $context, $rideStopId);
         $ride = $stop->ride;
@@ -293,9 +293,9 @@ class ContractPortalRideLifecycleService
     /**
      * @param  array<string, mixed>  $context
      */
-    private function assertContractant(array $context): void
+    private function assertCanOperate(User $user, array $context): void
     {
-        if (! $this->access->isContractant($context)) {
+        if (! $this->access->canOperateRides($user, $context)) {
             throw ValidationException::withMessages([
                 'ride' => ['Alleen de contractant kan ritten starten of afronden.'],
             ]);

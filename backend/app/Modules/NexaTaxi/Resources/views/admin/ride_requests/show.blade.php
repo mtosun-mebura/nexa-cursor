@@ -241,9 +241,16 @@
     </div>
 
     @can('rides.update')
+    @php
+        $assignmentEditable = ! $ride->hasBeenDriven() && ($ride->vehicle_id || $ride->driver_id);
+    @endphp
     <div class="kt-card w-full min-w-0 mt-5">
-        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Toewijzen</h3></div>
-        <div class="kt-card-content p-5">
+        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ $assignmentEditable ? 'Toewijzen' : 'Toewijzing' }}</h3></div>
+        <div class="kt-card-content p-5{{ $assignmentEditable ? '' : ' space-y-3 text-sm admin-detail-field-list' }}">
+            @if(! $assignmentEditable)
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Voertuig:</span><span class="flex-1">{{ $ride->vehicle?->name ?: '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Chauffeur:</span><span class="flex-1">{{ $ride->driver ? trim($ride->driver->first_name.' '.$ride->driver->last_name) : '—' }}</span></p>
+            @else
             <form action="{{ route('admin.taxi.ride_requests.assign', $ride) }}" method="POST" class="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end w-full min-w-0">
                 @csrf
                 <div class="flex flex-col gap-2.5 flex-1 min-w-[12rem]">
@@ -266,6 +273,7 @@
                 </div>
                 <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto shrink-0">Toewijzing opslaan</button>
             </form>
+            @endif
         </div>
     </div>
     <div class="kt-card w-full min-w-0 mt-5">

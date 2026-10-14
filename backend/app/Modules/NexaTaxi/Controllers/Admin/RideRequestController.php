@@ -343,6 +343,18 @@ class RideRequestController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
         $this->ensureCanAccessRide($ride_request);
+
+        if ($ride_request->hasBeenDriven()) {
+            $message = 'Voertuig en chauffeur staan vast omdat deze rit al is gereden.';
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', $message);
+        }
+
         $this->assertDispatchAllowedForRide($ride_request);
 
         $conn = $this->moduleConnection();

@@ -2346,11 +2346,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
 
-            {(cancelled || completed) && (
+            {completed && !cancelled ? (
               <View style={{ marginTop: 12 }}>
                 <PrimaryButton title="Nieuwe rit" onPress={startNewRide} />
               </View>
-            )}
+            ) : null}
           </View>
         ) : null}
       </View>

@@ -26,6 +26,27 @@ class TaxiContractPortalAccessServiceTest extends TestCase
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);
+    }
+
+    public function test_demo_role_without_portal_link_gets_contractant_access(): void
+    {
+        $company = Company::create(['name' => 'Taxi Demo', 'is_active' => true]);
+        $user = User::factory()->create(['company_id' => $company->id]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['demo']);
+
+        TransportCustomer::on($this->conn)->create([
+            'company_id' => $company->id,
+            'name' => 'OBS Demo',
+            'active' => true,
+        ]);
+
+        $fresh = $user->fresh();
+        $context = app(TaxiContractPortalAccessService::class)->resolveContext($this->conn, $fresh);
+
+        $this->assertNotNull($context);
+        $this->assertSame('contractant', $context['portal_role']);
+        $this->assertTrue(app(TaxiContractPortalAccessService::class)->canOperateRides($fresh, $context));
     }
 
     public function test_contractouder_role_without_portal_link_gets_access(): void

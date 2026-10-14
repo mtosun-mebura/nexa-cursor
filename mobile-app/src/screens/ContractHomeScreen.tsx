@@ -40,7 +40,8 @@ import {
   updateContractAccent,
   updateContractPassengerColor,
 } from '../api/contract';
-import { buildActiveNavigation } from '../api/contractNavigation';
+import { buildActiveNavigation, buildSimulatorStops } from '../api/contractNavigation';
+import { advanceAlong, stopLabel } from '../contract/rideSimulator';
 import { DARK_MAP_STYLE, fetchDrivingRoute, type LatLng } from '../geo/route';
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -570,6 +571,14 @@ export function ContractHomeScreen() {
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [portalRole, setPortalRole] = useState<string | null>(null);
   const [isContractant, setIsContractant] = useState(false);
+  const [isDemo, setIsDemo] = useState(false);
+  const [simRunning, setSimRunning] = useState(false);
+  const [simSpeed, setSimSpeed] = useState(60);
+  const [simLabel, setSimLabel] = useState('De chauffeur rijdt de haltes af.');
+  const simActiveRef = useRef(false);
+  const simSpeedRef = useRef(60);
+  const simTrackWidth = useRef(1);
+  const simSourceRef = useRef<ContractDayItem[]>([]);
   const [accent, setAccent] = useState('orange');
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -726,6 +735,7 @@ export function ContractHomeScreen() {
           setIsContractant(
             isContractantRole(me.user?.portal_role, me.user?.is_contractant)
           );
+          setIsDemo(me.user?.is_demo === true);
           if (me.user?.pwa_accent) setAccent(normalizeDriverAccent(me.user.pwa_accent));
         }
 
@@ -844,7 +854,7 @@ export function ContractHomeScreen() {
     let sub: Location.LocationSubscription | null = null;
 
     const remember = (lat: number, lng: number, post: boolean) => {
-      if (stopped || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (stopped || simActiveRef.current || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
       lastFixRef.current = { lat, lng };
       setDriverFix({ latitude: lat, longitude: lng });
       if (!post) return;
@@ -1148,6 +1158,127 @@ export function ContractHomeScreen() {
     () => buildActiveNavigation(today?.items || []).stops || [],
     [today?.items]
   );
+  const simStops = useMemo(
+    () => buildSimulatorStops(today?.items || []),
+    [today?.items]
+  );
+  simSourceRef.current = today?.items || [];
+  const showSimulator = canOperateRides || isDemo;
+
+  useEffect(() => {
+    if (!simRunning || !contractToken) return;
+    let cancelled = false;
+    simActiveRef.current = true;
+    const cursor = { segment: 0, meters: 0 };
+    let lines: LatLng[][] = [];
+    let stops = buildSimulatorStops(simSourceRef.current);
+    let ready = false;
+    let busy = false;
+    let lastPost = 0;
+
+    const fail = (message: string) => {
+      if (cancelled) return;
+      setSimLabel(message);
+      setSimRunning(false);
+    };
+
+    void (async () => {
+      if (stops.length === 0) {
+        fail('Geen open haltes om te rijden.');
+        return;
+      }
+      setSimLabel(stopLabel(stops[0]));
+      const origin = lastFixRef.current
+        ? { latitude: lastFixRef.current.lat, longitude: lastFixRef.current.lng }
+        : { latitude: stops[0].lat, longitude: stops[0].lng };
+      let from = origin;
+      const built: LatLng[][] = [];
+      for (const stop of stops) {
+        const to = { latitude: stop.lat, longitude: stop.lng };
+        try {
+          const route = await fetchDrivingRoute(
+            { lat: from.latitude, lng: from.longitude },
+            { lat: to.latitude, lng: to.longitude }
+          );
+          built.push(route.coordinates.length > 1 ? route.coordinates : [from, to]);
+        } catch {
+          built.push([from, to]);
+        }
+        from = to;
+        if (cancelled) return;
+      }
+      lines = built;
+      ready = true;
+    })();
+
+    const timer = setInterval(() => {
+      if (cancelled || !ready || busy) return;
+      const stop = stops[cursor.segment];
+      const line = lines[cursor.segment];
+      if (!stop || !line) {
+        setSimLabel('Rit gesimuleerd.');
+        setSimRunning(false);
+        return;
+      }
+      const step = advanceAlong(line, cursor.meters, (Math.max(20, simSpeedRef.current) / 3.6) * 0.25);
+      cursor.meters = step.meters;
+      lastFixRef.current = { lat: step.point.latitude, lng: step.point.longitude };
+      setDriverFix(step.point);
+      const now = Date.now();
+      if (now - lastPost > 1000) {
+        lastPost = now;
+        void postContractLocation(contractToken, step.point.latitude, step.point.longitude).catch(
+          () => undefined
+        );
+      }
+      if (!step.done) return;
+      busy = true;
+      void (async () => {
+        try {
+          await postContractLocation(contractToken, stop.lat, stop.lng);
+          lastFixRef.current = { lat: stop.lat, lng: stop.lng };
+          setDriverFix({ latitude: stop.lat, longitude: stop.lng });
+          if (stop.kind === 'pickup' && stop.rideStopId) {
+            try {
+              await startContractRide(contractToken, stop.rideStopId);
+            } catch {
+              /* rit kan al gestart zijn */
+            }
+            try {
+              await boardContractPassenger(contractToken, stop.rideStopId);
+            } catch (e) {
+              const msg = apiErrorMessage(e, '');
+              if (!/al afgehandeld/i.test(msg)) throw e;
+            }
+          } else {
+            const res = await reachContractDestinations(contractToken, {
+              lat: stop.lat,
+              lng: stop.lng,
+            });
+            if ((res.data?.updated || 0) < 1) {
+              throw new Error(res.message || 'De bestemming kan niet op bereikt gezet worden.');
+            }
+          }
+          await pollToday();
+          cursor.segment += 1;
+          cursor.meters = 0;
+          const next = stops[cursor.segment];
+          setSimLabel(next ? stopLabel(next) : 'Rit gesimuleerd.');
+          if (!next) setSimRunning(false);
+        } catch (e) {
+          fail(apiErrorMessage(e, 'Status bijwerken mislukt.'));
+        } finally {
+          busy = false;
+        }
+      })();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      simActiveRef.current = false;
+      clearInterval(timer);
+    };
+  }, [simRunning, contractToken, pollToday]);
   const childRides = useMemo(
     () =>
       childMapRides(todayItems).map((ride) => ({
@@ -2185,6 +2316,82 @@ export function ContractHomeScreen() {
           <Text style={styles.primaryBtnText}>Start navigatie</Text>
         </Pressable>
       ) : null}
+      {showSimulator ? (
+        <View style={styles.simCard}>
+          <Text style={styles.simTitle}>Ritsimulator</Text>
+          <Text style={styles.simHint}>
+            {simRunning
+              ? simLabel
+              : 'Laat de chauffeur de haltes afrijden. Bij elke stop wordt de status echt gezet.'}
+          </Text>
+          <View style={styles.simSpeedRow}>
+            <Text style={styles.simSpeedLabel}>Snelheid</Text>
+            <Text style={styles.simSpeedValue}>{simSpeed} km/u</Text>
+          </View>
+          <View
+            style={styles.simTrack}
+            onLayout={(event) => {
+              simTrackWidth.current = event.nativeEvent.layout.width;
+            }}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(event) => {
+              const ratio = Math.min(
+                1,
+                Math.max(0, event.nativeEvent.locationX / Math.max(1, simTrackWidth.current))
+              );
+              const next = Math.round(20 + ratio * 140);
+              simSpeedRef.current = next;
+              setSimSpeed(next);
+            }}
+            onResponderMove={(event) => {
+              const ratio = Math.min(
+                1,
+                Math.max(0, event.nativeEvent.locationX / Math.max(1, simTrackWidth.current))
+              );
+              const next = Math.round(20 + ratio * 140);
+              simSpeedRef.current = next;
+              setSimSpeed(next);
+            }}
+            accessibilityRole="adjustable"
+            accessibilityLabel="Snelheid van de rit"
+          >
+            <View
+              style={[
+                styles.simFill,
+                { width: `${((simSpeed - 20) / 140) * 100}%` },
+              ]}
+            />
+            <View
+              style={[
+                styles.simThumb,
+                { left: `${((simSpeed - 20) / 140) * 100}%` },
+              ]}
+            />
+          </View>
+          <Pressable
+            style={[
+              styles.primaryBtn,
+              styles.simStartBtn,
+              simStops.length === 0 && !simRunning && { opacity: 0.5 },
+            ]}
+            disabled={simStops.length === 0 && !simRunning}
+            onPress={() => {
+              if (simRunning) {
+                setSimRunning(false);
+                setSimLabel('Simulator gestopt.');
+                return;
+              }
+              setSimLabel('Route laden…');
+              setSimRunning(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={simRunning ? 'Stop simulator' : 'Start simulator'}
+          >
+            <Text style={styles.primaryBtnText}>{simRunning ? 'Stop simulator' : 'Start simulator'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {passengers.length > 0 || childRides.length > 0 ? (
         <Text style={styles.childLegendHint}>
           Tik op de naam van een kind om de kleur aan te passen.
@@ -2682,6 +2889,63 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginHorizontal: 16,
       marginTop: 10,
       marginBottom: 0,
+    },
+    simCard: {
+      marginHorizontal: 16,
+      marginTop: 12,
+      gap: 8,
+    },
+    simTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    simHint: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    simSpeedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    simSpeedLabel: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    simSpeedValue: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    simTrack: {
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.card,
+      justifyContent: 'center',
+    },
+    simFill: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      borderRadius: 14,
+      backgroundColor: accentHex,
+      opacity: 0.45,
+    },
+    simThumb: {
+      position: 'absolute',
+      width: 22,
+      height: 22,
+      marginLeft: -11,
+      borderRadius: 11,
+      backgroundColor: accentHex,
+    },
+    simStartBtn: {
+      marginHorizontal: 0,
+      marginTop: 4,
     },
     parentNavEmpty: {
       position: 'absolute',

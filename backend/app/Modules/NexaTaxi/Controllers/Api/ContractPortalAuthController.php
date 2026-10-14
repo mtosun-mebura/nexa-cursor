@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Support\PwaAccent;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
@@ -206,6 +207,7 @@ class ContractPortalAuthController extends Controller
     private function userPayload(User $user, array $context): array
     {
         $role = (string) ($context['portal_role'] ?? '');
+        $isDemo = TaxiDemoRole::userHas($user);
         $roleLabel = $role === TransportCustomerPortalUser::ROLE_CONTRACTANT
             ? 'Contractant'
             : 'Contractouder';
@@ -226,6 +228,8 @@ class ContractPortalAuthController extends Controller
             'portal_role' => $role,
             'portal_role_label' => $roleLabel,
             'is_contractant' => $role === TransportCustomerPortalUser::ROLE_CONTRACTANT,
+            'is_demo' => $isDemo,
+            'can_simulate_rides' => $role === TransportCustomerPortalUser::ROLE_CONTRACTANT || $isDemo,
             'pwa_accent' => PwaAccent::fromUser($user),
         ];
     }

@@ -93,6 +93,7 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);
         $marketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'web']);
 
         // Create roles for api guard (if they don't exist)
@@ -106,6 +107,7 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'api']);
         $apiMarketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'api']);
 
         // Create permissions

@@ -4470,6 +4470,9 @@
                     ? ('<p class="ride-card__stop-label" style="margin-top:10px">Prijs</p>'
                         + '<p class="ride-card__stop-value">' + escapeHtml(amount) + '</p>')
                     : '')
+                + (ride.phase === 'completed'
+                    ? '<button type="button" class="btn btn-primary" data-new-ride="1" style="margin-top:12px;width:100%">Nieuwe rit</button>'
+                    : '')
                 + (token
                     ? ('<div class="ride-follow-host" data-token="' + escapeHtml(token) + '"></div>')
                     : '')
@@ -4572,6 +4575,13 @@
                 }
                 toast(archive ? 'Rit gearchiveerd.' : 'Rit teruggezet.');
                 renderRidesOverview(state.ridesCache);
+            });
+        });
+        box.querySelectorAll('[data-new-ride]').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                enterBook();
             });
         });
         box.querySelectorAll('[data-ride-cancel-token]').forEach(function (btn) {

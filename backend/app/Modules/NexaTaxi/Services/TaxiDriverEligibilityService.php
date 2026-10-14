@@ -45,6 +45,7 @@ class TaxiDriverEligibilityService
         return count(array_intersect($normalized, [
             TaxiContractPortalAccessService::SPATIE_CONTRACTANT,
             TaxiContractPortalAccessService::SPATIE_CONTRACTOUDER,
+            TaxiContractPortalAccessService::SPATIE_DEMO,
         ])) > 0;
     }
 
