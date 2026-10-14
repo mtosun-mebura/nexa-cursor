@@ -24,6 +24,16 @@ class ContractDestinationArrivalService
     /**
      * Laatste gps van de contractant, zodat de ouder de taxi kan volgen.
      */
+    public function forgetProgress(string $conn, int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+
+        Cache::forget($this->dwellKey($conn, $userId));
+        Cache::forget($this->positionKey($conn, $userId));
+    }
+
     public function rememberDriverPosition(string $conn, int $userId, float $lat, float $lng): void
     {
         if ($userId <= 0) {

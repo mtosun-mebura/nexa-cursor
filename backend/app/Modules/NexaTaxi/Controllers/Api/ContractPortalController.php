@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerAbsence;
+use App\Modules\NexaTaxi\Services\ContractDemoDayResetService;
 use App\Modules\NexaTaxi\Services\ContractDestinationArrivalService;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractPortalAutoBoardService;
@@ -20,6 +21,7 @@ use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TransportPassengerAbsenceService;
 use App\Modules\NexaTaxi\Services\TransportScheduleExceptionService;
 use App\Modules\NexaTaxi\Support\ContractPortalDayLegs;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Modules\NexaTaxi\Support\ContractPortalLegLabel;
 use App\Modules\NexaTaxi\Support\ContractPortalNavigationRoute;
 use App\Modules\NexaTaxi\Support\ContractPortalRideStatus;
@@ -565,6 +567,29 @@ class ContractPortalController extends Controller
             'message' => 'Bestemming bereikt.',
             'data' => [
                 'updated' => $result['updated'],
+            ],
+        ]);
+    }
+
+    public function resetToday(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDemoDayResetService $reset
+    ): JsonResponse {
+        $user = $request->user();
+        if (! $user || ! TaxiDemoRole::userHas($user)) {
+            return response()->json(['message' => 'Alleen een demo-account kan de ritten resetten.'], 403);
+        }
+
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $rides = $reset->resetToday($conn, $passengerIds, (int) $user->id);
+
+        return response()->json([
+            'message' => 'Ritten van vandaag zijn gereset.',
+            'data' => [
+                'rides' => $rides,
             ],
         ]);
     }

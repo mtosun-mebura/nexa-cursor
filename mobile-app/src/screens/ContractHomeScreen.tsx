@@ -34,6 +34,7 @@ import {
   fetchContractWeek,
   postContractLocation,
   reachContractDestinations,
+  resetContractToday,
   skipContractPassenger,
   startContractRide,
   storeContractAbsence,
@@ -41,7 +42,7 @@ import {
   updateContractPassengerColor,
 } from '../api/contract';
 import { buildActiveNavigation, buildSimulatorStops } from '../api/contractNavigation';
-import { advanceAlong, stopLabel } from '../contract/rideSimulator';
+import { advanceAlong, pathAlongDisplayedLines, stopLabel } from '../contract/rideSimulator';
 import { DARK_MAP_STYLE, fetchDrivingRoute, type LatLng } from '../geo/route';
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -404,6 +405,73 @@ function snapToRoute(point: LatLng, line: LatLng[], maxMeters = 400): LatLng {
   return bestDistance <= maxMeters ? best : point;
 }
 
+function FluidTaxiMarker({
+  target,
+  mapRef,
+  imageStyle,
+}: {
+  target: LatLng;
+  mapRef: React.RefObject<MapView | null>;
+  imageStyle: React.ComponentProps<typeof Image>['style'];
+}) {
+  const [coord, setCoord] = useState(target);
+  const coordRef = useRef(target);
+  const hasTarget = useRef(false);
+  const lastAt = useRef(0);
+  const [trackView, setTrackView] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setTrackView(false), 400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const from = coordRef.current;
+    const now = Date.now();
+    const gap = lastAt.current ? now - lastAt.current : 0;
+    lastAt.current = now;
+    const dist = haversineMeters(from, target);
+    const snap = !hasTarget.current || dist < 3 || dist > 800 || gap <= 0;
+    hasTarget.current = true;
+    if (snap) {
+      coordRef.current = target;
+      setCoord(target);
+      if (dist > 800) {
+        mapRef.current?.animateCamera({ center: target, zoom: 15 }, { duration: 500 });
+      }
+      return;
+    }
+    const duration = Math.max(200, gap);
+    const start = Date.now();
+    let frame = 0;
+    const tick = () => {
+      const t = Math.min(1, (Date.now() - start) / duration);
+      const next = {
+        latitude: from.latitude + (target.latitude - from.latitude) * t,
+        longitude: from.longitude + (target.longitude - from.longitude) * t,
+      };
+      coordRef.current = next;
+      setCoord(next);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    mapRef.current?.animateCamera({ center: target, zoom: 15 }, { duration });
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target.latitude, target.longitude, mapRef]);
+
+  return (
+    <Marker
+      coordinate={coord}
+      title="Taxi"
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={trackView}
+      zIndex={50}
+    >
+      <Image source={taxiCarYellow} style={imageStyle} resizeMode="contain" />
+    </Marker>
+  );
+}
+
 function offsetPoint(point: LatLng, index: number): LatLng {
   const meters = 18 + index * 12;
   const angle = (index * 55 * Math.PI) / 180;
@@ -556,6 +624,16 @@ function legCanComplete(
   );
 }
 
+function anyPassengerPickedUp(items: ContractDayItem[]): boolean {
+  for (const item of items) {
+    if (item.picked_up) return true;
+    for (const leg of item.legs || []) {
+      if (leg.picked_up) return true;
+    }
+  }
+  return false;
+}
+
 export function ContractHomeScreen() {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
@@ -573,12 +651,16 @@ export function ContractHomeScreen() {
   const [isContractant, setIsContractant] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
   const [simRunning, setSimRunning] = useState(false);
+  const [simResetOpen, setSimResetOpen] = useState(false);
+  const [simResetBusy, setSimResetBusy] = useState(false);
+  const [simResetError, setSimResetError] = useState<string | null>(null);
   const [simSpeed, setSimSpeed] = useState(60);
   const [simLabel, setSimLabel] = useState('De chauffeur rijdt de haltes af.');
   const simActiveRef = useRef(false);
   const simSpeedRef = useRef(60);
   const simTrackWidth = useRef(1);
   const simSourceRef = useRef<ContractDayItem[]>([]);
+  const childRouteLinesRef = useRef<Record<number, LatLng[]>>({});
   const [accent, setAccent] = useState('orange');
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -624,6 +706,7 @@ export function ContractHomeScreen() {
   const ridesBootstrapped = useRef(false);
   const hasLoadedOnceRef = useRef(false);
   const lastFixRef = useRef<{ lat: number; lng: number } | null>(null);
+  const driverGpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const [driverFix, setDriverFix] = useState<LatLng | null>(null);
   const lastLocationPostRef = useRef(0);
   const parentMapRef = useRef<MapView | null>(null);
@@ -848,13 +931,25 @@ export function ContractHomeScreen() {
     };
   }, [contractToken, refresh, pollToday]);
 
+  // Ouder op de kaart: vaker de taxi-positie ophalen, zodat de auto kan doorrijden.
+  useEffect(() => {
+    if (!contractToken || canOperateRides || tab !== 'navigation') return;
+    const timer = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      void pollToday();
+    }, 600);
+    return () => clearInterval(timer);
+  }, [contractToken, canOperateRides, tab, pollToday]);
+
   useEffect(() => {
     if (!canOperateRides || !contractToken) return;
     let stopped = false;
     let sub: Location.LocationSubscription | null = null;
 
     const remember = (lat: number, lng: number, post: boolean) => {
-      if (stopped || simActiveRef.current || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (stopped || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      driverGpsRef.current = { lat, lng };
+      if (simActiveRef.current) return;
       lastFixRef.current = { lat, lng };
       setDriverFix({ latitude: lat, longitude: lng });
       if (!post) return;
@@ -1163,6 +1258,7 @@ export function ContractHomeScreen() {
     [today?.items]
   );
   simSourceRef.current = today?.items || [];
+  childRouteLinesRef.current = childRouteLines;
   const showSimulator = canOperateRides || isDemo;
 
   useEffect(() => {
@@ -1188,21 +1284,38 @@ export function ContractHomeScreen() {
         return;
       }
       setSimLabel(stopLabel(stops[0]));
-      const origin = lastFixRef.current
-        ? { latitude: lastFixRef.current.lat, longitude: lastFixRef.current.lng }
+      const driver = driverGpsRef.current;
+      const startAtDriver = !anyPassengerPickedUp(simSourceRef.current) && driver;
+      const origin = startAtDriver
+        ? { latitude: driver.lat, longitude: driver.lng }
         : { latitude: stops[0].lat, longitude: stops[0].lng };
+      lastFixRef.current = { lat: origin.latitude, lng: origin.longitude };
+      setDriverFix(origin);
+      const waitStarted = Date.now();
+      while (!cancelled && Date.now() - waitStarted < 2500) {
+        const readyLines = Object.values(childRouteLinesRef.current).some((line) => line.length > 1);
+        if (readyLines) break;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      if (cancelled) return;
+      const displayed = Object.values(childRouteLinesRef.current);
       let from = origin;
       const built: LatLng[][] = [];
       for (const stop of stops) {
         const to = { latitude: stop.lat, longitude: stop.lng };
-        try {
-          const route = await fetchDrivingRoute(
-            { lat: from.latitude, lng: from.longitude },
-            { lat: to.latitude, lng: to.longitude }
-          );
-          built.push(route.coordinates.length > 1 ? route.coordinates : [from, to]);
-        } catch {
-          built.push([from, to]);
+        const along = pathAlongDisplayedLines(displayed, from, to);
+        if (along && along.length > 1) {
+          built.push(along);
+        } else {
+          try {
+            const route = await fetchDrivingRoute(
+              { lat: from.latitude, lng: from.longitude },
+              { lat: to.latitude, lng: to.longitude }
+            );
+            built.push(route.coordinates.length > 1 ? route.coordinates : [from, to]);
+          } catch {
+            built.push([from, to]);
+          }
         }
         from = to;
         if (cancelled) return;
@@ -1225,7 +1338,7 @@ export function ContractHomeScreen() {
       lastFixRef.current = { lat: step.point.latitude, lng: step.point.longitude };
       setDriverFix(step.point);
       const now = Date.now();
-      if (now - lastPost > 1000) {
+      if (now - lastPost > 250) {
         lastPost = now;
         void postContractLocation(contractToken, step.point.latitude, step.point.longitude).catch(
           () => undefined
@@ -1279,6 +1392,36 @@ export function ContractHomeScreen() {
       clearInterval(timer);
     };
   }, [simRunning, contractToken, pollToday]);
+
+  function openSimReset() {
+    if (simResetBusy) return;
+    setSimResetError(null);
+    setSimResetOpen(true);
+  }
+
+  function closeSimReset() {
+    if (simResetBusy) return;
+    setSimResetOpen(false);
+  }
+
+  async function confirmSimReset() {
+    if (!contractToken || simResetBusy) return;
+    setSimResetBusy(true);
+    setSimResetError(null);
+    setSimRunning(false);
+    setSimLabel('Ritten resetten…');
+    try {
+      await resetContractToday(contractToken);
+      setSimLabel('Ritten van vandaag zijn gereset.');
+      setSimResetOpen(false);
+      await refresh();
+    } catch (e) {
+      setSimResetError(apiErrorMessage(e, 'Resetten mislukt.'));
+      setSimLabel('Resetten mislukt.');
+    } finally {
+      setSimResetBusy(false);
+    }
+  }
   const childRides = useMemo(
     () =>
       childMapRides(todayItems).map((ride) => ({
@@ -1303,11 +1446,12 @@ export function ContractHomeScreen() {
       .find((ride) => ride.vehicle)?.vehicle;
     const raw = canOperateRides ? driverFix : fromRide;
     if (!raw) return null;
+    if (simRunning) return raw;
     const lines = childRides
       .map((ride) => childRouteLines[ride.passengerId])
       .filter((line): line is LatLng[] => !!line && line.length > 1);
     return placeTaxiOnLines(raw, lines);
-  }, [canOperateRides, driverFix, childRides, childRouteLines]);
+  }, [canOperateRides, driverFix, childRides, childRouteLines, simRunning]);
   const passengerPins = useMemo(() => {
     const pins: Array<{
       key: string;
@@ -1370,7 +1514,7 @@ export function ContractHomeScreen() {
   }, [childRouteKey]);
 
   useEffect(() => {
-    if (!taxiOnMap || !parentMapRef.current) return;
+    if (!canOperateRides || !taxiOnMap || !parentMapRef.current) return;
     parentMapRef.current.animateCamera(
       {
         center: { latitude: taxiOnMap.latitude, longitude: taxiOnMap.longitude },
@@ -1378,7 +1522,7 @@ export function ContractHomeScreen() {
       },
       { duration: 700 }
     );
-  }, [taxiOnMap?.latitude, taxiOnMap?.longitude]);
+  }, [canOperateRides, taxiOnMap?.latitude, taxiOnMap?.longitude]);
 
   useEffect(() => {
     if (taxiOnMap || !parentMapRef.current) return;
@@ -2287,12 +2431,18 @@ export function ContractHomeScreen() {
             </View>
           </Marker>
         ))}
-        {taxiOnMap ? (
+        {taxiOnMap && !canOperateRides ? (
+          <FluidTaxiMarker
+            target={taxiOnMap}
+            mapRef={parentMapRef}
+            imageStyle={styles.taxiMarker}
+          />
+        ) : taxiOnMap ? (
           <Marker
             coordinate={taxiOnMap}
             title="Taxi"
             anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges
+            tracksViewChanges={false}
           >
             <Image source={taxiCarYellow} style={styles.taxiMarker} resizeMode="contain" />
           </Marker>
@@ -2390,6 +2540,17 @@ export function ContractHomeScreen() {
           >
             <Text style={styles.primaryBtnText}>{simRunning ? 'Stop simulator' : 'Start simulator'}</Text>
           </Pressable>
+          {isDemo ? (
+            <Pressable
+              style={[styles.secondaryBtn, styles.simResetBtn, simResetBusy && { opacity: 0.6 }]}
+              disabled={simResetBusy}
+              onPress={openSimReset}
+              accessibilityRole="button"
+              accessibilityLabel="Ritten resetten"
+            >
+              <Text style={styles.secondaryBtnText}>Ritten resetten</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
       {passengers.length > 0 || childRides.length > 0 ? (
@@ -2653,6 +2814,28 @@ export function ContractHomeScreen() {
             </Text>
           </Pressable>
           <GhostButton title="Annuleren" onPress={closeDestReach} />
+        </AppModal>
+
+        <AppModal
+          visible={simResetOpen}
+          onRequestClose={closeSimReset}
+          dismissDisabled={simResetBusy}
+        >
+          <ScreenHeader title="Ritten resetten" />
+          <Text style={styles.hint}>
+            Dit zet de ritten van vandaag terug, zodat je de simulator opnieuw kunt testen.
+          </Text>
+          <ErrorText>{simResetError}</ErrorText>
+          <Pressable
+            style={[styles.primaryBtn, simResetBusy && { opacity: 0.6 }]}
+            disabled={simResetBusy}
+            onPress={() => {
+              void confirmSimReset();
+            }}
+          >
+            <Text style={styles.primaryBtnText}>{simResetBusy ? 'Bezig…' : 'Resetten'}</Text>
+          </Pressable>
+          <GhostButton title="Annuleren" onPress={closeSimReset} />
         </AppModal>
 
         <AppModal
@@ -2946,6 +3129,9 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     simStartBtn: {
       marginHorizontal: 0,
       marginTop: 4,
+    },
+    simResetBtn: {
+      marginTop: 0,
     },
     parentNavEmpty: {
       position: 'absolute',
