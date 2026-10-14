@@ -30,6 +30,8 @@ class TaxiAppFirstLoginService
 
     public const ROLE_CONTRACTOUDER = 'contractouder';
 
+    public const ROLE_DEMO = 'demo';
+
     public const CODE_LENGTH = 6;
 
     public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om in te loggen.';
@@ -60,6 +62,9 @@ class TaxiAppFirstLoginService
         if (in_array(self::ROLE_CONTRACTOUDER, $normalized, true)) {
             return self::ROLE_CONTRACTOUDER;
         }
+        if (in_array(self::ROLE_DEMO, $normalized, true)) {
+            return self::ROLE_DEMO;
+        }
 
         return null;
     }
@@ -68,7 +73,7 @@ class TaxiAppFirstLoginService
     {
         return match ($role) {
             self::ROLE_CHAUFFEUR => self::CHANNEL_DRIVER,
-            self::ROLE_CONTRACTANT, self::ROLE_CONTRACTOUDER => self::CHANNEL_CONTRACT,
+            self::ROLE_CONTRACTANT, self::ROLE_CONTRACTOUDER, self::ROLE_DEMO => self::CHANNEL_CONTRACT,
             default => null,
         };
     }
@@ -79,6 +84,7 @@ class TaxiAppFirstLoginService
             self::ROLE_CHAUFFEUR => TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR,
             self::ROLE_CONTRACTANT => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             self::ROLE_CONTRACTOUDER => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER,
+            self::ROLE_DEMO => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             default => null,
         };
     }

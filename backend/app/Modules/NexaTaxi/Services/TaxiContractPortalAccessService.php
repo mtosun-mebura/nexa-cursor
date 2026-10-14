@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Models\TransportCustomerPortalUser;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerGuardian;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -17,6 +18,8 @@ class TaxiContractPortalAccessService
     public const SPATIE_CONTRACTANT = 'contractant';
 
     public const SPATIE_CONTRACTOUDER = 'contractouder';
+
+    public const SPATIE_DEMO = TaxiDemoRole::NAME;
 
     /**
      * @return array{
@@ -57,6 +60,16 @@ class TaxiContractPortalAccessService
     public function isContractant(array $context): bool
     {
         return ($context['portal_role'] ?? '') === TransportCustomerPortalUser::ROLE_CONTRACTANT;
+    }
+
+    /**
+     * Contractant, of een gebruiker met de rol demo (ritsimulator en dezelfde statusacties).
+     *
+     * @param  array<string, mixed>  $context
+     */
+    public function canOperateRides(User $user, array $context): bool
+    {
+        return $this->isContractant($context) || TaxiDemoRole::userHas($user);
     }
 
     public function userMayAccessPortal(User $user, ?string $conn = null): bool
@@ -170,6 +183,8 @@ class TaxiContractPortalAccessService
      */
     private function spatiePortalRole(User $user): ?string
     {
+        TaxiDemoRole::ensure($user->getConnectionName());
+
         $names = array_map(
             static fn ($name) => strtolower(trim((string) $name)),
             $user->webRoleNames()
@@ -181,6 +196,10 @@ class TaxiContractPortalAccessService
 
         if (in_array(self::SPATIE_CONTRACTOUDER, $names, true)) {
             return TransportCustomerPortalUser::ROLE_CONTRACTOUDER;
+        }
+
+        if (in_array(self::SPATIE_DEMO, $names, true)) {
+            return TransportCustomerPortalUser::ROLE_CONTRACTANT;
         }
 
         return null;

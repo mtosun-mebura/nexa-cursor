@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\Company;
 use App\Models\JobTitle;
 use App\Models\User;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiAppPresenceService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeService;
@@ -1317,6 +1318,8 @@ class AdminUserController extends Controller
      */
     private function assignableWebRolesForForms(bool $includeSuperAdmin): \Illuminate\Support\Collection
     {
+        TaxiDemoRole::ensure();
+
         $query = Role::query()
             ->where('guard_name', 'web')
             ->orderBy('name');

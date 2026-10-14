@@ -10,6 +10,8 @@ export type ContractUser = {
   portal_role?: 'contractant' | 'contractouder' | string | null;
   portal_role_label?: string | null;
   is_contractant?: boolean;
+  is_demo?: boolean;
+  can_simulate_rides?: boolean;
   pwa_accent?: string | null;
 };
 

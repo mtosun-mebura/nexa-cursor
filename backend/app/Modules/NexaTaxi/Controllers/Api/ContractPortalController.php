@@ -501,7 +501,7 @@ class ContractPortalController extends Controller
     ): JsonResponse {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
-        if (! $access->isContractant($context)) {
+        if (! $access->canOperateRides($request->user(), $context)) {
             return response()->json(['message' => 'Alleen de contractant kan de locatie doorgeven.'], 403);
         }
 
@@ -535,7 +535,7 @@ class ContractPortalController extends Controller
     ): JsonResponse {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
-        if (! $access->isContractant($context)) {
+        if (! $access->canOperateRides($request->user(), $context)) {
             return response()->json(['message' => 'Alleen de contractant kan de bestemming bevestigen.'], 403);
         }
 
