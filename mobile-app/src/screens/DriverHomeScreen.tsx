@@ -386,6 +386,8 @@ export function DriverHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const rideAlertToneRef = useRef<RideAlertTone>('classic');
+  /** Aanvragen die deze sessie al naar het Aanvragen-tab zijn gebracht. */
+  const surfacedOfferIdsRef = useRef<Set<number>>(new Set());
   /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
   const rideToneDirtyRef = useRef(false);
   const styles = useMemo(() => makeStyles(colors, accentHex(accent)), [colors, accent]);
@@ -452,14 +454,19 @@ export function DriverHomeScreen() {
   const needsVehicle = !vehicleLocked && !selectedVehicleId;
 
   const handleNewOffers = useCallback(async (offerList: DispatchOffer[], isOnlineNow: boolean) => {
+    const ids = offerList.map((offer) => Number(offer.id)).filter((id) => id > 0);
     const fresh = await alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
-    if (!fresh.length) return;
-    const offerId = Number(fresh[0].id);
+    if (!isOnlineNow) return false;
+    const unseenSession = ids.filter((id) => !surfacedOfferIdsRef.current.has(id));
+    const offerId = Number(fresh[0]?.id || unseenSession[0] || 0);
+    if (offerId <= 0) return false;
+    ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
     setShowArchived(false);
     persistDriverArchive(false);
     setTab('requests');
     persistDriverTab('requests');
-    if (offerId > 0) setFocusOfferId(offerId);
+    setFocusOfferId(offerId);
+    return true;
   }, []);
 
   const refresh = useCallback(async () => {
@@ -559,6 +566,8 @@ export function DriverHomeScreen() {
         completedFromPlanning = [];
       }
       setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
+      setCancelReasons(inboxData.cancelReasons);
+      const openedRequest = await handleNewOffers(inboxData.offers, isOnlineNow);
       const pickupDenied = await alertPickupDenials({
         rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
         alert: inboxData.pickupDeniedAlert,
@@ -570,9 +579,11 @@ export function DriverHomeScreen() {
           primaryLabel: 'Begrepen',
           rideId: pickupDenied.rideId,
         });
-        setTab('trips');
-        persistDriverTab('trips');
-      } else {
+        if (!openedRequest) {
+          setTab('trips');
+          persistDriverTab('trips');
+        }
+      } else if (!openedRequest) {
         try {
           const departure = await alertNextPickupDeparture({
             scheduled: inboxData.scheduledRides,
@@ -592,8 +603,6 @@ export function DriverHomeScreen() {
           /* vertrekmelding mag de inbox niet breken */
         }
       }
-      setCancelReasons(inboxData.cancelReasons);
-      await handleNewOffers(inboxData.offers, isOnlineNow);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Kon gegevens niet laden.');
     }
@@ -680,7 +689,7 @@ export function DriverHomeScreen() {
     const next = vehicles.find((vehicle) => vehicle.id === id) || null;
     setSelectedVehicleId(id);
     setVehiclePickerOpen(false);
-    if (previousId != null && previousId !== id && next) {
+    if (previousId != null && previousId !== id && next && !resolveMediaUrl(next.photo_url)) {
       setVehiclePhotoAsk(next);
     }
     if (!driverToken || !online) return;

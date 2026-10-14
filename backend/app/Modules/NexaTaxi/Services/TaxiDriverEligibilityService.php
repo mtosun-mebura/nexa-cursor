@@ -131,6 +131,7 @@ class TaxiDriverEligibilityService
         ?float $pickupLat = null,
         ?float $pickupLng = null,
         ?int $maxRadiusKm = null,
+        bool $fillWithOffline = true,
     ): array {
         $enforceRadius = $maxRadiusKm !== null
             && $maxRadiusKm > 0
@@ -176,8 +177,8 @@ class TaxiDriverEligibilityService
         }
 
         if ($onlineIds === []) {
-            // Met radius-eis: geen locatie = geen aanbod (niet terugvallen op alle chauffeurs).
-            if ($enforceRadius) {
+            // Met radius-eis of zonder offline-fallback: geen locatie = geen aanbod.
+            if ($enforceRadius || ! $fillWithOffline) {
                 return [];
             }
 
@@ -191,7 +192,7 @@ class TaxiDriverEligibilityService
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        if (! $enforceRadius && count($eligible) < $limit) {
+        if ($fillWithOffline && ! $enforceRadius && count($eligible) < $limit) {
             $more = $this->buildChauffeurQuery($companyId)
                 ->whereNotIn('id', $eligible)
                 ->limit($limit - count($eligible))

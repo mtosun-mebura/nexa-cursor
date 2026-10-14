@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -133,6 +134,10 @@ class RideClaimServiceTest extends TestCase
             ->where('driver_id', $other->id)
             ->first();
         $this->assertSame(RideDispatchOffer::STATUS_SUPERSEDED, $otherOffer->status);
+
+        $signal = Cache::get('taxi_driver_inbox_push:'.$other->id);
+        $this->assertIsArray($signal);
+        $this->assertSame((int) $ride->id, (int) ($signal['ride_request_id'] ?? 0));
     }
 
     public function test_accept_rejects_overlapping_planned_ride(): void

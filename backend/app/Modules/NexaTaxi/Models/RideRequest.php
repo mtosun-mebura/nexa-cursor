@@ -341,6 +341,16 @@ class RideRequest extends Model
     }
 
     /**
+     * Rit is gestart of afgerond: voertuig en chauffeur horen vast te staan.
+     */
+    public function hasBeenDriven(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED
+            || $this->trip_started_at !== null
+            || $this->trip_completed_at !== null;
+    }
+
+    /**
      * Ophaalmoment ligt nog binnen het grace-venster voor de chauffeur-wachtrij.
      */
     public function scopeDispatchPickupWithinQueueWindow($query, CarbonInterface $pickupCutoff)
@@ -428,6 +438,52 @@ class RideRequest extends Model
         return $this->isNexaSuiteBooking()
             && ! $this->driver_id
             && (int) ($this->company_id ?? 0) <= 0;
+    }
+
+    /**
+     * Klant boekt in de native app: marktplaatsrit (booking_payload.marketplace.channel = customer_app).
+     */
+    public function isCustomerAppMarketplaceBooking(): bool
+    {
+        $payload = is_array($this->booking_payload) ? $this->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+        if (strtolower(trim((string) ($marketplace['channel'] ?? ''))) === 'customer_app') {
+            return true;
+        }
+
+        $paymentReturn = is_array($payload['payment_return'] ?? null) ? $payload['payment_return'] : [];
+        if (strtolower(trim((string) ($paymentReturn['channel'] ?? ''))) === 'customer_app') {
+            return true;
+        }
+
+        $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+
+        return ($step['app'] ?? null) === 'customer' && $this->isNexaSuiteBooking();
+    }
+
+    /**
+     * Rit van de tenant zelf (eigen website, of oudere tenantboeking zonder marketplace).
+     * Native-app- en NEXA Suite-boekingen vallen hier buiten.
+     */
+    public function isOwnTenantFleetRide(): bool
+    {
+        if ($this->isCustomerAppMarketplaceBooking() || $this->isNexaSuiteBooking() || $this->isContractRide()) {
+            return false;
+        }
+
+        if ((int) ($this->company_id ?? 0) <= 0) {
+            return false;
+        }
+
+        if ($this->source === self::SOURCE_BOOKING || $this->source === self::SOURCE_MANUAL) {
+            return true;
+        }
+
+        if ($this->source !== null && $this->source !== '') {
+            return false;
+        }
+
+        return $this->marketplaceCandidateCompanyIds() === [];
     }
 
     public function isVisibleToMarketplaceTenant(int $companyId): bool
