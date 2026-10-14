@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
+use App\Http\Controllers\Admin\AdminExplanationOverviewController;
 use App\Http\Controllers\Admin\AdminTenantSetupChecklistController;
 use App\Http\Controllers\Admin\AdminNexaNetworkGuideController;
 use App\Http\Controllers\Admin\AdminPaymentFlowsGuideController;
@@ -505,6 +506,8 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             ->name('tenant-setup-checklist');
         Route::get('nexa-network', [AdminNexaNetworkGuideController::class, 'index'])
             ->name('nexa-network.guide');
+        Route::get('uitleg', [AdminExplanationOverviewController::class, 'index'])
+            ->name('uitleg');
         Route::get('payment-flows', [AdminPaymentFlowsGuideController::class, 'guide'])
             ->name('payment-flows.guide');
         Route::get('payment-flows/settlements', [AdminPaymentFlowsGuideController::class, 'settlements'])
