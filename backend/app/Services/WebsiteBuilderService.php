@@ -561,6 +561,7 @@ class WebsiteBuilderService
         }
 
         $this->applyCompanyLogoFallback($logoUrl, $logoDarkUrl, $forCompanyId);
+        $this->applyNexaTaxiMarketingLogo($logoUrl, $logoDarkUrl, $forCompanyId);
         $this->applyCompanyFaviconFallback($faviconUrl, $forCompanyId);
 
         $logoUrl = $logoUrl ? $this->storageUrlToDisplayUrl($logoUrl) : null;
@@ -876,6 +877,44 @@ class WebsiteBuilderService
         }
 
         return 'data:'.($mime ?: 'image/png').';base64,'.trim((string) $blob);
+    }
+
+    /**
+     * Merk-site van tenant Nexa Taxi: officieel logo als er nog geen bedrijfslogo staat.
+     */
+    private function applyNexaTaxiMarketingLogo(?string &$logoUrl, ?string &$logoDarkUrl, ?int $forCompanyId = null): void
+    {
+        $companyId = $forCompanyId ?? $this->resolvedPublicTenantCompanyId();
+        if ($companyId === null || $companyId <= 0) {
+            return;
+        }
+
+        $name = strtolower(trim((string) (Company::query()->whereKey($companyId)->value('name') ?? '')));
+        if ($name !== 'nexa taxi') {
+            return;
+        }
+
+        $light = 'images/nexa-taxi/nexa-taxi-logo.png';
+        $dark = 'images/nexa-taxi/nexa-taxi-logo-dark.png';
+        if (! is_file(public_path($light))) {
+            return;
+        }
+
+        $logoUrl = asset($light);
+        if (is_file(public_path($dark))) {
+            $logoDarkUrl = asset($dark);
+        }
+    }
+
+    private function isNexaTaxiBrandCompany(int $companyId): bool
+    {
+        if ($companyId <= 0) {
+            return false;
+        }
+
+        $company = app(NexaTaxiWelcomePageService::class)->resolveCompany();
+
+        return $company !== null && (int) $company->id === $companyId;
     }
 
     /**
@@ -1351,6 +1390,14 @@ class WebsiteBuilderService
             $nexaTaxi = app(NexaTaxiWelcomePageService::class)->resolveCompany();
             if ($nexaTaxi !== null && (int) $nexaTaxi->id === (int) $tenantId) {
                 app(NexaTaxiWelcomePageService::class)->ensureMarketingPagesExist($nexaTaxi);
+                $brandHome = $this->firstActiveWebsitePage(
+                    $this->websitePageQuery(null)->active()->forModule(null)
+                        ->where('page_type', 'home')
+                        ->where('slug', NexaTaxiWelcomePageService::HOME_SLUG)
+                );
+                if ($brandHome !== null) {
+                    return $brandHome;
+                }
             }
         }
 
@@ -2146,6 +2193,21 @@ class WebsiteBuilderService
      */
     public function getContactPage(): ?WebsitePage
     {
+        $tenantId = $this->resolvedPublicTenantCompanyId();
+        if ($tenantId !== null) {
+            $nexaTaxi = app(NexaTaxiWelcomePageService::class)->resolveCompany();
+            if ($nexaTaxi !== null && (int) $nexaTaxi->id === (int) $tenantId) {
+                $brandContact = $this->firstActiveWebsitePage(
+                    $this->websitePageQuery(null)->active()->forModule(null)
+                        ->where('slug', NexaTaxiWelcomePageService::CONTACT_SLUG)
+                        ->where('page_type', 'contact')
+                );
+                if ($brandContact !== null) {
+                    return $brandContact;
+                }
+            }
+        }
+
         $brandingModule = $this->getBrandingModule();
         $moduleName = $brandingModule ? $brandingModule->name : null;
         $page = $this->firstActiveWebsitePage(
@@ -2240,8 +2302,11 @@ class WebsiteBuilderService
     {
         return $this->excludeCentralWelcomeFromMenu(
             $this->pagesConfiguredForTenantCompany($companyId)
-                ->filter(function (WebsitePage $p) {
+                ->filter(function (WebsitePage $p) use ($companyId) {
                     if (! $p->is_active) {
+                        return false;
+                    }
+                    if ($this->isNexaTaxiBrandCompany($companyId) && filled($p->module_name)) {
                         return false;
                     }
                     if (! Schema::hasColumn($p->getTable(), 'show_in_menu')) {

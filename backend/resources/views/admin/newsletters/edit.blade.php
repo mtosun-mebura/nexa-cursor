@@ -105,6 +105,10 @@
                             <label class="kt-label mb-1" for="intro">Intro *</label>
                             <textarea id="intro" name="intro" class="kt-textarea w-full" rows="5" required>{{ old('intro', $b['intro'] ?? '') }}</textarea>
                         </div>
+                        <div>
+                            <label class="kt-label mb-1" for="highlight">Uitgelichte regel</label>
+                            <textarea id="highlight" name="highlight" class="kt-textarea w-full" rows="2">{{ old('highlight', $b['highlight'] ?? '') }}</textarea>
+                        </div>
                     </div>
                 </div>
 
@@ -125,7 +129,7 @@
                     </div>
                 </div>
 
-                @foreach(array_slice($features, 0, 3) as $i => $feature)
+                @foreach($features as $i => $feature)
                     <div class="kt-card w-full min-w-0">
                         <div class="kt-card-header px-5 py-5">
                             <h5 class="kt-card-title mb-0">Voordeel {{ $i + 1 }}</h5>
@@ -172,13 +176,22 @@
 
             <div class="min-w-0">
                 <div class="kt-card w-full min-w-0 xl:sticky xl:top-24">
-                    <div class="kt-card-header px-5 py-5">
+                    <div class="kt-card-header px-5 py-5 flex items-center justify-between gap-3">
                         <h5 class="kt-card-title mb-0">Voorbeeld</h5>
+                        <button type="button"
+                                id="newsletter-preview-expand"
+                                class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-primary shrink-0"
+                                title="Voorbeeld tonen"
+                                aria-label="Voorbeeld tonen"
+                                aria-controls="newsletter-preview-modal"
+                                aria-expanded="false">
+                            <i class="ki-filled ki-eye text-base" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <div class="kt-card-content p-3 sm:p-5 min-w-0">
                         <iframe id="newsletter-preview"
                                 title="Voorbeeld nieuwsbrief"
-                                class="w-full h-[420px] sm:h-[620px] xl:h-[820px] bg-white border border-border rounded-lg"
+                                class="newsletter-preview-frame w-full bg-white border border-border rounded-lg"
                                 style="color-scheme:light;"></iframe>
                     </div>
                 </div>
@@ -186,6 +199,101 @@
         </div>
     </form>
 </div>
+
+<div id="newsletter-preview-modal"
+     class="newsletter-preview-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="newsletter-preview-modal-title"
+     hidden>
+    <button type="button"
+            class="newsletter-preview-modal__backdrop"
+            data-newsletter-preview-dismiss
+            aria-label="Voorbeeld sluiten"></button>
+    <div class="newsletter-preview-modal__dialog">
+        <header class="kt-card-header px-5 py-5 flex items-center justify-between gap-3 border-b border-border">
+            <div class="min-w-0">
+                <p class="text-xs uppercase tracking-wide text-muted-foreground mb-0">Voorbeeld</p>
+                <h2 id="newsletter-preview-modal-title" class="text-base font-semibold text-foreground mb-0 mt-0.5">Nieuwsbrief</h2>
+            </div>
+            <button type="button"
+                    class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
+                    data-newsletter-preview-dismiss
+                    title="Sluiten"
+                    aria-label="Sluiten">
+                <i class="ki-filled ki-cross text-base" aria-hidden="true"></i>
+            </button>
+        </header>
+        <div class="newsletter-preview-modal__body">
+            <iframe id="newsletter-preview-modal-frame"
+                    title="Voorbeeld nieuwsbrief groot"
+                    class="newsletter-preview-modal__frame"></iframe>
+        </div>
+    </div>
+</div>
+<style>
+    .newsletter-preview-frame {
+        height: clamp(640px, 78vh, 960px);
+        min-height: 640px;
+    }
+    .newsletter-preview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 12000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+    }
+    .newsletter-preview-modal.is-open {
+        display: flex;
+    }
+    .newsletter-preview-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        margin: 0;
+        padding: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        cursor: pointer;
+    }
+    .newsletter-preview-modal__dialog {
+        position: relative;
+        z-index: 1;
+        width: min(1200px, calc(100vw - 2.5rem));
+        height: min(920px, calc(100vh - 2.5rem));
+        display: flex;
+        flex-direction: column;
+        border-radius: 1rem;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 25px 50px -12px rgba(2, 6, 23, 0.35);
+        overflow: hidden;
+    }
+    html.dark .newsletter-preview-modal__dialog,
+    .dark .newsletter-preview-modal__dialog {
+        background: #0b0f19;
+        color: #f8fafc;
+        border-color: rgba(148, 163, 184, 0.12);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65);
+    }
+    .newsletter-preview-modal__body {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .newsletter-preview-modal__frame {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: transparent;
+        color-scheme: light;
+    }
+</style>
 @endsection
 
 @push('scripts')
@@ -193,10 +301,14 @@
 (function () {
     const form = document.getElementById('newsletter-form');
     const preview = document.getElementById('newsletter-preview');
+    const previewModal = document.getElementById('newsletter-preview-modal');
+    const previewModalFrame = document.getElementById('newsletter-preview-modal-frame');
+    const previewExpand = document.getElementById('newsletter-preview-expand');
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const previewUrl = @json(route('admin.newsletters.preview'));
     const generateUrl = @json(route('admin.newsletters.generate'));
     let previewTimer = null;
+    let previewHtml = '';
 
     function fillField(id, value) {
         const el = document.getElementById(id);
@@ -204,9 +316,41 @@
     }
 
     function setPreview(html) {
-        if (preview && typeof html === 'string') preview.srcdoc = html;
+        if (typeof html !== 'string') return;
+        previewHtml = html;
+        if (preview) preview.srcdoc = html;
+        if (previewModalFrame && previewModal && previewModal.classList.contains('is-open')) {
+            previewModalFrame.srcdoc = html;
+        }
     }
     setPreview(@json($previewHtml));
+
+    function openPreviewModal() {
+        if (!previewModal || !previewModalFrame) return;
+        previewModalFrame.srcdoc = previewHtml;
+        previewModal.hidden = false;
+        previewModal.classList.add('is-open', 'builder-block-preview-modal');
+        if (previewExpand) previewExpand.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePreviewModal() {
+        if (!previewModal || !previewModal.classList.contains('is-open')) return;
+        previewModal.classList.remove('is-open', 'builder-block-preview-modal');
+        previewModal.hidden = true;
+        if (previewExpand) previewExpand.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+    }
+
+    if (previewExpand) previewExpand.addEventListener('click', openPreviewModal);
+    if (previewModal) {
+        previewModal.addEventListener('click', function (event) {
+            if (event.target.closest('[data-newsletter-preview-dismiss]')) closePreviewModal();
+        });
+    }
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closePreviewModal();
+    });
 
     function refreshPreview() {
         const data = new FormData(form);
@@ -255,6 +399,7 @@
             fillField('eyebrow', blocks.eyebrow);
             fillField('title', blocks.title);
             fillField('intro', blocks.intro);
+            if (blocks.highlight) fillField('highlight', blocks.highlight);
             fillField('cta_label', blocks.cta_label);
             fillField('cta_url', blocks.cta_url || '/contact');
             fillField('hero_image', blocks.hero_image);
