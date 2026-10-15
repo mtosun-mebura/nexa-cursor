@@ -15,6 +15,7 @@ class NewsletterHtmlCompiler
     public function compile(array $blocks, ?NewsletterProspect $prospect = null, ?string $unsubscribeUrl = null): string
     {
         $contactUrl = $this->absoluteUrl((string) ($blocks['cta_url'] ?? '/contact'));
+        $ctaVisible = preg_replace('#^https?://#', '', $contactUrl) ?: 'nexasuite.nl/contact';
         $ctaLabel = trim((string) ($blocks['cta_label'] ?? 'Aanmelden via contact')) ?: 'Aanmelden via contact';
         $title = trim((string) ($blocks['title'] ?? 'NEXA Suite voor taxibedrijven'));
         $eyebrow = trim((string) ($blocks['eyebrow'] ?? 'Voor taxibedrijven'));
@@ -22,11 +23,15 @@ class NewsletterHtmlCompiler
             ? '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#94a3b8;">'.$this->e($eyebrow).'</p>'
             : '';
         $intro = trim((string) ($blocks['intro'] ?? ''));
+        $highlight = trim((string) ($blocks['highlight'] ?? ''));
         $hero = $this->absoluteUrl((string) ($blocks['hero_image'] ?? config('newsletter.stock_images.hero')));
         $company = $prospect?->company_name ?: 'uw taxibedrijf';
         $unsubscribeUrl = $unsubscribeUrl ?: ($prospect?->unsubscribeUrl() ?? url('/contact'));
         $logo = NexaBranding::emailLogoUrl();
         $greeting = 'Beste '.($prospect?->greetingName() ?: $company).',';
+        $highlightHtml = $highlight !== ''
+            ? '<tr><td style="padding:4px 32px 22px;"><p style="margin:0;padding:16px 18px;background:#eff6ff;border:2px solid #1d4ed8;border-radius:8px;font-size:18px;line-height:1.45;font-weight:700;color:#0f172a;">'.$this->nl2br($highlight).'</p></td></tr>'
+            : '';
 
         $featuresHtml = '';
         foreach (array_values(is_array($blocks['features'] ?? null) ? $blocks['features'] : []) as $feature) {
@@ -40,7 +45,7 @@ class NewsletterHtmlCompiler
             }
             $fImage = $this->absoluteUrl((string) ($feature['image'] ?? ''));
             $img = $fImage !== ''
-                ? '<img src="'.e($fImage).'" alt="'.e($fTitle).'" width="520" style="width:100%;max-width:520px;height:auto;border-radius:8px;display:block;margin:0 0 12px;">'
+                ? '<img src="'.e($fImage).'" alt="" width="520" style="width:100%;max-width:520px;height:auto;border-radius:8px;display:block;margin:0 0 12px;">'
                 : '';
             $featuresHtml .= '<tr><td style="padding:0 0 22px;">'
                 .$img
@@ -80,6 +85,7 @@ class NewsletterHtmlCompiler
         <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#334155;">{$this->nl2br($intro)}</p>
     </td>
 </tr>
+{$highlightHtml}
 <tr>
     <td style="padding:0 32px;">
         <table role="presentation" width="100%">{$featuresHtml}</table>
@@ -90,7 +96,7 @@ class NewsletterHtmlCompiler
         <a href="{$this->e($contactUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 24px;border-radius:6px;">
             <span style="color:#ffffff;">{$this->e($ctaLabel)}</span>
         </a>
-        <p style="margin:12px 0 0;font-size:12px;color:#64748b;">Of ga naar <a href="{$this->e($contactUrl)}" style="color:#2563eb;">nexasuite.nl/contact</a></p>
+        <p style="margin:12px 0 0;font-size:12px;color:#64748b;">Of ga naar <a href="{$this->e($contactUrl)}" style="color:#2563eb;">{$this->e($ctaVisible)}</a></p>
     </td>
 </tr>
 <tr>

@@ -31,7 +31,12 @@
     $isCenteredReading = $alignment === 'center' && ! $showSideColumn;
     $textMaxWidthClass = ($showSideColumn && in_array($alignment, ['left', 'right'], true)) ? 'max-w-none' : '';
     $textOnlyMaxWidthClass = $isCenteredReading ? 'max-w-3xl mx-auto text-center' : 'max-w-3xl w-full';
-    $sideImageClass = 'block w-full h-full max-h-[22rem] lg:max-h-[28rem] object-cover aspect-[4/3]';
+    $isAppShot = str_contains($imageUrl, '/images/handleiding/app/')
+        || str_contains($imageUrl, '/images/nexa-taxi/campaign/');
+    $sideImageClass = $isAppShot
+        ? 'block w-auto max-w-full mx-auto h-auto max-h-[40rem] object-contain object-top'
+        : 'block w-full h-full max-h-[22rem] lg:max-h-[28rem] object-cover aspect-[4/3]';
+    $shotFrameClass = $isAppShot ? ' bg-[#0b1220] flex items-center justify-center p-4 sm:p-6' : '';
     $proseBesideImage = 'prose prose-gray dark:prose-invert format dark:format-invert max-w-none self-center';
 @endphp
 <style>
@@ -87,7 +92,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch w-full">
                     <div class="order-2 lg:order-1 w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="text-block-side-image text-block-side-image--from-left w-full overflow-hidden rounded-2xl h-full">
+                        <div class="text-block-side-image text-block-side-image--from-left w-full overflow-hidden rounded-2xl h-full{{ $shotFrameClass }}">
                             <img src="{{ $imageUrl }}" alt="" class="{{ $sideImageClass }}">
                         </div>
                         @endif
@@ -107,7 +112,7 @@
                     </div>
                     <div class="w-full min-w-0 space-y-6 flex flex-col items-stretch">
                         @if($showSideImage)
-                        <div class="text-block-side-image w-full overflow-hidden rounded-2xl h-full">
+                        <div class="text-block-side-image w-full overflow-hidden rounded-2xl h-full{{ $shotFrameClass }}">
                             <img src="{{ $imageUrl }}" alt="" class="{{ $sideImageClass }}">
                         </div>
                         @endif
