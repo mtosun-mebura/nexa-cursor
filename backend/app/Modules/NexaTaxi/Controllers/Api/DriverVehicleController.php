@@ -56,11 +56,11 @@ class DriverVehicleController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, int $vehicle, ModuleDatabaseService $moduleDb, TaxiDriverProfileMediaService $media): JsonResponse
+    public function update(Request $request, int $vehicleId, ModuleDatabaseService $moduleDb, TaxiDriverProfileMediaService $media): JsonResponse
     {
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $companyId = (int) $request->attributes->get('taxi_company_id');
-        $row = $this->findVehicle($conn, $companyId, $vehicle);
+        $row = $this->findVehicle($conn, $companyId, $vehicleId);
         $validated = $this->validateVehicle($request);
 
         $row->update([
@@ -77,11 +77,11 @@ class DriverVehicleController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, int $vehicle, ModuleDatabaseService $moduleDb): JsonResponse
+    public function destroy(Request $request, int $vehicleId, ModuleDatabaseService $moduleDb): JsonResponse
     {
         $conn = $moduleDb->getModuleConnectionName('taxi');
         $companyId = (int) $request->attributes->get('taxi_company_id');
-        $row = $this->findVehicle($conn, $companyId, $vehicle);
+        $row = $this->findVehicle($conn, $companyId, $vehicleId);
 
         if (RideRequest::on($conn)->where('vehicle_id', $row->id)->exists()) {
             return response()->json([
