@@ -386,7 +386,7 @@ export function DriverHomeScreen() {
   const [vehicleFormOpen, setVehicleFormOpen] = useState(false);
   const [vehicleFormBusy, setVehicleFormBusy] = useState(false);
   const [vehicleFormError, setVehicleFormError] = useState<string | null>(null);
-  const [vehicleDeleteId, setVehicleDeleteId] = useState<number | null>(null);
+  const [vehicleConfirmDelete, setVehicleConfirmDelete] = useState(false);
   const [vehicleDraft, setVehicleDraft] = useState({
     id: null as number | null,
     name: '',
@@ -1605,6 +1605,7 @@ export function DriverHomeScreen() {
 
   function openVehicleForm(vehicle?: DriverVehicle) {
     setVehicleFormError(null);
+    setVehicleConfirmDelete(false);
     setVehicleDraft({
       id: vehicle?.id ?? null,
       name: vehicle?.name || '',
@@ -1682,20 +1683,21 @@ export function DriverHomeScreen() {
   }
 
   async function confirmDeleteVehicle() {
-    if (!driverToken || !vehicleDeleteId || vehicleFormBusy) return;
+    if (!driverToken || !vehicleDraft.id || vehicleFormBusy) return;
+    const vehicleId = vehicleDraft.id;
     setVehicleFormBusy(true);
     setVehicleFormError(null);
     try {
-      await deleteDriverVehicle(driverToken, vehicleDeleteId);
-      if (selectedVehicleId === vehicleDeleteId) {
+      await deleteDriverVehicle(driverToken, vehicleId);
+      if (selectedVehicleId === vehicleId) {
         setSelectedVehicleId(null);
       }
-      setVehicleDeleteId(null);
+      setVehicleConfirmDelete(false);
       setVehicleFormOpen(false);
       await refresh();
     } catch (e) {
+      setVehicleConfirmDelete(false);
       setVehicleFormError(e instanceof ApiError ? e.message : 'Voertuig verwijderen mislukt.');
-      setVehicleDeleteId(null);
     } finally {
       setVehicleFormBusy(false);
     }
@@ -2448,11 +2450,43 @@ export function DriverHomeScreen() {
       <AppModal
         visible={vehicleFormOpen}
         onRequestClose={() => {
-          if (!vehicleFormBusy) setVehicleFormOpen(false);
+          if (vehicleFormBusy) return;
+          if (vehicleConfirmDelete) {
+            setVehicleConfirmDelete(false);
+            return;
+          }
+          setVehicleFormOpen(false);
         }}
         dismissDisabled={vehicleFormBusy}
         panelStyle={styles.centeredSheet}
       >
+        {vehicleConfirmDelete ? (
+          <>
+            <Text style={styles.pickerTitle}>Voertuig verwijderen</Text>
+            <Text style={styles.hint}>
+              Weet je zeker dat je {vehicleDraft.name.trim() || 'dit voertuig'} wilt verwijderen?
+            </Text>
+            <View style={styles.cancelActions}>
+              <Pressable
+                style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+                onPress={() => setVehicleConfirmDelete(false)}
+                disabled={vehicleFormBusy}
+              >
+                <Text style={styles.cancelActionGhostText}>Annuleren</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+                onPress={() => void confirmDeleteVehicle()}
+                disabled={vehicleFormBusy}
+              >
+                <Text style={styles.cancelActionPrimaryText}>
+                  {vehicleFormBusy ? 'Verwijderen…' : 'Verwijderen'}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
         <Text style={styles.pickerTitle}>{vehicleDraft.id ? 'Voertuig bewerken' : 'Voertuig toevoegen'}</Text>
         <Pressable onPress={() => void pickVehicleDraftPhoto()} style={styles.fleetPhotoPick} accessibilityRole="button">
           {vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) ? (
@@ -2532,7 +2566,7 @@ export function DriverHomeScreen() {
         </Pressable>
         {vehicleDraft.id ? (
           <Pressable
-            onPress={() => setVehicleDeleteId(vehicleDraft.id)}
+            onPress={() => setVehicleConfirmDelete(true)}
             disabled={vehicleFormBusy}
             style={styles.vehicleModalCloseBtn}
           >
@@ -2540,40 +2574,17 @@ export function DriverHomeScreen() {
           </Pressable>
         ) : null}
         <Pressable
-          onPress={() => setVehicleFormOpen(false)}
+          onPress={() => {
+            setVehicleConfirmDelete(false);
+            setVehicleFormOpen(false);
+          }}
           disabled={vehicleFormBusy}
           style={styles.vehicleModalCloseBtn}
         >
           <Text style={styles.vehicleModalCloseText}>Annuleren</Text>
         </Pressable>
-      </AppModal>
-
-      <AppModal
-        visible={vehicleDeleteId != null}
-        onRequestClose={() => {
-          if (!vehicleFormBusy) setVehicleDeleteId(null);
-        }}
-        dismissDisabled={vehicleFormBusy}
-        panelStyle={styles.centeredSheet}
-      >
-        <Text style={styles.pickerTitle}>Voertuig verwijderen</Text>
-        <Text style={styles.hint}>Dit voertuig verdwijnt uit de lijst. Ritten die eraan gekoppeld zijn blijven staan en blokkeren verwijderen.</Text>
-        <View style={styles.cancelActions}>
-          <Pressable
-            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
-            onPress={() => setVehicleDeleteId(null)}
-            disabled={vehicleFormBusy}
-          >
-            <Text style={styles.cancelActionGhostText}>Annuleren</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
-            onPress={() => void confirmDeleteVehicle()}
-            disabled={vehicleFormBusy}
-          >
-            <Text style={styles.cancelActionPrimaryText}>Verwijderen</Text>
-          </Pressable>
-        </View>
+          </>
+        )}
       </AppModal>
 
       <AppModal

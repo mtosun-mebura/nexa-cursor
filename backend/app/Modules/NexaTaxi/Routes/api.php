@@ -137,12 +137,12 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-read');
         Route::post('vehicles', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'store'])
             ->middleware('throttle:taxi-driver-action');
-        Route::put('vehicles/{vehicle}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'update'])
+        Route::put('vehicles/{vehicleId}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'update'])
             ->middleware('throttle:taxi-driver-action')
-            ->whereNumber('vehicle');
-        Route::delete('vehicles/{vehicle}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'destroy'])
+            ->whereNumber('vehicleId');
+        Route::delete('vehicles/{vehicleId}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'destroy'])
             ->middleware('throttle:taxi-driver-action')
-            ->whereNumber('vehicle');
+            ->whereNumber('vehicleId');
 
         Route::get('dispatch/inbox', [DriverDispatchController::class, 'inbox'])
             ->middleware('throttle:taxi-driver-poll');
