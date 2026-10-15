@@ -119,7 +119,14 @@ class ContractPortalController extends Controller
         // Auto-ophalen na bestemming + grace (skipped blijft staan).
         $this->applyAutoBoardForDay($conn, $passengers, $day);
 
-        $items = $this->buildDayItems($conn, $passengers, $day, null, $access->isContractant($context));
+        $items = $this->buildDayItems(
+            $conn,
+            $passengers,
+            $day,
+            null,
+            $access->isContractant($context),
+            (int) ($context['transport_customer_id'] ?? 0)
+        );
 
         return response()->json([
             'data' => [
@@ -186,7 +193,8 @@ class ContractPortalController extends Controller
                 $passengers,
                 $d->copy()->startOfDay(),
                 $dayAbsences,
-                $access->isContractant($context)
+                $access->isContractant($context),
+                (int) ($context['transport_customer_id'] ?? 0)
             );
 
             $mappedItems = $dayItems->map(function (array $item) use (
@@ -225,6 +233,7 @@ class ContractPortalController extends Controller
                 return [
                     'passenger_id' => $item['passenger_id'],
                     'name' => $item['name'],
+                    'first_name' => $item['first_name'] ?? null,
                     'day_status' => $dayStatus,
                     'day_status_label' => match ($dayStatus) {
                         'absent' => 'Afgemeld',
@@ -510,10 +519,19 @@ class ContractPortalController extends Controller
         $data = $request->validate([
             'lat' => 'required|numeric|between:-90,90',
             'lng' => 'required|numeric|between:-180,180',
+            'simulating' => 'sometimes|boolean',
         ]);
 
         $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
         $arrival->rememberDriverPosition($conn, (int) $request->user()->id, (float) $data['lat'], (float) $data['lng']);
+        if ($request->boolean('simulating')) {
+            $arrival->rememberCustomerSimPosition(
+                $conn,
+                (int) ($context['transport_customer_id'] ?? 0),
+                (float) $data['lat'],
+                (float) $data['lng']
+            );
+        }
         $updated = $arrival->observe(
             $conn,
             (int) $request->user()->id,
@@ -584,7 +602,12 @@ class ContractPortalController extends Controller
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
         $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
-        $rides = $reset->resetToday($conn, $passengerIds, (int) $user->id);
+        $rides = $reset->resetToday(
+            $conn,
+            $passengerIds,
+            (int) $user->id,
+            (int) ($context['transport_customer_id'] ?? 0)
+        );
 
         return response()->json([
             'message' => 'Ritten van vandaag zijn gereset.',
@@ -747,7 +770,8 @@ class ContractPortalController extends Controller
         Collection $passengers,
         Carbon $dayStart,
         ?Collection $absenceMap = null,
-        bool $canOperateRides = false
+        bool $canOperateRides = false,
+        int $customerId = 0
     ): Collection {
         $passengerIds = $passengers->pluck('id')->all();
         $tz = $dayStart->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
@@ -823,7 +847,8 @@ class ContractPortalController extends Controller
             $absenceMap,
             $tz,
             $canOperateRides,
-            $arrival
+            $arrival,
+            $customerId
         ) {
             $absence = $absenceMap->get($p->id);
             $stops = ($stopsByPassenger->get($p->id) ?? collect())
@@ -844,7 +869,8 @@ class ContractPortalController extends Controller
                 $tz,
                 $p,
                 $canOperateRides,
-                $arrival
+                $arrival,
+                $customerId
             ) {
                 $ride = $stop->ride;
                 $destination = null;
@@ -943,7 +969,8 @@ class ContractPortalController extends Controller
                         $arrival,
                         $ride,
                         $statusKey,
-                        $canOperateRides
+                        $canOperateRides,
+                        $customerId
                     ),
                 ];
             })->values()->all();
@@ -959,6 +986,7 @@ class ContractPortalController extends Controller
             return [
                 'passenger_id' => (int) $p->id,
                 'name' => $p->full_name,
+                'first_name' => trim((string) $p->first_name),
                 'map_color' => $this->mapColorValue($p->map_color),
                 'pickup_address' => $p->pickup_address,
                 'pickup_lat' => $this->coordValue($p->pickup_lat),
@@ -1032,7 +1060,8 @@ class ContractPortalController extends Controller
     }
 
     /**
-     * Live taxi-positie voor de contractouder, alleen zolang de rit onderweg is.
+     * Live taxi-positie voor de contractouder.
+     * De simulator deelt de positie ook vóórdat iemand is opgehaald.
      *
      * @return array{lat: float, lng: float, updated_at: string}|null
      */
@@ -1041,11 +1070,21 @@ class ContractPortalController extends Controller
         ContractDestinationArrivalService $arrival,
         ?RideRequest $ride,
         string $statusKey,
-        bool $canOperateRides
+        bool $canOperateRides,
+        int $customerId
     ): ?array {
         if ($canOperateRides || ! $ride) {
             return null;
         }
+        if (in_array($statusKey, ['completed', 'absent', 'not_taken', 'none', 'skipped'], true)) {
+            return null;
+        }
+
+        $simulated = $arrival->freshCustomerSimPosition($conn, $customerId);
+        if ($simulated !== null) {
+            return $simulated;
+        }
+
         if (! in_array($statusKey, ['en_route', 'arrived', 'picked_up'], true)) {
             return null;
         }

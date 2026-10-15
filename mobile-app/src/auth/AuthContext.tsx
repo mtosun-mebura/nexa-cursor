@@ -30,6 +30,22 @@ function tokenIsExpired(expiresAt?: string | null): boolean {
   return Number.isFinite(ms) && ms <= Date.now();
 }
 
+/** Geen tussenscherm: bij meerdere rollen direct het standaardscherm, anders de laatste keuze. */
+export function resolveAppScreen(
+  session: BootstrapSession | null,
+  preferred?: string | null
+): 'driver' | 'contract' | null {
+  if (!session) return null;
+  const allowed = new Set((session.capabilities?.screens || []).map((screen) => screen.key));
+  const open = (key: string | null | undefined): key is 'driver' | 'contract' => {
+    if (key !== 'driver' && key !== 'contract') return false;
+    if (allowed.size > 0 && !allowed.has(key)) return false;
+    return key === 'driver' ? !!session.tokens?.driver : !!session.tokens?.contract;
+  };
+  const candidates = [preferred, session.capabilities?.default_screen, 'driver', 'contract'];
+  return candidates.find(open) ?? null;
+}
+
 function sanitizeSession(session: BootstrapSession): BootstrapSession | null {
   const tokens = { ...(session.tokens || {}) };
   if (tokens.driver && tokenIsExpired(tokens.driver.expires_at)) {
@@ -56,8 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await SecureStore.deleteItemAsync(SESSION_KEY);
       return;
     }
-    const screens = next.capabilities?.screens || [];
-    const nextScreen = screens.length === 1 ? screens[0].key : null;
+    const nextScreen = resolveAppScreen(next, next.capabilities?.default_screen);
     setActiveScreen(nextScreen);
     await SecureStore.setItemAsync(
       SESSION_KEY,
@@ -98,19 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'login').catch(() => undefined);
           } else {
             setSessionState(sanitized);
-            const screens = sanitized.capabilities?.screens || [];
-            let screen = parsed.activeScreen || sanitized.capabilities?.default_screen || null;
-            if (screen === 'driver' && !sanitized.tokens?.driver) {
-              screen = sanitized.tokens?.contract ? 'contract' : null;
-            }
-            if (screen === 'contract' && !sanitized.tokens?.contract) {
-              screen = sanitized.tokens?.driver ? 'driver' : null;
-            }
-            if (!screen && screens.length === 1) {
-              screen = screens[0].key;
-            }
-            if (screen === 'driver' && !sanitized.tokens?.driver) screen = null;
-            if (screen === 'contract' && !sanitized.tokens?.contract) screen = null;
+            const screen = resolveAppScreen(
+              sanitized,
+              parsed.activeScreen || sanitized.capabilities?.default_screen
+            );
             setActiveScreen(screen);
             if (sanitized !== parsed || screen !== parsed.activeScreen) {
               await SecureStore.setItemAsync(

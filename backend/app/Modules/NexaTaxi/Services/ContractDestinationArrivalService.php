@@ -34,6 +34,44 @@ class ContractDestinationArrivalService
         Cache::forget($this->positionKey($conn, $userId));
     }
 
+    /**
+     * Live positie van de ritsimulator, zodat de contractouder de taxi ziet rijden.
+     */
+    public function rememberCustomerSimPosition(string $conn, int $customerId, float $lat, float $lng): void
+    {
+        if ($customerId <= 0) {
+            return;
+        }
+
+        $now = Carbon::now(ContractTransportTimezone::TIMEZONE);
+        Cache::put($this->customerSimKey($conn, $customerId), [
+            'lat' => $lat,
+            'lng' => $lng,
+            'at' => $now->toIso8601String(),
+        ], $now->copy()->addMinutes(15));
+    }
+
+    /**
+     * @return array{lat: float, lng: float, updated_at: string}|null
+     */
+    public function freshCustomerSimPosition(string $conn, int $customerId): ?array
+    {
+        if ($customerId <= 0) {
+            return null;
+        }
+
+        return $this->freshCachedPosition($this->customerSimKey($conn, $customerId));
+    }
+
+    public function forgetCustomerSimPosition(string $conn, int $customerId): void
+    {
+        if ($customerId <= 0) {
+            return;
+        }
+
+        Cache::forget($this->customerSimKey($conn, $customerId));
+    }
+
     public function rememberDriverPosition(string $conn, int $userId, float $lat, float $lng): void
     {
         if ($userId <= 0) {
@@ -57,7 +95,15 @@ class ContractDestinationArrivalService
             return null;
         }
 
-        $state = Cache::get($this->positionKey($conn, $driverId));
+        return $this->freshCachedPosition($this->positionKey($conn, $driverId));
+    }
+
+    /**
+     * @return array{lat: float, lng: float, updated_at: string}|null
+     */
+    private function freshCachedPosition(string $key): ?array
+    {
+        $state = Cache::get($key);
         if (! is_array($state) || ! isset($state['lat'], $state['lng'], $state['at'])) {
             return null;
         }
@@ -283,6 +329,11 @@ class ContractDestinationArrivalService
     private function positionKey(string $conn, int $userId): string
     {
         return 'contract-vehicle-loc:'.$conn.':'.$userId;
+    }
+
+    private function customerSimKey(string $conn, int $customerId): string
+    {
+        return 'contract-sim-loc:'.$conn.':'.$customerId;
     }
 
     private function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float

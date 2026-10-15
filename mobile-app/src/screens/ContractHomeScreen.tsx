@@ -42,8 +42,8 @@ import {
   updateContractPassengerColor,
 } from '../api/contract';
 import { buildActiveNavigation, buildSimulatorStops } from '../api/contractNavigation';
-import { advanceAlong, pathAlongDisplayedLines, stopLabel } from '../contract/rideSimulator';
-import { DARK_MAP_STYLE, fetchDrivingRoute, type LatLng } from '../geo/route';
+import { advanceAlong, lineStartingNear, pathAlongDisplayedLines, stopLabel } from '../contract/rideSimulator';
+import { DARK_MAP_STYLE, bearingDegrees, fetchDrivingRoute, type LatLng } from '../geo/route';
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { playRideAlertTone } from '../audio/rideAlert';
@@ -320,7 +320,7 @@ const CHILD_MAP_COLORS = [
 
 const CHILD_COLOR_LABELS = ['Blauw', 'Amber', 'Groen', 'Roze', 'Paars', 'Rood', 'Cyaan', 'Oranje'];
 
-const CHILD_RIDE_SKIP = new Set(['completed', 'absent', 'not_taken', 'expired', 'none', 'skipped']);
+const CHILD_RIDE_SKIP = new Set(['absent', 'not_taken', 'expired', 'none', 'skipped']);
 const CHILD_RIDE_LIVE = new Set(['picked_up', 'en_route', 'arrived']);
 
 function childMapColor(passengerId: number, stored?: string | null): string {
@@ -337,28 +337,51 @@ function mapPoint(lat?: number | null, lng?: number | null): LatLng | null {
   return { latitude, longitude };
 }
 
+function passengerGivenName(name?: string | null, firstName?: string | null): string {
+  const given = String(firstName || '').trim();
+  if (given) return given;
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] || 'Kind';
+  return parts.slice(0, -1).join(' ');
+}
+
 type ChildMapRide = {
   passengerId: number;
   name: string;
+  givenName: string;
   color: string;
   inTaxi: boolean;
+  pickedUp: boolean;
+  arrived: boolean;
   pickup: LatLng | null;
   dropoff: LatLng | null;
   vehicle: LatLng | null;
 };
 
-function childMapRides(items: ContractDayItem[]): ChildMapRide[] {
+function childMapRides(items: ContractDayItem[], includeExpired = false): ChildMapRide[] {
+  const skip = includeExpired
+    ? new Set([...CHILD_RIDE_SKIP].filter((key) => key !== 'expired'))
+    : CHILD_RIDE_SKIP;
   const rides: ChildMapRide[] = [];
   for (const item of items) {
-    const legs = itemLegs(item).filter((leg) => !CHILD_RIDE_SKIP.has(legStatusKey(leg, item)));
+    const legs = itemLegs(item).filter((leg) => {
+      if (!skip.has(legStatusKey(leg, item))) return true;
+      const lat = Number(leg.vehicle_location?.lat);
+      const lng = Number(leg.vehicle_location?.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    });
     if (legs.length === 0) continue;
     const leg = legs.find((row) => CHILD_RIDE_LIVE.has(legStatusKey(row, item))) || legs[0];
     const key = legStatusKey(leg, item);
+    const arrived = key === 'completed' || Boolean(leg.destination_reached);
     rides.push({
       passengerId: item.passenger_id,
       name: item.name || 'Kind',
+      givenName: passengerGivenName(item.name, item.first_name),
       color: childMapColor(item.passenger_id, item.map_color),
       inTaxi: key === 'picked_up',
+      pickedUp: key === 'picked_up' || arrived,
+      arrived,
       pickup: mapPoint(leg.pickup_lat ?? item.pickup_lat, leg.pickup_lng ?? item.pickup_lng),
       dropoff: mapPoint(leg.destination_lat, leg.destination_lng),
       vehicle: mapPoint(leg.vehicle_location?.lat, leg.vehicle_location?.lng),
@@ -409,21 +432,25 @@ function FluidTaxiMarker({
   target,
   mapRef,
   imageStyle,
+  followRef,
 }: {
   target: LatLng;
   mapRef: React.RefObject<MapView | null>;
   imageStyle: React.ComponentProps<typeof Image>['style'];
+  followRef: React.RefObject<boolean>;
 }) {
   const [coord, setCoord] = useState(target);
   const coordRef = useRef(target);
   const hasTarget = useRef(false);
   const lastAt = useRef(0);
   const [trackView, setTrackView] = useState(true);
+  const [heading, setHeading] = useState(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => setTrackView(false), 400);
+    setTrackView(true);
+    const timer = setTimeout(() => setTrackView(false), 250);
     return () => clearTimeout(timer);
-  }, []);
+  }, [heading]);
 
   useEffect(() => {
     const from = coordRef.current;
@@ -431,12 +458,19 @@ function FluidTaxiMarker({
     const gap = lastAt.current ? now - lastAt.current : 0;
     lastAt.current = now;
     const dist = haversineMeters(from, target);
+    if (dist >= 4) {
+      const deg = bearingDegrees(
+        { lat: from.latitude, lng: from.longitude },
+        { lat: target.latitude, lng: target.longitude }
+      );
+      setHeading((deg + 360) % 360);
+    }
     const snap = !hasTarget.current || dist < 3 || dist > 800 || gap <= 0;
     hasTarget.current = true;
     if (snap) {
       coordRef.current = target;
       setCoord(target);
-      if (dist > 800) {
+      if (dist > 800 && followRef.current) {
         mapRef.current?.animateCamera({ center: target, zoom: 15 }, { duration: 500 });
       }
       return;
@@ -454,10 +488,12 @@ function FluidTaxiMarker({
       setCoord(next);
       if (t < 1) frame = requestAnimationFrame(tick);
     };
-    mapRef.current?.animateCamera({ center: target, zoom: 15 }, { duration });
+    if (followRef.current) {
+      mapRef.current?.animateCamera({ center: target, zoom: 15 }, { duration });
+    }
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [target.latitude, target.longitude, mapRef]);
+  }, [target.latitude, target.longitude, mapRef, followRef]);
 
   return (
     <Marker
@@ -467,23 +503,44 @@ function FluidTaxiMarker({
       tracksViewChanges={trackView}
       zIndex={50}
     >
-      <Image source={taxiCarYellow} style={imageStyle} resizeMode="contain" />
+      <View style={taxiMarkerFrame} collapsable={false}>
+        <Image
+          source={taxiCarYellow}
+          style={[imageStyle, { transform: [{ rotate: `${heading}deg` }] }]}
+          resizeMode="contain"
+        />
+      </View>
     </Marker>
   );
 }
 
-function offsetPoint(point: LatLng, index: number): LatLng {
-  const meters = 18 + index * 12;
-  const angle = (index * 55 * Math.PI) / 180;
+function moveMeters(point: LatLng, northMeters: number, eastMeters: number): LatLng {
+  const latRad = (point.latitude * Math.PI) / 180;
   return {
-    latitude: point.latitude + (meters * Math.cos(angle)) / 111320,
-    longitude:
-      point.longitude +
-      (meters * Math.sin(angle)) / (111320 * Math.cos((point.latitude * Math.PI) / 180)),
+    latitude: point.latitude + northMeters / 111320,
+    longitude: point.longitude + eastMeters / (111320 * Math.cos(latRad)),
   };
 }
 
+/**
+ * Namen in een kolom. De tussenruimte blijft op het scherm ongeveer gelijk,
+ * maar wordt nooit groter dan de afstand die bij uitzoomen goed leest.
+ */
+function stackPoint(point: LatLng, index: number, metersPerPixel: number): LatLng {
+  const gap = Math.min(280, 34 * metersPerPixel);
+  const start = Math.min(150, 28 * metersPerPixel);
+  const side = Math.min(90, 16 * metersPerPixel);
+  return moveMeters(point, start + index * gap, side);
+}
+
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
+/** Vierkant ruim genoeg voor de auto in elke draai, anders knipt de marker neus en kont af. */
+const taxiMarkerFrame = {
+  width: 56,
+  height: 56,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
 
 /** Banner voor ouders/contractant — gebruikt API-tekst of lokale fallback. */
 function legStatusBanner(leg: ContractLeg, item: ContractDayItem): string {
@@ -565,10 +622,13 @@ function legMatchesStatusFilter(
   filter: TripStatusFilter
 ): boolean {
   if (filter === 'all') return true;
+  const key = legStatusKey(leg, item);
+  const arrived = key === 'completed' || Boolean(leg.destination_reached);
   const expired = legIsExpired(leg, item);
   const terminal = legIsTerminal(leg, item);
-  if (filter === 'expired') return expired && !terminal;
-  return !expired && !terminal;
+  if (key === 'absent' || key === 'not_taken') return false;
+  if (filter === 'expired') return expired || arrived;
+  return !expired && !terminal && !arrived;
 }
 
 function actionableLegKey(item: ContractDayItem, leg: ContractLeg, date?: string): string {
@@ -656,6 +716,7 @@ export function ContractHomeScreen() {
   const [simResetError, setSimResetError] = useState<string | null>(null);
   const [simSpeed, setSimSpeed] = useState(60);
   const [simLabel, setSimLabel] = useState('De chauffeur rijdt de haltes af.');
+  const [simExtraLines, setSimExtraLines] = useState<LatLng[][]>([]);
   const simActiveRef = useRef(false);
   const simSpeedRef = useRef(60);
   const simTrackWidth = useRef(1);
@@ -708,6 +769,12 @@ export function ContractHomeScreen() {
   const lastFixRef = useRef<{ lat: number; lng: number } | null>(null);
   const driverGpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const [driverFix, setDriverFix] = useState<LatLng | null>(null);
+  const [followTaxi, setFollowTaxi] = useState(true);
+  const followTaxiRef = useRef(true);
+  const [pinScale, setPinScale] = useState({ latitudeDelta: 0.08, height: 320 });
+  const prevTaxiRef = useRef<LatLng | null>(null);
+  const [taxiHeading, setTaxiHeading] = useState(0);
+  const [trackTaxiHeading, setTrackTaxiHeading] = useState(true);
   const lastLocationPostRef = useRef(0);
   const parentMapRef = useRef<MapView | null>(null);
   const parentMapFittedKey = useRef('');
@@ -1298,29 +1365,41 @@ export function ContractHomeScreen() {
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
       if (cancelled) return;
-      const displayed = Object.values(childRouteLinesRef.current);
+      const displayed = Object.values(childRouteLinesRef.current).filter((line) => line.length > 1);
       let from = origin;
       const built: LatLng[][] = [];
+      const extras: LatLng[][] = [];
       for (const stop of stops) {
         const to = { latitude: stop.lat, longitude: stop.lng };
         const along = pathAlongDisplayedLines(displayed, from, to);
         if (along && along.length > 1) {
           built.push(along);
+          from = along[along.length - 1];
         } else {
+          const host = lineStartingNear(displayed, to);
+          const target = host ? host[0] : to;
+          let coords: LatLng[];
           try {
             const route = await fetchDrivingRoute(
               { lat: from.latitude, lng: from.longitude },
-              { lat: to.latitude, lng: to.longitude }
+              { lat: target.latitude, lng: target.longitude }
             );
-            built.push(route.coordinates.length > 1 ? route.coordinates : [from, to]);
+            coords = route.coordinates.length > 1 ? route.coordinates : [from, target];
           } catch {
-            built.push([from, to]);
+            coords = [from, target];
           }
+          if (host && haversineMeters(coords[coords.length - 1], host[0]) > 15) {
+            coords = [...coords, host[0]];
+          }
+          built.push(coords);
+          extras.push(coords);
+          from = coords[coords.length - 1];
         }
-        from = to;
         if (cancelled) return;
       }
+      if (cancelled) return;
       lines = built;
+      setSimExtraLines(extras);
       ready = true;
     })();
 
@@ -1340,7 +1419,7 @@ export function ContractHomeScreen() {
       const now = Date.now();
       if (now - lastPost > 250) {
         lastPost = now;
-        void postContractLocation(contractToken, step.point.latitude, step.point.longitude).catch(
+        void postContractLocation(contractToken, step.point.latitude, step.point.longitude, true).catch(
           () => undefined
         );
       }
@@ -1348,7 +1427,7 @@ export function ContractHomeScreen() {
       busy = true;
       void (async () => {
         try {
-          await postContractLocation(contractToken, stop.lat, stop.lng);
+          await postContractLocation(contractToken, stop.lat, stop.lng, true);
           lastFixRef.current = { lat: stop.lat, lng: stop.lng };
           setDriverFix({ latitude: stop.lat, longitude: stop.lng });
           if (stop.kind === 'pickup' && stop.rideStopId) {
@@ -1389,6 +1468,7 @@ export function ContractHomeScreen() {
     return () => {
       cancelled = true;
       simActiveRef.current = false;
+      setSimExtraLines([]);
       clearInterval(timer);
     };
   }, [simRunning, contractToken, pollToday]);
@@ -1424,11 +1504,11 @@ export function ContractHomeScreen() {
   }
   const childRides = useMemo(
     () =>
-      childMapRides(todayItems).map((ride) => ({
+      childMapRides(todayItems, showSimulator).map((ride) => ({
         ...ride,
         color: colorOverrides[ride.passengerId] || ride.color,
       })),
-    [todayItems, colorOverrides]
+    [todayItems, colorOverrides, showSimulator]
   );
   const childRouteKey = useMemo(
     () =>
@@ -1452,6 +1532,24 @@ export function ContractHomeScreen() {
       .filter((line): line is LatLng[] => !!line && line.length > 1);
     return placeTaxiOnLines(raw, lines);
   }, [canOperateRides, driverFix, childRides, childRouteLines, simRunning]);
+
+  useEffect(() => {
+    if (!canOperateRides || !taxiOnMap) return;
+    const prev = prevTaxiRef.current;
+    prevTaxiRef.current = taxiOnMap;
+    if (!prev || haversineMeters(prev, taxiOnMap) < 4) return;
+    const deg = bearingDegrees(
+      { lat: prev.latitude, lng: prev.longitude },
+      { lat: taxiOnMap.latitude, lng: taxiOnMap.longitude }
+    );
+    setTaxiHeading((deg + 360) % 360);
+  }, [canOperateRides, taxiOnMap]);
+
+  useEffect(() => {
+    setTrackTaxiHeading(true);
+    const timer = setTimeout(() => setTrackTaxiHeading(false), 250);
+    return () => clearTimeout(timer);
+  }, [taxiHeading]);
   const passengerPins = useMemo(() => {
     const pins: Array<{
       key: string;
@@ -1459,11 +1557,21 @@ export function ContractHomeScreen() {
       color: string;
       label: string;
       kind: 'pickup' | 'destination';
+      pickedUp: boolean;
+      arrivedNames: Array<{ label: string; color: string }>;
     }> = [];
     const seenDest = new Set<string>();
-    childRides.forEach((ride, index) => {
-      const label = ride.name.split(' ')[0] || ride.name;
-      const pickup = ride.inTaxi && taxiOnMap ? offsetPoint(taxiOnMap, index) : ride.pickup;
+    const arrivedByDest = new Map<string, Array<{ label: string; color: string }>>();
+    childRides.forEach((ride) => {
+      const label = ride.givenName || ride.name;
+      if (ride.arrived && ride.dropoff) {
+        const destKey = `${ride.dropoff.latitude.toFixed(4)},${ride.dropoff.longitude.toFixed(4)}`;
+        const names = arrivedByDest.get(destKey) ?? [];
+        names.push({ label, color: ride.color });
+        arrivedByDest.set(destKey, names);
+        return;
+      }
+      const pickup = ride.inTaxi && taxiOnMap ? taxiOnMap : ride.pickup;
       if (pickup) {
         pins.push({
           key: `pick-${ride.passengerId}`,
@@ -1471,8 +1579,12 @@ export function ContractHomeScreen() {
           color: ride.color,
           label,
           kind: 'pickup',
+          pickedUp: ride.pickedUp,
+          arrivedNames: [],
         });
       }
+    });
+    childRides.forEach((ride) => {
       if (!ride.dropoff) return;
       const destKey = `${ride.dropoff.latitude.toFixed(4)},${ride.dropoff.longitude.toFixed(4)}`;
       if (seenDest.has(destKey)) return;
@@ -1483,10 +1595,38 @@ export function ContractHomeScreen() {
         color: DEST_GREEN,
         label: '',
         kind: 'destination',
+        pickedUp: false,
+        arrivedNames: arrivedByDest.get(destKey) ?? [],
       });
     });
-    return pins;
-  }, [childRides, taxiOnMap]);
+    const metersPerPixel =
+      (pinScale.latitudeDelta * 111320) / Math.max(pinScale.height, 120);
+    const clusterMeters = Math.min(200, 48 * metersPerPixel);
+    const named = pins.filter((pin) => pin.kind === 'pickup' && pin.label);
+    const used = new Set<string>();
+    const moved = new Map<string, LatLng>();
+    for (const pin of named) {
+      if (used.has(pin.key)) continue;
+      const group = [pin];
+      used.add(pin.key);
+      for (const other of named) {
+        if (used.has(other.key)) continue;
+        if (haversineMeters(pin.coordinate, other.coordinate) < clusterMeters) {
+          group.push(other);
+          used.add(other.key);
+        }
+      }
+      if (group.length < 2) continue;
+      group.forEach((item, index) => {
+        moved.set(item.key, stackPoint(group[0].coordinate, index, metersPerPixel));
+      });
+    }
+    if (moved.size === 0) return pins;
+    return pins.map((pin) => {
+      const coordinate = moved.get(pin.key);
+      return coordinate ? { ...pin, coordinate } : pin;
+    });
+  }, [childRides, taxiOnMap, pinScale]);
 
   useEffect(() => {
     if (!childRouteKey) {
@@ -1514,7 +1654,7 @@ export function ContractHomeScreen() {
   }, [childRouteKey]);
 
   useEffect(() => {
-    if (!canOperateRides || !taxiOnMap || !parentMapRef.current) return;
+    if (!canOperateRides || !followTaxi || !taxiOnMap || !parentMapRef.current) return;
     parentMapRef.current.animateCamera(
       {
         center: { latitude: taxiOnMap.latitude, longitude: taxiOnMap.longitude },
@@ -1522,7 +1662,7 @@ export function ContractHomeScreen() {
       },
       { duration: 700 }
     );
-  }, [canOperateRides, taxiOnMap?.latitude, taxiOnMap?.longitude]);
+  }, [canOperateRides, followTaxi, taxiOnMap?.latitude, taxiOnMap?.longitude]);
 
   useEffect(() => {
     if (taxiOnMap || !parentMapRef.current) return;
@@ -1691,16 +1831,29 @@ export function ContractHomeScreen() {
     });
     const prev = statusSeenRef.current;
     statusSeenRef.current = next;
-    if (!prev || canOperateRides) return;
+    if (!prev) return;
     const keys: string[] = [];
+    const arrivedKeys: string[] = [];
     for (const [id, status] of next) {
       const before = prev.get(id);
       if (!before || before === status) continue;
+      if (status === 'completed') arrivedKeys.push(id);
+      if (canOperateRides) continue;
       const wasBoarded = before === 'picked_up' || before === 'completed';
       if ((status === 'picked_up' || status === 'completed') && !wasBoarded) {
         keys.push(`pickup:${id}`);
       }
       if (status === 'completed') keys.push(`dest:${id}`);
+    }
+    if (arrivedKeys.length > 0) {
+      selectTab('trips');
+      setTripStatusFilter('expired');
+      AsyncStorage.setItem(CONTRACT_TRIP_STATUS_KEY, 'expired').catch(() => undefined);
+      setExpandedRideKeys((open) => {
+        const nextOpen = { ...open };
+        for (const key of arrivedKeys) nextOpen[key] = true;
+        return nextOpen;
+      });
     }
     if (keys.length === 0) return;
     bumpPulses(keys);
@@ -2364,11 +2517,38 @@ export function ContractHomeScreen() {
     todayItems.find((item) => item.passenger_id === colorPassengerId)?.map_color ||
     null;
 
+  function releaseTaxiFollow() {
+    if (!followTaxiRef.current) return;
+    followTaxiRef.current = false;
+    setFollowTaxi(false);
+  }
+
+  function focusTaxi() {
+    if (!taxiOnMap) return;
+    followTaxiRef.current = true;
+    setFollowTaxi(true);
+    parentMapRef.current?.animateCamera(
+      {
+        center: { latitude: taxiOnMap.latitude, longitude: taxiOnMap.longitude },
+        zoom: 15,
+      },
+      { duration: 450 }
+    );
+  }
+
   const parentNavigation = (
     <View style={styles.parentNav}>
       <View style={styles.parentNavHeader}>
         <ScreenHeader title="Navigatie" />
       </View>
+      <View
+        style={styles.parentNavMapWrap}
+        onLayout={(event) => {
+          const height = event.nativeEvent.layout.height;
+          if (height < 80) return;
+          setPinScale((prev) => (Math.abs(prev.height - height) < 8 ? prev : { ...prev, height }));
+        }}
+      >
       <MapView
         key={colorScheme}
         ref={parentMapRef}
@@ -2385,8 +2565,33 @@ export function ContractHomeScreen() {
         showsMyLocationButton={false}
         pitchEnabled={false}
         rotateEnabled={false}
+        scrollEnabled
+        zoomEnabled
         toolbarEnabled={false}
+        onPanDrag={releaseTaxiFollow}
+        onRegionChange={(_region, details) => {
+          if (details?.isGesture) releaseTaxiFollow();
+        }}
+        onRegionChangeComplete={(region) => {
+          const latitudeDelta = region.latitudeDelta;
+          if (!Number.isFinite(latitudeDelta) || latitudeDelta <= 0) return;
+          setPinScale((prev) =>
+            Math.abs(prev.latitudeDelta - latitudeDelta) < prev.latitudeDelta * 0.08
+              ? prev
+              : { ...prev, latitudeDelta }
+          );
+        }}
       >
+        {simExtraLines.map((line, index) =>
+          line.length > 1 ? (
+            <Polyline
+              key={`sim-line-${index}`}
+              coordinates={line}
+              strokeColor="#E2E8F0"
+              strokeWidth={5}
+            />
+          ) : null
+        )}
         {childRides.map((ride) => {
           const line =
             childRouteLines[ride.passengerId] ||
@@ -2411,8 +2616,23 @@ export function ContractHomeScreen() {
             zIndex={pin.kind === 'destination' ? 40 : 30}
           >
             <View style={styles.childMarker}>
-              {pin.kind === 'pickup' && pin.label ? (
-                <Text style={[styles.childMarkerName, styles.passengerPinLabel, { backgroundColor: pin.color }]} numberOfLines={1}>
+              {pin.arrivedNames.length > 0 ? (
+                <View style={styles.destinationNames}>
+                  <Text style={styles.destinationCaption}>Bestemming</Text>
+                  {pin.arrivedNames.map((person) => (
+                    <View
+                      key={person.label}
+                      style={[styles.destinationNameRow, { backgroundColor: person.color }]}
+                    >
+                      <Text style={styles.destinationNameText}>{person.label}</Text>
+                      <View style={styles.passengerPinCheck}>
+                        <Ionicons name="checkmark" size={13} color="#16A34A" />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : pin.kind === 'pickup' && pin.label ? (
+                <Text style={[styles.childMarkerName, styles.passengerPinLabel, { backgroundColor: pin.color }]}>
                   {pin.label}
                 </Text>
               ) : null}
@@ -2421,7 +2641,13 @@ export function ContractHomeScreen() {
                   pin.kind === 'destination' ? styles.destinationPinHead : styles.passengerPinHead,
                   { backgroundColor: pin.color },
                 ]}
-              />
+              >
+                {pin.kind === 'pickup' && pin.pickedUp ? (
+                  <View style={styles.passengerPinCheck}>
+                    <Ionicons name="checkmark" size={13} color="#16A34A" />
+                  </View>
+                ) : null}
+              </View>
               <View
                 style={[
                   pin.kind === 'destination' ? styles.destinationPinTail : styles.passengerPinTail,
@@ -2436,18 +2662,36 @@ export function ContractHomeScreen() {
             target={taxiOnMap}
             mapRef={parentMapRef}
             imageStyle={styles.taxiMarker}
+            followRef={followTaxiRef}
           />
         ) : taxiOnMap ? (
           <Marker
             coordinate={taxiOnMap}
             title="Taxi"
             anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
+            tracksViewChanges={trackTaxiHeading}
           >
-            <Image source={taxiCarYellow} style={styles.taxiMarker} resizeMode="contain" />
+            <View style={taxiMarkerFrame} collapsable={false}>
+              <Image
+                source={taxiCarYellow}
+                style={[styles.taxiMarker, { transform: [{ rotate: `${taxiHeading}deg` }] }]}
+                resizeMode="contain"
+              />
+            </View>
           </Marker>
         ) : null}
       </MapView>
+      {taxiOnMap && !followTaxi ? (
+        <Pressable
+          style={styles.mapFocusBtn}
+          onPress={focusTaxi}
+          accessibilityRole="button"
+          accessibilityLabel="Focus op de taxi"
+        >
+          <Ionicons name="locate" size={22} color={colors.text} />
+        </Pressable>
+      ) : null}
+      </View>
       {childRides.length === 0 && !taxiOnMap ? (
         <View style={styles.parentNavEmpty} pointerEvents="none">
           <Text style={styles.parentNavEmptyText}>Geen open rit om te volgen.</Text>
@@ -2704,7 +2948,7 @@ export function ContractHomeScreen() {
         })}
       </View>
 
-      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen(null)} /> : null}
+      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen('driver')} /> : null}
       <Pressable
         style={styles.logoutBtn}
         onPress={() => {
@@ -3064,9 +3308,26 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingHorizontal: 20,
       paddingTop: 4,
     },
+    parentNavMapWrap: {
+      flex: 1,
+      minHeight: 280,
+    },
     parentNavMap: {
       flex: 1,
       minHeight: 280,
+    },
+    mapFocusBtn: {
+      position: 'absolute',
+      right: 16,
+      bottom: 16,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     navStartBtn: {
       marginHorizontal: 16,
@@ -3152,17 +3413,29 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     childMarker: {
       alignItems: 'center',
+      paddingHorizontal: 6,
+      paddingTop: 2,
     },
     passengerPinLabel: {
       marginTop: 0,
       marginBottom: 2,
     },
     passengerPinHead: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
       borderWidth: 2,
       borderColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    passengerPinCheck: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     passengerPinTail: {
       width: 0,
@@ -3173,6 +3446,35 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       borderTopWidth: 8,
       borderLeftColor: 'transparent',
       borderRightColor: 'transparent',
+    },
+    destinationNames: {
+      alignItems: 'center',
+      marginBottom: 4,
+      gap: 3,
+    },
+    destinationCaption: {
+      color: '#fff',
+      backgroundColor: '#15803D',
+      overflow: 'hidden',
+      fontSize: 10,
+      fontWeight: '800',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    destinationNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 6,
+      paddingLeft: 6,
+      paddingRight: 3,
+      paddingVertical: 2,
+      gap: 4,
+    },
+    destinationNameText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '800',
     },
     destinationPinHead: {
       width: 30,
@@ -3196,11 +3498,9 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: '#fff',
       fontSize: 10,
       fontWeight: '800',
-      paddingHorizontal: 5,
-      paddingVertical: 1,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       borderRadius: 6,
-      overflow: 'hidden',
-      maxWidth: 88,
     },
     childLegendHint: {
       color: colors.muted,
