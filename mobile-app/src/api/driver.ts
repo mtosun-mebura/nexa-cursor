@@ -50,6 +50,9 @@ export type DriverVehicle = {
   name?: string;
   license_plate?: string | null;
   type?: string;
+  type_label?: string | null;
+  person_range?: string | null;
+  person_range_label?: string | null;
   label?: string;
   photo_url?: string | null;
 };
@@ -306,6 +309,39 @@ export function uploadDriverVehiclePhoto(
 
 export function fetchDriverVehicles(token: string) {
   return apiRequest<DriverVehiclesResponse>('/api/taxi/v1/driver/vehicles', { token });
+}
+
+export type DriverVehicleInput = {
+  name: string;
+  type: string;
+  license_plate: string;
+  person_range: string;
+};
+
+export function fetchDriverFleet(token: string) {
+  return apiRequest<{ data?: DriverVehicle[] }>('/api/taxi/v1/driver/vehicles/fleet', { token });
+}
+
+export function createDriverVehicle(token: string, input: DriverVehicleInput) {
+  return apiRequest<{ data?: DriverVehicle; message?: string }>('/api/taxi/v1/driver/vehicles', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export function updateDriverVehicle(token: string, vehicleId: number, input: DriverVehicleInput) {
+  return apiRequest<{ data?: DriverVehicle; message?: string }>(
+    `/api/taxi/v1/driver/vehicles/${vehicleId}`,
+    { method: 'PUT', token, body: input }
+  );
+}
+
+export function deleteDriverVehicle(token: string, vehicleId: number) {
+  return apiRequest<{ message?: string }>(`/api/taxi/v1/driver/vehicles/${vehicleId}`, {
+    method: 'DELETE',
+    token,
+  });
 }
 
 export function setDriverOnline(token: string, isOnline: boolean, vehicleId?: number | null) {

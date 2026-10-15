@@ -49,6 +49,8 @@ export type ContractLeg = {
 export type ContractDayItem = {
   passenger_id: number;
   name: string;
+  /** Voornaam zoals ingesteld, kan uit meerdere woorden bestaan. */
+  first_name?: string | null;
   pickup_address?: string | null;
   pickup_lat?: number | null;
   pickup_lng?: number | null;
@@ -215,10 +217,15 @@ export function updateContractPassengerColor(token: string, passengerId: number,
   );
 }
 
-export function postContractLocation(token: string, lat: number, lng: number) {
+export function postContractLocation(
+  token: string,
+  lat: number,
+  lng: number,
+  simulating = false
+) {
   return apiRequest<{ data?: { updated?: number; dwell_minutes?: number } }>(
     '/api/taxi/v1/contract/location',
-    { method: 'POST', token, body: { lat, lng } }
+    { method: 'POST', token, body: { lat, lng, ...(simulating ? { simulating: true } : {}) } }
   );
 }
 

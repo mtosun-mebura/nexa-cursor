@@ -5,13 +5,12 @@ import { ActivityIndicator, Linking, StatusBar, View } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from './src/auth/AuthContext';
+import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
 import { parseAppDeepLink } from './src/linking';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MarketplaceRegisterScreen } from './src/screens/MarketplaceRegisterScreen';
-import { RoleSelectScreen } from './src/screens/RoleSelectScreen';
 import { DriverHomeScreen } from './src/screens/DriverHomeScreen';
 import { ContractHomeScreen } from './src/screens/ContractHomeScreen';
 import { CustomerHomeScreen } from './src/screens/CustomerHomeScreen';
@@ -21,7 +20,6 @@ export type RootStackParamList = {
   Login: undefined;
   MarketplaceRegister: undefined;
   Customer: undefined;
-  RoleSelect: undefined;
   Driver: undefined;
   Contract: undefined;
 };
@@ -124,18 +122,15 @@ function RootNavigator() {
     );
   }
 
-  const screens = capabilities?.screens || [];
-  const needsRolePick = !!session && !activeScreen && screens.length > 1;
-  const showDriver = !!session && activeScreen === 'driver' && !!session.tokens?.driver;
-  const showContract = !!session && activeScreen === 'contract' && !!session.tokens?.contract;
+  const screenKey = resolveAppScreen(session, activeScreen || capabilities?.default_screen);
+  const showDriver = screenKey === 'driver';
+  const showContract = screenKey === 'contract';
 
   const initialRouteName: keyof RootStackParamList = showDriver
     ? 'Driver'
     : showContract
       ? 'Contract'
-      : needsRolePick
-        ? 'RoleSelect'
-        : guestRoute === 'customer'
+      : guestRoute === 'customer'
           ? 'Customer'
           : guestRoute === 'login'
             ? 'Login'
@@ -159,8 +154,6 @@ function RootNavigator() {
           <Stack.Screen name="Driver" component={DriverHomeScreen} />
         ) : showContract ? (
           <Stack.Screen name="Contract" component={ContractHomeScreen} />
-        ) : needsRolePick ? (
-          <Stack.Screen name="RoleSelect" component={RoleSelectScreen} />
         ) : guestRoute === 'customer' ? (
           <Stack.Screen name="Customer">
             {() => <CustomerHomeScreen onBack={() => persistGuestRoute('welcome')} />}

@@ -90,6 +90,44 @@ function waveHasOpenStops(wave: WaveRow[]): boolean {
   return wave.some((row) => !row.picked_up && row.pickup_address !== '');
 }
 
+/** Open ophalen of een open bestemming, ook als het tijdstip al verlopen is. */
+function waveHasSimulatorWork(wave: WaveRow[]): boolean {
+  return wave.some((row) => !row.picked_up || !row.destination_reached);
+}
+
+/**
+ * Zelfde volgorde als de navigatie, maar zonder klok.
+ * Een verlopen heenweg blijft rijdbaar tot de statussen gezet zijn.
+ */
+function selectSimulatorWave(rows: WaveRow[]): WaveRow[] {
+  const byKey = new Map<string, WaveRow[]>();
+  for (const row of rows) {
+    const list = byKey.get(row.leg_key) || [];
+    list.push(row);
+    byKey.set(row.leg_key, list);
+  }
+
+  const order: string[] = [];
+  for (const preferred of ['heen', 'retour']) {
+    if (byKey.has(preferred)) order.push(preferred);
+  }
+  for (const key of byKey.keys()) {
+    if (!order.includes(key)) order.push(key);
+  }
+
+  for (const key of order) {
+    const wave = byKey.get(key)!;
+    if (waveIsInProgress(wave)) return wave;
+  }
+
+  for (const key of order) {
+    const wave = byKey.get(key)!;
+    if (waveHasSimulatorWork(wave)) return wave;
+  }
+
+  return [];
+}
+
 function waveEarliest(wave: WaveRow[]): Date | null {
   let best: Date | null = null;
   for (const row of wave) {
@@ -315,9 +353,10 @@ function finiteCoord(lat?: number | null, lng?: number | null): { lat: number; l
 /**
  * Haltes voor de ritsimulator: eerst open ophaalpunten, daarna bestemmingen.
  * Elke passagier blijft een eigen ophaalstop, ook bij hetzelfde adres.
+ * Een verlopen ophaaltijd blokkeert de simulator niet.
  */
-export function buildSimulatorStops(items: ContractDayItem[], now: Date = new Date()): SimulatorStop[] {
-  const wave = selectActiveWave(collectRows(items), now);
+export function buildSimulatorStops(items: ContractDayItem[]): SimulatorStop[] {
+  const wave = selectSimulatorWave(collectRows(items));
   const stops: SimulatorStop[] = [];
 
   for (const row of wave) {

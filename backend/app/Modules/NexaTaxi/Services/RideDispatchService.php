@@ -80,6 +80,7 @@ class RideDispatchService
             ),
             fn (int $driverId) => ! in_array($driverId, $exclude, true)
         ));
+        $driverIds = $this->driverIdsForPassengerCapacity($conn, $companyId, $ride, $driverIds);
 
         if ($driverIds === []) {
             if ($enforcePickupRadius) {
@@ -420,6 +421,18 @@ class RideDispatchService
 
         foreach ($rides as $ride) {
             if ($this->driverDeclinedRide($conn, (int) $ride->id, $driverId)) {
+                continue;
+            }
+
+            if (! $this->driverFitsPassengerCapacity($conn, $companyId, $driverId, $ride)) {
+                RideDispatchOffer::on($conn)
+                    ->where('ride_request_id', $ride->id)
+                    ->where('driver_id', $driverId)
+                    ->where('status', RideDispatchOffer::STATUS_PENDING)
+                    ->update([
+                        'status' => RideDispatchOffer::STATUS_EXPIRED,
+                        'responded_at' => $now,
+                    ]);
                 continue;
             }
 
@@ -814,5 +827,49 @@ class RideDispatchService
         }
 
         return $this->drivers->onlineDriverIdsForCompany($conn, $companyId, $batch);
+    }
+
+    /**
+     * Meer dan 4 personen: alleen chauffeurs op een voertuig met bereik 5 t/m 8.
+     *
+     * @param  list<int>  $driverIds
+     * @return list<int>
+     */
+    private function driverIdsForPassengerCapacity(string $conn, int $companyId, RideRequest $ride, array $driverIds): array
+    {
+        if ($driverIds === [] || (int) ($ride->passengers ?? 1) <= 4) {
+            return $driverIds;
+        }
+
+        return array_values(array_filter(
+            $driverIds,
+            fn (int $driverId) => $this->driverFitsPassengerCapacity($conn, $companyId, $driverId, $ride)
+        ));
+    }
+
+    private function driverFitsPassengerCapacity(string $conn, int $companyId, int $driverId, RideRequest $ride): bool
+    {
+        if ((int) ($ride->passengers ?? 1) <= 4) {
+            return true;
+        }
+
+        if (! Schema::connection($conn)->hasTable('driver_availability')
+            || ! Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id')
+            || ! Schema::connection($conn)->hasColumn('vehicles', 'person_range')) {
+            return false;
+        }
+
+        $vehicleId = \App\Modules\NexaTaxi\Models\DriverAvailability::on($conn)
+            ->where('company_id', $companyId)
+            ->where('driver_id', $driverId)
+            ->value('vehicle_id');
+
+        if (! $vehicleId) {
+            return false;
+        }
+
+        $range = Vehicle::on($conn)->whereKey((int) $vehicleId)->value('person_range');
+
+        return (string) $range === Vehicle::PERSON_RANGE_5_8;
     }
 }

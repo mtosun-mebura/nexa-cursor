@@ -30,6 +30,10 @@ import {
   fetchDriverMe,
   fetchDriverReviews,
   fetchDriverVehicles,
+  fetchDriverFleet,
+  createDriverVehicle,
+  updateDriverVehicle,
+  deleteDriverVehicle,
   DriverReview,
   fetchDriverPlanningWeek,
   inboxDataFromResponse,
@@ -378,6 +382,21 @@ export function DriverHomeScreen() {
   const [vehicleLocked, setVehicleLocked] = useState(false);
   const [assignedUntil, setAssignedUntil] = useState<string | null>(null);
   const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false);
+  const [fleet, setFleet] = useState<DriverVehicle[]>([]);
+  const [vehicleFormOpen, setVehicleFormOpen] = useState(false);
+  const [vehicleFormBusy, setVehicleFormBusy] = useState(false);
+  const [vehicleFormError, setVehicleFormError] = useState<string | null>(null);
+  const [vehicleDeleteId, setVehicleDeleteId] = useState<number | null>(null);
+  const [vehicleDraft, setVehicleDraft] = useState({
+    id: null as number | null,
+    name: '',
+    type: 'car',
+    license_plate: '',
+    person_range: '1-4',
+    photoUri: null as string | null,
+    photoMime: null as string | null,
+    existingPhoto: null as string | null,
+  });
   const [vehiclePhotoAsk, setVehiclePhotoAsk] = useState<DriverVehicle | null>(null);
   const [focusVehiclePhoto, setFocusVehiclePhoto] = useState(false);
   const profileScrollRef = useRef<ScrollView>(null);
@@ -473,10 +492,11 @@ export function DriverHomeScreen() {
     if (!driverToken) return;
     setError(null);
     try {
-      const [me, vehiclesRes, inbox] = await Promise.all([
+      const [me, vehiclesRes, inbox, fleetRes] = await Promise.all([
         fetchDriverMe(driverToken),
         fetchDriverVehicles(driverToken),
         fetchDriverInbox(driverToken),
+        fetchDriverFleet(driverToken),
       ]);
       const isOnlineNow = !!me.user.is_online;
       setOnline(isOnlineNow);
@@ -523,6 +543,7 @@ export function DriverHomeScreen() {
           };
         })
       );
+      setFleet(Array.isArray(fleetRes.data) ? fleetRes.data : []);
       setVehicleLocked(locked);
       setAssignedUntil(vehiclesRes.assigned_until || null);
       let resolvedVehicleId: number | null = selectedVehicleId;
@@ -1582,6 +1603,104 @@ export function DriverHomeScreen() {
     }
   };
 
+  function openVehicleForm(vehicle?: DriverVehicle) {
+    setVehicleFormError(null);
+    setVehicleDraft({
+      id: vehicle?.id ?? null,
+      name: vehicle?.name || '',
+      type: vehicle?.type || 'car',
+      license_plate: vehicle?.license_plate || '',
+      person_range: vehicle?.person_range || '1-4',
+      photoUri: null,
+      photoMime: null,
+      existingPhoto: vehicle?.photo_url || null,
+    });
+    setVehiclePickerOpen(false);
+    setVehicleFormOpen(true);
+  }
+
+  async function pickVehicleDraftPhoto() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setVehicleFormError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      allowsEditing: false,
+    });
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset?.uri) return;
+    setVehicleDraft((current) => ({
+      ...current,
+      photoUri: asset.uri,
+      photoMime: asset.mimeType || null,
+    }));
+  }
+
+  async function saveVehicleDraft() {
+    if (!driverToken || vehicleFormBusy) return;
+    const name = vehicleDraft.name.trim();
+    const plate = vehicleDraft.license_plate.trim();
+    if (name.length < 1) {
+      setVehicleFormError('Vul een naam in.');
+      return;
+    }
+    if (plate.length < 1) {
+      setVehicleFormError('Vul een kenteken in.');
+      return;
+    }
+    setVehicleFormBusy(true);
+    setVehicleFormError(null);
+    try {
+      const input = {
+        name,
+        type: vehicleDraft.type,
+        license_plate: plate,
+        person_range: vehicleDraft.person_range,
+      };
+      const saved = vehicleDraft.id
+        ? await updateDriverVehicle(driverToken, vehicleDraft.id, input)
+        : await createDriverVehicle(driverToken, input);
+      const savedId = Number(saved.data?.id || vehicleDraft.id || 0);
+      if (vehicleDraft.photoUri && savedId > 0) {
+        await uploadDriverVehiclePhoto(
+          driverToken,
+          vehicleDraft.photoUri,
+          vehicleDraft.photoMime,
+          savedId
+        );
+      }
+      setVehicleFormOpen(false);
+      await refresh();
+    } catch (e) {
+      setVehicleFormError(e instanceof ApiError ? e.message : 'Voertuig opslaan mislukt.');
+    } finally {
+      setVehicleFormBusy(false);
+    }
+  }
+
+  async function confirmDeleteVehicle() {
+    if (!driverToken || !vehicleDeleteId || vehicleFormBusy) return;
+    setVehicleFormBusy(true);
+    setVehicleFormError(null);
+    try {
+      await deleteDriverVehicle(driverToken, vehicleDeleteId);
+      if (selectedVehicleId === vehicleDeleteId) {
+        setSelectedVehicleId(null);
+      }
+      setVehicleDeleteId(null);
+      setVehicleFormOpen(false);
+      await refresh();
+    } catch (e) {
+      setVehicleFormError(e instanceof ApiError ? e.message : 'Voertuig verwijderen mislukt.');
+      setVehicleDeleteId(null);
+    } finally {
+      setVehicleFormBusy(false);
+    }
+  }
+
   const profilePanel = (
     <ScrollView
       ref={profileScrollRef}
@@ -1697,6 +1816,49 @@ export function DriverHomeScreen() {
         </View>
 
         <View style={styles.profileDivider} />
+        <View style={styles.fleetHeader}>
+          <Text style={styles.profileSection}>Voertuigen</Text>
+          <Pressable onPress={() => openVehicleForm()} accessibilityRole="button" accessibilityLabel="Voertuig toevoegen">
+            <Text style={[styles.fleetAdd, { color: accentHex(accent) }]}>Toevoegen</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.themeHint}>
+          Naam, type, kenteken en personenbereik. Een rit met meer dan 4 personen gaat alleen naar een voertuig van 5 t/m 8.
+        </Text>
+        {fleet.length === 0 ? (
+          <Text style={styles.hint}>Nog geen voertuigen.</Text>
+        ) : (
+          fleet.map((vehicle) => (
+            <Pressable
+              key={vehicle.id}
+              style={styles.fleetRow}
+              onPress={() => openVehicleForm(vehicle)}
+              accessibilityRole="button"
+              accessibilityLabel={`${vehicle.name || 'Voertuig'} bewerken`}
+            >
+              {resolveMediaUrl(vehicle.photo_url) ? (
+                <Image source={{ uri: resolveMediaUrl(vehicle.photo_url) || '' }} style={styles.fleetPhoto} />
+              ) : (
+                <View style={[styles.fleetPhoto, styles.mediaPreviewEmpty]}>
+                  <Ionicons name="car" size={18} color={colors.muted} />
+                </View>
+              )}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.vehiclePlate} numberOfLines={1}>
+                  {vehicle.name || vehicleDisplayLabel(vehicle)}
+                </Text>
+                <Text style={styles.themeHint} numberOfLines={1}>
+                  {[vehicle.license_plate, vehicle.type_label || 'Auto', vehicle.person_range_label || 't/m 4 personen']
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+              <Ionicons name="create-outline" size={18} color={colors.muted} />
+            </Pressable>
+          ))
+        )}
+
+        <View style={styles.profileDivider} />
         <Text style={styles.profileSection}>Themakleur</Text>
         <View style={styles.accentRow}>
           {DRIVER_ACCENT_OPTIONS.map((item) => {
@@ -1789,7 +1951,7 @@ export function DriverHomeScreen() {
           <Text style={styles.logoutBtnText}>Uitloggen</Text>
         </Pressable>
       </Card>
-      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen(null)} /> : null}
+      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen('contract')} /> : null}
     </ScrollView>
   );
 
@@ -2220,22 +2382,21 @@ export function DriverHomeScreen() {
       >
         <Text style={styles.pickerTitle}>Voertuig kiezen</Text>
         {vehicles.length === 0 ? (
-          <>
-            <Text style={styles.hint}>
-              Geen beschikbare voertuigen. Voeg eerst een voertuig toe in het adminpaneel.
-            </Text>
-            <Pressable
-              onPress={() => {
-                const url = `${API_BASE_URL}/admin/taxi/vehicles`;
-                Linking.openURL(url).catch(() => undefined);
-              }}
-              style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
-              accessibilityRole="button"
-              accessibilityLabel="Adminpaneel openen"
-            >
-              <Text style={styles.vehicleModalAdminText}>Adminpaneel</Text>
-            </Pressable>
-          </>
+          fleet.length === 0 ? (
+            <>
+              <Text style={styles.hint}>Nog geen voertuig. Voeg er een toe om online te gaan.</Text>
+              <Pressable
+                onPress={() => openVehicleForm()}
+                style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
+                accessibilityRole="button"
+                accessibilityLabel="Voertuig toevoegen"
+              >
+                <Text style={styles.vehicleModalAdminText}>Voertuig toevoegen</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Text style={styles.hint}>Alle voertuigen zijn nu in gebruik.</Text>
+          )
         ) : (
           vehicles.map((v) => {
             const active = v.id === selectedVehicleId;
@@ -2264,6 +2425,16 @@ export function DriverHomeScreen() {
             );
           })
         )}
+        {vehicles.length > 0 || fleet.length > 0 ? (
+          <Pressable
+            onPress={() => openVehicleForm()}
+            style={styles.vehicleModalCloseBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Voertuig toevoegen"
+          >
+            <Text style={[styles.vehicleModalCloseText, { color: accentHex(accent) }]}>Voertuig toevoegen</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => setVehiclePickerOpen(false)}
           style={styles.vehicleModalCloseBtn}
@@ -2272,6 +2443,137 @@ export function DriverHomeScreen() {
         >
           <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
         </Pressable>
+      </AppModal>
+
+      <AppModal
+        visible={vehicleFormOpen}
+        onRequestClose={() => {
+          if (!vehicleFormBusy) setVehicleFormOpen(false);
+        }}
+        dismissDisabled={vehicleFormBusy}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.pickerTitle}>{vehicleDraft.id ? 'Voertuig bewerken' : 'Voertuig toevoegen'}</Text>
+        <Pressable onPress={() => void pickVehicleDraftPhoto()} style={styles.fleetPhotoPick} accessibilityRole="button">
+          {vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) ? (
+            <Image
+              source={{ uri: vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) || '' }}
+              style={styles.fleetPhotoLarge}
+            />
+          ) : (
+            <View style={[styles.fleetPhotoLarge, styles.mediaPreviewEmpty]}>
+              <Ionicons name="image-outline" size={28} color={colors.muted} />
+              <Text style={styles.themeHint}>Foto, optioneel</Text>
+            </View>
+          )}
+        </Pressable>
+        <Text style={styles.fleetFieldLabel}>Naam</Text>
+        <TextInput
+          value={vehicleDraft.name}
+          onChangeText={(name) => setVehicleDraft((current) => ({ ...current, name }))}
+          placeholder="bijv. Auto 1"
+          placeholderTextColor={colors.muted}
+          style={styles.fleetInput}
+        />
+        <Text style={styles.fleetFieldLabel}>Type</Text>
+        <View style={styles.fleetChips}>
+          {[
+            { key: 'car', label: 'Auto' },
+            { key: 'van', label: 'Busje' },
+            { key: 'bus', label: 'Bus' },
+          ].map((item) => {
+            const selected = vehicleDraft.type === item.key;
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setVehicleDraft((current) => ({ ...current, type: item.key }))}
+                style={[styles.fleetChip, selected && { backgroundColor: accentHex(accent), borderColor: accentHex(accent) }]}
+              >
+                <Text style={[styles.fleetChipText, selected && styles.fleetChipTextOn]}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.fleetFieldLabel}>Kenteken</Text>
+        <TextInput
+          value={vehicleDraft.license_plate}
+          onChangeText={(license_plate) => setVehicleDraft((current) => ({ ...current, license_plate }))}
+          autoCapitalize="characters"
+          placeholder="Kenteken"
+          placeholderTextColor={colors.muted}
+          style={styles.fleetInput}
+        />
+        <Text style={styles.fleetFieldLabel}>Personenbereik</Text>
+        <View style={styles.fleetChips}>
+          {[
+            { key: '1-4', label: 't/m 4 personen' },
+            { key: '5-8', label: '5 t/m 8 personen' },
+          ].map((item) => {
+            const selected = vehicleDraft.person_range === item.key;
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setVehicleDraft((current) => ({ ...current, person_range: item.key }))}
+                style={[styles.fleetChip, selected && { backgroundColor: accentHex(accent), borderColor: accentHex(accent) }]}
+              >
+                <Text style={[styles.fleetChipText, selected && styles.fleetChipTextOn]}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.themeHint}>Bepaalt welke standaardtarievenset wordt gebruikt.</Text>
+        {vehicleFormError ? <Text style={styles.fleetError}>{vehicleFormError}</Text> : null}
+        <Pressable
+          onPress={() => void saveVehicleDraft()}
+          disabled={vehicleFormBusy}
+          style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }, vehicleFormBusy && { opacity: 0.6 }]}
+        >
+          <Text style={styles.vehicleModalAdminText}>{vehicleFormBusy ? 'Opslaan…' : 'Opslaan'}</Text>
+        </Pressable>
+        {vehicleDraft.id ? (
+          <Pressable
+            onPress={() => setVehicleDeleteId(vehicleDraft.id)}
+            disabled={vehicleFormBusy}
+            style={styles.vehicleModalCloseBtn}
+          >
+            <Text style={[styles.vehicleModalCloseText, { color: colors.danger }]}>Verwijderen</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={() => setVehicleFormOpen(false)}
+          disabled={vehicleFormBusy}
+          style={styles.vehicleModalCloseBtn}
+        >
+          <Text style={styles.vehicleModalCloseText}>Annuleren</Text>
+        </Pressable>
+      </AppModal>
+
+      <AppModal
+        visible={vehicleDeleteId != null}
+        onRequestClose={() => {
+          if (!vehicleFormBusy) setVehicleDeleteId(null);
+        }}
+        dismissDisabled={vehicleFormBusy}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.pickerTitle}>Voertuig verwijderen</Text>
+        <Text style={styles.hint}>Dit voertuig verdwijnt uit de lijst. Ritten die eraan gekoppeld zijn blijven staan en blokkeren verwijderen.</Text>
+        <View style={styles.cancelActions}>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+            onPress={() => setVehicleDeleteId(null)}
+            disabled={vehicleFormBusy}
+          >
+            <Text style={styles.cancelActionGhostText}>Annuleren</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
+            onPress={() => void confirmDeleteVehicle()}
+            disabled={vehicleFormBusy}
+          >
+            <Text style={styles.cancelActionPrimaryText}>Verwijderen</Text>
+          </Pressable>
+        </View>
       </AppModal>
 
       <AppModal
@@ -2708,6 +3010,81 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: colors.text,
       fontSize: 15,
       fontWeight: '600',
+    },
+    fleetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    fleetAdd: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    fleetRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+    },
+    fleetPhoto: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fleetPhotoPick: {
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    fleetPhotoLarge: {
+      width: '100%',
+      height: 120,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fleetFieldLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    fleetInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      color: colors.text,
+      backgroundColor: colors.inputBg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 15,
+    },
+    fleetChips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    fleetChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    fleetChipText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    fleetChipTextOn: {
+      color: '#fff',
+    },
+    fleetError: {
+      color: colors.danger,
+      fontSize: 13,
+      marginTop: 8,
     },
     pickerTitle: {
       color: colors.text,

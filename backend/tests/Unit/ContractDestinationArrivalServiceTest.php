@@ -159,6 +159,20 @@ class ContractDestinationArrivalServiceTest extends TestCase
     }
 
     #[Test]
+    public function a_parent_can_see_a_fresh_simulator_position(): void
+    {
+        $service = app(ContractDestinationArrivalService::class);
+        $service->rememberCustomerSimPosition($this->conn, 3, 52.22, 6.89);
+
+        $fresh = $service->freshCustomerSimPosition($this->conn, 3);
+        $this->assertSame(52.22, $fresh['lat']);
+        $this->assertSame(6.89, $fresh['lng']);
+
+        $service->forgetCustomerSimPosition($this->conn, 3);
+        $this->assertNull($service->freshCustomerSimPosition($this->conn, 3));
+    }
+
+    #[Test]
     public function parent_only_sees_a_fresh_driver_position(): void
     {
         $service = app(ContractDestinationArrivalService::class);

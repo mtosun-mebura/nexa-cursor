@@ -21,10 +21,11 @@ class ContractDemoDayResetService
     /**
      * @param  list<int>  $passengerIds
      */
-    public function resetToday(string $conn, array $passengerIds, int $userId): int
+    public function resetToday(string $conn, array $passengerIds, int $userId, int $customerId = 0): int
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', $passengerIds))));
         $this->arrival->forgetProgress($conn, $userId);
+        $this->arrival->forgetCustomerSimPosition($conn, $customerId);
         if ($ids === []) {
             return 0;
         }

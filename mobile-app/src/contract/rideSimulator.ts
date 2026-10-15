@@ -73,28 +73,64 @@ function nearestVertex(line: LatLng[], point: LatLng): { index: number; meters: 
 }
 
 /**
- * Stuk van een al getekende navigatielijn tussen twee punten.
- * Zo rijdt de simulator over dezelfde lijn als op de kaart.
+ * De getekende navigatielijn tussen twee punten.
+ * Bij een passende begin- en eindpunt wordt de hele lijn gebruikt, zodat de auto
+ * dezelfde punten volgt als de streep op de kaart.
  */
 export function pathAlongDisplayedLines(
   lines: LatLng[][],
   from: LatLng,
   to: LatLng,
-  maxMeters = 80
+  maxMeters = 700
 ): LatLng[] | null {
   let best: LatLng[] | null = null;
   let bestScore = Infinity;
   for (const line of lines) {
     if (line.length < 2) continue;
+    const startGap = haversineMeters(line[0], from);
+    const endGap = haversineMeters(line[line.length - 1], to);
+    if (startGap <= maxMeters && endGap <= maxMeters) {
+      const score = startGap + endGap;
+      if (score < bestScore) {
+        bestScore = score;
+        best = line;
+      }
+    }
+  }
+  if (best) return best;
+
+  const onLineMeters = 120;
+  bestScore = Infinity;
+  for (const line of lines) {
+    if (line.length < 2) continue;
     const start = nearestVertex(line, from);
     const end = nearestVertex(line, to);
-    if (start.meters > maxMeters || end.meters > maxMeters) continue;
+    if (start.meters > onLineMeters || end.meters > onLineMeters) continue;
     if (end.index <= start.index) continue;
     const slice = line.slice(start.index, end.index + 1);
     const score = start.meters + end.meters;
     if (score < bestScore) {
       bestScore = score;
       best = slice;
+    }
+  }
+  return best;
+}
+
+/** Lijn waarvan het begin bij dit punt ligt (het ophaalpunt op de kaart). */
+export function lineStartingNear(
+  lines: LatLng[][],
+  point: LatLng,
+  maxMeters = 700
+): LatLng[] | null {
+  let best: LatLng[] | null = null;
+  let bestGap = maxMeters;
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    const gap = haversineMeters(line[0], point);
+    if (gap <= bestGap) {
+      bestGap = gap;
+      best = line;
     }
   }
   return best;
