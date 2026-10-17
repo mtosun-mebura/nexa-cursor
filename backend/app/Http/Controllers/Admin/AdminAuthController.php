@@ -336,6 +336,7 @@ class AdminAuthController extends Controller
             'email' => 'required|email|max:180',
             'phone' => 'required|string|min:8|max:40',
             'city' => 'required|string|min:2|max:120',
+            'iban' => ['required', 'string', 'max:42', new \App\Rules\ValidIban],
             'contact_first_name' => 'nullable|string|max:80',
             'contact_last_name' => 'nullable|string|max:80',
         ], [
@@ -346,6 +347,7 @@ class AdminAuthController extends Controller
             'phone.min' => 'Vul een geldig telefoonnummer in.',
             'city.required' => 'Vul de plaats in waar het bedrijf zich bevindt.',
             'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
+            'iban.required' => 'Vul een IBAN in.',
         ]);
 
         try {

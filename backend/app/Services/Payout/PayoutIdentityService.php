@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class PayoutIdentityService
 {
+    public const DRIVER_IBAN_REQUIRED_MESSAGE = 'Vul eerst een geldig IBAN in bij Bedrijf in je profiel. Dit is nodig voor de uitbetaling van de ritten.';
+
     /** @var list<string> */
     public const FORBIDDEN_SECRET_FIELDS = [
         'card_number',
@@ -45,6 +47,17 @@ class PayoutIdentityService
     {
         return PayoutIdentity::query()
             ->where('owner_key', $this->ownerKeyForCompany($company, $provider))
+            ->first();
+    }
+
+    public function forIndependentDriver(int $userId, string $provider = PayoutIdentity::PROVIDER_MOLLIE): ?PayoutIdentity
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        return PayoutIdentity::query()
+            ->where('owner_key', 'user:'.$userId.':'.$provider)
             ->first();
     }
 
@@ -163,6 +176,118 @@ class PayoutIdentityService
         }
 
         return '***'.$last4;
+    }
+
+    /**
+     * Profielweergave: twaalf sterretjes + laatste 4 cijfers. Nooit het volledige IBAN.
+     */
+    public function maskIbanForProfile(string $iban): string
+    {
+        $normalized = normalize_iban($iban);
+        $digits = preg_replace('/\D+/', '', $normalized) ?? '';
+        $last4 = substr($digits, -4);
+
+        if (strlen($last4) < 4) {
+            throw ValidationException::withMessages([
+                'iban' => ['IBAN bevat te weinig cijfers om te maskeren.'],
+            ]);
+        }
+
+        return str_repeat('*', 12).$last4;
+    }
+
+    public function driverHasIban(int $userId): bool
+    {
+        $identity = $this->forIndependentDriver($userId);
+
+        return $identity !== null
+            && filled($identity->iban_encrypted)
+            && filled($identity->masked_destination);
+    }
+
+    public function driverIbanMask(int $userId): ?string
+    {
+        if (! $this->driverHasIban($userId)) {
+            return null;
+        }
+
+        $mask = $this->forIndependentDriver($userId)?->masked_destination;
+
+        return filled($mask) ? (string) $mask : null;
+    }
+
+    /**
+     * Bewaar een echt IBAN op de chauffeur-uitbetalingsrekening, versleuteld.
+     * API en profiel krijgen alleen het masker. Geen Mollie Connect-onboarding.
+     */
+    public function setDriverIban(User $driver, string $iban, ?Request $request = null): PayoutIdentity
+    {
+        $normalized = $this->assertNormalizedIban($iban);
+        $companyId = (int) $driver->company_id;
+        if ($companyId <= 0) {
+            throw ValidationException::withMessages([
+                'iban' => ['Geen bedrijf gekoppeld aan dit account.'],
+            ]);
+        }
+
+        $masked = $this->maskIbanForProfile($normalized);
+        $provider = PayoutIdentity::PROVIDER_MOLLIE;
+        $identity = PayoutIdentity::query()->firstOrCreate(
+            ['owner_key' => $this->ownerKeyForIndependentDriver($driver, $provider)],
+            [
+                'company_id' => $companyId,
+                'user_id' => $driver->id,
+                'settlement_party' => PayoutIdentity::PARTY_INDEPENDENT_DRIVER,
+                'provider' => $provider,
+                'capability_status' => PayoutIdentity::STATUS_PENDING,
+            ]
+        );
+
+        $status = $identity->capability_status === PayoutIdentity::STATUS_NOT_STARTED
+            ? PayoutIdentity::STATUS_PENDING
+            : $identity->capability_status;
+
+        $identity->forceFill([
+            'company_id' => $companyId,
+            'user_id' => $driver->id,
+            'settlement_party' => PayoutIdentity::PARTY_INDEPENDENT_DRIVER,
+            'iban_encrypted' => $normalized,
+            'masked_destination' => $masked,
+            'capability_status' => $status,
+        ])->save();
+
+        $this->audit->log($identity, 'driver_iban_set', [
+            'masked_destination' => $masked,
+        ], $driver, $request);
+
+        return $identity->fresh();
+    }
+
+    /**
+     * Eerste IBAN van een marktplaats-tenant. Zelfde opslag als de chauffeur: versleuteld + masker.
+     */
+    public function setCompanyRegistrationIban(Company $company, User $actor, string $iban, ?Request $request = null): PayoutIdentity
+    {
+        $normalized = $this->assertNormalizedIban($iban);
+        $masked = $this->maskIbanForProfile($normalized);
+        $identity = $this->bootstrapCompanyIdentity($company, $actor, $request);
+        $status = $identity->capability_status === PayoutIdentity::STATUS_NOT_STARTED
+            ? PayoutIdentity::STATUS_PENDING
+            : $identity->capability_status;
+
+        $identity->forceFill([
+            'iban_encrypted' => $normalized,
+            'masked_destination' => $masked,
+            'capability_status' => $status,
+        ])->save();
+
+        $this->audit->log($identity, 'company_bank_account_set', [
+            'masked_destination' => $masked,
+            'first_set' => true,
+            'source' => 'marketplace_registration',
+        ], $actor, $request);
+
+        return $identity->fresh();
     }
 
     public function companyCanReceiveSettlement(Company $company): bool
@@ -468,6 +593,23 @@ class PayoutIdentityService
             $request->session()->put('payout.step_up_confirmed_at', time());
             $request->session()->put('payout.step_up_max_age', $maxAge);
         }
+    }
+
+    private function assertNormalizedIban(string $iban): string
+    {
+        if (trim($iban) === '') {
+            throw ValidationException::withMessages([
+                'iban' => ['Vul een IBAN in.'],
+            ]);
+        }
+
+        if (! is_valid_iban($iban)) {
+            throw ValidationException::withMessages([
+                'iban' => ['Voer een geldig IBAN in.'],
+            ]);
+        }
+
+        return normalize_iban($iban);
     }
 
     private function sanitizeMaskedDestination(string $value): string

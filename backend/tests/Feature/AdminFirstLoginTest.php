@@ -235,6 +235,7 @@ class AdminFirstLoginTest extends TestCase
             'email' => 'markt@taxi.test',
             'phone' => '0612345678',
             'city' => 'Amsterdam',
+            'iban' => 'NL91ABNA0417164300',
         ], '127.0.0.1');
 
         $user = $result['user']->fresh();

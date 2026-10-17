@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\Module;
 use App\Models\User;
+use App\Services\Payout\PayoutIdentityService;
 use App\Services\PlatformBilling\TenantSubscriptionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -35,6 +36,7 @@ class MarketplaceCompanyRegistrationService
      *   email: string,
      *   phone: string,
      *   city: string,
+     *   iban: string,
      *   contact_first_name?: string|null,
      *   contact_last_name?: string|null
      * }  $data
@@ -72,6 +74,18 @@ class MarketplaceCompanyRegistrationService
             ]);
         }
 
+        $iban = (string) ($data['iban'] ?? '');
+        if (trim($iban) === '') {
+            throw ValidationException::withMessages([
+                'iban' => ['Vul een IBAN in.'],
+            ]);
+        }
+        if (! is_valid_iban($iban)) {
+            throw ValidationException::withMessages([
+                'iban' => ['Voer een geldig IBAN in.'],
+            ]);
+        }
+
         $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         if ($existingUser) {
             throw ValidationException::withMessages([
@@ -86,7 +100,7 @@ class MarketplaceCompanyRegistrationService
             ]);
         }
 
-        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $ip, $sendLoginCode) {
+        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $iban, $ip, $sendLoginCode) {
             $company = Company::query()->create([
                 'name' => $companyName,
                 'email' => $email,
@@ -119,6 +133,10 @@ class MarketplaceCompanyRegistrationService
             Role::findOrCreate(self::ROLE, 'web');
             Role::findOrCreate(self::ROLE, 'api');
             app(UserRoleAssignmentService::class)->syncWebRoles($user, [self::ROLE]);
+
+            $payouts = app(PayoutIdentityService::class);
+            $payouts->setCompanyRegistrationIban($company, $user, $iban);
+            $payouts->setDriverIban($user, $iban);
 
             $codeResult = $sendLoginCode
                 ? $this->firstLogin->requestCode($email, $ip)

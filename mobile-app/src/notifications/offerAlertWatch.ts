@@ -15,6 +15,7 @@ const SEEN_KEY = 'nexa_taxi_seen_offer_ids';
 const READY_KEY = 'nexa_taxi_offers_seen_ready';
 const TONE_KEY = 'nexa_taxi_ride_alert_tone';
 const DENIED_KEY = 'nexa_taxi_pickup_denied_notified';
+const PAYOUT_KEY = 'nexa_taxi_payout_notified';
 const BADGE_KEY = 'nexa_taxi_offer_badge';
 
 let chain: Promise<unknown> = Promise.resolve();
@@ -268,4 +269,37 @@ async function notifyFreshPickupDenials(input: {
     void playRideAlertTone(tone);
   }
   return { title, body, rideId };
+}
+
+async function loadPayoutIds(): Promise<Set<number>> {
+  try {
+    const raw = await SecureStore.getItemAsync(PAYOUT_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) return new Set();
+    return new Set(list.map((id) => Number(id)).filter((id) => id > 0));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Eén in-app melding per rit nadat de uitbetaling is geaccepteerd. */
+export async function takeFreshPayoutNotice(
+  notices?: Array<{ ride_request_id?: number; title?: string; message?: string }> | null,
+): Promise<{ title: string; body: string; rideId: number } | null> {
+  const list = Array.isArray(notices) ? notices : [];
+  const stored = await loadPayoutIds();
+  for (const notice of list) {
+    const rideId = Number(notice?.ride_request_id || 0);
+    const body = String(notice?.message || '').trim();
+    if (rideId <= 0 || !body || stored.has(rideId)) continue;
+    stored.add(rideId);
+    const ids = Array.from(stored).slice(-200);
+    await SecureStore.setItemAsync(PAYOUT_KEY, JSON.stringify(ids));
+    return {
+      title: String(notice?.title || '').trim() || 'Bedrag overgemaakt',
+      body,
+      rideId,
+    };
+  }
+  return null;
 }

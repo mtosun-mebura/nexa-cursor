@@ -53,7 +53,7 @@ class RideSettlementEligibilityServiceTest extends TestCase
     }
 
     #[Test]
-    public function clean_completion_goes_on_hold_not_eligible(): void
+    public function clean_completion_is_eligible_immediately(): void
     {
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
@@ -70,10 +70,13 @@ class RideSettlementEligibilityServiceTest extends TestCase
 
         $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
 
-        $this->assertSame(RideRequest::SETTLEMENT_HOLD, $result->settlement_status);
-        $this->assertNotNull($result->settlement_hold_until);
-        $this->assertNull($result->settlement_eligible_at);
-        $this->assertFalse($this->service->isPayable($result));
+        $this->assertContains($result->settlement_status, [
+            RideRequest::SETTLEMENT_ELIGIBLE,
+            RideRequest::SETTLEMENT_SETTLED,
+        ]);
+        $this->assertNull($result->settlement_hold_until);
+        $this->assertNotNull($result->settlement_eligible_at);
+        $this->assertTrue($this->service->isPayable($result));
     }
 
     #[Test]
@@ -119,7 +122,7 @@ class RideSettlementEligibilityServiceTest extends TestCase
     }
 
     #[Test]
-    public function missing_gps_is_hold_flag_not_hard_fail(): void
+    public function missing_gps_stays_payable_immediately(): void
     {
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
@@ -136,7 +139,11 @@ class RideSettlementEligibilityServiceTest extends TestCase
 
         $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
 
-        $this->assertSame(RideRequest::SETTLEMENT_HOLD, $result->settlement_status);
+        $this->assertContains($result->settlement_status, [
+            RideRequest::SETTLEMENT_ELIGIBLE,
+            RideRequest::SETTLEMENT_SETTLED,
+        ]);
+        $this->assertNull($result->settlement_hold_until);
         $this->assertContains('missing_gps_track', $result->settlement_risk_flags);
     }
 

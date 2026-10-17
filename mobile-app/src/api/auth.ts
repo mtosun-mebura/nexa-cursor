@@ -68,6 +68,7 @@ export function registerMarketplaceCompany(input: {
   email: string;
   phone: string;
   city: string;
+  iban: string;
   contact_first_name?: string;
   contact_last_name?: string;
 }) {

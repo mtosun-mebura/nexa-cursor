@@ -18,6 +18,7 @@ use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\DriverRidePayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -195,6 +196,13 @@ class DriverDispatchController extends Controller
             ->limit(40)
             ->get();
 
+        $payoutNotices = [];
+        try {
+            $payoutNotices = app(DriverRidePayoutService::class)->noticesForDriver((int) $user->id);
+        } catch (\Throwable) {
+            $payoutNotices = [];
+        }
+
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
         $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
         $pickupDeniedAlert = Cache::get(MarketplacePickupConfirmationService::DRIVER_DENIED_ALERT_PREFIX.(int) $user->id);
@@ -250,6 +258,7 @@ class DriverDispatchController extends Controller
                     'archived_offers' => $archivedOffers
                         ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))
                         ->values(),
+                    'payout_notices' => $payoutNotices,
                     'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
                     'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
                     'pickup_denied_alert' => is_array($pickupDeniedAlert) ? $pickupDeniedAlert : null,

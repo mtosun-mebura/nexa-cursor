@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
+  Text,
 } from 'react-native';
 import { registerMarketplaceCompany, requestLoginCode, verifyLoginCode } from '../api/auth';
 import { ApiError } from '../api/client';
@@ -58,6 +59,7 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  const [iban, setIban] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [channel, setChannel] = useState<string | undefined>('driver');
@@ -130,6 +132,10 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
 
   async function onRegister() {
     setError(null);
+    if (!iban.trim()) {
+      setError('Vul een IBAN in.');
+      return;
+    }
     setLoading(true);
     try {
       const res = await registerMarketplaceCompany({
@@ -137,6 +143,7 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
         email: email.trim(),
         phone: phone.trim(),
         city: city.trim(),
+        iban: iban.trim(),
       });
       await goToVerify({
         email: res.email || email,
@@ -283,11 +290,21 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
               onChangeText={setCity}
               autoCapitalize="words"
               placeholder="Amsterdam"
+              returnKeyType="next"
+            />
+            <Field
+              label="IBAN"
+              value={iban}
+              onChangeText={setIban}
+              autoCapitalize="characters"
+              autoComplete="off"
+              placeholder="NL91 ABNA 0417 1643 00"
               returnKeyType="done"
               onSubmitEditing={() => {
                 if (!loading) void onRegister();
               }}
             />
+            <Text style={styles.ibanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
           </>
         ) : (
           <>
@@ -361,11 +378,18 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function makeStyles(_colors: ColorPalette) {
+function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     body: {
       flex: 1,
       paddingHorizontal: 20,
+    },
+    ibanHint: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: -6,
+      marginBottom: 12,
     },
   });
 }
