@@ -34,6 +34,7 @@ class PwaMarketplaceRegisterScreenTest extends TestCase
             ->assertSee('NEXA Taxi marktplaats', false)
             ->assertSee('Meld je taxibedrijf aan op de NEXA Taxi marktplaats.', false)
             ->assertSee('Na registratie ontvang je een code per e-mail.', false)
+            ->assertSee('Dit is nodig voor de uitbetaling van de ritten.', false)
             ->assertSee('Aanmelden', false)
             ->assertSee('Ik heb al een code', false)
             ->assertSee('>Terug<', false)

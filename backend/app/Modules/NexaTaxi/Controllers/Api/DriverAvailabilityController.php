@@ -9,6 +9,7 @@ use App\Modules\NexaTaxi\Services\DriverScheduleService;
 use App\Modules\NexaTaxi\Services\RideTrackService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\PayoutIdentityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -160,6 +161,14 @@ class DriverAvailabilityController extends Controller
                     $payload['vehicle_id'] = null;
                 }
             }
+        }
+
+        $goingOnline = (bool) ($payload['is_online'] ?? false);
+        if ($goingOnline && ! app(PayoutIdentityService::class)->driverHasIban((int) $user->id)) {
+            return response()->json([
+                'message' => PayoutIdentityService::DRIVER_IBAN_REQUIRED_MESSAGE,
+                'code' => 'iban_required',
+            ], 422);
         }
 
         $row = DriverAvailability::on($conn)->updateOrCreate(

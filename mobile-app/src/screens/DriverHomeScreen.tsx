@@ -42,6 +42,7 @@ import {
   proposePickup,
   releaseAcceptedRide,
   setDriverOnline,
+  updateDriverIban,
   markRideEnRoute,
   startRide,
   completeRide,
@@ -84,6 +85,7 @@ import {
   primeRideAlertAudio,
   rememberRideAlertTone,
   clearDriverOfferBadge,
+  takeFreshPayoutNotice,
 } from '../notifications/offerAlertWatch';
 import { alertNextPickupDeparture } from '../notifications/pickupDeparture';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
@@ -329,6 +331,11 @@ export function DriverHomeScreen() {
   const [accent, setAccent] = useState<string>('orange');
   const [rideTone, setRideTone] = useState<RideAlertTone>('classic');
   const [company, setCompany] = useState('');
+  const [payoutIbanMasked, setPayoutIbanMasked] = useState<string | null>(null);
+  const [ibanDraft, setIbanDraft] = useState('');
+  const [ibanEditing, setIbanEditing] = useState(false);
+  const [ibanBusy, setIbanBusy] = useState(false);
+  const [ibanError, setIbanError] = useState<string | null>(null);
   const [driverMedia, setDriverMedia] = useState<DriverMedia | null>(null);
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [reviews, setReviews] = useState<DriverReview[]>([]);
@@ -519,6 +526,7 @@ export function DriverHomeScreen() {
         rememberRideAlertTone(nextTone);
       }
       setCompany(me.user.company_name || '');
+      setPayoutIbanMasked(me.user.payout_iban_masked || null);
       setLogoLight(me.user.company_logo_url || null);
       setLogoDark(me.user.company_logo_dark_url || null);
       setDriverMedia(me.user.media || null);
@@ -593,6 +601,7 @@ export function DriverHomeScreen() {
         rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
         alert: inboxData.pickupDeniedAlert,
       });
+      let showedPayout = false;
       if (pickupDenied) {
         setRideNotice({
           title: pickupDenied.title,
@@ -604,7 +613,19 @@ export function DriverHomeScreen() {
           setTab('trips');
           persistDriverTab('trips');
         }
-      } else if (!openedRequest) {
+      } else {
+        const payout = await takeFreshPayoutNotice(inboxData.payoutNotices);
+        if (payout) {
+          showedPayout = true;
+          setRideNotice({
+            title: payout.title,
+            body: payout.body,
+            primaryLabel: 'Begrepen',
+            rideId: payout.rideId,
+          });
+        }
+      }
+      if (!pickupDenied && !openedRequest && !showedPayout) {
         try {
           const departure = await alertNextPickupDeparture({
             scheduled: inboxData.scheduledRides,
@@ -726,9 +747,37 @@ export function DriverHomeScreen() {
     }
   }
 
+  async function savePayoutIban() {
+    if (!driverToken || ibanBusy) return;
+    const value = ibanDraft.trim();
+    if (!value) {
+      setIbanError('Vul een IBAN in.');
+      return;
+    }
+    setIbanBusy(true);
+    setIbanError(null);
+    try {
+      const res = await updateDriverIban(driverToken, value);
+      setPayoutIbanMasked(res.data?.masked_iban || null);
+      setIbanDraft('');
+      setIbanEditing(false);
+    } catch (e) {
+      setIbanError(e instanceof ApiError ? e.message : 'IBAN opslaan mislukt.');
+    } finally {
+      setIbanBusy(false);
+    }
+  }
+
   async function toggleOnline(next: boolean) {
     if (!driverToken) return;
     setError(null);
+    if (next && !payoutIbanMasked) {
+      setError(
+        'Vul eerst een geldig IBAN in bij Bedrijf in je profiel. Dit is nodig voor de uitbetaling van de ritten.'
+      );
+      goToTab('profile');
+      return;
+    }
     if (next && !selectedVehicleId) {
       setError('Kies eerst een voertuig voordat je online gaat.');
       setVehiclePickerOpen(true);
@@ -1728,6 +1777,66 @@ export function DriverHomeScreen() {
         <View style={styles.profileRow}>
           <Text style={styles.profileLabel}>Bedrijf</Text>
           <Text style={styles.profileValue}>{company || '—'}</Text>
+          <Text style={[styles.profileLabel, { marginTop: 14 }]}>IBAN</Text>
+          {!payoutIbanMasked || ibanEditing ? (
+            <>
+              <TextInput
+                value={ibanDraft}
+                onChangeText={(value) => {
+                  setIbanDraft(value);
+                  if (ibanError) setIbanError(null);
+                }}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoComplete="off"
+                placeholder="NL00 BANK 0000 0000 00"
+                placeholderTextColor={colors.muted}
+                style={styles.fleetInput}
+                editable={!ibanBusy}
+                accessibilityLabel="IBAN"
+              />
+              <Text style={styles.profileIbanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
+              {ibanError ? <Text style={styles.reviewsError}>{ibanError}</Text> : null}
+              <Pressable
+                onPress={() => void savePayoutIban()}
+                disabled={ibanBusy}
+                accessibilityRole="button"
+                accessibilityLabel="IBAN opslaan"
+                style={[styles.profileIbanSave, ibanBusy && styles.cancelActionDisabled]}
+              >
+                <Text style={styles.profileIbanSaveText}>{ibanBusy ? 'Opslaan…' : 'IBAN opslaan'}</Text>
+              </Pressable>
+              {ibanEditing && payoutIbanMasked ? (
+                <Pressable
+                  onPress={() => {
+                    setIbanEditing(false);
+                    setIbanDraft('');
+                    setIbanError(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="IBAN wijzigen annuleren"
+                >
+                  <Text style={styles.profileIbanAction}>Annuleren</Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.profileValue}>{payoutIbanMasked}</Text>
+              <Text style={styles.profileIbanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
+              <Pressable
+                onPress={() => {
+                  setIbanEditing(true);
+                  setIbanDraft('');
+                  setIbanError(null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="IBAN wijzigen"
+              >
+                <Text style={styles.profileIbanAction}>Wijzigen</Text>
+              </Pressable>
+            </>
+          )}
         </View>
         <View style={styles.profileRow}>
           <Text style={styles.profileLabel}>Accountstatus</Text>
@@ -3303,6 +3412,30 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: colors.muted,
       fontStyle: 'italic',
       fontWeight: '500',
+    },
+    profileIbanHint: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 6,
+    },
+    profileIbanAction: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: '700',
+      marginTop: 8,
+    },
+    profileIbanSave: {
+      marginTop: 10,
+      minHeight: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+    },
+    profileIbanSaveText: {
+      color: '#fff',
+      fontWeight: '800',
     },
     profileDivider: {
       height: StyleSheet.hairlineWidth,

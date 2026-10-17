@@ -36,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
     {
         require_once app_path('helpers.php');
         $this->app->bind(AiProviderInterface::class, OpenAiProvider::class);
+        // Legacy company-split cron. Driver completion payouts use MollieConnectBalanceTransferClient.
         $this->app->bind(
             \App\Services\Payout\PlatformSettlementTransferClient::class,
             \App\Services\Payout\StubPlatformSettlementTransferClient::class

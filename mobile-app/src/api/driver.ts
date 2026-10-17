@@ -27,6 +27,7 @@ export type DriverUser = {
   phone?: string | null;
   company_id: number;
   company_name?: string | null;
+  payout_iban_masked?: string | null;
   company_logo_url?: string | null;
   company_logo_dark_url?: string | null;
   is_online: boolean;
@@ -194,6 +195,7 @@ export type DriverInboxData = {
   completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
   pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
+  payoutNotices: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
 };
 
 function asRideList(raw: unknown): DriverActiveRide[] {
@@ -232,6 +234,17 @@ export function updateDriverAccent(token: string, accent: string) {
     method: 'PUT',
     token,
     body: { accent },
+  });
+}
+
+export function updateDriverIban(token: string, iban: string) {
+  return apiRequest<{
+    message?: string;
+    data?: { masked_iban?: string | null };
+  }>('/api/taxi/v1/driver/payout-iban', {
+    method: 'PUT',
+    token,
+    body: { iban },
   });
 }
 
@@ -417,6 +430,7 @@ export function inboxDataFromResponse(inbox: {
     archived_overdue_scheduled_rides?: DriverActiveRide[];
     completed_rides?: DriverActiveRide[];
     pickup_denied_alert?: { ride_id?: number; title?: string; message?: string } | null;
+    payout_notices?: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
   };
   offers?: DispatchOffer[];
   meta?: { driver_cancel_reasons?: DriverCancelReason[] };
@@ -440,6 +454,7 @@ export function inboxDataFromResponse(inbox: {
       inbox?.data?.pickup_denied_alert && typeof inbox.data.pickup_denied_alert === 'object'
         ? inbox.data.pickup_denied_alert
         : null,
+    payoutNotices: Array.isArray(inbox?.data?.payout_notices) ? inbox.data.payout_notices : [],
   };
 }
 

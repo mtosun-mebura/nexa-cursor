@@ -314,6 +314,12 @@ Author: Keenthemes
                         <input class="kt-input" id="marketplace_city" type="text" autocomplete="address-level2" placeholder="Amsterdam">
                         <div class="text-xs text-destructive mt-1 hidden" id="marketplace_city_error" data-field-error="marketplace_city"></div>
                     </div>
+                    <div class="flex flex-col gap-2.5">
+                        <label class="kt-form-label font-normal text-mono" for="marketplace_iban">IBAN</label>
+                        <input class="kt-input" id="marketplace_iban" type="text" autocomplete="off" maxlength="42" placeholder="NL91 ABNA 0417 1643 00">
+                        <p class="text-xs text-muted-foreground mt-1 mb-0">Dit is nodig voor de uitbetaling van de ritten.</p>
+                        <div class="text-xs text-destructive mt-1 hidden" id="marketplace_iban_error" data-field-error="marketplace_iban"></div>
+                    </div>
                     <button type="button" class="kt-btn kt-btn-primary first-login-btn flex justify-center grow items-center gap-2" id="marketplace-register-submit">
                         <svg class="first-login-spinner" data-loader viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>
@@ -638,6 +644,7 @@ Author: Keenthemes
                 email: 'marketplace_email',
                 phone: 'marketplace_phone',
                 city: 'marketplace_city',
+                iban: 'marketplace_iban',
             };
 
             function clearMarketplaceFieldErrors() {
@@ -695,6 +702,10 @@ Author: Keenthemes
                 } else if (payload.city.length < 2) {
                     setMarketplaceFieldError('city', 'Plaats moet minimaal 2 tekens bevatten.');
                     firstInvalid = firstInvalid || 'city';
+                }
+                if (!payload.iban) {
+                    setMarketplaceFieldError('iban', 'Vul een IBAN in.');
+                    firstInvalid = firstInvalid || 'iban';
                 }
 
                 if (firstInvalid && marketplaceFieldMap[firstInvalid]) {
@@ -1022,6 +1033,7 @@ Author: Keenthemes
                     email: (document.getElementById('marketplace_email')?.value || '').trim(),
                     phone: (document.getElementById('marketplace_phone')?.value || '').trim(),
                     city: (document.getElementById('marketplace_city')?.value || '').trim(),
+                    iban: (document.getElementById('marketplace_iban')?.value || '').trim(),
                 };
                 if (!validateMarketplaceRegister(payload)) {
                     return;

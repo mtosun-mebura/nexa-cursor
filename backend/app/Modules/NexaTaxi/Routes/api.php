@@ -103,6 +103,8 @@ Route::prefix('v1/driver')
     ->group(function () {
         Route::post('logout', [DriverAuthController::class, 'logout']);
         Route::get('me', [DriverAuthController::class, 'me']);
+        Route::put('payout-iban', [DriverAuthController::class, 'updatePayoutIban'])
+            ->middleware('throttle:taxi-driver-action');
         Route::put('accent', [DriverAuthController::class, 'updateAccent'])
             ->middleware('throttle:taxi-driver-action');
         Route::put('ride-alert-tone', [DriverAuthController::class, 'updateRideAlertTone'])

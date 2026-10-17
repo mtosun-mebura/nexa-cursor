@@ -7,8 +7,9 @@ use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Support\Carbon;
 
 /**
- * Settlement gate: driver "complete" is only a completion claim.
- * Payable settlement requires an eligible outcome from this service.
+ * Settlement gate after a driver marks the ride completed.
+ * Paid, non-risk rides are eligible immediately and pay the driver out.
+ * High-risk rides stay in review. Incomplete payment is rejected.
  */
 class RideSettlementEligibilityService
 {
@@ -25,7 +26,7 @@ class RideSettlementEligibilityService
 
     /**
      * Evaluate a fully completed ride and persist settlement fields.
-     * Hold first, except when the customer confirmed pickup and there is no fraud flag.
+     * Non-risk paid rides are eligible at once (no 24-hour hold).
      */
     public function evaluateAfterCompletion(string $conn, RideRequest $ride): RideRequest
     {
@@ -33,6 +34,10 @@ class RideSettlementEligibilityService
 
         $ride = RideRequest::on($conn)->whereKey($ride->id)->first() ?? $ride;
         if ($ride->status !== RideRequest::STATUS_COMPLETED) {
+            return $ride;
+        }
+
+        if ($ride->settlement_status === RideRequest::SETTLEMENT_SETTLED) {
             return $ride;
         }
 
@@ -66,30 +71,18 @@ class RideSettlementEligibilityService
             return $ride->fresh();
         }
 
-        if (in_array('customer_confirmed_pickup', $flags, true)) {
-            $ride->forceFill([
-                'settlement_status' => RideRequest::SETTLEMENT_ELIGIBLE,
-                'settlement_risk_flags' => $flags,
-                'settlement_evaluated_at' => now(),
-                'settlement_hold_until' => null,
-                'settlement_eligible_at' => now(),
-            ])->save();
-
-            $fresh = $ride->fresh();
-            $this->enqueuePlatformSettlement($fresh);
-
-            return $fresh;
-        }
-
         $ride->forceFill([
-            'settlement_status' => RideRequest::SETTLEMENT_HOLD,
+            'settlement_status' => RideRequest::SETTLEMENT_ELIGIBLE,
             'settlement_risk_flags' => $flags,
             'settlement_evaluated_at' => now(),
-            'settlement_hold_until' => $holdUntil,
-            'settlement_eligible_at' => null,
+            'settlement_hold_until' => null,
+            'settlement_eligible_at' => now(),
         ])->save();
 
-        return $ride->fresh();
+        $fresh = $ride->fresh();
+        $this->enqueuePlatformSettlement($fresh);
+
+        return RideRequest::on($conn)->whereKey($ride->id)->first() ?? $fresh;
     }
 
     /**
@@ -155,9 +148,9 @@ class RideSettlementEligibilityService
             return;
         }
         try {
-            app(\App\Services\Payout\PlatformRideSettlementService::class)->ensureFromEligibleRide($ride);
+            app(\App\Services\Payout\DriverRidePayoutService::class)->payoutCompletedRide($ride);
         } catch (\Throwable) {
-            // Ledger is best-effort; cron syncEligibleRides catches stragglers.
+            // Ledger is best-effort; a later completion or cron retry picks it up.
         }
     }
 

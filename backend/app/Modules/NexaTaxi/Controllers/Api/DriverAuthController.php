@@ -18,6 +18,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\PayoutIdentityService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\PublicRegistrationService;
 use App\Support\TenantPackageCapability;
@@ -165,6 +166,24 @@ class DriverAuthController extends Controller
         ]);
     }
 
+    public function updatePayoutIban(Request $request, PayoutIdentityService $payouts): JsonResponse
+    {
+        $data = $request->validate([
+            'iban' => ['required', 'string', 'max:42'],
+        ], [
+            'iban.required' => 'Vul een IBAN in.',
+        ]);
+
+        $identity = $payouts->setDriverIban($request->user(), (string) $data['iban'], $request);
+
+        return response()->json([
+            'message' => 'IBAN opgeslagen.',
+            'data' => [
+                'masked_iban' => $identity->masked_destination,
+            ],
+        ]);
+    }
+
     public function updateRideAlertTone(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -299,6 +318,7 @@ class DriverAuthController extends Controller
             'phone' => trim((string) ($user->phone ?? '')) ?: null,
             'company_id' => $companyId,
             'company_name' => $companyName,
+            'payout_iban_masked' => app(PayoutIdentityService::class)->driverIbanMask((int) $user->id),
             'company_logo_url' => $logoUrls['light'],
             'company_logo_dark_url' => $logoUrls['dark'],
             'is_account_active' => $accountActive,

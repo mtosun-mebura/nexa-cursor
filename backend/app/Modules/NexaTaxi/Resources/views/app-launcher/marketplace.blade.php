@@ -130,6 +130,12 @@
             font-size: 13px;
             line-height: 1.3;
         }
+        .field-hint {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.35;
+        }
         .hint, .error {
             margin: 4px 0 4px;
             font-size: 15px;
@@ -207,8 +213,14 @@
             </div>
             <div class="field">
                 <label class="label" for="city">Plaats</label>
-                <input id="city" type="text" autocomplete="address-level2" autocapitalize="words" placeholder="Amsterdam" enterkeyhint="done">
+                <input id="city" type="text" autocomplete="address-level2" autocapitalize="words" placeholder="Amsterdam" enterkeyhint="next">
                 <p class="field-error" data-field-error="city" hidden></p>
+            </div>
+            <div class="field">
+                <label class="label" for="iban">IBAN</label>
+                <input id="iban" type="text" autocomplete="off" maxlength="42" autocapitalize="characters" placeholder="NL91 ABNA 0417 1643 00" enterkeyhint="done">
+                <p class="field-hint">Dit is nodig voor de uitbetaling van de ritten.</p>
+                <p class="field-error" data-field-error="iban" hidden></p>
             </div>
         </div>
 
@@ -269,6 +281,7 @@
     var emailEl = document.getElementById('email');
     var phoneEl = document.getElementById('phone');
     var cityEl = document.getElementById('city');
+    var ibanEl = document.getElementById('iban');
     var verifyEmailEl = document.getElementById('verify_email');
     var codeEl = document.getElementById('verify_code');
     var passwordEl = document.getElementById('verify_password');
@@ -304,14 +317,14 @@
     }
 
     function clearFormErrors() {
-        ['company_name', 'email', 'phone', 'city'].forEach(function (id) { setFieldError(id, ''); });
+        ['company_name', 'email', 'phone', 'city', 'iban'].forEach(function (id) { setFieldError(id, ''); });
     }
 
     function clearVerifyErrors() {
         ['verify_email', 'verify_code', 'verify_password'].forEach(function (id) { setFieldError(id, ''); });
     }
 
-    ['company_name', 'email', 'phone', 'city', 'verify_email', 'verify_code', 'verify_password'].forEach(function (id) {
+    ['company_name', 'email', 'phone', 'city', 'iban', 'verify_email', 'verify_code', 'verify_password'].forEach(function (id) {
         var input = document.getElementById(id);
         if (!input) return;
         input.addEventListener('input', function () { setFieldError(id, ''); });
@@ -396,7 +409,7 @@
     }
 
     function applyRegisterErrors(errors) {
-        var map = { company_name: 'company_name', email: 'email', phone: 'phone', city: 'city' };
+        var map = { company_name: 'company_name', email: 'email', phone: 'phone', city: 'city', iban: 'iban' };
         var first = null;
         var applied = false;
         Object.keys(errors || {}).forEach(function (field) {
@@ -439,6 +452,10 @@
             setFieldError('city', 'Plaats moet minimaal 2 tekens bevatten.');
             first = first || 'city';
         }
+        if (!payload.iban) {
+            setFieldError('iban', 'Vul een IBAN in.');
+            first = first || 'iban';
+        }
         if (first) {
             document.getElementById(first).focus();
             return false;
@@ -460,7 +477,8 @@
             company_name: (companyEl.value || '').trim(),
             email: (emailEl.value || '').trim(),
             phone: (phoneEl.value || '').trim(),
-            city: (cityEl.value || '').trim()
+            city: (cityEl.value || '').trim(),
+            iban: (ibanEl.value || '').trim()
         };
         if (!validateRegister(payload)) return;
         setBusy(true);

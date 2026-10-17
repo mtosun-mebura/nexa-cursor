@@ -63,7 +63,7 @@ export function Field({
   onChangeText: (v: string) => void;
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'number-pad' | 'phone-pad';
-  autoCapitalize?: 'none' | 'sentences' | 'words';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   placeholder?: string;
   autoComplete?: 'off' | 'email' | 'password' | 'username' | 'tel' | 'name';
   textContentType?:

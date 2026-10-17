@@ -60,6 +60,10 @@ class PlatformRidePayoutService
             return RidePlatformSettlement::STATUS_PAID_OUT;
         }
 
+        if (data_get($settlement->meta, 'payout_to') === 'driver') {
+            return app(DriverRidePayoutService::class)->processExisting($settlement)->status;
+        }
+
         $settlement->payout_attempts = (int) $settlement->payout_attempts + 1;
         $lines = [];
         $errors = [];
