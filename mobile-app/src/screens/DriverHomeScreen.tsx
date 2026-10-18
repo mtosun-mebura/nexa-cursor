@@ -62,6 +62,7 @@ import {
   vehicleDisplayLabel,
   vehicleDisplayName,
 } from '../api/driver';
+import { ibanFieldError } from '../iban';
 import {
   normalizeRideAlertTone,
   playRideAlertTone,
@@ -783,8 +784,9 @@ export function DriverHomeScreen() {
   async function savePayoutIban() {
     if (!driverToken || ibanBusy) return;
     const value = ibanDraft.trim();
-    if (!value) {
-      setIbanError('Vul een IBAN in.');
+    const invalid = ibanFieldError(value);
+    if (invalid) {
+      setIbanError(invalid);
       return;
     }
     setIbanBusy(true);
@@ -795,7 +797,11 @@ export function DriverHomeScreen() {
       setIbanDraft('');
       setIbanEditing(false);
     } catch (e) {
-      setIbanError(e instanceof ApiError ? e.message : 'IBAN opslaan mislukt.');
+      const field =
+        e instanceof ApiError && e.body && typeof e.body === 'object' && 'errors' in e.body
+          ? (e.body as { errors?: { iban?: string[] } }).errors?.iban?.[0]
+          : null;
+      setIbanError(field || (e instanceof ApiError ? e.message : 'IBAN opslaan mislukt.'));
     } finally {
       setIbanBusy(false);
     }
@@ -1948,15 +1954,16 @@ export function DriverHomeScreen() {
               <TextInput
                 value={ibanDraft}
                 onChangeText={(value) => {
-                  setIbanDraft(value);
-                  if (ibanError) setIbanError(null);
+                  const next = value.toUpperCase();
+                  setIbanDraft(next);
+                  setIbanError(ibanFieldError(next, true));
                 }}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 autoComplete="off"
                 placeholder="NL00 BANK 0000 0000 00"
                 placeholderTextColor={colors.muted}
-                style={styles.fleetInput}
+                style={[styles.fleetInput, ibanError ? { borderColor: colors.danger } : null]}
                 editable={!ibanBusy}
                 accessibilityLabel="IBAN"
               />

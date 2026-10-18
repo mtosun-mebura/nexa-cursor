@@ -354,7 +354,10 @@ TXT;
     public function composeStatus(RideRequest $ride, string $event, array $context, ?int $companyId): array
     {
         $labels = self::statusEventLabels();
-        $statusLabel = $labels[$event] ?? trim($event);
+        $statusLabel = trim((string) ($context['status_label'] ?? ''));
+        if ($statusLabel === '') {
+            $statusLabel = $labels[$event] ?? trim($event);
+        }
         if ($statusLabel === '') {
             $statusLabel = 'Statusupdate';
         }

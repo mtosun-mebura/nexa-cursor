@@ -53,6 +53,8 @@ export type LiveRide = {
   status: string;
   status_label: string;
   phase: string;
+  trip_started?: boolean;
+  customer_event?: string | null;
   accepted?: boolean;
   can_cancel?: boolean;
   needs_unaccepted_decision?: boolean;
