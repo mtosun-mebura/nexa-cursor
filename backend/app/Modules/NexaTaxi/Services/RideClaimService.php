@@ -267,8 +267,14 @@ class RideClaimService
 
         $event = WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
         $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event] ?? $event;
+        $arrival = app(CustomerRideLiveStatusService::class)->pickupArrivalPhrase($conn, $ride);
+        if (is_string($arrival) && $arrival !== '') {
+            $label = 'De chauffeur is onderweg naar jou. Aankomst over '.$arrival.'.';
+        }
         $this->persistCustomerStatusEvent($ride, $event, $label);
-        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $event, $driver);
+        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $event, $driver, [
+            'status_label' => $label,
+        ]);
 
         return $ride->fresh() ?? $ride;
     }

@@ -105,7 +105,10 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
       await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Ritstatus',
-          body: update.label || ride.status_label || 'Status bijgewerkt',
+          body:
+            update.event === 'en_route' && ride.eta_label
+              ? `De chauffeur is onderweg naar jou. Aankomst over ${ride.eta_label}.`
+              : update.label || ride.status_label || 'Status bijgewerkt',
           data: { rideId: ride.id, event: update.event },
           sound: Platform.OS === 'ios' ? 'default' : undefined,
         },

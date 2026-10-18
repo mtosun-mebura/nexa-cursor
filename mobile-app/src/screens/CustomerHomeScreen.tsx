@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import type { TextInput as TextInputType } from 'react-native';
@@ -258,6 +259,8 @@ function statusUpdatesNewestFirst(updates: RideStatusUpdate[]): RideStatusUpdate
 }
 
 export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
+  const { height: windowHeight } = useWindowDimensions();
+  const tripMapHeight = Math.max(300, Math.round(windowHeight * 0.48));
   const { colors, colorScheme, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<CustomerTabKey>('book');
@@ -283,6 +286,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const completedAnnounced = useRef<Set<number>>(new Set());
 
   const hasActiveRide = !!(live && trackToken && isActiveRidePhase(live.phase));
+  const tripStarted = !!(
+    hasActiveRide &&
+    (live?.trip_started === true || live?.status === 'assigned')
+  );
+  const latestStatusEvent =
+    live?.customer_event ||
+    (Array.isArray(live?.status_updates) && live.status_updates.length
+      ? live.status_updates[live.status_updates.length - 1]?.event
+      : null);
+  const driverComing = !!(hasActiveRide && !tripStarted && latestStatusEvent === 'en_route');
 
   const [pickup, setPickup] = useState<GeoPoint | null>(null);
   const [pickupQuery, setPickupQuery] = useState('');
@@ -328,6 +341,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const pickupSuggestSeq = useRef(0);
   const dropoffSuggestSeq = useRef(0);
   const mapRef = useRef<MapView | null>(null);
+  const tripMapRef = useRef<MapView | null>(null);
+  const followTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ignoreMapGestureUntil = useRef(0);
+  const tripFitted = useRef(false);
+  const [followTaxi, setFollowTaxi] = useState(false);
+  const [tripRoute, setTripRoute] = useState<LatLng[]>([]);
   const bookScrollRef = useRef<ScrollView | null>(null);
   const dropoffInputRef = useRef<TextInputType | null>(null);
   const profileSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -361,6 +380,95 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   );
   const freeNearby = freeTaxis.length;
   const canDispatch = freeNearby > 0;
+
+  const pauseFollow = useCallback(() => {
+    if (Date.now() < ignoreMapGestureUntil.current) return;
+    setFollowTaxi(false);
+    if (followTimer.current) clearTimeout(followTimer.current);
+    followTimer.current = setTimeout(() => setFollowTaxi(true), 3000);
+  }, []);
+
+  useEffect(() => {
+    if (!tripStarted) {
+      setFollowTaxi(false);
+      tripFitted.current = false;
+      if (followTimer.current) clearTimeout(followTimer.current);
+      return;
+    }
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+    pauseFollow();
+    return () => {
+      if (followTimer.current) clearTimeout(followTimer.current);
+    };
+  }, [tripStarted, pauseFollow]);
+
+  useEffect(() => {
+    if (!tripStarted || live?.pickup_lat == null || live?.pickup_lng == null || live?.dropoff_lat == null || live?.dropoff_lng == null) {
+      setTripRoute([]);
+      return;
+    }
+    let cancelled = false;
+    fetchDrivingRoute(
+      { lat: Number(live.pickup_lat), lng: Number(live.pickup_lng) },
+      { lat: Number(live.dropoff_lat), lng: Number(live.dropoff_lng) }
+    )
+      .then((route) => {
+        if (!cancelled) setTripRoute(route.coordinates);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [tripStarted, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
+
+  useEffect(() => {
+    if (!tripStarted || tab !== 'rides') return;
+    const timer = setTimeout(() => {
+      if (tripFitted.current) return;
+      const map = tripMapRef.current;
+      if (!map) return;
+      const points: LatLng[] = [...tripRoute];
+      if (live?.pickup_lat != null && live.pickup_lng != null) {
+        points.push({ latitude: Number(live.pickup_lat), longitude: Number(live.pickup_lng) });
+      }
+      if (live?.dropoff_lat != null && live.dropoff_lng != null) {
+        points.push({ latitude: Number(live.dropoff_lat), longitude: Number(live.dropoff_lng) });
+      }
+      if (activeTaxiLoc) {
+        points.push({ latitude: activeTaxiLoc.lat, longitude: activeTaxiLoc.lng });
+      }
+      if (points.length === 0) return;
+      tripFitted.current = true;
+      ignoreMapGestureUntil.current = Date.now() + 1200;
+      if (points.length === 1) {
+        map.animateToRegion(
+          {
+            latitude: points[0].latitude,
+            longitude: points[0].longitude,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          },
+          400
+        );
+        return;
+      }
+      map.fitToCoordinates(points, {
+        edgePadding: { top: 56, right: 56, bottom: 56, left: 56 },
+        animated: true,
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [tripStarted, tab, tripRoute, activeTaxiLoc, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
+
+  useEffect(() => {
+    if (!followTaxi || !activeTaxiLoc) return;
+    ignoreMapGestureUntil.current = Date.now() + 1200;
+    tripMapRef.current?.animateCamera(
+      { center: { latitude: activeTaxiLoc.lat, longitude: activeTaxiLoc.lng } },
+      { duration: 900 }
+    );
+  }, [followTaxi, activeTaxiLoc?.lat, activeTaxiLoc?.lng]);
   const unavailableMessage =
     quote?.marketplace?.unavailable_message ||
     'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie. Je krijgt een melding zodra er weer een taxi beschikbaar is.';
@@ -530,6 +638,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       } catch {
         /* ignore */
       }
+      const savedTrack = await AsyncStorage.getItem(TRACK_KEY);
+      if (savedTrack) return;
       setTab('book');
       AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
     })();
@@ -653,6 +763,30 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   function zoomMap(delta: number) {
     const map = mapRef.current;
+    if (!map) return;
+    map
+      .getCamera()
+      .then((cam) => {
+        const nextZoom = Math.max(3, Math.min(20, (cam.zoom ?? 14) + delta));
+        return map.animateCamera(
+          {
+            center: cam.center,
+            heading: cam.heading,
+            pitch: cam.pitch,
+            zoom: nextZoom,
+          },
+          { duration: 180 }
+        );
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }
+
+  function zoomTripMap(delta: number) {
+    pauseFollow();
+    ignoreMapGestureUntil.current = Date.now() + 600;
+    const map = tripMapRef.current;
     if (!map) return;
     map
       .getCamera()
@@ -1443,7 +1577,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     tab === 'rides'
       ? showArchivedRides
         ? 'Archief'
-        : 'Ritten'
+        : tripStarted
+          ? 'Rit'
+          : 'Ritten'
       : tab === 'profile'
         ? 'Profiel'
         : 'Boeken';
@@ -1579,6 +1715,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       {activeBannerRide ? (
         <ActiveRideBanner
           ride={activeBannerRide as GuestRide}
+          etaLabel={driverComing ? live?.eta_label : null}
           onPress={() => openRideFollow(activeBannerRide as GuestRide)}
         />
       ) : null}
@@ -1957,6 +2094,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     const cancelled = phase === 'cancelled';
     const completed = phase === 'completed';
     const active = isActiveRidePhase(phase);
+    const approaching = isLiveMatch && driverComing;
     const headerStatus =
       (isLiveMatch && (liveStatusFromUpdates || live?.status_label)) ||
       ride.status_label ||
@@ -2170,8 +2308,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.liveTitle}>
                 {phase === 'awaiting_payment'
                   ? 'Wacht op betaling'
-                  : headerStatus || phaseLabel(phase)}
+                  : approaching
+                    ? 'De chauffeur is onderweg naar jou.'
+                    : headerStatus || phaseLabel(phase)}
               </Text>
+              {approaching && live?.eta_label ? (
+                <Text style={styles.tripEta}>Chauffeur arriveert over {live.eta_label}.</Text>
+              ) : null}
             ) : null}
 
             <View style={styles.rideRouteRow}>
@@ -2258,7 +2401,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <>
                 {live.eta_label ? (
                   <>
-                    <Text style={[styles.rowLabel, { marginTop: 10 }]}>Verwachte aankomsttijd</Text>
+                    <Text style={[styles.rowLabel, { marginTop: 10 }]}>
+                      {live.customer_event === 'en_route' && !live.trip_started
+                        ? 'Aankomst bij jou'
+                        : 'Verwachte aankomsttijd'}
+                    </Text>
                     <Text style={styles.rowValue}>{live.eta_label}</Text>
                   </>
                 ) : null}
@@ -2451,6 +2598,127 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
+  const listedActive = tripStarted
+    ? activeRides.filter((ride) => ride.token !== trackToken)
+    : activeRides;
+
+  const tripPanel =
+    tripStarted && live ? (
+      <View>
+        <View style={[styles.mapWrap, { height: tripMapHeight }]}>
+          <MapView
+            ref={tripMapRef}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            {...(colorScheme === 'dark' ? { customMapStyle: DARK_MAP_STYLE } : {})}
+            initialRegion={{
+              latitude: activeTaxiLoc?.lat ?? Number(live.pickup_lat) || 52.22,
+              longitude: activeTaxiLoc?.lng ?? Number(live.pickup_lng) || 6.89,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            }}
+            showsUserLocation
+            showsMyLocationButton={false}
+            scrollEnabled
+            zoomEnabled
+            pitchEnabled={false}
+            rotateEnabled={false}
+            moveOnMarkerPress={false}
+            onPanDrag={pauseFollow}
+            onRegionChange={(_region, details) => {
+              if (details?.isGesture) pauseFollow();
+            }}
+          >
+            {live.pickup_lat != null && live.pickup_lng != null ? (
+              <Marker
+                coordinate={{
+                  latitude: Number(live.pickup_lat),
+                  longitude: Number(live.pickup_lng),
+                }}
+                title="Ophalen"
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={false}
+              >
+                <View style={styles.pickupDotOuter}>
+                  <View style={styles.pickupDotInner} />
+                </View>
+              </Marker>
+            ) : null}
+            {live.dropoff_lat != null && live.dropoff_lng != null ? (
+              <Marker
+                coordinate={{
+                  latitude: Number(live.dropoff_lat),
+                  longitude: Number(live.dropoff_lng),
+                }}
+                title="Afzetten"
+                image={dropPinGreen}
+                anchor={{ x: 0.5, y: 1 }}
+                tracksViewChanges={false}
+              />
+            ) : null}
+            {activeTaxiLoc ? (
+              <CustomerTaxiMarker
+                title="Je taxi"
+                taxi={{
+                  id: 'trip-taxi',
+                  lat: activeTaxiLoc.lat,
+                  lng: activeTaxiLoc.lng,
+                  heading: activeTaxiLoc.heading,
+                }}
+              />
+            ) : null}
+            {tripRoute.length > 1 ? (
+              <Polyline coordinates={tripRoute} strokeColor={colors.primary} strokeWidth={4} />
+            ) : null}
+          </MapView>
+          <View style={styles.zoomControls} pointerEvents="box-none">
+            <Pressable
+              onPress={() => zoomTripMap(1)}
+              style={styles.zoomBtn}
+              accessibilityLabel="Inzoomen"
+            >
+              <Text style={styles.zoomBtnText}>+</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => zoomTripMap(-1)}
+              style={styles.zoomBtn}
+              accessibilityLabel="Uitzoomen"
+            >
+              <Text style={styles.zoomBtnText}>−</Text>
+            </Pressable>
+          </View>
+        </View>
+        <Card>
+          <Text style={[styles.liveTitle, { color: colors.success }]}>De rit is gestart.</Text>
+          <Text style={styles.rideRouteLine}>
+            {shortAddress(live.pickup_address)} → {shortAddress(live.dropoff_address)}
+          </Text>
+          <View style={styles.rideCardFoot}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.metaCaption}>Datum</Text>
+              <Text style={styles.rideCardAmount}>
+                {formatPickupWhen(livePickupAt(live)) || '—'}
+              </Text>
+            </View>
+            {live.quoted_price != null ? (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.metaCaption}>Prijs</Text>
+                <Text style={styles.rideCardAmount}>{formatEuroNl(Number(live.quoted_price))}</Text>
+              </View>
+            ) : null}
+          </View>
+          {renderTripDetails({
+            from: live.pickup_address,
+            to: live.dropoff_address,
+            distanceKm: live.distance_km,
+            durationSeconds: live.duration_seconds,
+            passengers: live.passengers,
+            baggage: live.baggage,
+          })}
+        </Card>
+      </View>
+    ) : null;
+
   const ridesContent = (
     <ScrollView
       style={styles.formScroll}
@@ -2472,7 +2740,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {archivedPast.map(renderRideCard)}
           </>
         )
-      ) : activeRides.length === 0 &&
+      ) : !tripStarted &&
+        listedActive.length === 0 &&
         visiblePast.length === 0 &&
         archivedPast.length === 0 ? (
         <Card>
@@ -2483,16 +2752,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         </Card>
       ) : (
         <>
-          {activeRides.length > 0 ? (
+          {tripPanel}
+          {listedActive.length > 0 ? (
             <>
               <Text style={styles.ridesSection}>Openstaand</Text>
-              {activeRides.map(renderRideCard)}
+              {listedActive.map(renderRideCard)}
             </>
           ) : null}
           {visiblePast.length > 0 ? (
             <>
               <Text style={styles.ridesSection}>
-                {activeRides.length ? 'Eerdere ritten' : 'Alle ritten'}
+                {listedActive.length || tripStarted ? 'Eerdere ritten' : 'Alle ritten'}
               </Text>
               {visiblePast.map(renderRideCard)}
             </>
@@ -2797,9 +3067,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
 function ActiveRideBanner({
   ride,
+  etaLabel,
   onPress,
 }: {
   ride: GuestRide;
+  etaLabel?: string | null;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
@@ -2853,9 +3125,14 @@ function ActiveRideBanner({
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.activeBannerTitle} numberOfLines={2}>
           {ride.phase === 'accepted'
-            ? ride.status_label || 'Taxi onderweg'
+            ? etaLabel
+              ? 'De chauffeur is onderweg naar jou.'
+              : ride.status_label || 'Taxi onderweg'
             : 'Openstaande rit'}
         </Text>
+        {etaLabel ? (
+          <Text style={styles.tripEta}>Chauffeur arriveert over {etaLabel}.</Text>
+        ) : null}
         <Text style={styles.activeBannerMeta} numberOfLines={1}>
           {shortAddress(ride.from)} → {shortAddress(ride.to)}
         </Text>
@@ -3737,6 +4014,12 @@ function makeStyles(colors: ColorPalette) {
       fontWeight: '700',
       minWidth: 18,
       textAlign: 'center',
+    },
+    tripEta: {
+      color: colors.primary,
+      fontSize: 15,
+      fontWeight: '700',
+      marginTop: 6,
     },
     liveTitle: {
       color: colors.success,

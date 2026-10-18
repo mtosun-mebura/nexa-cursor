@@ -41,7 +41,8 @@ class TaxiCustomerRideStatusNotificationService
 
         // Marktplaats loopt via de klant-app. WhatsApp blijft voor website-boekingen.
         if ($ride->isNexaSuiteBooking()) {
-            $this->recordAppStatus($conn, $ride, $event);
+            $customLabel = trim((string) ($context['status_label'] ?? ''));
+            $this->recordAppStatus($conn, $ride, $event, $customLabel !== '' ? $customLabel : null);
 
             return true;
         }

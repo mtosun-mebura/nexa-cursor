@@ -133,8 +133,17 @@ class CustomerRideLiveStatusService
         }
 
         $driverLoc = $this->resolveDriverLocation($conn, $ride, $driverId);
+        $storedStatus = data_get($ride->booking_payload, 'customer_status');
+        $customerEvent = is_array($storedStatus) ? (string) ($storedStatus['event'] ?? '') : '';
+        $tripStarted = $ride->trip_started_at !== null || $status === RideRequest::STATUS_ASSIGNED;
         $eta = null;
-        if ($accepted && $driverLoc && $ride->pickup_lat !== null && $ride->pickup_lng !== null) {
+        if (
+            ! $tripStarted
+            && $customerEvent === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE
+            && $driverLoc
+            && $ride->pickup_lat !== null
+            && $ride->pickup_lng !== null
+        ) {
             $eta = $this->estimateEtaMinutes(
                 (float) $driverLoc['lat'],
                 (float) $driverLoc['lng'],
@@ -273,6 +282,8 @@ class CustomerRideLiveStatusService
             'status' => $status,
             'status_label' => $statusLabel,
             'phase' => $phase,
+            'trip_started' => $tripStarted,
+            'customer_event' => $customerEvent !== '' ? $customerEvent : null,
             'accepted' => $accepted,
             'can_cancel' => $canCancel,
             'needs_unaccepted_decision' => $needsDecision,
@@ -391,6 +402,31 @@ class CustomerRideLiveStatusService
             'updated_at' => $availability->location_updated_at?->toIso8601String(),
             'heading' => $heading,
         ];
+    }
+
+    /**
+     * "ongeveer 6 minuten" tot de chauffeur bij de klant is, of null.
+     */
+    public function pickupArrivalPhrase(string $conn, RideRequest $ride): ?string
+    {
+        if ($ride->trip_started_at !== null || (string) $ride->status === RideRequest::STATUS_ASSIGNED) {
+            return null;
+        }
+        if ($ride->pickup_lat === null || $ride->pickup_lng === null) {
+            return null;
+        }
+
+        $driverLoc = $this->resolveDriverLocation($conn, $ride, (int) ($ride->driver_id ?? 0));
+        if (! $driverLoc) {
+            return null;
+        }
+
+        return $this->estimateEtaMinutes(
+            (float) $driverLoc['lat'],
+            (float) $driverLoc['lng'],
+            (float) $ride->pickup_lat,
+            (float) $ride->pickup_lng
+        )['label'];
     }
 
     protected function headingForDriver(RideRequest $ride, int $driverId): ?float
