@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class NearbyAvailableTaxiFleetService
@@ -27,7 +28,7 @@ class NearbyAvailableTaxiFleetService
      * Online taxi's van NEXA Suite-tenants binnen de straal (laatste bekende positie).
      * Chauffeurs met een geaccepteerde/lopende rit zijn verborgen voor andere klanten.
      *
-     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool}>
+     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool, heading: ?float}>
      */
     public function vehicles(?float $lat, ?float $lng, ?float $radiusKm = null): array
     {
@@ -113,6 +114,7 @@ class NearbyAvailableTaxiFleetService
             }
             $vehicleId = $hasVehicleColumn && $row->vehicle_id ? (int) $row->vehicle_id : 0;
             $vehicle = $vehicleId > 0 ? $vehicles->get($vehicleId) : null;
+            $cachedHeading = Cache::get('taxi-gps-heading:'.(int) $row->company_id.':'.$driverId);
             $out[] = [
                 'id' => $this->publicId($driverId),
                 'lat' => $taxiLat,
@@ -120,6 +122,7 @@ class NearbyAvailableTaxiFleetService
                 'car_style' => TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type ?? null),
                 'distance_km' => $distanceKm,
                 'busy' => false,
+                'heading' => is_numeric($cachedHeading) ? round((float) $cachedHeading, 1) : null,
             ];
         }
 

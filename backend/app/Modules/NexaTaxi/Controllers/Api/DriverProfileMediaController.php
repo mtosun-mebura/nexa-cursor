@@ -52,6 +52,15 @@ class DriverProfileMediaController extends Controller
         ]);
     }
 
+    public function deleteProfilePhoto(Request $request, TaxiDriverProfileMediaService $media): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Profielfoto verwijderd.',
+            'media' => $media->clearProfilePhoto($request->user()),
+        ]);
+    }
+
     public function uploadCompanyLogo(Request $request, TaxiDriverProfileMediaService $media): JsonResponse
     {
         $request->validate([
@@ -71,6 +80,15 @@ class DriverProfileMediaController extends Controller
             'success' => true,
             'message' => 'Bedrijfslogo opgeslagen.',
             'media' => $payload,
+        ]);
+    }
+
+    public function deleteCompanyLogo(Request $request, TaxiDriverProfileMediaService $media): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Bedrijfslogo verwijderd.',
+            'media' => $media->clearCompanyLogo($request->user()),
         ]);
     }
 
@@ -106,6 +124,29 @@ class DriverProfileMediaController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Auto-foto opgeslagen.',
+            'media' => $media->publicPayload($request->user()),
+            'vehicle' => $vehicle,
+        ]);
+    }
+
+    public function deleteVehiclePhoto(Request $request, int $vehicleId, TaxiDriverProfileMediaService $media): JsonResponse
+    {
+        try {
+            $vehicle = $media->clearVehiclePhoto(
+                $request->user(),
+                (int) $request->attributes->get('taxi_company_id'),
+                $vehicleId
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Verwijderen mislukt.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Auto-foto verwijderd.',
             'media' => $media->publicPayload($request->user()),
             'vehicle' => $vehicle,
         ]);

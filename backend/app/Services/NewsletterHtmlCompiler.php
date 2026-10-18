@@ -24,7 +24,14 @@ class NewsletterHtmlCompiler
             : '';
         $intro = trim((string) ($blocks['intro'] ?? ''));
         $highlight = trim((string) ($blocks['highlight'] ?? ''));
-        $hero = $this->absoluteUrl((string) ($blocks['hero_image'] ?? config('newsletter.stock_images.hero')));
+        $heroRaw = array_key_exists('hero_image', $blocks)
+            ? trim((string) $blocks['hero_image'])
+            : trim((string) config('newsletter.stock_images.hero'));
+        $heroHtml = '';
+        if ($heroRaw !== '') {
+            $hero = $this->absoluteUrl($heroRaw);
+            $heroHtml = '<tr><td style="padding:0;"><img src="'.$this->e($hero).'" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;"></td></tr>';
+        }
         $company = $prospect?->company_name ?: 'uw taxibedrijf';
         $unsubscribeUrl = $unsubscribeUrl ?: ($prospect?->unsubscribeUrl() ?? url('/contact'));
         $logo = NexaBranding::emailLogoUrl();
@@ -74,11 +81,7 @@ class NewsletterHtmlCompiler
         <h1 style="margin:0;font-size:22px;line-height:1.3;color:#ffffff;">{$this->e($title)}</h1>
     </td>
 </tr>
-<tr>
-    <td style="padding:0;">
-        <img src="{$this->e($hero)}" alt="" width="600" style="width:100%;max-width:600px;height:auto;display:block;">
-    </td>
-</tr>
+{$heroHtml}
 <tr>
     <td style="padding:28px 32px 8px;">
         <p style="margin:0 0 14px;font-size:16px;">{$this->e($greeting)}</p>

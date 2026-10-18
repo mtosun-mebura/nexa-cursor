@@ -34,6 +34,9 @@ import {
   createDriverVehicle,
   updateDriverVehicle,
   deleteDriverVehicle,
+  deleteDriverProfilePhoto,
+  deleteDriverCompanyLogo,
+  deleteDriverVehiclePhoto,
   DriverReview,
   fetchDriverPlanningWeek,
   inboxDataFromResponse,
@@ -312,10 +315,22 @@ function resolveMediaUrl(url?: string | null): string | null {
   return raw;
 }
 
+function personRangeForVehicleType(type: string): string {
+  if (type === 'van') return '5-8';
+  if (type === 'bus') return '9+';
+  return '1-4';
+}
+
+function vehicleTypeForPersonRange(range: string): string {
+  if (range === '5-8') return 'van';
+  if (range === '9+') return 'bus';
+  return 'car';
+}
+
 export function DriverHomeScreen() {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
-  const { driverToken, logout, capabilities, setActiveScreen } = useAuth();
+  const { driverToken, logout } = useAuth();
   const [tab, setTab] = useState<DriverTabKey>(() => lastDriverTab);
   const [showArchived, setShowArchived] = useState(false);
   const [focusRideId, setFocusRideId] = useState<number | null>(null);
@@ -344,7 +359,9 @@ export function DriverHomeScreen() {
   const [mediaBusy, setMediaBusy] = useState(false);
   const [cropUri, setCropUri] = useState<string | null>(null);
   const [cropMime, setCropMime] = useState<string | null>(null);
-  const [cropKind, setCropKind] = useState<'profile' | 'logo' | 'vehicle' | null>(null);
+  const [cropKind, setCropKind] = useState<'profile' | 'logo' | 'vehicle' | 'vehicle-draft' | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [vehiclePhotoZoom, setVehiclePhotoZoom] = useState(false);
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [canFilterContractRides, setCanFilterContractRides] = useState(false);
@@ -407,6 +424,7 @@ export function DriverHomeScreen() {
   const [vehiclePhotoAsk, setVehiclePhotoAsk] = useState<DriverVehicle | null>(null);
   const [focusVehiclePhoto, setFocusVehiclePhoto] = useState(false);
   const profileScrollRef = useRef<ScrollView>(null);
+  const clearedPhotos = useRef({ profile: false, logo: false, vehicles: new Set<number>() });
   const vehiclePhotoRef = useRef<View>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -469,8 +487,6 @@ export function DriverHomeScreen() {
     })();
   }, []);
 
-  const modes = capabilities?.modes;
-  const multi = (capabilities?.screens?.length || 0) > 1;
   const logoUri =
     resolveMediaUrl(colorScheme === 'light' ? logoLight || logoDark : logoDark || logoLight) ||
     null;
@@ -529,7 +545,17 @@ export function DriverHomeScreen() {
       setPayoutIbanMasked(me.user.payout_iban_masked || null);
       setLogoLight(me.user.company_logo_url || null);
       setLogoDark(me.user.company_logo_dark_url || null);
-      setDriverMedia(me.user.media || null);
+      const media = me.user.media || null;
+      setDriverMedia(
+        media
+          ? {
+              ...media,
+              profile_photo_url: clearedPhotos.current.profile ? null : media.profile_photo_url,
+              has_profile_photo: clearedPhotos.current.profile ? false : media.has_profile_photo,
+              company_logo_url: clearedPhotos.current.logo ? null : media.company_logo_url,
+            }
+          : null
+      );
       setCanFilterContractRides(!!me.user.can_handle_contract_rides);
       const canSeeEarnings = !!me.permissions?.earnings_view;
       setShowEarnings(canSeeEarnings);
@@ -542,16 +568,23 @@ export function DriverHomeScreen() {
 
       const locked = !!vehiclesRes.locked;
       const list = Array.isArray(vehiclesRes.data) ? vehiclesRes.data : [];
+      const withoutClearedPhoto = (vehicle: DriverVehicle) =>
+        clearedPhotos.current.vehicles.has(vehicle.id) ? { ...vehicle, photo_url: null } : vehicle;
       setVehicles((previous) =>
         list.map((vehicle) => {
           const prior = previous.find((item) => item.id === vehicle.id);
+          const next = withoutClearedPhoto(vehicle);
           return {
-            ...vehicle,
-            photo_url: vehicle.photo_url || prior?.photo_url || null,
+            ...next,
+            photo_url: clearedPhotos.current.vehicles.has(vehicle.id)
+              ? null
+              : next.photo_url || prior?.photo_url || null,
           };
         })
       );
-      setFleet(Array.isArray(fleetRes.data) ? fleetRes.data : []);
+      setFleet(
+        (Array.isArray(fleetRes.data) ? fleetRes.data : []).map((vehicle) => withoutClearedPhoto(vehicle))
+      );
       setVehicleLocked(locked);
       setAssignedUntil(vehiclesRes.assigned_until || null);
       let resolvedVehicleId: number | null = selectedVehicleId;
@@ -1626,7 +1659,13 @@ export function DriverHomeScreen() {
         if (res.media) setDriverMedia(res.media);
         const photoUrl = res.vehicle?.photo_url || res.media?.vehicle_photo_url || null;
         if (vehicleId && photoUrl) {
+          clearedPhotos.current.vehicles.delete(vehicleId);
           setVehicles((list) =>
+            list.map((vehicle) =>
+              vehicle.id === vehicleId ? { ...vehicle, photo_url: photoUrl } : vehicle
+            )
+          );
+          setFleet((list) =>
             list.map((vehicle) =>
               vehicle.id === vehicleId ? { ...vehicle, photo_url: photoUrl } : vehicle
             )
@@ -1637,6 +1676,8 @@ export function DriverHomeScreen() {
           kind === 'profile'
             ? await uploadDriverProfilePhoto(driverToken, cropped.uri, cropped.mimeType)
             : await uploadDriverCompanyLogo(driverToken, cropped.uri, cropped.mimeType);
+        if (kind === 'profile') clearedPhotos.current.profile = false;
+        else clearedPhotos.current.logo = false;
         if (res.media) setDriverMedia(res.media);
       }
     } catch (e) {
@@ -1655,6 +1696,7 @@ export function DriverHomeScreen() {
   function openVehicleForm(vehicle?: DriverVehicle) {
     setVehicleFormError(null);
     setVehicleConfirmDelete(false);
+    setVehiclePhotoZoom(false);
     setVehicleDraft({
       id: vehicle?.id ?? null,
       name: vehicle?.name || '',
@@ -1670,23 +1712,145 @@ export function DriverHomeScreen() {
   }
 
   async function pickVehicleDraftPhoto() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      setVehicleFormError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
-      return;
+    setVehicleFormError(null);
+    try {
+      const source = await chooseImageSource();
+      if (!source) return;
+
+      let uri: string | null = null;
+      let mime: string | null = null;
+
+      if (source === 'library') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setVehicleFormError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+          return;
+        }
+        const picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.85,
+          allowsEditing: false,
+        });
+        const asset = picked.assets?.[0];
+        if (picked.canceled || !asset?.uri) return;
+        uri = asset.uri;
+        mime = asset.mimeType || null;
+      } else {
+        const picked = await DocumentPicker.getDocumentAsync({
+          type: ['image/*'],
+          copyToCacheDirectory: true,
+          multiple: false,
+        });
+        const asset = picked.assets?.[0];
+        if (picked.canceled || !asset?.uri) return;
+        uri = asset.uri;
+        mime = asset.mimeType || null;
+      }
+
+      setCropKind('vehicle-draft');
+      setCropMime(mime);
+      setCropUri(uri);
+    } catch (e) {
+      setVehicleFormError(e instanceof Error ? e.message : 'Foto kiezen mislukt.');
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-      allowsEditing: false,
-    });
-    const asset = picked.assets?.[0];
-    if (picked.canceled || !asset?.uri) return;
+  }
+
+  function forgetVehiclePhoto(vehicleId: number) {
+    const clear = (list: DriverVehicle[]) =>
+      list.map((vehicle) => (vehicle.id === vehicleId ? { ...vehicle, photo_url: null } : vehicle));
+    setVehicles(clear);
+    setFleet(clear);
+    setVehicleDraft((current) =>
+      current.id === vehicleId
+        ? { ...current, photoUri: null, photoMime: null, existingPhoto: null }
+        : current
+    );
+  }
+
+  function openPhotoPreview(uri: string | null) {
+    if (!uri) return;
+    setPhotoPreview(uri);
+  }
+
+  function confirmRemovePhoto(message: string, onYes: () => void) {
+    Alert.alert('Plaatje verwijderen', message, [
+      { text: 'Annuleren', style: 'cancel' },
+      { text: 'Verwijderen', style: 'destructive', onPress: onYes },
+    ]);
+  }
+
+  async function removeProfilePhoto() {
+    if (!driverToken || mediaBusy) return;
+    clearedPhotos.current.profile = true;
+    setDriverMedia((current) =>
+      current ? { ...current, profile_photo_url: null, has_profile_photo: false } : current
+    );
+    setMediaBusy(true);
+    setError(null);
+    try {
+      const res = await deleteDriverProfilePhoto(driverToken);
+      if (res.media) {
+        setDriverMedia({
+          ...res.media,
+          profile_photo_url: null,
+          has_profile_photo: false,
+        });
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Profielfoto verwijderen mislukt.');
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function removeCompanyLogo() {
+    if (!driverToken || mediaBusy) return;
+    clearedPhotos.current.logo = true;
+    setDriverMedia((current) => (current ? { ...current, company_logo_url: null } : current));
+    setMediaBusy(true);
+    setError(null);
+    try {
+      const res = await deleteDriverCompanyLogo(driverToken);
+      if (res.media) {
+        setDriverMedia({ ...res.media, company_logo_url: null });
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Bedrijfslogo verwijderen mislukt.');
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  async function removeVehiclePhoto(vehicleId: number) {
+    if (!driverToken || vehicleId <= 0) return;
+    clearedPhotos.current.vehicles.add(vehicleId);
+    forgetVehiclePhoto(vehicleId);
+    setMediaBusy(true);
+    setVehicleFormError(null);
+    setError(null);
+    try {
+      await deleteDriverVehiclePhoto(driverToken, vehicleId);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : 'Auto-foto verwijderen mislukt.';
+      if (vehicleFormOpen) setVehicleFormError(message);
+      else setError(message);
+    } finally {
+      setMediaBusy(false);
+    }
+  }
+
+  function removeVehicleDraftPhoto() {
+    const id = vehicleDraft.id;
+    setVehiclePhotoZoom(false);
     setVehicleDraft((current) => ({
       ...current,
-      photoUri: asset.uri,
-      photoMime: asset.mimeType || null,
+      photoUri: null,
+      photoMime: null,
+      existingPhoto: null,
     }));
+    if (id && (vehicleDraft.existingPhoto || vehicleDraft.photoUri)) {
+      void removeVehiclePhoto(id);
+    }
   }
 
   async function saveVehicleDraft() {
@@ -1715,6 +1879,7 @@ export function DriverHomeScreen() {
         : await createDriverVehicle(driverToken, input);
       const savedId = Number(saved.data?.id || vehicleDraft.id || 0);
       if (vehicleDraft.photoUri && savedId > 0) {
+        clearedPhotos.current.vehicles.delete(savedId);
         await uploadDriverVehiclePhoto(
           driverToken,
           vehicleDraft.photoUri,
@@ -1867,62 +2032,142 @@ export function DriverHomeScreen() {
           optioneel en worden alleen getoond als je ze uploadt.
         </Text>
         <View style={styles.mediaUploadRow}>
-          <Pressable
-            style={styles.mediaUploadCard}
-            onPress={() => pickAndUploadMedia('profile')}
-            disabled={mediaBusy}
-          >
+          <View style={styles.mediaUploadCard}>
+            <Pressable
+              style={styles.mediaUploadPress}
+              onPress={() => pickAndUploadMedia('profile')}
+              disabled={mediaBusy}
+            >
+              {driverMedia?.profile_photo_url ? (
+                <Image
+                  source={{ uri: driverMedia.profile_photo_url }}
+                  style={styles.mediaPreview}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                  <Ionicons name="person" size={28} color={colors.muted} />
+                </View>
+              )}
+            </Pressable>
             {driverMedia?.profile_photo_url ? (
-              <Image source={{ uri: driverMedia.profile_photo_url }} style={styles.mediaPreview} />
-            ) : (
-              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
-                <Ionicons name="person" size={28} color={colors.muted} />
+              <View style={styles.photoActions}>
+                <Pressable
+                  onPress={() => openPhotoPreview(driverMedia.profile_photo_url || null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Profielfoto vergroten"
+                  hitSlop={8}
+                >
+                  <Ionicons name="search-outline" size={20} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    confirmRemovePhoto('De profielfoto wordt verwijderd.', () => void removeProfilePhoto())
+                  }
+                  disabled={mediaBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Profielfoto verwijderen"
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                </Pressable>
               </View>
-            )}
+            ) : null}
             <Text style={styles.mediaUploadLabel}>
               {driverMedia?.has_profile_photo ? 'Profielfoto wijzigen' : 'Profielfoto (verplicht)'}
             </Text>
-          </Pressable>
-          <Pressable
-            style={styles.mediaUploadCard}
-            onPress={() => pickAndUploadMedia('logo')}
-            disabled={mediaBusy}
-          >
+          </View>
+          <View style={styles.mediaUploadCard}>
+            <Pressable
+              style={styles.mediaUploadPress}
+              onPress={() => pickAndUploadMedia('logo')}
+              disabled={mediaBusy}
+            >
+              {driverMedia?.company_logo_url ? (
+                <Image
+                  source={{ uri: driverMedia.company_logo_url }}
+                  style={[styles.mediaPreview, styles.mediaPreviewTransparent]}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                  <Ionicons name="business" size={28} color={colors.muted} />
+                </View>
+              )}
+            </Pressable>
             {driverMedia?.company_logo_url ? (
-              <Image
-                source={{ uri: driverMedia.company_logo_url }}
-                style={[styles.mediaPreview, styles.mediaPreviewTransparent]}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
-                <Ionicons name="business" size={28} color={colors.muted} />
+              <View style={styles.photoActions}>
+                <Pressable
+                  onPress={() => openPhotoPreview(driverMedia.company_logo_url || null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bedrijfslogo vergroten"
+                  hitSlop={8}
+                >
+                  <Ionicons name="search-outline" size={20} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    confirmRemovePhoto('Het bedrijfslogo wordt verwijderd.', () => void removeCompanyLogo())
+                  }
+                  disabled={mediaBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bedrijfslogo verwijderen"
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                </Pressable>
               </View>
-            )}
+            ) : null}
             <Text style={styles.mediaUploadLabel}>Bedrijfslogo</Text>
-          </Pressable>
+          </View>
           <View ref={vehiclePhotoRef} collapsable={false} style={styles.mediaUploadCard}>
-          <Pressable
-            style={styles.mediaUploadPress}
-            onPress={() => pickAndUploadMedia('vehicle')}
-            disabled={mediaBusy}
-          >
+            <Pressable
+              style={styles.mediaUploadPress}
+              onPress={() => pickAndUploadMedia('vehicle')}
+              disabled={mediaBusy}
+            >
+              {resolveMediaUrl(selectedVehicle?.photo_url) ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(selectedVehicle?.photo_url) || '' }}
+                  style={styles.mediaPreview}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
+                  <Ionicons name="car" size={28} color={colors.muted} />
+                </View>
+              )}
+            </Pressable>
             {resolveMediaUrl(selectedVehicle?.photo_url) ? (
-              <Image
-                source={{ uri: resolveMediaUrl(selectedVehicle?.photo_url) || '' }}
-                style={styles.mediaPreview}
-              />
-            ) : (
-              <View style={[styles.mediaPreview, styles.mediaPreviewEmpty]}>
-                <Ionicons name="car" size={28} color={colors.muted} />
+              <View style={styles.photoActions}>
+                <Pressable
+                  onPress={() => openPhotoPreview(resolveMediaUrl(selectedVehicle?.photo_url))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Auto-foto vergroten"
+                  hitSlop={8}
+                >
+                  <Ionicons name="search-outline" size={20} color={colors.text} />
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    selectedVehicleId
+                      ? confirmRemovePhoto('De auto-foto wordt verwijderd.', () =>
+                          void removeVehiclePhoto(selectedVehicleId)
+                        )
+                      : undefined
+                  }
+                  disabled={mediaBusy || !selectedVehicleId}
+                  accessibilityRole="button"
+                  accessibilityLabel="Auto-foto verwijderen"
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                </Pressable>
               </View>
-            )}
+            ) : null}
             <Text style={styles.mediaUploadLabel}>
-              {selectedVehicle
-                ? `Auto · ${vehicleDisplayLabel(selectedVehicle)}`
-                : 'Auto'}
+              {selectedVehicle ? `Auto · ${vehicleDisplayLabel(selectedVehicle)}` : 'Auto'}
             </Text>
-          </Pressable>
           </View>
         </View>
 
@@ -1948,7 +2193,11 @@ export function DriverHomeScreen() {
               accessibilityLabel={`${vehicle.name || 'Voertuig'} bewerken`}
             >
               {resolveMediaUrl(vehicle.photo_url) ? (
-                <Image source={{ uri: resolveMediaUrl(vehicle.photo_url) || '' }} style={styles.fleetPhoto} />
+                <Image
+                  source={{ uri: resolveMediaUrl(vehicle.photo_url) || '' }}
+                  style={styles.fleetPhoto}
+                  resizeMode="contain"
+                />
               ) : (
                 <View style={[styles.fleetPhoto, styles.mediaPreviewEmpty]}>
                   <Ionicons name="car" size={18} color={colors.muted} />
@@ -2062,7 +2311,6 @@ export function DriverHomeScreen() {
           <Text style={styles.logoutBtnText}>Uitloggen</Text>
         </Pressable>
       </Card>
-      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen('contract')} /> : null}
     </ScrollView>
   );
 
@@ -2290,7 +2538,7 @@ export function DriverHomeScreen() {
     <DriverAccentProvider accent={accent}>
     <Screen style={{ paddingHorizontal: 0, paddingTop: APP_PAGE_TOP_INSET, paddingBottom: 0 }}>
       <ImageCropModal
-        visible={!!cropUri}
+        visible={!!cropUri && cropKind !== 'vehicle-draft'}
         uri={cropUri}
         sourceMimeType={cropMime}
         preferPng={cropKind === 'logo'}
@@ -2300,15 +2548,40 @@ export function DriverHomeScreen() {
             ? 'Profielfoto bijsnijden'
             : cropKind === 'logo'
               ? 'Logo bijsnijden'
-              : 'Auto-foto bijsnijden'
+              : 'Voertuigfoto bijsnijden'
         }
         onCancel={() => {
           setCropUri(null);
           setCropMime(null);
           setCropKind(null);
         }}
-        onConfirm={(result) => void uploadCroppedMedia(result)}
+        onConfirm={(result) => {
+          if (cropKind === 'vehicle-draft') {
+            setVehicleDraft((current) => ({
+              ...current,
+              photoUri: result.uri,
+              photoMime: result.mimeType,
+            }));
+            setCropUri(null);
+            setCropMime(null);
+            setCropKind(null);
+            return;
+          }
+          void uploadCroppedMedia(result);
+        }}
       />
+      <AppModal
+        visible={!!photoPreview}
+        onRequestClose={() => setPhotoPreview(null)}
+        panelStyle={styles.photoLightbox}
+      >
+        {photoPreview ? (
+          <Image source={{ uri: photoPreview }} style={styles.photoLightboxImage} resizeMode="contain" />
+        ) : null}
+        <Pressable onPress={() => setPhotoPreview(null)} style={styles.vehicleModalCloseBtn}>
+          <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+        </Pressable>
+      </AppModal>
       <View style={styles.topBar}>
         <View style={styles.onlineBox}>
           <Text style={styles.onlineLabel}>{online ? 'Online' : 'Offline'}</Text>
@@ -2558,8 +2831,19 @@ export function DriverHomeScreen() {
 
       <AppModal
         visible={vehicleFormOpen}
+        scrollEnabled={!(cropKind === 'vehicle-draft' && cropUri)}
         onRequestClose={() => {
           if (vehicleFormBusy) return;
+          if (cropKind === 'vehicle-draft') {
+            setCropUri(null);
+            setCropMime(null);
+            setCropKind(null);
+            return;
+          }
+          if (vehiclePhotoZoom) {
+            setVehiclePhotoZoom(false);
+            return;
+          }
           if (vehicleConfirmDelete) {
             setVehicleConfirmDelete(false);
             return;
@@ -2569,7 +2853,49 @@ export function DriverHomeScreen() {
         dismissDisabled={vehicleFormBusy}
         panelStyle={styles.centeredSheet}
       >
-        {vehicleConfirmDelete ? (
+        {cropKind === 'vehicle-draft' && cropUri ? (
+          <ImageCropModal
+            embedded
+            visible
+            uri={cropUri}
+            sourceMimeType={cropMime}
+            aspectRatio={4 / 3}
+            maxFrameHeight={180}
+            title="Voertuigfoto bijsnijden"
+            onCancel={() => {
+              setCropUri(null);
+              setCropMime(null);
+              setCropKind(null);
+            }}
+            onConfirm={(result) => {
+              setVehicleDraft((current) => ({
+                ...current,
+                photoUri: result.uri,
+                photoMime: result.mimeType,
+              }));
+              setCropUri(null);
+              setCropMime(null);
+              setCropKind(null);
+            }}
+          />
+        ) : vehiclePhotoZoom && (vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto)) ? (
+          <>
+            <Text style={styles.pickerTitle}>Voertuigfoto</Text>
+            <Image
+              source={{ uri: vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) || '' }}
+              style={styles.photoLightboxImage}
+              resizeMode="contain"
+            />
+            <Pressable
+              onPress={() => setVehiclePhotoZoom(false)}
+              style={styles.vehicleModalCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Sluiten"
+            >
+              <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+            </Pressable>
+          </>
+        ) : vehicleConfirmDelete ? (
           <>
             <Text style={styles.pickerTitle}>Voertuig verwijderen</Text>
             <Text style={styles.hint}>
@@ -2597,19 +2923,50 @@ export function DriverHomeScreen() {
         ) : (
           <>
         <Text style={styles.pickerTitle}>{vehicleDraft.id ? 'Voertuig bewerken' : 'Voertuig toevoegen'}</Text>
-        <Pressable onPress={() => void pickVehicleDraftPhoto()} style={styles.fleetPhotoPick} accessibilityRole="button">
+        <View style={styles.fleetPhotoPick}>
+          <Pressable
+            onPress={() => void pickVehicleDraftPhoto()}
+            style={styles.fleetPhotoPress}
+            accessibilityRole="button"
+          >
+            {vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) ? (
+              <Image
+                key={vehicleDraft.photoUri || vehicleDraft.existingPhoto || 'vehicle-photo'}
+                source={{ uri: vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) || '' }}
+                style={styles.fleetPhotoLarge}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={[styles.fleetPhotoLarge, styles.mediaPreviewEmpty]}>
+                <Ionicons name="image-outline" size={28} color={colors.muted} />
+                <Text style={styles.fleetPhotoEmptyLabel}>Foto, optioneel</Text>
+              </View>
+            )}
+          </Pressable>
           {vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) ? (
-            <Image
-              source={{ uri: vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) || '' }}
-              style={styles.fleetPhotoLarge}
-            />
-          ) : (
-            <View style={[styles.fleetPhotoLarge, styles.mediaPreviewEmpty]}>
-              <Ionicons name="image-outline" size={28} color={colors.muted} />
-              <Text style={styles.themeHint}>Foto, optioneel</Text>
+            <View style={styles.photoActions}>
+              <Pressable
+                onPress={() => setVehiclePhotoZoom(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Voertuigfoto vergroten"
+                hitSlop={8}
+              >
+                <Ionicons name="search-outline" size={20} color={colors.text} />
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  confirmRemovePhoto('De voertuigfoto wordt verwijderd.', removeVehicleDraftPhoto)
+                }
+                disabled={vehicleFormBusy || mediaBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Voertuigfoto verwijderen"
+                hitSlop={8}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              </Pressable>
             </View>
-          )}
-        </Pressable>
+          ) : null}
+        </View>
         <Text style={styles.fleetFieldLabel}>Naam</Text>
         <TextInput
           value={vehicleDraft.name}
@@ -2629,7 +2986,13 @@ export function DriverHomeScreen() {
             return (
               <Pressable
                 key={item.key}
-                onPress={() => setVehicleDraft((current) => ({ ...current, type: item.key }))}
+                onPress={() =>
+                  setVehicleDraft((current) => ({
+                    ...current,
+                    type: item.key,
+                    person_range: personRangeForVehicleType(item.key),
+                  }))
+                }
                 style={[styles.fleetChip, selected && { backgroundColor: accentHex(accent), borderColor: accentHex(accent) }]}
               >
                 <Text style={[styles.fleetChipText, selected && styles.fleetChipTextOn]}>{item.label}</Text>
@@ -2651,12 +3014,19 @@ export function DriverHomeScreen() {
           {[
             { key: '1-4', label: 't/m 4 personen' },
             { key: '5-8', label: '5 t/m 8 personen' },
+            { key: '9+', label: 'meer dan 8 personen' },
           ].map((item) => {
             const selected = vehicleDraft.person_range === item.key;
             return (
               <Pressable
                 key={item.key}
-                onPress={() => setVehicleDraft((current) => ({ ...current, person_range: item.key }))}
+                onPress={() =>
+                  setVehicleDraft((current) => ({
+                    ...current,
+                    person_range: item.key,
+                    type: vehicleTypeForPersonRange(item.key),
+                  }))
+                }
                 style={[styles.fleetChip, selected && { backgroundColor: accentHex(accent), borderColor: accentHex(accent) }]}
               >
                 <Text style={[styles.fleetChipText, selected && styles.fleetChipTextOn]}>{item.label}</Text>
@@ -3154,15 +3524,44 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       justifyContent: 'center',
     },
     fleetPhotoPick: {
-      alignItems: 'center',
+      alignSelf: 'stretch',
+      width: '100%',
       marginBottom: 8,
+    },
+    fleetPhotoPress: {
+      width: '100%',
     },
     fleetPhotoLarge: {
       width: '100%',
-      height: 120,
+      height: 96,
       borderRadius: 12,
+      backgroundColor: colors.inputBg,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    fleetPhotoEmptyLabel: {
+      color: colors.muted,
+      fontSize: 13,
+      textAlign: 'center',
+      paddingHorizontal: 22,
+      marginTop: 4,
+    },
+    photoActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 18,
+      marginTop: 8,
+    },
+    photoLightbox: {
+      width: '100%',
+      maxWidth: 420,
+    },
+    photoLightboxImage: {
+      width: '100%',
+      height: 360,
+      borderRadius: 12,
+      backgroundColor: colors.inputBg,
     },
     fleetFieldLabel: {
       color: colors.muted,

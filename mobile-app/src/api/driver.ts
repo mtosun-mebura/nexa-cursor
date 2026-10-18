@@ -194,8 +194,8 @@ export type DriverInboxData = {
   archivedOverdueScheduledRides: DriverActiveRide[];
   completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
-  pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
-  payoutNotices: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
+    pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
+    payoutNotices: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
 };
 
 function asRideList(raw: unknown): DriverActiveRide[] {
@@ -298,6 +298,29 @@ export function uploadDriverCompanyLogo(
       mimeType: mimeType || undefined,
     }
   );
+}
+
+export function deleteDriverProfilePhoto(token: string) {
+  return apiRequest<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/photo',
+    { method: 'DELETE', token }
+  );
+}
+
+export function deleteDriverCompanyLogo(token: string) {
+  return apiRequest<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/company-logo',
+    { method: 'DELETE', token }
+  );
+}
+
+export function deleteDriverVehiclePhoto(token: string, vehicleId: number) {
+  return apiRequest<{
+    success?: boolean;
+    media?: DriverMedia;
+    message?: string;
+    vehicle?: { id?: number; photo_url?: string | null };
+  }>(`/api/taxi/v1/driver/profile/vehicle-photo/${vehicleId}`, { method: 'DELETE', token });
 }
 
 export function uploadDriverVehiclePhoto(

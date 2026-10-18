@@ -181,4 +181,64 @@ class DispatchPassengerCapacityTest extends TestCase
             'status' => RideDispatchOffer::STATUS_PENDING,
         ], 'module_taxi');
     }
+
+    #[Test]
+    public function a_ride_with_more_than_eight_passengers_goes_only_to_a_bus(): void
+    {
+        $company = Company::query()->create(['name' => 'Vloot bus', 'is_active' => true]);
+        $vanDriver = User::factory()->create(['company_id' => $company->id]);
+        $vanDriver->assignRole('chauffeur');
+        $busDriver = User::factory()->create(['company_id' => $company->id]);
+        $busDriver->assignRole('chauffeur');
+
+        $van = Vehicle::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'name' => 'Busje',
+            'person_range' => Vehicle::PERSON_RANGE_5_8,
+            'active' => true,
+        ]);
+        $bus = Vehicle::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'name' => 'Bus',
+            'person_range' => Vehicle::PERSON_RANGE_OVER_8,
+            'active' => true,
+        ]);
+
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $vanDriver->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $van->id,
+            'is_online' => true,
+            'last_seen_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $busDriver->id,
+            'company_id' => $company->id,
+            'vehicle_id' => $bus->id,
+            'is_online' => true,
+            'last_seen_at' => now(),
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'passengers' => 10,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Klant',
+        ]);
+
+        app(RideDispatchService::class)->startDispatch('module_taxi', $ride, (int) $company->id);
+
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $vanDriver->id,
+        ], 'module_taxi');
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $busDriver->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+    }
 }

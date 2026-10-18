@@ -123,6 +123,91 @@ const BAGGAGE_ROWS: {
   { key: 'pets', label: 'Huisdieren', hint: 'Optioneel', special: true, max: 2 },
 ];
 
+function bearingDegrees(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
+  const x =
+    Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) -
+    Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+const taxiMarkerFrameStyle = {
+  width: 56,
+  height: 56,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+const taxiMarkerImageStyle = { width: 26, height: 39 };
+
+function CustomerTaxiMarker({
+  taxi,
+  title = 'Taxi beschikbaar',
+}: {
+  taxi: NearbyTaxi;
+  title?: string;
+}) {
+  const [pos, setPos] = useState({ lat: taxi.lat, lng: taxi.lng });
+  const posRef = useRef(pos);
+  const [heading, setHeading] = useState(() =>
+    taxi.heading != null && Number.isFinite(taxi.heading) ? taxi.heading : 0
+  );
+  const [trackView, setTrackView] = useState(true);
+
+  useEffect(() => {
+    const from = posRef.current;
+    const to = { lat: taxi.lat, lng: taxi.lng };
+    const dLat = to.lat - from.lat;
+    const dLng = to.lng - from.lng;
+    const moved = Math.abs(dLat) > 0.00001 || Math.abs(dLng) > 0.00001;
+    if (taxi.heading != null && Number.isFinite(taxi.heading)) {
+      setHeading(taxi.heading);
+    } else if (moved) {
+      setHeading((bearingDegrees(from, to) + 360) % 360);
+    }
+    setTrackView(true);
+    if (!moved) {
+      const off = setTimeout(() => setTrackView(false), 400);
+      return () => clearTimeout(off);
+    }
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const t = Math.min(1, (Date.now() - started) / 3800);
+      const next = { lat: from.lat + dLat * t, lng: from.lng + dLng * t };
+      posRef.current = next;
+      setPos(next);
+      if (t >= 1) clearInterval(timer);
+    }, 100);
+    const off = setTimeout(() => setTrackView(false), 4200);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(off);
+    };
+  }, [taxi.lat, taxi.lng, taxi.heading]);
+
+  return (
+    <Marker
+      coordinate={{ latitude: pos.lat, longitude: pos.lng }}
+      title={title}
+      description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={trackView}
+      zIndex={20}
+    >
+      <View style={taxiMarkerFrameStyle} collapsable={false}>
+        <Image
+          source={taxiCarYellow}
+          style={[taxiMarkerImageStyle, { transform: [{ rotate: `${heading}deg` }] }]}
+          resizeMode="contain"
+        />
+      </View>
+    </Marker>
+  );
+}
+
 function isSameTaxi(
   taxi: { lat: number; lng: number },
   loc: { lat: number; lng: number } | null
@@ -257,8 +342,20 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     const lng = loc?.lng != null ? Number(loc.lng) : NaN;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     if (lat === 0 && lng === 0) return null;
-    return { lat, lng };
-  }, [live, trackToken, live?.phase, live?.vehicle_location?.lat, live?.vehicle_location?.lng]);
+    const headingRaw = loc?.heading != null ? Number(loc.heading) : NaN;
+    return {
+      lat,
+      lng,
+      heading: Number.isFinite(headingRaw) ? headingRaw : null,
+    };
+  }, [
+    live,
+    trackToken,
+    live?.phase,
+    live?.vehicle_location?.lat,
+    live?.vehicle_location?.lng,
+    live?.vehicle_location?.heading,
+  ]);
   const freeTaxis = nearbyTaxis.filter(
     (taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc)
   );
@@ -1289,24 +1386,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             tracksViewChanges={false}
           />
         ) : null}
+        {activeTaxiLoc ? (
+          <CustomerTaxiMarker
+            key="active-ride-taxi"
+            title="Je taxi"
+            taxi={{
+              id: 'active-ride',
+              lat: activeTaxiLoc.lat,
+              lng: activeTaxiLoc.lng,
+              heading: activeTaxiLoc.heading,
+            }}
+          />
+        ) : null}
         {freeTaxis.map((taxi) => (
-              <Marker
-                key={taxi.id}
-                coordinate={{ latitude: taxi.lat, longitude: taxi.lng }}
-                title="Taxi beschikbaar"
-                description={
-                  taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined
-                }
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <Image
-                  source={taxiCarYellow}
-                  style={styles.taxiMarker}
-                  resizeMode="contain"
-                />
-              </Marker>
-            ))}
+          <CustomerTaxiMarker key={taxi.id} taxi={taxi} />
+        ))}
         {routeCoords.length > 1 ? (
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}

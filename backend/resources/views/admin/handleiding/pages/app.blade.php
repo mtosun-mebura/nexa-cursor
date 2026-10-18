@@ -175,7 +175,6 @@
     <div>
         <strong>Profiel</strong> toont naam, e-mail, telefoon, bedrijf en of het account online is.
         Daar staan ook beoordelingen, het voertuig, de themakleur en uitloggen.
-        Met meerdere rollen is er <strong>Ander scherm</strong>.
     </div>
 </div>
 

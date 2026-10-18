@@ -112,6 +112,16 @@ class TaxiDriverProfileMediaService
         return $this->publicPayload($driver->fresh() ?? $driver);
     }
 
+    public function clearProfilePhoto(User $driver): array
+    {
+        $driver->photo_blob = null;
+        $driver->photo_mime_type = null;
+        $driver->photo = null;
+        $driver->save();
+
+        return $this->publicPayload($driver->fresh() ?? $driver);
+    }
+
     public function storeCompanyLogo(User $driver, UploadedFile $file): array
     {
         $path = $this->storeFile((int) $driver->id, 'company_logo', $file);
@@ -121,6 +131,19 @@ class TaxiDriverProfileMediaService
         }
         $row->company_logo_path = $path;
         $row->save();
+
+        return $this->publicPayload($driver);
+    }
+
+    public function clearCompanyLogo(User $driver): array
+    {
+        $row = $this->profile((int) $driver->id);
+        $path = is_string($row?->company_logo_path) ? $row->company_logo_path : '';
+        if ($row && $path !== '') {
+            Storage::disk('public')->delete($path);
+            $row->company_logo_path = null;
+            $row->save();
+        }
 
         return $this->publicPayload($driver);
     }
@@ -158,6 +181,36 @@ class TaxiDriverProfileMediaService
         return [
             'id' => (int) $vehicle->id,
             'photo_url' => Storage::disk('public')->url($path),
+        ];
+    }
+
+    /**
+     * @return array{id: int, photo_url: null}
+     */
+    public function clearVehiclePhoto(User $driver, int $companyId, int $vehicleId): array
+    {
+        $conn = $this->connection();
+        TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
+        $vehicle = Vehicle::on($conn)
+            ->where('company_id', $companyId)
+            ->whereKey($vehicleId)
+            ->first();
+        if (! $vehicle) {
+            throw ValidationException::withMessages([
+                'vehicle_id' => ['Kies eerst een voertuig.'],
+            ]);
+        }
+
+        $previous = is_string($vehicle->driver_photo_path) ? $vehicle->driver_photo_path : '';
+        if ($previous !== '') {
+            Storage::disk('public')->delete($previous);
+        }
+        $vehicle->driver_photo_path = null;
+        $vehicle->save();
+
+        return [
+            'id' => (int) $vehicle->id,
+            'photo_url' => null,
         ];
     }
 
