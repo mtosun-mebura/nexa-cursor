@@ -30,6 +30,9 @@ type Props = {
   /** Forceer PNG (bv. bedrijfslogo). */
   preferPng?: boolean;
   title?: string;
+  /** In een al open popup, zonder eigen scherm. */
+  embedded?: boolean;
+  maxFrameHeight?: number;
   onCancel: () => void;
   onConfirm: (result: CropResult) => void;
 };
@@ -53,6 +56,8 @@ export function ImageCropModal({
   aspectRatio = 1,
   preferPng = false,
   title = 'Bijsnijden',
+  embedded = false,
+  maxFrameHeight,
   onCancel,
   onConfirm,
 }: Props) {
@@ -84,9 +89,10 @@ export function ImageCropModal({
   }, [visible, uri]);
 
   const onRootLayout = (e: LayoutChangeEvent) => {
-    const maxW = Math.min(e.nativeEvent.layout.width - 32, 340);
-    const width = Math.max(200, maxW);
-    const height = Math.max(160, width / Math.max(0.5, aspectRatio));
+    const maxW = Math.min(e.nativeEvent.layout.width - (embedded ? 0 : 32), 340);
+    const width = Math.max(embedded ? 160 : 200, maxW);
+    const fitted = width / Math.max(0.5, aspectRatio);
+    const height = Math.max(embedded ? 120 : 160, maxFrameHeight ? Math.min(maxFrameHeight, fitted) : fitted);
     setFrame((prev) =>
       Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1
         ? prev
@@ -227,14 +233,8 @@ export function ImageCropModal({
   const maxZoom = scales?.maxZoom ?? 4;
   const zoomLabel = Math.round(zoom * 100);
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onCancel}
-    >
-      <View style={styles.root} onLayout={onRootLayout}>
+  const body = (
+      <View style={embedded ? styles.rootEmbedded : styles.root} onLayout={onRootLayout}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.hint}>
           Zoom uit voor meer overzicht, zoom in en verschuif voor bv. alleen een gezicht.
@@ -320,6 +320,21 @@ export function ImageCropModal({
           </Pressable>
         </View>
       </View>
+  );
+
+  if (embedded) {
+    if (!visible) return null;
+    return body;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onCancel}
+    >
+      {body}
     </Modal>
   );
 }
@@ -332,6 +347,10 @@ function makeStyles(colors: ColorPalette) {
       paddingTop: Platform.OS === 'ios' ? 56 : 28,
       paddingHorizontal: 16,
       paddingBottom: 28,
+      alignItems: 'center',
+    },
+    rootEmbedded: {
+      width: '100%',
       alignItems: 'center',
     },
     title: {

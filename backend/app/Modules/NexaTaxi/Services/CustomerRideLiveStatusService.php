@@ -16,6 +16,7 @@ use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiRideTrackSchema;
 use App\Services\ModuleDatabaseService;
 use App\Services\WhatsAppBookingMessageComposer;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -347,13 +348,15 @@ class CustomerRideLiveStatusService
     }
 
     /**
-     * @return array{lat: float, lng: float, updated_at: ?string}|null
+     * @return array{lat: float, lng: float, updated_at: ?string, heading: ?float}|null
      */
     protected function resolveDriverLocation(string $conn, RideRequest $ride, int $driverId): ?array
     {
         if ($driverId <= 0) {
             return null;
         }
+
+        $heading = $this->headingForDriver($ride, $driverId);
 
         if (TaxiRideTrackSchema::pointsTableExists($conn)) {
             $point = RideGpsPoint::on($conn)
@@ -366,6 +369,7 @@ class CustomerRideLiveStatusService
                     'lat' => (float) $point->lat,
                     'lng' => (float) $point->lng,
                     'updated_at' => $point->recorded_at?->toIso8601String(),
+                    'heading' => $heading,
                 ];
             }
         }
@@ -385,7 +389,15 @@ class CustomerRideLiveStatusService
             'lat' => (float) $availability->lat,
             'lng' => (float) $availability->lng,
             'updated_at' => $availability->location_updated_at?->toIso8601String(),
+            'heading' => $heading,
         ];
+    }
+
+    protected function headingForDriver(RideRequest $ride, int $driverId): ?float
+    {
+        $cached = Cache::get('taxi-gps-heading:'.(int) $ride->company_id.':'.$driverId);
+
+        return is_numeric($cached) ? round((float) $cached, 1) : null;
     }
 
     /**

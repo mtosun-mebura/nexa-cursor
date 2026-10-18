@@ -37,6 +37,8 @@ export type NearbyTaxi = {
   car_style?: string;
   distance_km?: number | null;
   busy?: boolean;
+  /** Graden met de klok mee vanaf het noorden. De voorkant van het icoon wijst omhoog. */
+  heading?: number | null;
 };
 
 export type RideStatusUpdate = {
@@ -104,7 +106,12 @@ export type LiveRide = {
   } | null;
   eta_minutes?: number | null;
   eta_label?: string | null;
-  vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
+  vehicle_location?: {
+    lat: number;
+    lng: number;
+    updated_at?: string | null;
+    heading?: number | null;
+  } | null;
   poll_interval_ms?: number;
   payment_status?: string | null;
   payment_paid?: boolean;
@@ -199,6 +206,7 @@ export async function fetchNearbyTaxis(input: {
       car_style: v.car_style,
       distance_km: v.distance_km == null ? null : Number(v.distance_km),
       busy: !!v.busy,
+      heading: v.heading == null || !Number.isFinite(Number(v.heading)) ? null : Number(v.heading),
     }))
     .filter((v: NearbyTaxi) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
 }

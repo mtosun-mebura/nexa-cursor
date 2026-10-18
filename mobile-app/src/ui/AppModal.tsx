@@ -4,7 +4,9 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -24,6 +26,8 @@ type AppModalProps = {
   panelStyle?: ViewStyle;
   /** KeyboardAvoidingView om het paneel (default true bij center) */
   avoidKeyboard?: boolean;
+  /** Uitzetten als de inhoud zelf scrollt, bijvoorbeeld bij bijsnijden. */
+  scrollEnabled?: boolean;
 };
 
 /**
@@ -38,11 +42,14 @@ export function AppModal({
   dismissDisabled = false,
   panelStyle,
   avoidKeyboard,
+  scrollEnabled = true,
 }: AppModalProps) {
   const colors = useThemeColors();
   const styles = makeStyles(colors);
+  const { height } = useWindowDimensions();
   const isSheet = placement === 'sheet';
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
+  const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
 
   const body = (
     <View style={[styles.root, isSheet ? styles.rootSheet : styles.rootCenter]} pointerEvents="box-none">
@@ -66,7 +73,16 @@ export function AppModal({
           collapsable={false}
           style={[isSheet ? styles.sheet : styles.panel, panelStyle]}
         >
-          {children}
+          <ScrollView
+            style={{ maxHeight: scrollMaxHeight }}
+            scrollEnabled={scrollEnabled}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+            bounces={false}
+            showsVerticalScrollIndicator
+          >
+            {children}
+          </ScrollView>
         </View>
       </View>
     </View>

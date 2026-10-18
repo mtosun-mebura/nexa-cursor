@@ -830,7 +830,7 @@ class RideDispatchService
     }
 
     /**
-     * Meer dan 4 personen: alleen chauffeurs op een voertuig met bereik 5 t/m 8.
+     * 5 t/m 8 personen: alleen een busje. Meer dan 8 personen: alleen een bus.
      *
      * @param  list<int>  $driverIds
      * @return list<int>
@@ -870,6 +870,6 @@ class RideDispatchService
 
         $range = Vehicle::on($conn)->whereKey((int) $vehicleId)->value('person_range');
 
-        return (string) $range === Vehicle::PERSON_RANGE_5_8;
+        return Vehicle::rangeFitsPassengers((string) $range, (int) ($ride->passengers ?? 1));
     }
 }

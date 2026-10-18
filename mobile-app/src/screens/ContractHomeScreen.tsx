@@ -697,7 +697,7 @@ function anyPassengerPickedUp(items: ContractDayItem[]): boolean {
 export function ContractHomeScreen() {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
-  const { session, contractToken, logout, setActiveScreen, capabilities } = useAuth();
+  const { session, contractToken, logout } = useAuth();
   const [tab, setTab] = useState<ContractTabKey>(() => lastContractTab);
   const [planningView, setPlanningView] = useState<'day' | 'week'>('day');
   const [tripStatusFilter, setTripStatusFilter] = useState<TripStatusFilter>('all');
@@ -751,7 +751,6 @@ export function ContractHomeScreen() {
   const [destBtnPulse, setDestBtnPulse] = useState(0);
   const destBtnScale = useRef(new Animated.Value(1)).current;
   const statusSeenRef = useRef<Map<string, string> | null>(null);
-  const multi = (capabilities?.screens?.length || 0) > 1;
   const canOperateRides = isContractant || isContractantRole(portalRole);
   const accentHex = driverAccentHex(accent);
   const styles = useMemo(() => makeStyles(colors, accentHex), [colors, accentHex]);
@@ -2948,7 +2947,6 @@ export function ContractHomeScreen() {
         })}
       </View>
 
-      {multi ? <GhostButton title="Ander scherm" onPress={() => setActiveScreen('driver')} /> : null}
       <Pressable
         style={styles.logoutBtn}
         onPress={() => {

@@ -174,6 +174,10 @@ class DriverVehicleController extends Controller
 
     private function seatsForRange(string $range): int
     {
+        if ($range === Vehicle::PERSON_RANGE_OVER_8) {
+            return 9;
+        }
+
         [, $max] = \App\Modules\NexaTaxi\Models\DefaultRate::parseRangeBounds($range);
 
         return max(1, $max);

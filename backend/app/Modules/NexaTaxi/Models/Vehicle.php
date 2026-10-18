@@ -50,6 +50,9 @@ class Vehicle extends Model
 
     public const PERSON_RANGE_5_8 = '5-8';
 
+    /** Geen vast maximum in de tarieven; een bus valt hieronder. */
+    public const PERSON_RANGE_OVER_8 = '9+';
+
     public static function typeLabels(): array
     {
         return [
@@ -64,7 +67,38 @@ class Vehicle extends Model
         return [
             self::PERSON_RANGE_1_4 => 't/m 4 personen',
             self::PERSON_RANGE_5_8 => '5 t/m 8 personen',
+            self::PERSON_RANGE_OVER_8 => 'meer dan 8 personen',
         ];
+    }
+
+    public static function personRangeForType(string $type): string
+    {
+        return match ($type) {
+            self::TYPE_VAN => self::PERSON_RANGE_5_8,
+            self::TYPE_BUS => self::PERSON_RANGE_OVER_8,
+            default => self::PERSON_RANGE_1_4,
+        };
+    }
+
+    public static function typeForPersonRange(string $range): string
+    {
+        return match ($range) {
+            self::PERSON_RANGE_5_8 => self::TYPE_VAN,
+            self::PERSON_RANGE_OVER_8 => self::TYPE_BUS,
+            default => self::TYPE_CAR,
+        };
+    }
+
+    public static function rangeFitsPassengers(string $range, int $passengers): bool
+    {
+        if ($passengers <= 4) {
+            return true;
+        }
+        if ($passengers <= 8) {
+            return $range === self::PERSON_RANGE_5_8;
+        }
+
+        return $range === self::PERSON_RANGE_OVER_8;
     }
 
     public static function placeholderAsset(?string $personRange): string

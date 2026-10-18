@@ -116,9 +116,16 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-read');
         Route::post('profile/photo', [DriverProfileMediaController::class, 'uploadProfilePhoto'])
             ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/photo', [DriverProfileMediaController::class, 'deleteProfilePhoto'])
+            ->middleware('throttle:taxi-driver-action');
         Route::post('profile/company-logo', [DriverProfileMediaController::class, 'uploadCompanyLogo'])
             ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/company-logo', [DriverProfileMediaController::class, 'deleteCompanyLogo'])
+            ->middleware('throttle:taxi-driver-action');
         Route::post('profile/vehicle-photo', [DriverProfileMediaController::class, 'uploadVehiclePhoto'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/vehicle-photo/{vehicleId}', [DriverProfileMediaController::class, 'deleteVehiclePhoto'])
+            ->whereNumber('vehicleId')
             ->middleware('throttle:taxi-driver-action');
 
         Route::get('earnings', [DriverEarningsController::class, 'show'])

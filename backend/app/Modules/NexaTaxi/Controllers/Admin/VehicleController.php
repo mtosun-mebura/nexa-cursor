@@ -117,7 +117,7 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
+        $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
 
         return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
@@ -145,7 +145,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
+        $personRanges = array_keys($this->personRangeLabelsForForm($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
@@ -169,8 +169,7 @@ class VehicleController extends Controller
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
-        [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
-        $validated['seats'] = max(1, $maxPersons);
+        $validated['seats'] = $this->seatsForPersonRange((string) $validated['person_range']);
         $validated = $this->normalizeVehiclePriceFields($validated);
 
         $this->ensureTenantAccess($validated['company_id']);
@@ -205,7 +204,7 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
+        $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
 
         return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
     }
@@ -239,7 +238,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
+        $personRanges = array_keys($this->personRangeLabelsForForm($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
@@ -263,8 +262,7 @@ class VehicleController extends Controller
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
-        [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
-        $validated['seats'] = max(1, $maxPersons);
+        $validated['seats'] = $this->seatsForPersonRange((string) $validated['person_range']);
         $validated = $this->normalizeVehiclePriceFields($validated);
 
         $this->ensureTenantAccess($validated['company_id']);
@@ -326,5 +324,27 @@ class VehicleController extends Controller
         if (! $this->canAccessResource($vehicle)) {
             abort(403, 'Geen toegang tot dit voertuig.');
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function personRangeLabelsForForm(string $conn, mixed $companyId): array
+    {
+        $labels = DefaultRate::getPersonRangeOptions($conn, $companyId);
+        $labels[Vehicle::PERSON_RANGE_OVER_8] = Vehicle::personRangeLabels()[Vehicle::PERSON_RANGE_OVER_8];
+
+        return $labels;
+    }
+
+    private function seatsForPersonRange(string $range): int
+    {
+        if ($range === Vehicle::PERSON_RANGE_OVER_8) {
+            return 9;
+        }
+
+        [, $max] = DefaultRate::parseRangeBounds($range);
+
+        return max(1, $max);
     }
 }
