@@ -56,10 +56,20 @@ function withAlternateIconDeepLinks(config) {
 /**
  * Personal Apple Development teams cannot sign Push Notifications.
  * expo-notifications always writes aps-environment; drop it after that plugin.
+ *
+ * One-line toggle once a paid Apple Developer Program membership and an APNs
+ * key exist: EXPO_PUBLIC_IOS_PUSH=1 (optional EXPO_PUBLIC_IOS_PUSH_ENV=development).
+ * Leave it unset on this Mac. Re-adding aps-environment without that membership
+ * breaks signing.
  * @type {import('expo/config-plugins').ConfigPlugin}
  */
 function withoutPushEntitlement(config) {
   return withEntitlementsPlist(config, (config) => {
+    if (process.env.EXPO_PUBLIC_IOS_PUSH === '1') {
+      config.modResults['aps-environment'] =
+        process.env.EXPO_PUBLIC_IOS_PUSH_ENV === 'development' ? 'development' : 'production';
+      return config;
+    }
     delete config.modResults['aps-environment'];
     return config;
   });
@@ -87,6 +97,9 @@ module.exports = () => {
     ...(config.extra || {}),
     apiBaseUrl:
       process.env.EXPO_PUBLIC_API_BASE_URL || config.extra?.apiBaseUrl || 'https://nexasuite.online',
+    // getExpoPushTokenAsync needs extra.eas.projectId (or EXPO_PUBLIC_EAS_PROJECT_ID).
+    // Android also needs google-services.json plus an FCM v1 service account on the Expo project.
+    // Do not set a project id here until `eas init` has created one.
   };
 
   config.plugins = [withoutPushEntitlement, ...(config.plugins || []), withAlternateIconDeepLinks];

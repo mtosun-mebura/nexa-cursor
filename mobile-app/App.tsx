@@ -7,6 +7,7 @@ import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
+import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
 import { parseAppDeepLink } from './src/linking';
 import { LocaleProvider } from './src/i18n';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
@@ -36,6 +37,10 @@ function RootNavigator() {
   const { colors, colorScheme } = useTheme();
   const [guestRoute, setGuestRoute] = useState<GuestRoute | null>(null);
   const hadSessionRef = React.useRef(false);
+
+  useEffect(() => {
+    void prepareDriverNotificationChannels();
+  }, []);
 
   const persistGuestRoute = (route: GuestRoute) => {
     setGuestRoute(route);

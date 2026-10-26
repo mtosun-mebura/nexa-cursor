@@ -102,6 +102,10 @@ Route::prefix('v1/driver')
     ->middleware(['taxi.driver'])
     ->group(function () {
         Route::post('logout', [DriverAuthController::class, 'logout']);
+        Route::put('push-token', [DriverAuthController::class, 'storePushToken'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('push-token', [DriverAuthController::class, 'destroyPushToken'])
+            ->middleware('throttle:taxi-driver-action');
         Route::get('me', [DriverAuthController::class, 'me']);
         Route::put('payout-iban', [DriverAuthController::class, 'updatePayoutIban'])
             ->middleware('throttle:taxi-driver-action');

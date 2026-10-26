@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Company;
+use App\Models\DriverDeviceToken;
 use App\Models\User;
 use App\Services\CompanyEntitlementService;
 use App\Support\TenantPackageCapability;
@@ -18,6 +19,7 @@ use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -844,5 +846,69 @@ class NetworkDispatchRadiusTest extends TestCase
             'driver_id' => $driver->id,
             'status' => RideDispatchOffer::STATUS_PENDING,
         ], 'module_taxi');
+    }
+
+    #[Test]
+    public function creating_an_offer_sends_one_expo_push_per_driver_device(): void
+    {
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-1']],
+            ]),
+        ]);
+
+        $company = Company::query()->create([
+            'name' => 'Push Taxi',
+            'is_active' => true,
+        ]);
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $driver->assignRole('chauffeur');
+        $token = 'ExponentPushToken[offer-device]';
+        DriverDeviceToken::query()->create([
+            'user_id' => $driver->id,
+            'token' => $token,
+            'platform' => 'android',
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.3702,
+            'lng' => 4.8952,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'source' => RideRequest::SOURCE_BOOKING,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'Damrak 1',
+            'dropoff_address' => 'Centraal',
+            'pickup_lat' => 52.3702,
+            'pickup_lng' => 4.8952,
+            'pickup_at' => now('Europe/Amsterdam')->addHour()->format('Y-m-d H:i:s'),
+            'final_price' => 18.50,
+            'customer_name' => 'Push klant',
+        ]);
+
+        StartRideDispatchJob::dispatchWhenCommitted('module_taxi', (int) $ride->id, (int) $company->id);
+        StartRideDispatchJob::dispatchWhenCommitted('module_taxi', (int) $ride->id, (int) $company->id);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) use ($token) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return str_contains($request->url(), 'exp.host/--/api/v2/push/send')
+                && ($message['to'] ?? null) === $token
+                && ($message['title'] ?? null) === 'Nieuwe rit'
+                && ($message['sound'] ?? null) === 'default'
+                && ($message['priority'] ?? null) === 'high'
+                && ($message['channelId'] ?? null) === 'driver-offers-system'
+                && ($message['interruptionLevel'] ?? null) === 'time-sensitive'
+                && ($message['data']['type'] ?? null) === 'driver_offer'
+                && str_contains((string) ($message['body'] ?? ''), 'Damrak 1');
+        });
     }
 }

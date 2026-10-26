@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { BootstrapSession, Capabilities } from '../api/auth';
 import { setUnauthorizedHandler } from '../api/client';
 import { stopDriverLocationTracking } from '../location/tracking';
+import { unregisterDriverPushToken } from '../notifications/driverPush';
 
 const SESSION_KEY = 'nexa_taxi_native_session';
 const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
@@ -82,15 +83,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const forceReLogin = useCallback(async () => {
     try {
+      await unregisterDriverPushToken(session?.tokens?.driver?.token);
+    } catch {
+      /* ignore */
+    }
+    try {
       await stopDriverLocationTracking();
     } catch {
       /* ignore */
     }
     await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'login').catch(() => undefined);
     await setSession(null);
-  }, [setSession]);
+  }, [session, setSession]);
 
   const logout = useCallback(async () => {
+    try {
+      await unregisterDriverPushToken(session?.tokens?.driver?.token);
+    } catch {
+      /* ignore */
+    }
     try {
       await stopDriverLocationTracking();
     } catch {
@@ -99,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Altijd terug naar de startpagina (niet login/marktplaats).
     await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'welcome').catch(() => undefined);
     await setSession(null);
-  }, [setSession]);
+  }, [session, setSession]);
 
   useEffect(() => {
     (async () => {

@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\DriverDeviceToken;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Services\DriverScheduleService;
@@ -119,6 +120,37 @@ class DriverAuthController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Uitgelogd.']);
+    }
+
+    public function storePushToken(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:255', 'regex:/^Expo(nent)?PushToken\[.+\]$/'],
+            'platform' => ['nullable', 'string', 'in:ios,android'],
+        ]);
+
+        DriverDeviceToken::query()->updateOrCreate(
+            ['token' => $data['token']],
+            [
+                'user_id' => (int) $request->user()->id,
+                'platform' => $data['platform'] ?? null,
+                'last_seen_at' => now(),
+            ]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function destroyPushToken(Request $request): JsonResponse
+    {
+        $token = trim((string) $request->input('token', ''));
+        $query = DriverDeviceToken::query()->where('user_id', (int) $request->user()->id);
+        if ($token !== '') {
+            $query->where('token', $token);
+        }
+        $query->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     public function me(Request $request, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
