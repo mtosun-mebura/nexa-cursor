@@ -128,6 +128,8 @@ class AdminRoleController extends Controller
             abort(403, 'Je hebt geen rechten om rollen aan te maken.');
         }
 
+        \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::ensurePermissions();
+
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
             'description' => 'nullable|string|max:500',
@@ -185,6 +187,8 @@ class AdminRoleController extends Controller
 
         // Check if this is a system role
         $isSystemRole = \App\Support\AdminPanelRoles::isSystemRole((string) $role->name);
+
+        \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::ensurePermissions();
 
         // Define validation rules
         $validationRules = [

@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
 
@@ -55,7 +57,7 @@ export function ImageCropModal({
   sourceMimeType,
   aspectRatio = 1,
   preferPng = false,
-  title = 'Bijsnijden',
+  title = t("Bijsnijden"),
   embedded = false,
   maxFrameHeight,
   onCancel,
@@ -63,6 +65,7 @@ export function ImageCropModal({
 }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
   const [natural, setNatural] = useState<Size | null>(null);
@@ -84,7 +87,7 @@ export function ImageCropModal({
     Image.getSize(
       uri,
       (width, height) => setNatural({ width, height }),
-      () => setError('Afbeelding kon niet worden geladen.')
+      () => setError(t("Afbeelding kon niet worden geladen."))
     );
   }, [visible, uri]);
 
@@ -198,7 +201,7 @@ export function ImageCropModal({
       height = Math.min(height, natural.height - originY);
 
       if (width < 8 || height < 8) {
-        setError('Zoom iets in of verschuif de foto.');
+        setError(t("Zoom iets in of verschuif de foto."));
         return;
       }
 
@@ -223,7 +226,7 @@ export function ImageCropModal({
         mimeType: asPng ? 'image/png' : 'image/jpeg',
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Bijsnijden mislukt.');
+      setError(e instanceof Error ? e.message : t("Bijsnijden mislukt."));
     } finally {
       setBusy(false);
     }
@@ -234,11 +237,24 @@ export function ImageCropModal({
   const zoomLabel = Math.round(zoom * 100);
 
   const body = (
-      <View style={embedded ? styles.rootEmbedded : styles.root} onLayout={onRootLayout}>
+      <View
+        style={
+          embedded
+            ? styles.rootEmbedded
+            : [
+                styles.root,
+                Platform.OS === 'android'
+                  ? {
+                      paddingTop: Math.max(insets.top, 24) + 8,
+                      paddingBottom: Math.max(insets.bottom, 16) + 12,
+                    }
+                  : null,
+              ]
+        }
+        onLayout={onRootLayout}
+      >
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.hint}>
-          Zoom uit voor meer overzicht, zoom in en verschuif voor bv. alleen een gezicht.
-        </Text>
+        <Text style={styles.hint}>{t("Zoom uit voor meer overzicht, zoom in en verschuif voor bv. alleen een gezicht.")}</Text>
 
         <View style={[styles.frame, { width: frame.width, height: frame.height }]}>
           {display && content && uri ? (
@@ -286,7 +302,7 @@ export function ImageCropModal({
             style={[styles.zoomBtn, zoom <= minZoom + 0.001 && styles.zoomBtnDisabled]}
             onPress={() => changeZoom(-0.25)}
             disabled={zoom <= minZoom + 0.001 || busy}
-            accessibilityLabel="Uitzoomen"
+            accessibilityLabel={t("Uitzoomen")}
           >
             <Text style={styles.zoomBtnText}>−</Text>
           </Pressable>
@@ -295,7 +311,7 @@ export function ImageCropModal({
             style={[styles.zoomBtn, zoom >= maxZoom - 0.001 && styles.zoomBtnDisabled]}
             onPress={() => changeZoom(0.25)}
             disabled={zoom >= maxZoom - 0.001 || busy}
-            accessibilityLabel="Inzoomen"
+            accessibilityLabel={t("Inzoomen")}
           >
             <Text style={styles.zoomBtnText}>+</Text>
           </Pressable>
@@ -305,7 +321,7 @@ export function ImageCropModal({
 
         <View style={styles.actions}>
           <Pressable style={styles.secondaryBtn} onPress={onCancel} disabled={busy}>
-            <Text style={styles.secondaryBtnText}>Annuleren</Text>
+            <Text style={styles.secondaryBtnText}>{t("Annuleren")}</Text>
           </Pressable>
           <Pressable
             style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
@@ -315,7 +331,7 @@ export function ImageCropModal({
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>Gebruik</Text>
+              <Text style={styles.primaryBtnText}>{t("Gebruik")}</Text>
             )}
           </Pressable>
         </View>

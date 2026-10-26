@@ -1,3 +1,4 @@
+import { dateLocale, t } from '../i18n';
 import * as Location from 'expo-location';
 import { API_BASE_URL } from '../config';
 
@@ -688,8 +689,8 @@ export function formatPickupAtLabel(d: Date): string {
   const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((start(d) - start(today)) / 86_400_000);
   const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  if (diff === 0) return `Vandaag ${time}`;
-  if (diff === 1) return `Morgen ${time}`;
-  const day = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+  if (diff === 0) return `${t('Vandaag')} ${time}`;
+  if (diff === 1) return `${t('Morgen')} ${time}`;
+  const day = d.toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
   return `${day} ${time}`;
 }

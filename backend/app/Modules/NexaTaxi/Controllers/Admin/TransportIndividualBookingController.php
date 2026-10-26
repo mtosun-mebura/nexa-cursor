@@ -223,6 +223,7 @@ class TransportIndividualBookingController extends Controller
         if (! $valid) {
             throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur.']);
         }
+        $this->driverEligibility->assertContractantForContractAssignment((int) $data['driver_id']);
 
         $valid = Vehicle::on($conn)
             ->where('company_id', $companyId)
@@ -262,7 +263,9 @@ class TransportIndividualBookingController extends Controller
                 ->buildChauffeurQuery((int) $contract->company_id)
                 ->orderBy('first_name')
                 ->orderBy('last_name')
-                ->get(['id', 'first_name', 'last_name']),
+                ->get(['id', 'first_name', 'last_name'])
+                ->filter(fn ($driver) => $driver instanceof \App\Models\User && $this->driverEligibility->hasContractantRole($driver))
+                ->values(),
             'vehicles' => Vehicle::on($conn)
                 ->where('company_id', $contract->company_id)
                 ->orderBy('name')

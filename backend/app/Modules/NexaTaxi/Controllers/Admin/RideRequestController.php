@@ -374,6 +374,10 @@ class RideRequestController extends Controller
         ]);
         $previousDriverId = (int) ($ride_request->driver_id ?? 0);
         $newDriverId = (int) ($request->input('driver_id') ?: 0);
+        if ($newDriverId > 0 && $ride_request->isContractRide()) {
+            app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)
+                ->assertContractantForContractAssignment($newDriverId);
+        }
 
         $ride_request->update([
             'vehicle_id' => $request->input('vehicle_id') ?: null,

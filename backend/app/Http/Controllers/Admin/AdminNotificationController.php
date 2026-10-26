@@ -21,6 +21,35 @@ class AdminNotificationController extends Controller
     /**
      * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Notification>
      */
+    /**
+     * @param  \Illuminate\Support\Collection<int, Notification>  $notifications
+     * @return \Illuminate\Support\Collection<int, Notification>
+     */
+    protected function applyTaxiSetupVisibility(\Illuminate\Support\Collection $notifications): \Illuminate\Support\Collection
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return $notifications;
+        }
+
+        $setup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
+
+        return $notifications->filter(function (Notification $notification) use ($user, $setup) {
+            if ((string) $notification->type !== \App\Modules\NexaTaxi\Services\TaxiTenantSetupService::NOTIFICATION_TYPE) {
+                return true;
+            }
+
+            $message = $setup->messageForViewer($user, $notification);
+            if ($message === null) {
+                return false;
+            }
+
+            $notification->message = $message;
+
+            return true;
+        })->values();
+    }
+
     protected function drawerNotificationsQuery(?User $user = null): Builder
     {
         $user = $user ?? auth()->user();
@@ -228,7 +257,9 @@ class AdminNotificationController extends Controller
         }
 
         // Load all notifications for client-side pagination
-        $notifications = $query->orderBy('created_at', 'desc')->orderBy('id', 'asc')->get()->map(function($notification) {
+        $notifications = $this->applyTaxiSetupVisibility(
+            $query->orderBy('created_at', 'desc')->orderBy('id', 'asc')->get()
+        )->map(function($notification) {
             // Get sender info from notification data
             $sender = null;
             if ($notification->data) {
@@ -1182,7 +1213,7 @@ class AdminNotificationController extends Controller
         
         $systemAvatarUrl = \App\Models\GeneralSetting::nexaSuiteAvatarUrl();
 
-        $notifications = $query->get()->map(function($notification) use ($company, $systemAvatarUrl) {
+        $notifications = $this->applyTaxiSetupVisibility($query->get())->map(function($notification) use ($company, $systemAvatarUrl) {
             $sender = null;
             $data = null;
             

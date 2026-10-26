@@ -1,8 +1,10 @@
+import { t } from '../i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeContext';
+import { compactFontProps } from './androidText';
 import { tabBarBottomPadding } from './tabBarSafeArea';
 
 export type CustomerTabKey = 'book' | 'rides' | 'profile';
@@ -12,9 +14,9 @@ const TABS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'book', label: 'Boeken', icon: 'book' },
-  { key: 'rides', label: 'Ritten', icon: 'car-sport' },
-  { key: 'profile', label: 'Profiel', icon: 'person' },
+  { key: 'book', label: t("Boeken"), icon: 'book' },
+  { key: 'rides', label: t("Ritten"), icon: 'car-sport' },
+  { key: 'profile', label: t("Profiel"), icon: 'person' },
 ];
 
 export function CustomerTabBar({
@@ -53,17 +55,19 @@ export function CustomerTabBar({
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab.label}
+            accessibilityLabel={t(tab.label)}
           >
             {tab.key === 'rides' && ridesBadge && ridesBadge > 0 ? (
               <View style={[styles.badge, { backgroundColor: colors.amber }]}>
-                <Text style={[styles.badgeText, { color: colors.bg }]}>
+                <Text style={[styles.badgeText, { color: colors.bg }]} {...compactFontProps}>
                   {ridesBadge > 9 ? '9+' : String(ridesBadge)}
                 </Text>
               </View>
             ) : null}
             <Ionicons name={tab.icon} size={22} color={tint} style={styles.icon} />
-            <Text style={[styles.label, { color: tint }]}>{tab.label}</Text>
+            <Text style={[styles.label, { color: tint }]} numberOfLines={1} {...compactFontProps}>
+              {t(tab.label)}
+            </Text>
           </Pressable>
         );
       })}

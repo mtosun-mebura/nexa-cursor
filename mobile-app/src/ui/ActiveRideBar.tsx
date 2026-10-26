@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,9 +19,9 @@ function shortStreet(address?: string | null): string {
 
 function rideStatus(ride: DriverActiveRide, accentHex: string): { label: string; color: string } {
   const status = String(ride.status || '');
-  if (status === 'assigned') return { label: 'Onderweg', color: GREEN };
-  if (status === 'accepted') return { label: 'Rit starten', color: accentHex };
-  return { label: 'Lopende rit', color: accentHex };
+  if (status === 'assigned') return { label: t("Onderweg"), color: GREEN };
+  if (status === 'accepted') return { label: t("Rit starten"), color: accentHex };
+  return { label: t("Lopende rit"), color: accentHex };
 }
 
 export function ActiveRideBar({

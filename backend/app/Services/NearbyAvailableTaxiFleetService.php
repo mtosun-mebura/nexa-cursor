@@ -166,20 +166,13 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
-        // Alleen recente/actieve ritten — oude vastzittende offered/accepted mogen de
-        // live-kaart niet leegtrekken. Openstaande offers tellen niet als "bezet".
-        $activeSince = now()->subHours(12);
+        // Bezet = rit die nú loopt: geaccepteerd of contract in dit tijdvak, of onderweg.
+        // Afgerond of op een ander tijdstip telt niet. While-using (verse last_seen) is genoeg.
+        // De rol contractant filtert niemand weg.
         $hasFulfilling = Schema::connection($connection)->hasColumn('ride_requests', 'fulfilling_company_id');
         $query = RideRequest::on($connection)
             ->whereNotNull('driver_id')
-            ->whereIn('status', [
-                RideRequest::STATUS_ACCEPTED,
-                RideRequest::STATUS_ASSIGNED,
-            ])
-            ->where(function ($query) use ($activeSince) {
-                $query->where('pickup_at', '>=', $activeSince)
-                    ->orWhere('updated_at', '>=', $activeSince);
-            });
+            ->occupyingBookingMap();
         if ($driverIds !== []) {
             $query->whereIn('driver_id', $driverIds);
         } else {

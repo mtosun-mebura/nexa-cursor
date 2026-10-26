@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\CustomerLoginCode;
+use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\AdminFirstLoginService;
@@ -310,6 +311,50 @@ class AdminFirstLoginTest extends TestCase
         } finally {
             $registrar->setPermissionsTeamId($previousTeam);
         }
+    }
+
+    #[Test]
+    public function marketplace_registration_mail_activates_the_account_and_later_codes_stay_login_codes(): void
+    {
+        $registered = $this->makePendingAdmin('registratie-web@example.com');
+        RateLimiter::clear('admin-first-login-email:'.$registered->email);
+        RateLimiter::clear('admin-first-login-ip:127.0.0.1');
+
+        $registration = app(AdminFirstLoginService::class)->requestCode($registered->email, '127.0.0.1', true);
+        $this->assertTrue($registration['ok'] ?? false, $registration['message'] ?? '');
+
+        $registrationMail = TenantCustomerEmail::query()
+            ->where('recipient_email', $registered->email)
+            ->where('type', TenantCustomerEmail::TYPE_LOGIN_CODE)
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($registrationMail);
+        $this->assertSame('Activeer uw NEXA Taxi-account', $registrationMail->subject);
+        $registrationHtml = (string) $registrationMail->body_html;
+        $this->assertStringContainsString('U heeft zich geregistreerd bij', $registrationHtml);
+        $this->assertStringContainsString('Deze e-mail is verstuurd om uw account te activeren.', $registrationHtml);
+        $this->assertStringContainsString('Open de admin', $registrationHtml);
+        $this->assertStringContainsString('Heeft u zich niet geregistreerd?', $registrationHtml);
+        $this->assertStringNotContainsString('Gebruik onderstaande eenmalige code om in te loggen', $registrationHtml);
+        $this->assertTrue((bool) data_get($registrationMail->meta, 'registration_activation'));
+
+        $later = $this->makePendingAdmin('later-admin@example.com');
+        RateLimiter::clear('admin-first-login-email:'.$later->email);
+
+        $laterResult = app(AdminFirstLoginService::class)->requestCode($later->email, '127.0.0.1');
+        $this->assertTrue($laterResult['ok'] ?? false, $laterResult['message'] ?? '');
+
+        $laterMail = TenantCustomerEmail::query()
+            ->where('recipient_email', $later->email)
+            ->where('type', TenantCustomerEmail::TYPE_LOGIN_CODE)
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($laterMail);
+        $laterHtml = (string) $laterMail->body_html;
+        $this->assertStringContainsString('Gebruik onderstaande eenmalige code om in te loggen', $laterHtml);
+        $this->assertStringNotContainsString('U heeft zich geregistreerd', $laterHtml);
+        $this->assertStringNotContainsString('om uw account te activeren', $laterHtml);
+        $this->assertFalse((bool) data_get($laterMail->meta, 'registration_activation'));
     }
 
     private function makePendingAdmin(string $email): User

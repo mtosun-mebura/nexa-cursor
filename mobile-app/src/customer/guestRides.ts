@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const GUEST_RIDES_KEY = 'nexa_taxi_guest_rides';
@@ -168,7 +169,7 @@ export async function saveGuestRide(
     from: meta.from || prev?.from || '',
     to: meta.to || prev?.to || '',
     phase: meta.phase || prev?.phase || 'searching',
-    status_label: meta.status_label || prev?.status_label || 'Zoeken…',
+    status_label: meta.status_label || prev?.status_label || t("Zoeken…"),
     quoted_price:
       meta.quoted_price !== undefined ? meta.quoted_price : prev?.quoted_price ?? null,
     passengers: meta.passengers !== undefined ? meta.passengers : prev?.passengers ?? null,
@@ -434,9 +435,9 @@ export function baggageChipLines(input?: {
 
 export function phaseLabel(phase?: string | null, fallback?: string | null): string {
   if (phase === 'searching') return 'Zoeken';
-  if (phase === 'accepted') return 'Geaccepteerd';
-  if (phase === 'awaiting_payment') return 'Betaling';
-  if (phase === 'cancelled') return 'Geannuleerd';
-  if (phase === 'completed') return 'Afgerond';
+  if (phase === 'accepted') return t("Geaccepteerd");
+  if (phase === 'awaiting_payment') return t("Betaling");
+  if (phase === 'cancelled') return t("Geannuleerd");
+  if (phase === 'completed') return t("Afgerond");
   return fallback || phase || '…';
 }

@@ -19,6 +19,7 @@ class RideStop extends Model
         'lng',
         'planned_at',
         'status',
+        'status_source',
         'completed_at',
     ];
 

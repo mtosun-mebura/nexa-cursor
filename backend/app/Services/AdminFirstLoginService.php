@@ -63,7 +63,7 @@ class AdminFirstLoginService
     /**
      * @return array{ok: bool, status: int, message: string, retry_after?: int}
      */
-    public function requestCode(string $email, string $ip): array
+    public function requestCode(string $email, string $ip, bool $registrationActivation = false): array
     {
         $email = strtolower(trim($email));
         $ipKey = 'admin-first-login-ip:'.$ip;
@@ -141,7 +141,7 @@ class AdminFirstLoginService
             'expires_at' => now()->addMinutes(self::EXPIRES_MINUTES),
         ]);
 
-        if (! $this->sendCodeMail($user, $code)) {
+        if (! $this->sendCodeMail($user, $code, $registrationActivation)) {
             return [
                 'ok' => false,
                 'status' => 503,
@@ -498,7 +498,7 @@ class AdminFirstLoginService
             ->update(['consumed_at' => now()]);
     }
 
-    private function sendCodeMail(User $user, string $code): bool
+    private function sendCodeMail(User $user, string $code, bool $registrationActivation = false): bool
     {
         $companyId = (int) ($user->company_id ?? 0);
         $company = $companyId > 0 ? Company::query()->find($companyId) : null;
@@ -518,24 +518,33 @@ class AdminFirstLoginService
             NexaBranding::emailLogoTemplateVariable()
         );
 
-        $template = $this->codeTemplates->resolveActive();
-        $subject = $this->parser->parseTemplateVariables((string) $template->subject, $variables);
-        $html = $this->parser->parseTemplateVariables((string) ($template->html_content ?? ''), $variables);
-        $text = $template->text_content
-            ? $this->parser->parseTemplateVariables((string) $template->text_content, $variables)
-            : trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($registrationActivation) {
+            $subject = $this->parser->parseTemplateVariables($this->codeTemplates->registrationSubject(), $variables);
+            $html = $this->parser->parseTemplateVariables($this->codeTemplates->registrationHtml(), $variables);
+            $text = $this->parser->parseTemplateVariables($this->codeTemplates->registrationText(), $variables);
+        } else {
+            $template = $this->codeTemplates->resolveActive();
+            $subject = $this->parser->parseTemplateVariables((string) $template->subject, $variables);
+            $html = $this->parser->parseTemplateVariables((string) ($template->html_content ?? ''), $variables);
+            $text = $template->text_content
+                ? $this->parser->parseTemplateVariables((string) $template->text_content, $variables)
+                : trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
 
         $record = $this->customerMail->send([
             'company_id' => $companyId > 0 ? $companyId : null,
             'type' => TenantCustomerEmail::TYPE_LOGIN_CODE,
             'to_email' => $user->email,
             'to_name' => $toName,
-            'subject' => $subject !== '' ? $subject : 'Je inlogcode voor NEXA Suite',
+            'subject' => $subject !== '' ? $subject : ($registrationActivation ? 'Activeer uw NEXA Taxi-account' : 'Je inlogcode voor NEXA Suite'),
             'html' => $html,
             'text' => $text,
             'related_type' => 'user',
             'related_id' => $user->id,
-            'meta' => ['kind' => 'admin_first_login_code'],
+            'meta' => [
+                'kind' => 'admin_first_login_code',
+                'registration_activation' => $registrationActivation,
+            ],
             'throw' => false,
         ]);
 

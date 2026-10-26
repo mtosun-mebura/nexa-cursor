@@ -190,6 +190,150 @@ class TenantBookingLiveFleetServiceTest extends TestCase
     }
 
     #[Test]
+    public function company_booking_map_shows_online_driver_with_past_accepted_ride_outside_marketplace_radius(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-25 21:46:00', 'UTC'));
+        $this->bindTaxiModuleSqlite();
+        $company = Company::query()->create([
+            'name' => 'Taxi Royaal',
+            'slug' => 'taxi-royaal-fleet',
+            'package_key' => 'pro',
+            'package_addons' => [TenantPackageAddon::GPS_TRACKING => 1],
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 61,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 62,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => null,
+            'lng' => null,
+            'last_seen_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_requests')->insert([
+            'company_id' => $company->id,
+            'driver_id' => 61,
+            'status' => 'accepted',
+            'pickup_at' => '2026-10-25 07:42:00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_requests')->insert([
+            'company_id' => $company->id,
+            'driver_id' => 63,
+            'status' => 'accepted',
+            'pickup_at' => '2026-10-25 23:30:00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 63,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.23,
+            'lng' => 6.90,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+
+        $service = app(TenantBookingLiveFleetService::class);
+        $config = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([
+            'logic' => ['show_live_fleet' => true],
+        ]);
+
+        $vehicles = $service->vehiclesForSection(
+            'component:taxi.boekingsmodule_v2',
+            $config,
+            $company,
+            48.0,
+            2.0
+        );
+        $ids = array_column($vehicles, 'id');
+        $this->assertContains('tenant-61', $ids);
+        $this->assertNotContains('tenant-62', $ids);
+        $this->assertContains('tenant-63', $ids);
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function company_booking_map_keeps_contractant_with_old_contract_ride_and_hides_active_pickup(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-26 09:10:00', 'UTC'));
+        $this->bindTaxiModuleSqlite();
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
+        $company = Company::query()->create([
+            'name' => 'Taxi Royaal',
+            'slug' => 'taxi-royaal-contractant',
+            'package_key' => 'pro',
+            'package_addons' => [TenantPackageAddon::GPS_TRACKING => 1],
+        ]);
+        $idle = User::factory()->create(['company_id' => $company->id]);
+        $idle->assignRole(['chauffeur', 'contractant']);
+        $active = User::factory()->create(['company_id' => $company->id]);
+        $active->assignRole(['chauffeur', 'contractant']);
+
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $idle->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'location_updated_at' => now()->subHour(),
+            'last_seen_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $active->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.222,
+            'lng' => 6.894,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_requests')->insert([
+            'company_id' => $company->id,
+            'driver_id' => $idle->id,
+            'status' => 'assigned',
+            'source' => 'contract',
+            'pickup_at' => '2026-10-26 07:42:00',
+            'trip_started_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_requests')->insert([
+            'company_id' => $company->id,
+            'driver_id' => $active->id,
+            'status' => 'assigned',
+            'source' => 'contract',
+            'pickup_at' => '2026-10-26 07:51:00',
+            'trip_started_at' => now()->subMinutes(15),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $service = app(TenantBookingLiveFleetService::class);
+        $config = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([
+            'logic' => ['show_live_fleet' => true],
+        ]);
+        $ids = array_column(
+            $service->vehiclesForSection('component:taxi.boekingsmodule_v2', $config, $company, 52.22, 6.89),
+            'id'
+        );
+
+        $this->assertContains('tenant-'.$idle->id, $ids);
+        $this->assertNotContains('tenant-'.$active->id, $ids);
+        Carbon::setTestNow();
+    }
+
+    #[Test]
     public function merge_clamps_refresh_seconds_and_car_color(): void
     {
         $config = app(NexaTaxiBookingPricingService::class)->mergeSectionConfig([
@@ -406,6 +550,9 @@ class TenantBookingLiveFleetServiceTest extends TestCase
             $table->unsignedBigInteger('company_id')->nullable();
             $table->unsignedBigInteger('driver_id')->nullable();
             $table->string('status', 32)->default('offered');
+            $table->string('source', 32)->nullable();
+            $table->dateTime('pickup_at')->nullable();
+            $table->dateTime('trip_started_at')->nullable();
             $table->timestamps();
         });
     }

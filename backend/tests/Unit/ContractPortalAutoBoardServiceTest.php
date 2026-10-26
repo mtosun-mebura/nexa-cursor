@@ -35,6 +35,7 @@ class ContractPortalAutoBoardServiceTest extends TestCase
             $table->unsignedBigInteger('ride_request_id');
             $table->string('stop_type');
             $table->string('status')->default('planned');
+            $table->string('status_source', 16)->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
         });
@@ -73,7 +74,9 @@ class ContractPortalAutoBoardServiceTest extends TestCase
 
         $this->assertSame(1, $count);
         $this->assertSame('picked_up', RideStop::on($this->conn)->whereKey($open->id)->value('status'));
+        $this->assertSame('auto', RideStop::on($this->conn)->whereKey($open->id)->value('status_source'));
         $this->assertSame('skipped', RideStop::on($this->conn)->whereKey($skipped->id)->value('status'));
+        $this->assertNull(RideStop::on($this->conn)->whereKey($skipped->id)->value('status_source'));
     }
 
     #[Test]

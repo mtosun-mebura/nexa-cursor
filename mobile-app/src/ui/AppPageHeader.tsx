@@ -1,6 +1,7 @@
 import React, { ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { ColorPalette } from '../config';
+import { t, useI18n } from '../i18n';
 import { useThemeColors } from '../theme/ThemeContext';
 import {
   AppBrandLogo,
@@ -10,6 +11,7 @@ import {
   SCREEN_TITLE_FONT_SIZE,
   SCREEN_TITLE_LINE_HEIGHT,
 } from './ScreenHeader';
+import { compactFontProps } from './androidText';
 
 /** Zelfde top-inset als Taxi boeken (CustomerHomeScreen). */
 export const APP_PAGE_TOP_INSET = 0;
@@ -48,6 +50,7 @@ export function AppPageHeader({
   titleMarginBottom,
 }: Props) {
   const colors = useThemeColors();
+  useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const logo = (
@@ -57,21 +60,21 @@ export function AppPageHeader({
   return (
     <View style={[styles.header, style]}>
       <View style={styles.logoBar}>
-        <View style={styles.sideSlot}>{left ?? null}</View>
+        <View style={[styles.sideSlot, styles.sideSlotLeft]}>{left ?? null}</View>
         {onLogoPress ? (
           <Pressable
             onPress={onLogoPress}
             hitSlop={8}
             style={styles.logoCenter}
             accessibilityRole="button"
-            accessibilityLabel="Naar Boeken"
+            accessibilityLabel={t('Naar Boeken')}
           >
             {logo}
           </Pressable>
         ) : (
           <View style={styles.logoCenter}>{logo}</View>
         )}
-        <View style={styles.sideSlot}>{right ?? null}</View>
+        <View style={[styles.sideSlot, styles.sideSlotRight]}>{right ?? null}</View>
       </View>
       {title ? (
         <Text
@@ -80,6 +83,7 @@ export function AppPageHeader({
             titleMarginBottom != null ? { marginBottom: titleMarginBottom } : null,
           ]}
           numberOfLines={1}
+          {...compactFontProps}
         >
           {title}
         </Text>
@@ -103,13 +107,21 @@ function makeStyles(colors: ColorPalette) {
       paddingBottom: 2,
     },
     sideSlot: {
-      width: APP_PAGE_SIDE_SLOT,
-      height: APP_PAGE_SIDE_SLOT,
+      minWidth: APP_PAGE_SIDE_SLOT,
+      minHeight: APP_PAGE_SIDE_SLOT,
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    sideSlotLeft: {
+      justifyContent: 'flex-start',
+    },
+    sideSlotRight: {
+      justifyContent: 'flex-end',
     },
     logoCenter: {
       flex: 1,
+      minWidth: 0,
       alignItems: 'center',
       justifyContent: 'center',
     },

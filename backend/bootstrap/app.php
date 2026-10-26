@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'super-admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'tenant.host' => \App\Http\Middleware\ResolveTenantFromHost::class,
             'tenant.domain.user' => \App\Http\Middleware\EnforceTenantDomainMatchesUser::class,
@@ -88,6 +89,14 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(function (\Throwable $e): void {
+            try {
+                app(\App\Services\Monitoring\MonitoringErrorLogger::class)->fromThrowable($e);
+            } catch (\Throwable) {
+                // Foutlog mag het rapporteren niet onderbreken.
+            }
+        });
+
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, Request $request) {
             return \App\Services\CompanyEntitlementService::adminGetDeniedRedirect($e, $request);
         });

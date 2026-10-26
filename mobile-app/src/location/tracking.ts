@@ -3,7 +3,9 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { sendDriverLocation } from '../api/driver';
 import {
   clampGpsRefreshSeconds,
+  ensureForegroundLocationPermission,
   prepareBackgroundLocation,
+  resumeGrantedBackgroundLocation,
   startBackgroundLocation,
   stopBackgroundLocation,
 } from './background';
@@ -21,6 +23,60 @@ let appStateSub: { remove: () => void } | null = null;
 let lastSentAt = 0;
 let refreshMs = 1000;
 let activeOpts: TrackingOpts | null = null;
+let trackGeneration = 0;
+
+export type DriverMapPosition = {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+};
+
+export function positionFromLocation(loc: Location.LocationObject | null | undefined): DriverMapPosition | null {
+  const c = loc?.coords;
+  if (!c || !Number.isFinite(c.latitude) || !Number.isFinite(c.longitude)) return null;
+  if (c.latitude === 0 && c.longitude === 0) return null;
+  return {
+    lat: c.latitude,
+    lng: c.longitude,
+    ...(c.accuracy != null && Number.isFinite(c.accuracy) ? { accuracy: c.accuracy } : {}),
+    ...(c.heading != null && c.heading >= 0 ? { heading: c.heading } : {}),
+    ...(c.speed != null && c.speed >= 0 ? { speed: c.speed } : {}),
+  };
+}
+
+/** Last-known fix only. Does not wait for a fresh GPS reading. */
+export async function readLastKnownDriverMapPosition(): Promise<DriverMapPosition | null> {
+  try {
+    const last = await Location.getLastKnownPositionAsync({
+      maxAge: 1000 * 60 * 10,
+      requiredAccuracy: 1500,
+    });
+    return positionFromLocation(last);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Echte GPS voor de boekingskaart. Eerst een recente last-known fix (iOS levert die
+ * meteen), daarna een verse meting. Geen vast adres.
+ */
+export async function readDriverMapPosition(): Promise<DriverMapPosition | null> {
+  const fromLast = await readLastKnownDriverMapPosition();
+  if (fromLast) return fromLast;
+
+  try {
+    const current = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+    ]);
+    return positionFromLocation(current);
+  } catch {
+    return null;
+  }
+}
 
 async function postFix(
   token: string,
@@ -60,10 +116,7 @@ async function stopForegroundWatch() {
 
 async function startForegroundWatch(opts: TrackingOpts) {
   await stopForegroundWatch();
-  const permission = await Location.requestForegroundPermissionsAsync();
-  if (permission.status !== 'granted') {
-    throw new Error('Locatietoestemming is verplicht om online te gaan.');
-  }
+  await ensureForegroundLocationPermission();
 
   watchSub = await Location.watchPositionAsync(
     {
@@ -78,13 +131,28 @@ async function startForegroundWatch(opts: TrackingOpts) {
   );
 
   try {
-    const current = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
+    const last = await Location.getLastKnownPositionAsync({
+      maxAge: 1000 * 60 * 10,
+      requiredAccuracy: 1500,
     });
-    await postFix(opts.token, current, opts.vehicleId, true);
+    if (last) await postFix(opts.token, last, opts.vehicleId, true);
   } catch {
-    /* eerste fix mag falen; watch blijft actief */
+    /* last-known mag ontbreken */
   }
+
+  // Verse meting volgt. Niet awaiten: de online-schakelaar mag hier niet op wachten.
+  void (async () => {
+    try {
+      const current = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+      ]);
+      if (!current || activeOpts?.token !== opts.token) return;
+      await postFix(opts.token, current, activeOpts.vehicleId, true);
+    } catch {
+      /* eerste fix mag falen; watch blijft actief */
+    }
+  })();
 }
 
 function bindAppState(opts: TrackingOpts) {
@@ -94,26 +162,41 @@ function bindAppState(opts: TrackingOpts) {
   }
   appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
     if (state === 'active' && activeOpts) {
-      void startForegroundWatch(activeOpts).catch(() => undefined);
+      const opts = activeOpts;
+      void startForegroundWatch(opts).catch(() => undefined);
+      void resumeGrantedBackgroundLocation(opts.refreshSeconds).catch(() => undefined);
     }
   });
 }
 
 /**
- * Foreground watch + achtergrondupdates op het admin GPS-interval (refresh_seconds).
+ * Foreground watch posts to the driver location API while the app is in use.
+ * While-using is enough. Always is not requested again after that choice.
  */
-export async function startDriverLocationTracking(opts: TrackingOpts) {
+export async function startDriverLocationTracking(opts: TrackingOpts): Promise<void> {
+  const generation = ++trackGeneration;
   const seconds = clampGpsRefreshSeconds(opts.refreshSeconds);
   refreshMs = seconds * 1000;
   activeOpts = { ...opts, refreshSeconds: seconds };
 
   await prepareBackgroundLocation(opts.token, opts.vehicleId);
+  if (generation !== trackGeneration) return;
   await startForegroundWatch(activeOpts);
+  if (generation !== trackGeneration) {
+    await stopForegroundWatch();
+    return;
+  }
   await startBackgroundLocation(opts.token, opts.vehicleId, seconds);
+  if (generation !== trackGeneration) {
+    await stopForegroundWatch();
+    await stopBackgroundLocation();
+    return;
+  }
   bindAppState(activeOpts);
 }
 
 export async function stopDriverLocationTracking() {
+  trackGeneration += 1;
   activeOpts = null;
   if (appStateSub) {
     appStateSub.remove();

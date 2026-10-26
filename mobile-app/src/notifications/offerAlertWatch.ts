@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {
@@ -242,7 +243,7 @@ async function notifyFreshPickupDenials(input: {
   const name = String(ride?.customer_name || '').trim();
   const alertMatches = alertId === rideId;
   const title =
-    (alertMatches ? String(input.alert?.title || '').trim() : '') || 'Klant niet opgehaald';
+    (alertMatches ? String(input.alert?.title || '').trim() : '') || t("Klant niet opgehaald");
   const body =
     (alertMatches ? alertBody : '') ||
     `${name || 'De klant'} zegt dat die niet is opgehaald. Tik opnieuw op Klant opgehaald.`;
@@ -296,7 +297,7 @@ export async function takeFreshPayoutNotice(
     const ids = Array.from(stored).slice(-200);
     await SecureStore.setItemAsync(PAYOUT_KEY, JSON.stringify(ids));
     return {
-      title: String(notice?.title || '').trim() || 'Bedrag overgemaakt',
+      title: String(notice?.title || '').trim() || t("Bedrag overgemaakt"),
       body,
       rideId,
     };

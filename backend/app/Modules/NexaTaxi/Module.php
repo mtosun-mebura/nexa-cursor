@@ -3,6 +3,8 @@
 namespace App\Modules\NexaTaxi;
 
 use App\Modules\Base\Module as BaseModule;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
+use App\Services\MarketplaceCompanyRegistrationService;
 use App\Support\TenantPackageCapability;
 
 class Module extends BaseModule
@@ -58,6 +60,7 @@ class Module extends BaseModule
                 'icon' => 'ki-filled ki-dollar',
                 'permission' => 'rates.view',
                 'permission_any' => ['rates.view', 'vehicles.view'], // toon ook voor company admin met alleen vehicles.view
+                'hide_for_package_keys' => [MarketplaceCompanyRegistrationService::PACKAGE_KEY],
                 'order' => 15,
             ],
             [
@@ -73,7 +76,7 @@ class Module extends BaseModule
                 'title' => 'Chauffeur dispatch',
                 'route' => 'admin.taxi.dispatch_settings.edit',
                 'icon' => 'ki-filled ki-phone',
-                'permission' => 'rides.view',
+                'permission_any' => TaxiDispatchAccess::dispatchMenuPermissions(),
                 'package_capability' => TenantPackageCapability::DISPATCH,
                 'order' => 21,
             ],
@@ -117,17 +120,19 @@ class Module extends BaseModule
                 'title' => 'GPS-tracker',
                 'route' => 'admin.taxi.gps_tracking.index',
                 'icon' => 'ki-filled ki-geolocation',
-                'permission_any' => ['vehicles.view', 'rides.view'],
+                'permission_any' => ['gps_tracking.view', 'gps_tracking_settings.view'],
                 'package_capability' => TenantPackageCapability::GPS_TRACKING,
                 'order' => 24,
                 'children' => [
                     [
                         'title' => 'Voertuigen',
                         'route' => 'admin.taxi.gps_tracking.index',
+                        'permission_any' => ['gps_tracking.view'],
                     ],
                     [
                         'title' => 'Configuratie',
                         'route' => 'admin.taxi.gps_tracking.settings',
+                        'permission_any' => ['gps_tracking_settings.view'],
                     ],
                 ],
             ],

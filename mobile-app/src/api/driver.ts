@@ -380,13 +380,27 @@ export function deleteDriverVehicle(token: string, vehicleId: number) {
   });
 }
 
-export function setDriverOnline(token: string, isOnline: boolean, vehicleId?: number | null) {
+export function setDriverOnline(
+  token: string,
+  isOnline: boolean,
+  vehicleId?: number | null,
+  coords?: { lat: number; lng: number; accuracy?: number; heading?: number; speed?: number } | null
+) {
   return apiRequest('/api/taxi/v1/driver/availability', {
     method: 'PUT',
     token,
     body: {
       is_online: isOnline,
       ...(vehicleId ? { vehicle_id: vehicleId } : {}),
+      ...(coords
+        ? {
+            lat: coords.lat,
+            lng: coords.lng,
+            ...(coords.accuracy != null ? { accuracy: coords.accuracy } : {}),
+            ...(coords.heading != null ? { heading: coords.heading } : {}),
+            ...(coords.speed != null ? { speed: coords.speed } : {}),
+          }
+        : {}),
     },
   });
 }

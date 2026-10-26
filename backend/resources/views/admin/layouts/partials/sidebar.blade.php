@@ -176,6 +176,23 @@
                 </div>
                 @endif
 
+                @if(auth()->user()?->isSuperAdmin())
+                <div class="kt-menu-item {{ request()->routeIs('admin.monitoring.*') ? 'active' : '' }}">
+                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        href="{{ route('admin.monitoring.index') }}" tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-chart-line-up-2 text-lg"></i>
+                        </span>
+                        <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            Monitoring
+                        </span>
+                        @if((int) ($adminMonitoringUnresolvedErrors ?? 0) > 0)
+                            <span class="kt-badge kt-badge-sm kt-badge-danger ms-auto">{{ (int) $adminMonitoringUnresolvedErrors > 99 ? '99+' : (int) $adminMonitoringUnresolvedErrors }}</span>
+                        @endif
+                    </a>
+                </div>
+                @endif
+
                 <!-- Handleiding -->
                 @php
                     $handleidingPages = \App\Support\AdminHandleiding::pagesForCurrentUser();
@@ -971,7 +988,7 @@
                         || (auth()->user()?->hasRole('marketplace') ?? false);
                     $canViewBankAccount = $marketplacePackage && (auth()->user()?->isTenantAdmin() || $isSuperAdminSettings);
                 @endphp
-                @if($isSuperAdminSettings || $canViewMailSettings || $canViewBankAccount)
+                @if($isSuperAdminSettings || ($canViewMailSettings && ! $marketplacePackage) || $canViewBankAccount)
                 <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.bank-account*') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
@@ -1011,7 +1028,7 @@
                             </a>
                         </div>
                         @endif
-                        @if($canViewMailSettings || $isSuperAdminSettings)
+                        @if($isSuperAdminSettings || ($canViewMailSettings && ! $marketplacePackage))
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.index') }}" tabindex="0">

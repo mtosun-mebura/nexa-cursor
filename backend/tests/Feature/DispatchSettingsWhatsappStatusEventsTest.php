@@ -67,7 +67,7 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
     public function marketplace_company_admin_can_open_dispatch_settings(): void
     {
         Role::firstOrCreate(['name' => 'company-admin', 'guard_name' => 'web']);
-        Permission::firstOrCreate(['name' => 'rides.view', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'dispatch.network.view', 'guard_name' => 'web']);
 
         $company = Company::query()->create([
             'name' => 'Marketplace Dispatch Co',
@@ -81,7 +81,7 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
         $previousTeamId = $registrar->getPermissionsTeamId();
         $registrar->setPermissionsTeamId((int) $company->id);
         try {
-            $admin->givePermissionTo('rides.view');
+            $admin->givePermissionTo('dispatch.network.view');
 
             GeneralSetting::clearRequestCache();
             app()->instance('resolved_tenant_id', $company->id);

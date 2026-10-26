@@ -16,6 +16,7 @@ class TarievenController extends Controller
 
     public function edit()
     {
+        $this->abortIfMarketplace();
         $this->authorizeOrPermissionAny(['rates.view', 'vehicles.view']);
 
         $conn = $this->moduleConnection();
@@ -33,6 +34,7 @@ class TarievenController extends Controller
 
     public function update(Request $request)
     {
+        $this->abortIfMarketplace();
         $this->authorizeOrPermissionAny(['rates.update', 'vehicles.update']);
 
         $conn = $this->moduleConnection();
@@ -124,6 +126,20 @@ class TarievenController extends Controller
         }
 
         return Company::query()->whereKey($scopeCompanyId)->value('name');
+    }
+
+    private function abortIfMarketplace(): void
+    {
+        $user = auth()->user();
+        if ($user && ($user->isSuperAdmin() || $user->hasRole('super-admin'))) {
+            return;
+        }
+        $companyId = app(AdminTenantScope::class)->selectedTenantId();
+        $company = $companyId ? Company::query()->find($companyId) : null;
+        $package = strcasecmp((string) ($company->package_key ?? ''), \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
+        if ($package || ($user && $user->hasRole('marketplace'))) {
+            abort(403, 'Tarieven zijn niet beschikbaar voor marketplace-bedrijven.');
+        }
     }
 
     private function authorizeOrPermissionAny(array $abilities): void

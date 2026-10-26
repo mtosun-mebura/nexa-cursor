@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideStop;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -117,10 +118,10 @@ class ContractPortalAutoBoardService
             ->where('ride_request_id', $rideId)
             ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
             ->whereIn('status', [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED])
-            ->update([
+            ->update(array_merge([
                 'status' => RideStop::STATUS_PICKED_UP,
                 'completed_at' => now(),
-            ]);
+            ], RideStopStatusSource::autoAttributes($conn)));
     }
 
     /**
@@ -152,9 +153,9 @@ class ContractPortalAutoBoardService
         return RideStop::on($conn)
             ->whereIn('id', $ids)
             ->where('status', RideStop::STATUS_ARRIVED)
-            ->update([
+            ->update(array_merge([
                 'status' => RideStop::STATUS_PICKED_UP,
                 'completed_at' => now(),
-            ]);
+            ], RideStopStatusSource::autoAttributes($conn)));
     }
 }

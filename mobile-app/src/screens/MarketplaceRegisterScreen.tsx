@@ -1,16 +1,25 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
+  View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { registerMarketplaceCompany, requestLoginCode, verifyLoginCode } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ColorPalette } from '../config';
+import { ibanFieldError } from '../iban';
+import { useI18n, t } from '../i18n';
 import { useThemeColors } from '../theme/ThemeContext';
+import { AppearanceControls } from '../ui/AppearanceControls';
 import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
+import { useAndroidKeyboardOverlap } from '../ui/androidText';
+import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import {
   ErrorText,
   Field,
@@ -22,6 +31,92 @@ import {
 } from '../ui/components';
 
 const VERIFY_PENDING_KEY = 'nexa_taxi_marketplace_verify_pending';
+const CODE_LENGTH = 6;
+
+function CodeDigits({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const colors = useThemeColors();
+  const inputRef = useRef<TextInput>(null);
+  const digits = value.replace(/\D/g, '').slice(0, CODE_LENGTH);
+  const activeIndex = Math.min(digits.length, CODE_LENGTH - 1);
+
+  return (
+    <View style={codeStyles.field}>
+      <Text style={[codeStyles.label, { color: colors.muted }]}>{t("Code uit e-mail")}</Text>
+      <View style={codeStyles.row}>
+        {Array.from({ length: CODE_LENGTH }, (_, index) => {
+          const digit = digits[index] ?? '';
+          const active = digits.length < CODE_LENGTH ? index === digits.length : index === activeIndex;
+          return (
+            <View
+              key={index}
+              style={[
+                codeStyles.cell,
+                {
+                  borderColor: active ? colors.primary : colors.border,
+                  backgroundColor: colors.inputBg,
+                },
+              ]}
+            >
+              <Text style={[codeStyles.digit, { color: colors.text }]}>{digit}</Text>
+            </View>
+          );
+        })}
+        <TextInput
+          ref={inputRef}
+          value={digits}
+          onChangeText={(next) => onChange(next.replace(/\D/g, '').slice(0, CODE_LENGTH))}
+          keyboardType="number-pad"
+          inputMode="numeric"
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          maxLength={CODE_LENGTH}
+          caretHidden
+          autoCorrect={false}
+          spellCheck={false}
+          style={codeStyles.capture}
+          accessibilityLabel={t("Code uit e-mail")}
+        />
+      </View>
+    </View>
+  );
+}
+
+const codeStyles = StyleSheet.create({
+  field: { marginBottom: 14 },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cell: {
+    flex: 1,
+    height: 56,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  digit: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  capture: {
+    ...StyleSheet.absoluteFill,
+    color: 'transparent',
+  },
+});
 
 type PendingVerify = {
   email: string;
@@ -31,6 +126,49 @@ type PendingVerify = {
   city?: string;
   hint?: string;
 };
+
+type RegisterField = 'company_name' | 'email' | 'phone' | 'city' | 'iban';
+type RegisterErrors = Partial<Record<RegisterField, string>>;
+
+const REGISTER_FIELDS: RegisterField[] = ['company_name', 'email', 'phone', 'city', 'iban'];
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function registerFieldErrors(values: {
+  company_name: string;
+  email: string;
+  phone: string;
+  city: string;
+  iban: string;
+}): RegisterErrors {
+  const next: RegisterErrors = {};
+  if (!values.company_name.trim()) next.company_name = t("Vul de bedrijfsnaam in.");
+  const email = values.email.trim();
+  if (!email) next.email = t("Vul een e-mailadres in.");
+  else if (!isValidEmail(email)) next.email = t("Vul een geldig e-mailadres in.");
+  if (!values.phone.trim()) next.phone = t("Vul een telefoonnummer in.");
+  const city = values.city.trim();
+  if (!city) next.city = t("Vul de plaats in waar het bedrijf zich bevindt.");
+  else if (city.length < 2) next.city = t("Plaats moet minimaal 2 tekens bevatten.");
+  const ibanError = ibanFieldError(values.iban);
+  if (ibanError) next.iban = ibanError;
+  return next;
+}
+
+function serverFieldErrors(body: unknown): RegisterErrors {
+  if (!body || typeof body !== 'object') return {};
+  const errors = (body as { errors?: Record<string, string[] | string> }).errors;
+  if (!errors) return {};
+  const next: RegisterErrors = {};
+  for (const field of REGISTER_FIELDS) {
+    const raw = errors[field];
+    const message = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof message === 'string' && message.trim()) next[field] = message;
+  }
+  return next;
+}
 
 function firstValidationMessage(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null;
@@ -53,6 +191,7 @@ async function clearPendingVerify() {
 export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   const { setSession } = useAuth();
   const colors = useThemeColors();
+  useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [companyName, setCompanyName] = useState('');
@@ -67,7 +206,22 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<RegisterErrors>({});
+  const [formChecked, setFormChecked] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const keyboardOverlap = useAndroidKeyboardOverlap();
+
+  useAndroidBackHandler(() => {
+    if (step === 'verify') {
+      setStep('form');
+      setCode('');
+      setPassword('');
+      setError(null);
+      return true;
+    }
+    onBack();
+    return true;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -116,26 +270,53 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
     });
   }
 
+  function valuesNow(overrides?: Partial<Record<RegisterField, string>>) {
+    return {
+      company_name: companyName,
+      email,
+      phone,
+      city,
+      iban,
+      ...overrides,
+    };
+  }
+
+  function changeField(field: RegisterField, value: string, setter: (next: string) => void) {
+    setter(value);
+    if (field === 'iban') {
+      const live = ibanFieldError(value, true);
+      setFieldErrors((current) => ({ ...current, iban: live ?? undefined }));
+      if (!formChecked) return;
+    }
+    if (!formChecked) return;
+    const next = registerFieldErrors(valuesNow({ [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: next[field] }));
+  }
+
   function openCodeStep() {
     setError(null);
     const trimmed = email.trim();
-    if (!trimmed || !trimmed.includes('@')) {
-      setError('Vul eerst je e-mailadres in om de code te bevestigen.');
+    if (!trimmed || !isValidEmail(trimmed)) {
+      setFieldErrors((current) => ({
+        ...current,
+        email: t("Vul eerst je e-mailadres in om de code te bevestigen."),
+      }));
+      setFormChecked(true);
       return;
     }
     void goToVerify({
       email: trimmed,
       channel: channel || 'driver',
-      hint: 'Vul de code uit je e-mail in. Geen code ontvangen? Stuur hem opnieuw.',
+      hint: t("Vul de code uit je e-mail in. Geen code ontvangen? Stuur hem opnieuw."),
     });
   }
 
   async function onRegister() {
     setError(null);
-    if (!iban.trim()) {
-      setError('Vul een IBAN in.');
-      return;
-    }
+    const nextErrors = registerFieldErrors(valuesNow());
+    setFieldErrors(nextErrors);
+    setFormChecked(true);
+    if (Object.keys(nextErrors).length > 0) return;
     setLoading(true);
     try {
       const res = await registerMarketplaceCompany({
@@ -164,19 +345,25 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
           await goToVerify({
             email: body.email || email,
             channel: body.channel || 'driver',
-            hint: body.message || 'Bedrijf aangemaakt. Vraag de code opnieuw aan.',
+            hint: body.message || t("Bedrijf aangemaakt. Vraag de code opnieuw aan."),
           });
           return;
         }
-        const msg = firstValidationMessage(e.body) || e.message || 'Registreren mislukt.';
-        // Bestaand e-mailadres: bied code-stap aan
+        const mapped = serverFieldErrors(e.body);
+        if (Object.keys(mapped).length > 0) {
+          setFieldErrors(mapped);
+          setFormChecked(true);
+          return;
+        }
+        const msg = firstValidationMessage(e.body) || e.message || t("Registreren mislukt.");
         if (/al in gebruik|bestaat al|log in/i.test(msg)) {
-          setError(`${msg} Of open “Ik heb al een code” hieronder.`);
+          setFieldErrors({ email: msg });
+          setFormChecked(true);
         } else {
           setError(msg);
         }
       } else {
-        setError('Registreren mislukt.');
+        setError(t("Registreren mislukt."));
       }
     } finally {
       setLoading(false);
@@ -200,10 +387,10 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
       });
     } catch (e) {
       if (e instanceof ApiError) {
-        setError(e.message || 'Code versturen mislukt.');
+        setError(e.message || t("Code versturen mislukt."));
       } else {
         setError(
-          'Geen verbinding met de server. Controleer je netwerk of probeer het zo opnieuw.'
+          t("Geen verbinding met de server. Controleer je netwerk of probeer het zo opnieuw.")
         );
       }
     } finally {
@@ -225,7 +412,7 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
       await clearPendingVerify();
       await setSession(session);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Code bevestigen mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Code bevestigen mislukt."));
     } finally {
       setLoading(false);
     }
@@ -238,78 +425,94 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
   return (
     <Screen style={{ paddingTop: APP_PAGE_TOP_INSET, paddingHorizontal: 0 }}>
       <AppPageHeader
-        title={step === 'form' ? 'NEXA Taxi marktplaats' : 'Bevestig e-mail'}
+        title={step === 'form' ? t("NEXA Taxi marktplaats") : t("Bevestig e-mail")}
+        left={
+          <Pressable
+            onPress={onBack}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t("Naar startpagina")}
+          >
+            <Ionicons name="home-outline" size={24} color={colors.text} />
+          </Pressable>
+        }
+        right={<AppearanceControls />}
       />
       <ScrollView
         style={styles.body}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 + keyboardOverlap }}
       >
         <Subtitle>
           {step === 'form'
-            ? 'Meld je taxibedrijf aan op de NEXA Taxi marktplaats.\nNa registratie ontvang je een code per e-mail.'
-            : 'Vul de code uit je e-mail in om je account te activeren.'}
+            ? t("Registreer je taxibedrijf op de NEXA Taxi marktplaats.\nNa registratie ontvang je een code per e-mail.")
+            : t("Vul de code uit je e-mail in om je account te activeren.")}
         </Subtitle>
 
         {step === 'form' ? (
           <>
             <Field
-              label="Bedrijfsnaam"
+              label={t("Bedrijfsnaam")}
               value={companyName}
-              onChangeText={setCompanyName}
+              onChangeText={(value) => changeField('company_name', value, setCompanyName)}
               autoCapitalize="words"
-              placeholder="Taxi Amsterdam"
+              placeholder={t("Taxi Amsterdam")}
               returnKeyType="next"
+              error={fieldErrors.company_name}
             />
             <Field
-              label="E-mailadres"
+              label={t("E-mailadres")}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => changeField('email', value, setEmail)}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
               textContentType="emailAddress"
               placeholder="beheer@taxibedrijf.nl"
               returnKeyType="next"
+              error={fieldErrors.email}
             />
             <Field
-              label="Telefoon"
+              label={t("Telefoon")}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(value) => changeField('phone', value, setPhone)}
               keyboardType="phone-pad"
               autoComplete="tel"
               textContentType="telephoneNumber"
               placeholder="06…"
               returnKeyType="next"
+              error={fieldErrors.phone}
             />
             <Field
-              label="Plaats"
+              label={t("Plaats")}
               value={city}
-              onChangeText={setCity}
+              onChangeText={(value) => changeField('city', value, setCity)}
               autoCapitalize="words"
               placeholder="Amsterdam"
               returnKeyType="next"
+              error={fieldErrors.city}
             />
             <Field
               label="IBAN"
               value={iban}
-              onChangeText={setIban}
+              onChangeText={(value) => changeField('iban', value.toUpperCase(), setIban)}
               autoCapitalize="characters"
               autoComplete="off"
               placeholder="NL91 ABNA 0417 1643 00"
               returnKeyType="done"
+              error={fieldErrors.iban}
               onSubmitEditing={() => {
                 if (!loading) void onRegister();
               }}
             />
-            <Text style={styles.ibanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
+            <Text style={styles.ibanHint}>{t("Dit is nodig voor de uitbetaling van de ritten.")}</Text>
           </>
         ) : (
           <>
             <Field
-              label="E-mailadres"
+              label={t("E-mailadres")}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -319,22 +522,15 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
               placeholder="beheer@taxibedrijf.nl"
               returnKeyType="next"
             />
+            <CodeDigits value={code} onChange={setCode} />
             <Field
-              label="Code uit e-mail"
-              value={code}
-              onChangeText={setCode}
-              keyboardType="number-pad"
-              placeholder="000000"
-              returnKeyType="next"
-            />
-            <Field
-              label="Wachtwoord (optioneel)"
+              label={t("Wachtwoord (optioneel)")}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="password"
               textContentType="password"
-              placeholder="Min. 8 tekens"
+              placeholder={t("Min. 8 tekens")}
               returnKeyType="done"
               onSubmitEditing={() => {
                 if (!loading) void onVerify();
@@ -354,16 +550,15 @@ export function MarketplaceRegisterScreen({ onBack }: { onBack: () => void }) {
 
         {step === 'form' ? (
           <>
-            <PrimaryButton title="Aanmelden" onPress={onRegister} loading={loading} />
-            <GhostButton title="Ik heb al een code" onPress={openCodeStep} />
-            <GhostButton title="Terug" onPress={onBack} />
+            <PrimaryButton title={t("Registreren")} onPress={onRegister} loading={loading} />
+            <GhostButton title={t("Activeer account met code")} onPress={openCodeStep} />
           </>
         ) : (
           <>
-            <PrimaryButton title="Account activeren" onPress={onVerify} loading={loading} />
-            <GhostButton title="Code opnieuw sturen" onPress={onResendCode} />
+            <PrimaryButton title={t("Activeer account")} onPress={onVerify} loading={loading} />
+            <GhostButton title={t("Code opnieuw sturen")} onPress={onResendCode} />
             <GhostButton
-              title="Terug naar aanmelden"
+              title={t("Terug naar registreren")}
               onPress={() => {
                 setStep('form');
                 setCode('');
@@ -388,7 +583,7 @@ function makeStyles(colors: ColorPalette) {
       color: colors.muted,
       fontSize: 13,
       lineHeight: 18,
-      marginTop: -6,
+      marginTop: -8,
       marginBottom: 12,
     },
   });

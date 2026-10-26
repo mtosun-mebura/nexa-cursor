@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideStop;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
@@ -155,7 +156,7 @@ class ContractDestinationArrivalService
             return 0;
         }
 
-        $updated = $this->completeGroup($conn, $match);
+        $updated = $this->completeGroup($conn, $match, true);
         Cache::forget($cacheKey);
 
         return $updated;
@@ -166,7 +167,7 @@ class ContractDestinationArrivalService
      * Zonder locatie of te ver van elke bestemming wordt er niets gezet.
      *
      * @param  list<int>  $passengerIds
-     * @return array{updated: int, reason: 'none'|'no_location'|'too_far'|null}
+     * @return array{updated: int, reason: 'none'|'no_location'|'too_far'|'pickups_open'|null}
      */
     public function markAll(string $conn, array $passengerIds, ?float $lat = null, ?float $lng = null): array
     {
@@ -184,8 +185,12 @@ class ContractDestinationArrivalService
             return ['updated' => 0, 'reason' => 'too_far'];
         }
 
+        if ($this->groupHasUnresolvedPickups($conn, $match)) {
+            return ['updated' => 0, 'reason' => 'pickups_open'];
+        }
+
         return [
-            'updated' => $this->completeGroup($conn, $match),
+            'updated' => $this->completeGroup($conn, $match, false),
             'reason' => null,
         ];
     }
@@ -304,21 +309,70 @@ class ContractDestinationArrivalService
     /**
      * @param  array{stop_ids: list<int>}  $group
      */
-    private function completeGroup(string $conn, array $group): int
+    private function groupHasUnresolvedPickups(string $conn, array $group): bool
+    {
+        $ids = array_values(array_filter(array_map('intval', $group['stop_ids'] ?? [])));
+        if ($ids === []) {
+            return false;
+        }
+
+        $destinations = RideStop::on($conn)
+            ->whereIn('id', $ids)
+            ->where('stop_type', RideStop::STOP_TYPE_DESTINATION)
+            ->get(['ride_request_id', 'transport_passenger_id']);
+
+        foreach ($destinations as $dest) {
+            $passengerId = (int) ($dest->transport_passenger_id ?? 0);
+            $rideId = (int) ($dest->ride_request_id ?? 0);
+            if ($passengerId <= 0 || $rideId <= 0) {
+                continue;
+            }
+
+            $pickup = RideStop::on($conn)
+                ->where('ride_request_id', $rideId)
+                ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
+                ->where('transport_passenger_id', $passengerId)
+                ->first();
+
+            if ($pickup === null) {
+                continue;
+            }
+
+            if (! in_array($pickup->status, [
+                RideStop::STATUS_PICKED_UP,
+                RideStop::STATUS_SKIPPED,
+                RideStop::STATUS_COMPLETED,
+            ], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{stop_ids: list<int>}  $group
+     */
+    private function completeGroup(string $conn, array $group, bool $automatic): int
     {
         $ids = array_values(array_filter(array_map('intval', $group['stop_ids'] ?? [])));
         if ($ids === []) {
             return 0;
         }
 
+        $payload = [
+            'status' => RideStop::STATUS_COMPLETED,
+            'completed_at' => now(),
+        ];
+        if ($automatic) {
+            $payload = array_merge($payload, RideStopStatusSource::autoAttributes($conn));
+        }
+
         return RideStop::on($conn)
             ->whereIn('id', $ids)
             ->where('stop_type', RideStop::STOP_TYPE_DESTINATION)
             ->whereNotIn('status', [RideStop::STATUS_COMPLETED])
-            ->update([
-                'status' => RideStop::STATUS_COMPLETED,
-                'completed_at' => now(),
-            ]);
+            ->update($payload);
     }
 
     private function dwellKey(string $conn, int $userId): string

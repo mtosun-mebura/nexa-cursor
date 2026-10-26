@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
@@ -63,7 +64,7 @@ async function ensureSilentOfferChannel(): Promise<string> {
   if (!Notifications || Platform.OS !== 'android') return channelId;
   if (channelReady.has(channelId)) return channelId;
   await Notifications.setNotificationChannelAsync(channelId, {
-    name: 'Ritaanvragen',
+    name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.HIGH,
     sound: null,
     enableVibrate: false,
@@ -78,7 +79,7 @@ async function ensureOfferChannel(tone: RideAlertTone): Promise<string> {
   if (!Notifications || Platform.OS !== 'android') return 'driver-offers';
   if (channelReady.has(channelId)) return channelId;
   await Notifications.setNotificationChannelAsync(channelId, {
-    name: 'Ritaanvragen',
+    name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
@@ -108,11 +109,11 @@ export async function notifyNewDriverOffer(opts: {
   tone?: string | null;
   badge?: number;
 }): Promise<void> {
-  const pickup = String(opts.pickup || '').trim() || 'Nieuwe rit';
+  const pickup = String(opts.pickup || '').trim() || t("Nieuwe rit");
   const dropoff = String(opts.dropoff || '').trim();
   const body = dropoff ? `${pickup} → ${dropoff}` : pickup;
   const title =
-    opts.count > 1 ? `${opts.count} nieuwe ritaanvragen` : 'Nieuwe ritaanvraag';
+    opts.count > 1 ? `${opts.count} nieuwe ritaanvragen` : t("Nieuwe ritaanvraag");
   const playSound = opts.playSound !== false;
   const tone = normalizeRideAlertTone(opts.tone);
   const badge =
@@ -176,7 +177,7 @@ export async function notifyPickupDenied(opts: {
   playSound?: boolean;
   tone?: string | null;
 }): Promise<void> {
-  const title = String(opts.title || '').trim() || 'Klant niet opgehaald';
+  const title = String(opts.title || '').trim() || t("Klant niet opgehaald");
   const body = String(opts.body || '').trim();
   if (!body) return;
   const playSound = opts.playSound !== false;
@@ -231,7 +232,7 @@ export async function notifyPickupDeparture(opts: {
   body: string;
   rideId?: number | null;
 }): Promise<void> {
-  const title = String(opts.title || '').trim() || 'Tijd om te vertrekken';
+  const title = String(opts.title || '').trim() || t("Tijd om te vertrekken");
   const body = String(opts.body || '').trim();
   if (!body) return;
 
@@ -278,7 +279,7 @@ export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   // Fallback-kanaal + alle toonvarianten (sound zit vast op channel-creatie)
   await Notifications.setNotificationChannelAsync('driver-offers', {
-    name: 'Ritaanvragen',
+    name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',

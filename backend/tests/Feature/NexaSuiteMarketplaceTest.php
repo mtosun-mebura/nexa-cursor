@@ -100,6 +100,7 @@ class NexaSuiteMarketplaceTest extends TestCase
             $table->string('customer_email')->nullable();
             $table->string('customer_phone')->nullable();
             $table->text('customer_note')->nullable();
+            $table->dateTime('trip_started_at')->nullable();
             $table->dateTime('quote_expires_at')->nullable();
             $table->json('booking_payload')->nullable();
             $table->json('selected_offer_payload')->nullable();
@@ -381,8 +382,10 @@ class NexaSuiteMarketplaceTest extends TestCase
             'status' => RideRequest::STATUS_ACCEPTED,
             'pickup_address' => 'A',
             'dropoff_address' => 'B',
-            'pickup_at' => now()->addHour(),
-            'customer_name' => 'Busy',
+            'pickup_at' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::naiveUtcForWallClockQuery(
+                now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)->addHours(3)
+            ),
+            'customer_name' => 'Later',
         ]);
 
         $response = $this->getJson(route('nexataxi.booking.nearby-taxis', [
@@ -393,8 +396,8 @@ class NexaSuiteMarketplaceTest extends TestCase
 
         $response->assertOk();
         $vehicles = $response->json('vehicles');
-        // Bezette taxi’s worden niet meer op de kaart getoond voor andere klanten.
-        $this->assertCount(1, $vehicles);
+        // Een rit over een paar uur verbergt de taxi nu niet.
+        $this->assertCount(2, $vehicles);
         $this->assertFalse((bool) ($vehicles[0]['busy'] ?? true));
         $this->assertEqualsWithDelta(52.37, (float) $vehicles[0]['lat'], 0.002);
         $this->assertTrue((bool) $response->json('marketplace.dispatch_ready'));
@@ -402,6 +405,256 @@ class NexaSuiteMarketplaceTest extends TestCase
         $this->assertSame(3, (int) $response->json('marketplace.check_seconds'));
         $this->assertSame('#ea580c', $response->json('fleet_car_color'));
         $this->assertSame('#ea580c', $response->json('vehicles.0.color'));
+    }
+
+    #[Test]
+    public function nearby_taxis_keeps_online_driver_with_past_accepted_contract_ride(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-25 21:46:00', 'UTC'));
+        [$near, $vehicle] = $this->twoTaxiTenants();
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 41,
+            'company_id' => $near->id,
+            'vehicle_id' => $vehicle->id,
+            'is_online' => true,
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'location_updated_at' => now(),
+            'last_seen_at' => now(),
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => 41,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Zeelandstraat 16',
+            'dropoff_address' => 'OBS Roombeek',
+            'pickup_at' => \Illuminate\Support\Carbon::createFromFormat('Y-m-d H:i:s', '2026-10-25 07:42:00', 'UTC'),
+            'customer_name' => 'O.B.S. Roombeek',
+        ]);
+
+        $response = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'radius_km' => 50,
+        ]));
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json('vehicles'));
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function nearby_taxis_keeps_contractant_driver_with_old_contract_ride_and_hides_an_active_one(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-26 09:10:00', 'UTC'));
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
+        [$near, $vehicle] = $this->twoTaxiTenants();
+
+        $idle = User::factory()->create(['company_id' => $near->id]);
+        $idle->assignRole(['chauffeur', 'contractant']);
+        $busy = User::factory()->create(['company_id' => $near->id]);
+        $busy->assignRole(['chauffeur', 'contractant']);
+        $plain = User::factory()->create(['company_id' => $near->id]);
+        $plain->assignRole('chauffeur');
+
+        foreach ([$idle, $busy, $plain] as $index => $driver) {
+            DriverAvailability::on('module_taxi')->create([
+                'driver_id' => $driver->id,
+                'company_id' => $near->id,
+                'vehicle_id' => $vehicle->id,
+                'is_online' => true,
+                'lat' => 52.2215 + ($index * 0.001),
+                'lng' => 6.8937,
+                'location_updated_at' => now()->subMinutes(30),
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $idle->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Zeelandstraat 16',
+            'dropoff_address' => 'OBS Roombeek',
+            'pickup_at' => '2026-10-26 07:42:00',
+            'customer_name' => 'O.B.S. Roombeek',
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $busy->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Maanstraat 58',
+            'dropoff_address' => 'OBS Roombeek',
+            'pickup_at' => '2026-10-26 07:51:00',
+            'trip_started_at' => now()->subMinutes(20),
+            'customer_name' => 'O.B.S. Roombeek',
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $plain->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => 'booking',
+            'pickup_address' => 'Station',
+            'dropoff_address' => 'Centrum',
+            'pickup_at' => '2026-10-26 10:00:00',
+            'customer_name' => 'Klant',
+        ]);
+
+        $response = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'radius_km' => 50,
+        ]));
+
+        $response->assertOk();
+        $ids = array_column($response->json('vehicles'), 'id');
+        $publicId = substr(hash_hmac('sha256', 'taxi-driver-'.$idle->id, (string) config('app.key')), 0, 16);
+        $busyId = substr(hash_hmac('sha256', 'taxi-driver-'.$busy->id, (string) config('app.key')), 0, 16);
+        $plainId = substr(hash_hmac('sha256', 'taxi-driver-'.$plain->id, (string) config('app.key')), 0, 16);
+        $this->assertContains($publicId, $ids);
+        $this->assertNotContains($busyId, $ids);
+        $this->assertNotContains($plainId, $ids);
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function nearby_taxis_shows_free_contract_driver_and_hides_a_current_ride(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-10-26 08:42:00', 'UTC'));
+        Role::firstOrCreate(['name' => 'chauffeur', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
+        [$near, $vehicle] = $this->twoTaxiTenants();
+
+        Schema::connection('module_taxi')->create('ride_stops', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('ride_request_id');
+            $table->string('stop_type', 32)->nullable();
+            $table->string('status', 32)->nullable();
+            $table->dateTime('planned_at')->nullable();
+            $table->timestamps();
+        });
+
+        $free = User::factory()->create(['company_id' => $near->id]);
+        $free->assignRole(['chauffeur', 'chauffeur-inkomsten', 'contractant']);
+        $acceptedNow = User::factory()->create(['company_id' => $near->id]);
+        $acceptedNow->assignRole(['chauffeur', 'chauffeur-inkomsten', 'contractant']);
+        $contractNow = User::factory()->create(['company_id' => $near->id]);
+        $contractNow->assignRole(['chauffeur', 'chauffeur-inkomsten', 'contractant']);
+
+        foreach ([$free, $acceptedNow, $contractNow] as $index => $driver) {
+            DriverAvailability::on('module_taxi')->create([
+                'driver_id' => $driver->id,
+                'company_id' => $near->id,
+                'vehicle_id' => $vehicle->id,
+                'is_online' => true,
+                'lat' => 52.2215 + ($index * 0.001),
+                'lng' => 6.8937,
+                'location_updated_at' => now()->subHours(2),
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        $finished = RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $free->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Zeelandstraat 16',
+            'dropoff_address' => 'OBS Roombeek',
+            'pickup_at' => '2026-10-26 07:42:00',
+            'trip_started_at' => now()->subHours(2),
+            'customer_name' => 'Afgerond',
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_stops')->insert([
+            [
+                'ride_request_id' => $finished->id,
+                'stop_type' => 'pickup',
+                'status' => 'completed',
+                'planned_at' => '2026-10-26 07:42:00',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'ride_request_id' => $finished->id,
+                'stop_type' => 'destination',
+                'status' => 'completed',
+                'planned_at' => '2026-10-26 08:05:00',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $free->id,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Ochtend',
+            'dropoff_address' => 'School',
+            'pickup_at' => '2026-10-26 07:15:00',
+            'customer_name' => 'Klaar',
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $free->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Middag',
+            'dropoff_address' => 'Thuis',
+            'pickup_at' => '2026-10-26 15:30:00',
+            'customer_name' => 'Later',
+        ]);
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $acceptedNow->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'source' => 'booking',
+            'pickup_address' => 'Nu',
+            'dropoff_address' => 'Centrum',
+            'pickup_at' => '2026-10-26 09:40:00',
+            'customer_name' => 'Nu',
+        ]);
+        $currentContract = RideRequest::on('module_taxi')->create([
+            'company_id' => $near->id,
+            'driver_id' => $contractNow->id,
+            'status' => RideRequest::STATUS_ASSIGNED,
+            'source' => RideRequest::SOURCE_CONTRACT,
+            'pickup_address' => 'Nu contract',
+            'dropoff_address' => 'School',
+            'pickup_at' => '2026-10-26 09:40:00',
+            'customer_name' => 'Contract nu',
+        ]);
+        \Illuminate\Support\Facades\DB::connection('module_taxi')->table('ride_stops')->insert([
+            'ride_request_id' => $currentContract->id,
+            'stop_type' => 'pickup',
+            'status' => 'planned',
+            'planned_at' => '2026-10-26 09:40:00',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->getJson(route('nexataxi.booking.nearby-taxis', [
+            'section_key' => 'component:taxi.algemene_boekingsmodule',
+            'lat' => 52.2215,
+            'lng' => 6.8937,
+            'radius_km' => 50,
+        ]));
+
+        $response->assertOk();
+        $ids = array_column($response->json('vehicles'), 'id');
+        $publicId = static function (int $driverId): string {
+            return substr(hash_hmac('sha256', 'taxi-driver-'.$driverId, (string) config('app.key')), 0, 16);
+        };
+        $this->assertContains($publicId($free->id), $ids);
+        $this->assertNotContains($publicId($acceptedNow->id), $ids);
+        $this->assertNotContains($publicId($contractNow->id), $ids);
+        \Illuminate\Support\Carbon::setTestNow();
     }
 
     #[Test]

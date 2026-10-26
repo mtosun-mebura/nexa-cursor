@@ -44,6 +44,36 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
 Debug is **niet** wat eindgebruikers krijgen.
 
+## Android-emulator (deze Mac)
+
+Zelfde Expo-app als iOS (`nl.nexasuite.taxi`). Geen tweede UI. Android Studio staat hier nog niet; installeer die eenmalig (enkele GB).
+
+1. Installeer [Android Studio](https://developer.android.com/studio) (Apple Silicon).
+2. Open Android Studio → **SDK Manager**:
+   - Android SDK Platform **36** (of de versie die `npx expo run:android` vraagt)
+   - Android SDK Build-Tools
+   - Android SDK Platform-Tools
+   - Android Emulator
+3. **Device Manager** → Create Virtual Device → Phone (bijv. Pixel 8) → system image **Google Play** (niet “Google APIs” alleen) → Finish. Play is nodig voor Google Maps.
+4. Zet in `~/.zshrc` (pad is de standaard SDK-locatie):
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH"
+```
+
+5. Start de emulator in Device Manager, of: `emulator -avd <naam>`.
+6. Vanuit de app:
+
+```bash
+cd /Users/tosun/Projecten/nexa-saas/nexa-cursor/mobile-app
+npm run android
+```
+
+Dat is `npx expo run:android`: prebuild van `android/` indien nodig, daarna installatie op de draaiende emulator. `mobile-app/.env.local` levert de API- en Maps-sleutel al aan (niet committen).
+
+Kaarten blijven leeg zonder `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`. Achtergrondlocatie: in het systeemvenster **Altijd toestaan**. Weergave licht/donker wisselt het launcher-icoon via een Android activity-alias (wit of `#0B1220`); iOS doet dat met één icoon met twee appearances.
+
 ## App Store / TestFlight
 
 In Xcode: **Product → Archive** → Distribute (TestFlight of App Store). Dat is ook Release met ingebakken JS.

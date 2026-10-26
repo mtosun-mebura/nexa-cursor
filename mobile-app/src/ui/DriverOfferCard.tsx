@@ -1,3 +1,4 @@
+import { t, dateLocale } from '../i18n';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,7 +85,7 @@ function formatPickupLabel(iso?: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('nl-NL', {
+  return d.toLocaleString(dateLocale(), {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -301,18 +302,18 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   const isCompletedTrip = isTrip && (tripVariant === 'completed' || ride?.status === 'completed');
   const statusBadgeLabel = isTrip
     ? isCompletedTrip
-      ? 'Afgerond'
+      ? t("Afgerond")
       : tripVariant === 'active'
-      ? 'Onderweg'
+      ? t("Onderweg")
       : showOverdueUi
-        ? 'Ophaalmoment verlopen'
+        ? t("Ophaalmoment verlopen")
         : isAccepted
-          ? 'Geaccepteerd'
-          : 'Gepland'
+          ? t("Geaccepteerd")
+          : t("Gepland")
     : null;
 
-  const primaryLabel = 'Accepteren';
-  const secondaryLabel = 'Weigeren';
+  const primaryLabel = t("Accepteren");
+  const secondaryLabel = t("Weigeren");
   const baggage = baggageLines(ride);
   const showBaggage = baggage.length > 0 && !(baggage.length === 1 && baggage[0] === 'Geen');
   const showMetrics = true;
@@ -383,7 +384,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             {showOverdueUi && !isTrip ? (
               <View style={[styles.badge, styles.badgeDanger]}>
                 <OverdueFlickerDot />
-                <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
+                <Text style={styles.badgeDangerText}>{t("Ophaalmoment verlopen")}</Text>
               </View>
             ) : null}
             <View style={[styles.badge, kindBadgeStyle, { maxWidth: '78%' }]}>
@@ -393,7 +394,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             </View>
             {isTrip && isRidePaid(ride) && kind !== 'contract' ? (
               <View style={[styles.badge, styles.badgeSuccess]}>
-                <Text style={styles.badgeSuccessText}>Betaald</Text>
+                <Text style={styles.badgeSuccessText}>{t("Betaald")}</Text>
               </View>
             ) : null}
             {statusBadgeLabel ? (
@@ -481,7 +482,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <View style={[styles.dotOuter, styles.dotOuterPickup]}>
                   <View style={[styles.dot, styles.dotPickup]} />
                 </View>
-                <Text style={styles.routeLabel}>Ophalen</Text>
+                <Text style={styles.routeLabel}>{t("Ophalen")}</Text>
               </View>
               <View style={styles.routeAddress}>
                 <Text style={styles.routeMain}>{pickup.main}</Text>
@@ -493,7 +494,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <View style={[styles.dotOuter, styles.dotOuterDropoff]}>
                   <View style={[styles.dot, styles.dotDropoff]} />
                 </View>
-                <Text style={styles.routeLabel}>Afzetten</Text>
+                <Text style={styles.routeLabel}>{t("Afzetten")}</Text>
               </View>
               <View style={styles.routeAddress}>
                 <Text style={styles.routeMain}>{dropoff.main}</Text>
@@ -520,7 +521,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             </View>
             {primaryPrice ? (
               <View style={styles.priceBlock}>
-                <Text style={styles.priceLabel}>{customerPrice ? 'Jij ontvangt' : 'Prijs'}</Text>
+                <Text style={styles.priceLabel}>{customerPrice ? t("Jij ontvangt") : t("Prijs")}</Text>
                 <Text style={styles.price}>{primaryPrice}</Text>
                 {customerPrice ? (
                   <Text style={styles.priceCustomerPays}>{customerPrice}</Text>
@@ -532,21 +533,21 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           {showFee && fee ? (
             <View style={styles.feeBox} accessibilityLabel="Fee-splitsing">
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Klant betaalt</Text>
+                <Text style={styles.feeLabel}>{t("Klant betaalt")}</Text>
                 <Text style={styles.feeValue}>
                   {fee.customer_pays != null ? formatEuroNl(Number(fee.customer_pays)) : '—'}
                 </Text>
               </View>
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Eigenaar</Text>
+                <Text style={styles.feeLabel}>{t("Eigenaar")}</Text>
                 <Text style={styles.feeValue}>{fee.owner_name || '—'}</Text>
               </View>
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Uitvoerder</Text>
+                <Text style={styles.feeLabel}>{t("Uitvoerder")}</Text>
                 <Text style={styles.feeValue}>{fee.executor_name || '—'}</Text>
               </View>
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>NEXA fee</Text>
+                <Text style={styles.feeLabel}>{t("NEXA fee")}</Text>
                 <Text style={styles.feeValue}>
                   {fee.nexa_fee != null ? formatEuroNl(Number(fee.nexa_fee)) : '—'}
                   {fee.nexa_fee_percent != null ? (
@@ -555,7 +556,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </Text>
               </View>
               <View style={styles.feeRow}>
-                <Text style={styles.feeLabel}>Chauffeur</Text>
+                <Text style={styles.feeLabel}>{t("Chauffeur")}</Text>
                 <Text style={styles.feeValue}>
                   {driverShare != null ? formatEuroNl(driverShare) : '—'}
                 </Text>
@@ -570,13 +571,13 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                   <View style={styles.metric}>
                     <Ionicons name="navigate-outline" size={14} color={colors.muted} />
                     <Text style={styles.metricValue}>{distance || '—'}</Text>
-                    <Text style={styles.metricLabel}>afstand</Text>
+                    <Text style={styles.metricLabel}>{t("afstand")}</Text>
                   </View>
                   <View style={styles.metricDivider} />
                   <View style={styles.metric}>
                     <Ionicons name="time-outline" size={14} color={colors.muted} />
                     <Text style={styles.metricValue}>{duration || '—'}</Text>
-                    <Text style={styles.metricLabel}>rijtijd</Text>
+                    <Text style={styles.metricLabel}>{t("rijtijd")}</Text>
                   </View>
                   <View style={styles.metricDivider} />
                   <View style={styles.metric}>
@@ -590,7 +591,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               ) : null}
               {showBaggage ? (
                 <View style={[styles.baggageBlock, showMetrics && styles.baggageBlockSpaced]}>
-                  <Text style={styles.baggageHeading}>Bagage</Text>
+                  <Text style={styles.baggageHeading}>{t("Bagage")}</Text>
                   <View style={styles.baggageChips}>
                     {baggage.map((line, index) => (
                       <View key={`${index}-${line}`} style={styles.baggageChip}>
@@ -612,8 +613,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               <View style={styles.doneBanner} accessibilityRole="text">
                 <View style={styles.doneBannerDot} />
                 <View style={styles.activeBannerCopy}>
-                  <Text style={styles.doneBannerTitle}>Rit is afgerond</Text>
-                  <Text style={styles.activeBannerText}>Deze rit is voltooid.</Text>
+                  <Text style={styles.doneBannerTitle}>{t("Rit is afgerond")}</Text>
+                  <Text style={styles.activeBannerText}>{t("Deze rit is voltooid.")}</Text>
                 </View>
               </View>
             ) : null}
@@ -621,10 +622,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               <View style={styles.activeBanner} accessibilityRole="text">
                 <View style={styles.activeBannerDot} />
                 <View style={styles.activeBannerCopy}>
-                  <Text style={styles.activeBannerTitle}>Wacht op klant</Text>
-                  <Text style={styles.activeBannerText}>
-                    Nieuw ophaalmoment is voorgesteld. De klant moet dit nog goedkeuren.
-                  </Text>
+                  <Text style={styles.activeBannerTitle}>{t("Wacht op klant")}</Text>
+                  <Text style={styles.activeBannerText}>{t("Nieuw ophaalmoment is voorgesteld. De klant moet dit nog goedkeuren.")}</Text>
                 </View>
               </View>
             ) : null}
@@ -632,10 +631,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               <View style={styles.activeBanner} accessibilityRole="text">
                 <View style={styles.activeBannerDot} />
                 <View style={styles.activeBannerCopy}>
-                  <Text style={styles.activeBannerTitle}>Rit is actief</Text>
-                  <Text style={styles.activeBannerText}>
-                    Klant is onderweg naar de bestemming.
-                  </Text>
+                  <Text style={styles.activeBannerTitle}>{t("Rit is actief")}</Text>
+                  <Text style={styles.activeBannerText}>{t("Klant is onderweg naar de bestemming.")}</Text>
                 </View>
               </View>
             ) : null}
@@ -645,7 +642,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 disabled={busy}
                 onPress={props.onCancel}
               >
-                <Text style={styles.btnGhostText}>Annuleren</Text>
+                <Text style={styles.btnGhostText}>{t("Annuleren")}</Text>
               </Pressable>
             ) : null}
             {canProposePickup ? (
@@ -655,7 +652,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 onPress={props.onProposePickup}
               >
                 <Text style={styles.btnPrimaryText}>
-                  {proposalStatus === 'pending' ? 'Opnieuw voorstellen' : 'Nieuw tijdstip voorstellen'}
+                  {proposalStatus === 'pending' ? t("Opnieuw voorstellen") : t("Nieuw tijdstip voorstellen")}
                 </Text>
               </Pressable>
             ) : null}
@@ -665,7 +662,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 disabled={busy}
                 onPress={props.onRelease}
               >
-                <Text style={styles.btnGhostText}>Vrijgeven</Text>
+                <Text style={styles.btnGhostText}>{t("Vrijgeven")}</Text>
               </Pressable>
             ) : null}
             {props.onOpenMaps && !isCompletedTrip ? (
@@ -681,7 +678,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                     color={colors.text}
                   />
                   <Text style={styles.btnGhostText}>
-                    {tripVariant === 'active' ? 'Afzetten' : 'Ophalen'}
+                    {tripVariant === 'active' ? t("Afzetten") : t("Ophalen")}
                   </Text>
                 </View>
               </Pressable>
@@ -693,7 +690,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 onPress={props.onStart}
               >
                 <Text style={styles.btnPrimaryText}>
-                  {needsPickupPin ? 'Klant opgehaald — voer code in' : 'Klant opgehaald rit starten'}
+                  {needsPickupPin ? t("Klant opgehaald — voer code in") : t("Klant opgehaald rit starten")}
                 </Text>
               </Pressable>
             ) : null}
@@ -704,7 +701,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 onPress={props.onComplete}
               >
                 <Text style={styles.btnPrimaryText}>
-                  {rideRequiresPaymentBeforeComplete(ride) ? 'Betalen' : 'Rit afronden'}
+                  {rideRequiresPaymentBeforeComplete(ride) ? t("Betalen") : t("Rit afronden")}
                 </Text>
               </Pressable>
             ) : null}
@@ -715,7 +712,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 onPress={props.onArchive}
               >
                 <Text style={styles.btnGhostText}>
-                  {props.archived ? 'Terugzetten' : 'Naar archief'}
+                  {props.archived ? t("Terugzetten") : t("Naar archief")}
                 </Text>
               </Pressable>
             ) : null}

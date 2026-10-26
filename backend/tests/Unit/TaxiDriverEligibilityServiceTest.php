@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Company;
 use App\Models\User;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -41,5 +42,35 @@ class TaxiDriverEligibilityServiceTest extends TestCase
         $ouderBoth = User::factory()->create(['company_id' => $company->id]);
         $ouderBoth->assignRole(['chauffeur', 'contractouder']);
         $this->assertTrue($eligibility->canUseContractRideFilter($ouderBoth));
+    }
+
+    #[Test]
+    public function contract_assignment_requires_the_contractant_role(): void
+    {
+        $company = Company::query()->create(['name' => 'Assign Co', 'is_active' => true]);
+        $eligibility = app(TaxiDriverEligibilityService::class);
+
+        $chauffeur = User::factory()->create(['company_id' => $company->id]);
+        $chauffeur->assignRole('chauffeur');
+        $contractant = User::factory()->create(['company_id' => $company->id]);
+        $contractant->assignRole(['chauffeur', 'contractant']);
+        $ouder = User::factory()->create(['company_id' => $company->id]);
+        $ouder->assignRole(['chauffeur', 'contractouder']);
+
+        $this->assertFalse($eligibility->hasContractantRole($chauffeur));
+        $this->assertFalse($eligibility->hasContractantRole($ouder));
+        $this->assertTrue($eligibility->hasContractantRole($contractant));
+
+        $eligibility->assertContractantForContractAssignment((int) $contractant->id);
+
+        try {
+            $eligibility->assertContractantForContractAssignment((int) $chauffeur->id);
+            $this->fail('Chauffeur zonder contractant-rol hoort geweigerd te worden.');
+        } catch (ValidationException $e) {
+            $this->assertSame(
+                TaxiDriverEligibilityService::CONTRACT_ASSIGNMENT_DENIED,
+                $e->errors()['driver_id'][0]
+            );
+        }
     }
 }

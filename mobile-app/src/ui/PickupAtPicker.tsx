@@ -1,3 +1,4 @@
+import { dateLocale, t, useI18n } from '../i18n';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
@@ -18,9 +19,9 @@ const TIME_VIEWPORT_H = TIME_ITEM_H * 5;
 const TIME_PAD = TIME_ITEM_H * 2;
 
 const QUICK_PRESETS: { minutes: number; label: string }[] = [
-  { minutes: 10, label: 'Over 10 min' },
-  { minutes: 30, label: 'Over een half uur' },
-  { minutes: 60, label: 'Over 1 uur' },
+  { minutes: 10, label: t("Over 10 min") },
+  { minutes: 30, label: t("Over een half uur") },
+  { minutes: 60, label: t("Over 1 uur") },
 ];
 
 function startOfDay(d: Date) {
@@ -57,6 +58,7 @@ export function PickupAtField({
   onChange: (next: Date) => void;
 }) {
   const { colors } = useTheme();
+  const { locale } = useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -104,8 +106,8 @@ export function PickupAtField({
       const day = new Date(today);
       day.setDate(today.getDate() + i);
       const label =
-        i === 0 ? 'Vandaag' : i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' });
-      const month = day.toLocaleDateString('nl-NL', { month: 'short' });
+        i === 0 ? t("Vandaag") : i === 1 ? t("Morgen") : day.toLocaleDateString(dateLocale(), { weekday: 'short' });
+      const month = day.toLocaleDateString(dateLocale(), { month: 'short' });
       return {
         day,
         label,
@@ -113,7 +115,7 @@ export function PickupAtField({
         key: `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`,
       };
     });
-  }, [open]);
+  }, [open, locale]);
 
   const selectedDayKey = `${draft.getFullYear()}-${draft.getMonth()}-${draft.getDate()}`;
   const hours = Array.from({ length: 24 }, (_, h) => h);
@@ -143,12 +145,12 @@ export function PickupAtField({
 
   return (
     <>
-      <Text style={styles.fieldLabel}>Ophalen</Text>
+      <Text style={styles.fieldLabel}>{t("Ophalen")}</Text>
       <Pressable
         onPress={() => setOpen(true)}
         style={styles.trigger}
         accessibilityRole="button"
-        accessibilityLabel="Kies ophaaldatum en -tijd"
+        accessibilityLabel={t("Kies ophaaldatum en -tijd")}
       >
         <Text style={styles.triggerText}>
           {valueQuickLabel
@@ -163,7 +165,7 @@ export function PickupAtField({
         onRequestClose={() => setOpen(false)}
         panelStyle={styles.sheet}
       >
-        <Text style={styles.sheetTitle}>Ophaalmoment</Text>
+        <Text style={styles.sheetTitle}>{t("Ophaalmoment")}</Text>
 
         <View style={styles.quickRow}>
           {quickOptions.map((p) => {
@@ -177,7 +179,7 @@ export function PickupAtField({
                 accessibilityState={{ selected: active }}
               >
                 <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>
-                  {p.label}
+                  {t(p.label)}
                 </Text>
               </Pressable>
             );
@@ -298,7 +300,7 @@ export function PickupAtField({
             : formatPickupAtLabel(draft)}
         </Text>
         <Pressable onPress={confirm} style={styles.confirmBtn}>
-          <Text style={styles.confirmText}>Bevestigen</Text>
+          <Text style={styles.confirmText}>{t("Bevestigen")}</Text>
         </Pressable>
       </AppModal>
     </>

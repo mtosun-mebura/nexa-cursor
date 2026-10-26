@@ -12,6 +12,12 @@ class TaxiAppLoginCodeEmailTemplateService
 
     public const TYPE = 'taxi_app_login_code';
 
+    /** Zichtbare afzender bij een nieuwe bedrijfsregistratie. From-adres blijft de bestaande mailbox. */
+    public const NEXA_REGISTRATION_FROM_NAME = 'NEXA Taxi';
+
+    /** Lichte tekst op de donkere mailheader (#0f172a). */
+    public const NEXA_TAXI_EMAIL_LOGO = 'images/nexa-taxi/nexa-taxi-logo-dark.png';
+
     /**
      * @return array<string, string>
      */
@@ -70,6 +76,34 @@ class TaxiAppLoginCodeEmailTemplateService
         return $this->upsertScopedEmailTemplate(self::TYPE, $companyId, $payload);
     }
 
+    /**
+     * Absoluut logo voor de registratiemail. Header is donker, dus de variant met lichte TAXI-tekst.
+     */
+    public function nexaRegistrationLogoHtml(): string
+    {
+        $url = asset(self::NEXA_TAXI_EMAIL_LOGO);
+        if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
+            $url = rtrim((string) config('app.url'), '/').'/'.ltrim($url, '/');
+        }
+
+        return '<img src="'.e($url).'" alt="NEXA Taxi" width="220" style="display:block;height:auto;width:auto;max-height:48px;max-width:240px;border:0;outline:none;text-decoration:none;margin:0 0 12px 0;" />';
+    }
+
+    /**
+     * Tweede headerregel (bedrijfsnaam onder het merk) hoort niet in de registratiemail.
+     */
+    public function withoutHeaderKicker(string $html): string
+    {
+        $stripped = preg_replace(
+            '/<p\b[^>]*style="[^"]*font-size:13px[^"]*letter-spacing:0\.04em;[^"]*"[^>]*>.*?<\/p>\s*/is',
+            '',
+            $html,
+            1
+        );
+
+        return is_string($stripped) ? $stripped : $html;
+    }
+
     public function appOpenButtonHtml(): string
     {
         return '<p style="margin:16px 0 18px;text-align:center;">'
@@ -77,6 +111,65 @@ class TaxiAppLoginCodeEmailTemplateService
             .'<span style="color:#ffffff;">Open {{ APP_NAME }}</span>'
             .'</a>'
             .'</p>';
+    }
+
+    /**
+     * Alleen de registratiemail vanuit de app (NEXA Taxi-huisstijl).
+     * Latere chauffeur- en contractcodes blijven de eenmalige-inlogcode-tekst gebruiken.
+     */
+    public function registrationSubject(): string
+    {
+        return 'Activeer uw NEXA Taxi-account';
+    }
+
+    public function registrationHtmlContent(): string
+    {
+        $button = $this->appOpenButtonHtml();
+        $body = <<<HTML
+<p style="margin:0 0 16px;font-size:16px;">Beste {{ USER_NAME }},</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+    U heeft zich geregistreerd bij <strong>NEXA Taxi</strong>.
+    Deze e-mail is verstuurd om uw account te activeren.
+</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+    Vul de code hieronder in. De code is <strong>{{ CODE_EXPIRES_MINUTES }} minuten</strong> geldig en mag één keer worden gebruikt.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">
+    <tr>
+        <td style="padding:18px 16px;border-radius:12px;background-color:#e8eef5;text-align:center;">
+            <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Code</p>
+            <p style="margin:0;font-size:28px;letter-spacing:6px;font-weight:800;color:#0f172a;">{{ LOGIN_CODE }}</p>
+        </td>
+    </tr>
+</table>
+<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">Open de app en vul de code in om uw account te activeren.</p>
+{$button}
+<p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Heeft u zich niet geregistreerd? Negeer deze e-mail. Zonder deze code wordt het account niet geactiveerd.</p>
+HTML;
+
+        return EmailCardHtml::wrap(
+            'Activeer uw account',
+            'Activeer uw account',
+            $body,
+            EmailCardHtml::companyLogoMarkup(),
+            EmailCardHtml::poweredByFooter(),
+        );
+    }
+
+    public function registrationTextContent(): string
+    {
+        return <<<'TEXT'
+Beste {{ USER_NAME }},
+
+U heeft zich geregistreerd bij NEXA Taxi. Deze e-mail is verstuurd om uw account te activeren.
+
+Uw code is: {{ LOGIN_CODE }}
+Deze code is {{ CODE_EXPIRES_MINUTES }} minuten geldig en mag één keer worden gebruikt.
+
+Open {{ APP_NAME }}: {{ LOGIN_URL }}
+
+Heeft u zich niet geregistreerd? Negeer deze e-mail. Zonder deze code wordt het account niet geactiveerd.
+TEXT;
     }
 
     /**

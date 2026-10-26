@@ -1,12 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, StatusBar, View } from 'react-native';
+import { NavigationBar } from 'expo-navigation-bar';
+import { ActivityIndicator, Linking, Platform, StatusBar, View } from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
 import { parseAppDeepLink } from './src/linking';
+import { LocaleProvider } from './src/i18n';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -213,6 +215,9 @@ function AppShell() {
   return (
     <>
       <StatusBar barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'} />
+      {Platform.OS === 'android' ? (
+        <NavigationBar style={colorScheme === 'light' ? 'dark' : 'light'} />
+      ) : null}
       <AuthProvider>
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
           <RootNavigator />
@@ -226,7 +231,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AppShell />
+        <LocaleProvider>
+          <AppShell />
+        </LocaleProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

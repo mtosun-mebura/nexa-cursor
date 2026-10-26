@@ -46,7 +46,7 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
     #[Test]
     public function upgrade_page_shows_laravel_and_php_buttons_for_super_admin(): void
     {
-        $this->actingAs($this->superAdmin())
+        $page = $this->actingAs($this->superAdmin())
             ->get(route('admin.settings.upgrade.index'))
             ->assertOk()
             ->assertSee('Geïnstalleerde stack', false)
@@ -61,6 +61,15 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertSee('ki-laravel', false)
             ->assertSee('upgrade-php-icon', false)
             ->assertSee('btn-php-docker-upgrade', false)
+            ->assertSee('id="php-critical-alert" class="kt-alert kt-alert-danger mt-4', false)
+            ->assertSee('btn-php-security-release', false)
+            ->assertSee('Security-release uitvoeren', false)
+            ->assertSee('phpStatus.can_run && !phpStatus.security_pull', false)
+            ->assertSee('phpStatus.can_run && phpStatus.security_pull', false)
+            ->assertSee('runPhp(true)', false)
+            ->assertSee('Deze pull installeert security-release ', false)
+            ->assertSee('De PHP-image in Docker wordt bijgewerkt.', false)
+            ->assertSee("('Security-release ' + version)", false)
             ->assertSee('PostgreSQL in Docker bijwerken', false)
             ->assertSee('btn-postgres-minor', false)
             ->assertSee('btn-postgres-major', false)
@@ -80,6 +89,10 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertSee('upgrade-history-select-all', false)
             ->assertSee('btn-upgrade-history-delete', false)
             ->assertSee('upgrade-history-selected-count', false);
+        $this->assertMatchesRegularExpression(
+            '/id="btn-php-security-release"[^>]*\bhidden\b/',
+            $page->getContent()
+        );
     }
 
     #[Test]
