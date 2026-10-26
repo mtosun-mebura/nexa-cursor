@@ -87,7 +87,7 @@ import {
   ensureDriverNotificationPermission,
   prepareDriverNotificationChannels,
 } from '../notifications/driverOffers';
-import { registerDriverPushToken } from '../notifications/driverPush';
+import { registerDriverPushToken, retryDriverPushTokenIfNeeded } from '../notifications/driverPush';
 import {
   alertPickupDenials,
   alertUnseenDriverOffers,
@@ -770,6 +770,7 @@ export function DriverHomeScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
+        retryDriverPushTokenIfNeeded();
         clearDriverOfferBadge().catch(() => undefined);
         refresh().catch(() => undefined);
         return;

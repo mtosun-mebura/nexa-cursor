@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const { AndroidConfig, withEntitlementsPlist, withFinalizedMod } = require('@expo/config-plugins');
 const appJson = require('./app.json');
@@ -101,6 +102,23 @@ module.exports = () => {
     // Android also needs google-services.json plus an FCM v1 service account on the Expo project.
     // Do not set a project id here until `eas init` has created one.
   };
+
+  const easProjectId = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '').trim();
+  if (easProjectId) {
+    config.extra.eas = {
+      ...(config.extra.eas || {}),
+      projectId: easProjectId,
+    };
+  }
+
+  // Absent file must not break prebuild. google-services.json is the Firebase client
+  // file (typically committed); the FCM service-account key stays out of git.
+  if (fs.existsSync(path.join(__dirname, 'google-services.json'))) {
+    config.android = {
+      ...(config.android || {}),
+      googleServicesFile: './google-services.json',
+    };
+  }
 
   config.plugins = [withoutPushEntitlement, ...(config.plugins || []), withAlternateIconDeepLinks];
 

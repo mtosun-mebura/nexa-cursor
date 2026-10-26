@@ -17,6 +17,10 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+# FCM v1 service-account keys. google-services.json is the client file and may be committed.
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
 
 # Metro
 .metro-health-check*
