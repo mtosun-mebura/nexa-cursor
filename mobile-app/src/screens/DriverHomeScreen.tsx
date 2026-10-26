@@ -85,8 +85,9 @@ import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
   ensureDriverNotificationPermission,
-  setupDriverNotificationChannel,
+  prepareDriverNotificationChannels,
 } from '../notifications/driverOffers';
+import { registerDriverPushToken } from '../notifications/driverPush';
 import {
   alertPickupDenials,
   alertUnseenDriverOffers,
@@ -745,10 +746,13 @@ export function DriverHomeScreen() {
   }, [contractToken]);
 
   useEffect(() => {
-    setupDriverNotificationChannel().catch(() => undefined);
+    prepareDriverNotificationChannels().catch(() => undefined);
     ensureDriverNotificationPermission().catch(() => undefined);
     primeRideAlertAudio();
-  }, []);
+    if (driverToken) {
+      registerDriverPushToken(driverToken).catch(() => undefined);
+    }
+  }, [driverToken]);
 
   useEffect(() => {
     if (online) primeRideAlertAudio();

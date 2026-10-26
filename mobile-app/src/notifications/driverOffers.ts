@@ -83,6 +83,8 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
+    // Echt geluidsbestand. De string 'default' is alleen geldig in de Expo-serverpayload.
+    sound: rideAlertNotificationSound('classic'),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
@@ -327,6 +329,12 @@ export async function notifyPickupDeparture(opts: {
   } catch {
     /* ignore */
   }
+}
+
+/** Kanaal moet bestaan vóór een remote push, dus bij elke app-start. */
+export async function prepareDriverNotificationChannels(): Promise<void> {
+  await ensureSystemOfferChannel();
+  await setupDriverNotificationChannel();
 }
 
 export async function setupDriverNotificationChannel(): Promise<void> {
