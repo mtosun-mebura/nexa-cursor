@@ -588,6 +588,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const dropoffSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pickupSuggestSeq = useRef(0);
   const dropoffSuggestSeq = useRef(0);
+  const dropoffRef = useRef<GeoPoint | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const tripMapRef = useRef<MapView | null>(null);
   const followTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -601,6 +602,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const mapSectionY = useRef(0);
   const [bookMountKey, setBookMountKey] = useState(0);
 
+  dropoffRef.current = dropoff;
   const offer: QuoteOffer | null = quote?.offers?.[0] || null;
   const activeTaxiLoc = useMemo(() => {
     if (!live || !trackToken || !isActiveRidePhase(live.phase)) return null;
@@ -1132,7 +1134,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         marketplace_radius_km: 50,
         ...baggagePayload,
       });
-      setQuote(data);
+      if (dropoffRef.current) setQuote(data);
     } catch {
       /* houd vorige quote; lokale prijsindicatie blijft zichtbaar */
     } finally {
@@ -1376,6 +1378,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setPassengers(String(Math.max(1, Math.min(20, passengerCount + delta))));
   }
 
+  function clearBookingDropoff() {
+    if (dropoffSuggestTimer.current) clearTimeout(dropoffSuggestTimer.current);
+    dropoffSuggestSeq.current += 1;
+    setDropoffQuery('');
+    setDropoff(null);
+    setDropoffSuggestions([]);
+    setQuote(null);
+    setFieldErrors((prev) => ({ ...prev, dropoff: undefined, offer: undefined }));
+  }
+
   function collectBookErrors(): typeof fieldErrors {
     const next: typeof fieldErrors = {};
     if (!pickup) next.pickup = t("Kies een ophaaladres uit de suggesties.");
@@ -1514,6 +1526,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       });
       setGuestRides(next);
       setExpandedRideKey(rideArchiveKey({ id: data.ride_request_id, token: data.track_token }));
+      clearBookingDropoff();
 
       const checkout = data.checkout_url || data.live?.checkout_url;
       if (checkout) {
@@ -1662,6 +1675,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     persistTrack(null);
     setError(null);
     setExpandedRideKey(null);
+    clearBookingDropoff();
     goToBookTab();
   }
 

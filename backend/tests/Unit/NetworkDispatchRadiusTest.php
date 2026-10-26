@@ -4,14 +4,20 @@ namespace Tests\Unit;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Services\CompanyEntitlementService;
+use App\Support\TenantPackageCapability;
+use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
+use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
+use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Role;
@@ -47,6 +53,24 @@ class NetworkDispatchRadiusTest extends TestCase
             $table->dateTime('pickup_at')->nullable();
             $table->string('customer_name')->nullable();
             $table->string('pickup_proposal_status', 32)->nullable();
+            $table->string('payment_status', 32)->nullable();
+            $table->string('payment_method', 32)->nullable();
+            $table->decimal('final_price', 10, 2)->nullable();
+            $table->unsignedSmallInteger('passengers')->default(1);
+            $table->timestamps();
+        });
+
+        Schema::connection('module_taxi')->create('ride_payments', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('ride_request_id');
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->string('channel', 32);
+            $table->string('mollie_payment_id')->nullable();
+            $table->decimal('amount', 10, 2);
+            $table->string('currency', 3)->default('EUR');
+            $table->string('status', 32);
+            $table->timestamp('paid_at')->nullable();
+            $table->json('mollie_payload')->nullable();
             $table->timestamps();
         });
 
@@ -605,6 +629,219 @@ class NetworkDispatchRadiusTest extends TestCase
             'ride_request_id' => $ride->id,
             'driver_id' => $driver->id,
             'company_id' => $company->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+    }
+
+    #[Test]
+    public function paid_booking_offers_the_online_driver_and_not_offline_or_other_company_drivers(): void
+    {
+        $company = Company::query()->create(['name' => 'Paid Taxi', 'is_active' => true]);
+        $other = Company::query()->create(['name' => 'Other Taxi', 'is_active' => true]);
+
+        $online = User::factory()->create(['company_id' => $company->id]);
+        $online->assignRole('chauffeur');
+        $offline = User::factory()->create(['company_id' => $company->id]);
+        $offline->assignRole('chauffeur');
+        $otherDriver = User::factory()->create(['company_id' => $other->id]);
+        $otherDriver->assignRole('chauffeur');
+        $busy = User::factory()->create(['company_id' => $company->id]);
+        $busy->assignRole('chauffeur');
+
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $online->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.3702,
+            'lng' => 4.8952,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $offline->id,
+            'company_id' => $company->id,
+            'is_online' => false,
+            'lat' => 52.3702,
+            'lng' => 4.8952,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $otherDriver->id,
+            'company_id' => $other->id,
+            'is_online' => true,
+            'lat' => 52.3702,
+            'lng' => 4.8952,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+        // Online, maar zonder GPS: marktplaatsstraal slaat deze chauffeur over.
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $busy->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => null,
+            'lng' => null,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+
+        $pickupAt = now('Europe/Amsterdam')->addHours(2)->format('Y-m-d H:i:s');
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'status' => RideRequest::STATUS_PENDING_PAYMENT,
+            'payment_method' => RideRequest::PAYMENT_METHOD_BOOKING,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PENDING,
+            'pickup_address' => 'Dam',
+            'dropoff_address' => 'Station',
+            'pickup_lat' => 52.3702,
+            'pickup_lng' => 4.8952,
+            'passengers' => 1,
+            'pickup_at' => $pickupAt,
+            'customer_name' => 'Klant',
+            'booking_payload' => [
+                'channel' => RideRequest::SOURCE_NEXA_SUITE,
+                'marketplace' => [
+                    'channel' => 'customer_app',
+                    'radius_km' => 50,
+                    'candidate_company_ids' => [(int) $company->id],
+                    'settings_company_id' => (int) $company->id,
+                ],
+                'step_data' => ['app' => 'customer'],
+            ],
+        ]);
+
+        $payment = RidePayment::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => null,
+            'channel' => RidePayment::CHANNEL_BOOKING,
+            'mollie_payment_id' => 'tr_test_paid',
+            'amount' => 18.50,
+            'currency' => 'EUR',
+            'status' => RidePayment::STATUS_OPEN,
+        ]);
+
+        app(TaxiRidePaymentService::class)->applyMollieStatus('module_taxi', $payment, [
+            'id' => 'tr_test_paid',
+            'status' => 'paid',
+        ]);
+
+        $this->assertSame(RideRequest::STATUS_OFFERED, $ride->fresh()->status);
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $online->id,
+            'company_id' => $company->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $offline->id,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $otherDriver->id,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $busy->id,
+        ], 'module_taxi');
+
+        $cutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt((int) $company->id);
+        $inboxIds = RideDispatchOffer::on('module_taxi')
+            ->inboxForDriver((int) $online->id, $cutoff)
+            ->pluck('ride_request_id')
+            ->all();
+        $this->assertContains($ride->id, $inboxIds);
+
+        app(TaxiRidePaymentService::class)->applyMollieStatus('module_taxi', $payment->fresh(), [
+            'id' => 'tr_test_paid',
+            'status' => 'paid',
+        ]);
+        $this->assertSame(1, RideDispatchOffer::on('module_taxi')->where('ride_request_id', $ride->id)->count());
+
+        $website = RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'source' => RideRequest::SOURCE_BOOKING,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'payment_method' => RideRequest::PAYMENT_METHOD_DRIVER,
+            'payment_status' => RideRequest::PAYMENT_STATUS_NOT_REQUIRED,
+            'pickup_address' => 'Website',
+            'dropoff_address' => 'Bestemming',
+            'pickup_lat' => 52.3702,
+            'pickup_lng' => 4.8952,
+            'passengers' => 1,
+            'pickup_at' => $pickupAt,
+            'customer_name' => 'Website klant',
+        ]);
+        // Standaardconnectie opent ná de taxi-transactie. afterCommit hing de callback
+        // aan die transactie; een rollback gooide het aanbod weg.
+        DB::connection('module_taxi')->beginTransaction();
+        DB::beginTransaction();
+        try {
+            StartRideDispatchJob::dispatchWhenCommitted('module_taxi', (int) $website->id, (int) $company->id);
+            DB::connection('module_taxi')->commit();
+        } finally {
+            DB::rollBack();
+        }
+
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $website->id,
+            'driver_id' => $online->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $website->id,
+            'driver_id' => $offline->id,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $website->id,
+            'driver_id' => $otherDriver->id,
+        ], 'module_taxi');
+    }
+
+    #[Test]
+    public function start_package_booking_still_reaches_an_online_driver(): void
+    {
+        $company = Company::query()->create([
+            'name' => 'Start Taxi',
+            'is_active' => true,
+            'package_key' => 'start',
+        ]);
+        $entitlements = app(CompanyEntitlementService::class);
+        $this->assertFalse($entitlements->allows($company, TenantPackageCapability::DISPATCH));
+        $this->assertFalse($entitlements->allows($company, TenantPackageCapability::DRIVER_APP));
+        $this->assertTrue($entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING));
+
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $driver->assignRole('chauffeur');
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.3702,
+            'lng' => 4.8952,
+            'last_seen_at' => now(),
+            'location_updated_at' => now(),
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'source' => RideRequest::SOURCE_BOOKING,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'Start',
+            'dropoff_address' => 'Bestemming',
+            'pickup_lat' => 52.3702,
+            'pickup_lng' => 4.8952,
+            'pickup_at' => now('Europe/Amsterdam')->addHour()->format('Y-m-d H:i:s'),
+            'customer_name' => 'Start klant',
+        ]);
+
+        StartRideDispatchJob::dispatchWhenCommitted('module_taxi', (int) $ride->id, (int) $company->id);
+
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $driver->id,
             'status' => RideDispatchOffer::STATUS_PENDING,
         ], 'module_taxi');
     }
