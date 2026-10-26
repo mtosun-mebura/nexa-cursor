@@ -72,41 +72,102 @@ class DriverExpoPushService
             return;
         }
 
+        $this->postMessages($driverId, $rideRequestId, $messages, $sentRows);
+    }
+
+    /**
+     * Testpush naar elk geldig apparaat van deze chauffeur. Geen tokens in het resultaat.
+     *
+     * @return array{devices: int, tickets: list<array{status: string, error: string|null}>, error: string|null}
+     */
+    public function sendTest(int $driverId): array
+    {
+        if ($driverId <= 0) {
+            return ['devices' => 0, 'tickets' => [], 'error' => null];
+        }
+
+        $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
+        $messages = [];
+        $sentRows = [];
+        foreach ($rows as $row) {
+            $token = trim((string) $row->token);
+            if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
+                continue;
+            }
+            $sentRows[] = $row;
+            $messages[] = [
+                'to' => $token,
+                'title' => 'Testmelding Nexa Taxi',
+                'body' => 'Dit is een test van de chauffeur-push.',
+                'sound' => 'default',
+                'priority' => 'high',
+                'channelId' => 'driver-offers-system',
+                'interruptionLevel' => 'time-sensitive',
+                'data' => ['type' => 'driver_offer_test'],
+            ];
+        }
+
+        if ($messages === []) {
+            return ['devices' => 0, 'tickets' => [], 'error' => null];
+        }
+
+        $result = $this->postMessages($driverId, null, $messages, $sentRows);
+
+        return [
+            'devices' => count($messages),
+            'tickets' => $result['tickets'],
+            'error' => $result['error'],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $messages
+     * @param  list<DriverDeviceToken>  $sentRows
+     * @return array{tickets: list<array{status: string, error: string|null}>, error: string|null}
+     */
+    private function postMessages(int $driverId, ?int $rideRequestId, array $messages, array $sentRows): array
+    {
         try {
             $response = Http::timeout(4)
                 ->acceptJson()
                 ->asJson()
                 ->post(self::SEND_URL, $messages);
         } catch (\Throwable $e) {
-            $this->forgetDedupe($rideRequestId, $sentRows);
+            if ($rideRequestId) {
+                $this->forgetDedupe($rideRequestId, $sentRows);
+            }
             Log::warning('Expo push mislukt.', [
                 'ride_request_id' => $rideRequestId,
                 'driver_id' => $driverId,
                 'error' => $e->getMessage(),
             ]);
 
-            return;
+            return ['tickets' => [], 'error' => 'request_failed'];
         }
 
         if (! $response->successful()) {
-            $this->forgetDedupe($rideRequestId, $sentRows);
+            if ($rideRequestId) {
+                $this->forgetDedupe($rideRequestId, $sentRows);
+            }
             Log::warning('Expo push afgewezen.', [
                 'ride_request_id' => $rideRequestId,
                 'driver_id' => $driverId,
                 'status' => $response->status(),
             ]);
 
-            return;
+            return ['tickets' => [], 'error' => 'http_'.$response->status()];
         }
 
         $payload = $response->json('data');
-        $tickets = is_array($payload) && array_is_list($payload) ? $payload : (is_array($payload) ? [$payload] : []);
-        foreach ($tickets as $index => $ticket) {
+        $rawTickets = is_array($payload) && array_is_list($payload) ? $payload : (is_array($payload) ? [$payload] : []);
+        $public = [];
+        foreach ($rawTickets as $index => $ticket) {
             if (! is_array($ticket)) {
                 continue;
             }
             $error = $ticket['details']['error'] ?? null;
-            if ($error === 'DeviceNotRegistered' && isset($sentRows[$index])) {
+            $errorCode = is_string($error) ? $error : null;
+            if ($errorCode === 'DeviceNotRegistered' && isset($sentRows[$index])) {
                 $sentRows[$index]->delete();
                 Log::info('Expo push-token verwijderd (apparaat uitgeschreven).', [
                     'driver_id' => $driverId,
@@ -115,10 +176,16 @@ class DriverExpoPushService
                 Log::warning('Expo push-ticket fout.', [
                     'ride_request_id' => $rideRequestId,
                     'driver_id' => $driverId,
-                    'error' => is_string($error) ? $error : 'unknown',
+                    'error' => $errorCode ?? 'unknown',
                 ]);
             }
+            $public[] = [
+                'status' => (string) ($ticket['status'] ?? 'unknown'),
+                'error' => $errorCode,
+            ];
         }
+
+        return ['tickets' => $public, 'error' => null];
     }
 
     /**

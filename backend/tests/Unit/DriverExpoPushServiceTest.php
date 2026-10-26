@@ -66,4 +66,50 @@ class DriverExpoPushServiceTest extends TestCase
             'token' => 'ExponentPushToken[retry]',
         ]);
     }
+
+    #[Test]
+    public function push_test_command_sends_without_printing_the_token(): void
+    {
+        $user = User::factory()->create(['email' => 'push-test@example.com']);
+        $token = 'ExponentPushToken[secret-device]';
+        DriverDeviceToken::query()->create([
+            'user_id' => $user->id,
+            'token' => $token,
+            'platform' => 'android',
+        ]);
+
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-test']],
+            ]),
+        ]);
+
+        $this->artisan('taxi:push-test', ['email' => 'push-test@example.com'])
+            ->expectsOutputToContain('Apparaten: 1')
+            ->expectsOutputToContain('Ticket: ok')
+            ->doesntExpectOutputToContain($token)
+            ->assertSuccessful();
+
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
+                && ($message['sound'] ?? null) === 'default'
+                && ($message['priority'] ?? null) === 'high'
+                && ($message['channelId'] ?? null) === 'driver-offers-system';
+        });
+    }
+
+    #[Test]
+    public function push_test_command_does_not_call_expo_for_an_unknown_driver(): void
+    {
+        Http::fake();
+
+        $this->artisan('taxi:push-test', ['email' => 'nobody@example.com'])
+            ->expectsOutputToContain('Geen gebruiker met dat e-mailadres.')
+            ->assertFailed();
+
+        Http::assertNothingSent();
+    }
 }

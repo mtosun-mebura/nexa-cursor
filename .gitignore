@@ -134,3 +134,9 @@ backend/storage/app/onboarding-video/concat.txt
 
 # AI knowledge graph (local artefact; rebuild with graphify)
 graphify-out/
+
+# Push secrets. google-services.json (Firebase client) may be committed; these may not.
+*.p8
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json
