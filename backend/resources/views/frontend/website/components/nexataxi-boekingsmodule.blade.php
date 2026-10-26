@@ -3545,6 +3545,7 @@ section#boek-rit[data-nexataxi-booking-module],
     var whatsappServerAutoSend = @json($whatsappServerAutoSend);
     var bookingSubmitInFlight = false;
     var bookingSubmitted = false;
+    var bookingReadyForNextRide = false;
     var bookingSubmittedStorageKey = 'nexataxi_submitted_bookings_v1';
     var bookingPortalLoginUrl = @json($bookingPortalLoginUrl !== '' ? $bookingPortalLoginUrl : null);
     var serverAfterPaymentMessage = @json(session('nexataxi_booking_message'));
@@ -4341,12 +4342,78 @@ section#boek-rit[data-nexataxi-booking-module],
         return true;
     }
 
+    function clearBookedDropoffFromUrl() {
+        try {
+            var url = new URL(window.location.href);
+            var changed = false;
+            ['book_dropoff', 'book_dropoff_lat', 'book_dropoff_lng'].forEach(function(key) {
+                if (!url.searchParams.has(key)) return;
+                url.searchParams.delete(key);
+                changed = true;
+            });
+            if (!changed) return;
+            window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        } catch (e) {}
+    }
+
+    function clearBookedDropoff() {
+        state.dropoff_address = '';
+        state.dropoff_lat = null;
+        state.dropoff_lng = null;
+        state.dropoff_place_id = null;
+        var input = root.querySelector('[data-field="dropoff_address"]');
+        if (input) input.value = '';
+        clearFieldErrorFor('dropoff_address');
+        syncRouteFieldLabels();
+    }
+
+    function clearBookedRouteQuote() {
+        state.distance_meters = 0;
+        state.duration_seconds = 0;
+        state.summary_route_polyline = '';
+        state.offers = [];
+        state.selected_offer_id = null;
+        if (bookingSplitMapV2) {
+            snapshotRouteAddressInputs();
+            resetLiveRouteMap();
+        }
+        renderRouteDetailsText('');
+        renderOffers();
+        updateSummary();
+    }
+
+    function markReadyForNextRide() {
+        var modal = root.querySelector('[data-booking-success-modal]');
+        bookingReadyForNextRide = !!(modal && !modal.classList.contains('hidden'));
+        state.maxStep = 1;
+        clearBookedDropoff();
+        clearBookedDropoffFromUrl();
+        clearBookedRouteQuote();
+        setStep(1, { skipScroll: true });
+    }
+
+    function prepareNextRideAfterSuccess() {
+        bookingSubmitted = false;
+        bookingSubmitInFlight = false;
+        bookingReadyForNextRide = false;
+        state.maxStep = 1;
+        clearBookingSubmittedNavState();
+        hideBookingSuccessStamp();
+        clearBookedDropoff();
+        clearBookedRouteQuote();
+        setStep(1, { skipScroll: true });
+    }
+
     function closeSuccessModal() {
         var modal = root.querySelector('[data-booking-success-modal]');
         if (!modal || modal.classList.contains('hidden')) return;
         modal.classList.add('hidden');
         document.documentElement.classList.remove('booking-modal-open');
         document.body.classList.remove('booking-modal-open');
+        if (bookingReadyForNextRide) {
+            prepareNextRideAfterSuccess();
+            return;
+        }
         if (bookingSubmitted) {
             applyBookingSubmittedNavState();
             showBookingSuccessStamp({ animate: true });
@@ -9269,6 +9336,8 @@ section#boek-rit[data-nexataxi-booking-module],
                         at: Date.now()
                     }));
                 } catch (e) {}
+                markBookingAsSubmitted(data && data.ride_request_id ? data.ride_request_id : null);
+                markReadyForNextRide();
                 window.location.href = data.checkout_url;
                 return;
             }
@@ -9281,6 +9350,7 @@ section#boek-rit[data-nexataxi-booking-module],
             if (confirmModal) confirmModal.setAttribute('data-submitting', '0');
             closeConfirmModal();
             showSuccess(successMessage, { portalLoginUrl: data && data.portal_login_url ? data.portal_login_url : null });
+            markReadyForNextRide();
             if (bookingPortalMode) {
                 document.dispatchEvent(new CustomEvent('taxi-portal-refresh-rides'));
             }
@@ -9350,6 +9420,7 @@ section#boek-rit[data-nexataxi-booking-module],
                     ? pending.portal_login_url
                     : (serverAfterPaymentPortalLogin || null)
             });
+            markReadyForNextRide();
             scrollToBookingModuleAnchor();
             return true;
         } catch (e) {
