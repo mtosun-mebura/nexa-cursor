@@ -363,6 +363,7 @@ export function DriverHomeScreen() {
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
   const onlineEpochRef = useRef(0);
+  const refreshGen = useRef(0);
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
   const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
@@ -540,9 +541,9 @@ export function DriverHomeScreen() {
 
   const refresh = useCallback(async () => {
     if (!driverToken) return;
+    const gen = ++refreshGen.current;
     const refreshEpoch = onlineEpochRef.current;
     const toggleWasPending = onlinePendingEpochRef.current !== null;
-    setError(null);
     try {
       const [me, vehiclesRes, inbox, fleetRes] = await Promise.all([
         fetchDriverMe(driverToken),
@@ -550,6 +551,8 @@ export function DriverHomeScreen() {
         fetchDriverInbox(driverToken),
         fetchDriverFleet(driverToken),
       ]);
+      if (gen !== refreshGen.current) return;
+      setError(null);
       const isOnlineNow = !!me.user.is_online;
       // Negeer is_online van een refresh die vóór de tik startte, tijdens een lopend
       // availability-verzoek startte, of daar nog in liep (server kan nog de oude waarde hebben).
@@ -664,9 +667,11 @@ export function DriverHomeScreen() {
       } catch {
         completedFromPlanning = [];
       }
+      if (gen !== refreshGen.current) return;
       setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
       setCancelReasons(inboxData.cancelReasons);
       const openedRequest = await handleNewOffers(inboxData.offers, isOnlineNow);
+      if (gen !== refreshGen.current) return;
       const pickupDenied = await alertPickupDenials({
         rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
         alert: inboxData.pickupDeniedAlert,
@@ -716,6 +721,7 @@ export function DriverHomeScreen() {
         }
       }
     } catch (e) {
+      if (gen !== refreshGen.current) return;
       setError(e instanceof ApiError ? e.message : t("Kon gegevens niet laden."));
     }
   }, [driverToken, handleNewOffers, selectedVehicleId]);
@@ -761,6 +767,12 @@ export function DriverHomeScreen() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         clearDriverOfferBadge().catch(() => undefined);
+        refresh().catch(() => undefined);
+        return;
+      }
+      // Lock/standby: meteen inbox ophalen zolang JS nog heel even leeft,
+      // zodat het aanbod er is vóór iOS de app bevriest.
+      if (state === 'inactive' || state === 'background') {
         refresh().catch(() => undefined);
       }
     });
@@ -949,11 +961,18 @@ export function DriverHomeScreen() {
     setBusyId(id);
     try {
       await acceptOffer(driverToken, id);
+      setOffers((list) => list.filter((offer) => Number(offer.id) !== id));
       await refresh();
       goToTab('trips');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t("Accepteren mislukt.");
-      if (!showRideConflictNotice(msg)) setError(msg);
+      if (!showRideConflictNotice(msg)) {
+        setRideNotice({
+          title: t("Accepteren mislukt."),
+          body: msg,
+          primaryLabel: t("Begrepen"),
+        });
+      }
     } finally {
       setBusyId(null);
     }
@@ -1614,6 +1633,8 @@ export function DriverHomeScreen() {
       data={requestOffers}
       extraData={focusOfferId}
       keyExtractor={(item) => String(item.id)}
+      keyboardShouldPersistTaps="handled"
+      removeClippedSubviews={false}
       contentContainerStyle={styles.scroll}
       refreshControl={
         <RefreshControl

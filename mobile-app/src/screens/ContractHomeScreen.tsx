@@ -2733,6 +2733,44 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
     setFollowTaxi(false);
   }
 
+  function parentRoutePoints(): LatLng[] {
+    const points: LatLng[] = [];
+    for (const ride of childRides) {
+      const line = childRouteLines[ride.passengerId];
+      if (line && line.length > 0) points.push(...line);
+      else {
+        if (ride.pickup) points.push(ride.pickup);
+        if (ride.dropoff) points.push(ride.dropoff);
+      }
+    }
+    if (taxiOnMap) points.push(taxiOnMap);
+    return points;
+  }
+
+  function focusRoute() {
+    followTaxiRef.current = false;
+    setFollowTaxi(false);
+    const points = parentRoutePoints();
+    const map = parentMapRef.current;
+    if (!map || points.length === 0) return;
+    if (points.length === 1) {
+      map.animateToRegion(
+        {
+          latitude: points[0].latitude,
+          longitude: points[0].longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        450
+      );
+      return;
+    }
+    map.fitToCoordinates(points, {
+      edgePadding: { top: 56, right: 56, bottom: 56, left: 56 },
+      animated: true,
+    });
+  }
+
   function focusTaxi() {
     if (!taxiOnMap) return;
     followTaxiRef.current = true;
@@ -2891,16 +2929,29 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
           </Marker>
         ) : null}
       </MapView>
-      {taxiOnMap && !followTaxi ? (
-        <Pressable
-          style={styles.mapFocusBtn}
-          onPress={focusTaxi}
-          accessibilityRole="button"
-          accessibilityLabel={t("Focus op de taxi")}
-        >
-          <Ionicons name="locate" size={22} color={colors.text} />
-        </Pressable>
-      ) : null}
+      <View style={styles.mapFocusStack} pointerEvents="box-none">
+        {taxiOnMap && !followTaxi ? (
+          <Pressable
+            style={styles.mapFocusBtn}
+            onPress={focusTaxi}
+            accessibilityRole="button"
+            accessibilityLabel={t("Focus op de taxi")}
+          >
+            <Ionicons name="locate" size={22} color={colors.text} />
+          </Pressable>
+        ) : null}
+        {childRides.some((ride) => ride.pickup || ride.dropoff) || taxiOnMap ? (
+          <Pressable
+            style={styles.mapFocusBtn}
+            onPress={focusRoute}
+            accessibilityRole="button"
+            accessibilityLabel={t("Toon route")}
+            accessibilityHint={t("Centreert de kaart op de geplande rit")}
+          >
+            <Ionicons name="navigate" size={22} color={colors.text} />
+          </Pressable>
+        ) : null}
+      </View>
       </View>
       {childRides.length === 0 && !taxiOnMap ? (
         <View style={styles.parentNavEmpty} pointerEvents="none">
@@ -3555,10 +3606,14 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       flex: 1,
       minHeight: 280,
     },
-    mapFocusBtn: {
+    mapFocusStack: {
       position: 'absolute',
       right: 16,
       bottom: 16,
+      gap: 8,
+      alignItems: 'center',
+    },
+    mapFocusBtn: {
       width: 44,
       height: 44,
       borderRadius: 22,

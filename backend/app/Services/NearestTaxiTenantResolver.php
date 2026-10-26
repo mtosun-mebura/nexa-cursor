@@ -20,8 +20,15 @@ class NearestTaxiTenantResolver
 
     public const MARKETPLACE_MAX_TENANTS = 5;
 
-    /** Zelfde freshness als live-kaart: chauffeurs met recente presence. */
+    /** Live-kaart (NearbyAvailableTaxiFleetService) blijft op 3 minuten. */
     public const DRIVER_PRESENCE_MAX_AGE_SECONDS = 180;
+
+    /**
+     * Boeking/dispatch: een online chauffeur met laatst bekende positie blijft kandidaat
+     * terwijl de telefoon op standby staat en geen GPS meer post. De kaart toont hen
+     * na 3 minuten niet meer; het aanbod moet er wel zijn.
+     */
+    public const BOOKING_ONLINE_MAX_AGE_SECONDS = 21600;
 
     public static function normalizeRadiusKm(mixed $value): float
     {
@@ -151,7 +158,7 @@ class NearestTaxiTenantResolver
             return [];
         }
 
-        $cutoff = now()->subSeconds(self::DRIVER_PRESENCE_MAX_AGE_SECONDS);
+        $cutoff = now()->subSeconds(self::BOOKING_ONLINE_MAX_AGE_SECONDS);
         $rows = DriverAvailability::on($conn)
             ->whereIn('company_id', $companyIds)
             ->where('is_online', true)

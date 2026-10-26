@@ -74,6 +74,22 @@ async function ensureSilentOfferChannel(): Promise<string> {
   return channelId;
 }
 
+async function ensureSystemOfferChannel(): Promise<string> {
+  const channelId = 'driver-offers-system';
+  if (!Notifications || Platform.OS !== 'android') return channelId;
+  if (channelReady.has(channelId)) return channelId;
+  await Notifications.setNotificationChannelAsync(channelId, {
+    name: t("Ritaanvragen"),
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 120, 60, 120, 60, 200],
+    lightColor: '#EF4444',
+    enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+  channelReady.add(channelId);
+  return channelId;
+}
+
 async function ensureOfferChannel(tone: RideAlertTone): Promise<string> {
   const channelId = `driver-offers-${tone}`;
   if (!Notifications || Platform.OS !== 'android') return 'driver-offers';
@@ -106,6 +122,8 @@ export async function notifyNewDriverOffer(opts: {
   pickup?: string | null;
   dropoff?: string | null;
   playSound?: boolean;
+  /** Standby: meteen het systeemgeluid (`sound: true`), niet eerst een wav-bestandsnaam. */
+  systemSound?: boolean;
   tone?: string | null;
   badge?: number;
 }): Promise<void> {
@@ -133,39 +151,75 @@ export async function notifyNewDriverOffer(opts: {
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
 
-  const sounds: Array<string | false> = playSound
-    ? [rideAlertNotificationSound(tone), rideAlertNotificationSound('alert'), 'default']
-    : [false];
+  const sounds: Array<string | boolean> = !playSound
+    ? [false]
+    : opts.systemSound
+      ? [true]
+      : [rideAlertNotificationSound(tone), rideAlertNotificationSound('alert'), true];
   for (const sound of sounds) {
-    try {
-      const channelTone =
-        sound === rideAlertNotificationSound('alert') || sound === 'default' ? 'alert' : tone;
-      const channelId =
-        Platform.OS === 'android'
-          ? sound
-            ? await ensureOfferChannel(channelTone)
-            : await ensureSilentOfferChannel()
-          : undefined;
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          // iOS standby: content.sound is het betrouwbare geluidspad (niet expo-audio).
-          sound,
-          ...(badge != null ? { badge } : {}),
-          data: { type: 'driver_offer', screen: 'requests' },
-          ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
-          ...(Platform.OS === 'android'
-            ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
-            : {}),
-        },
-        trigger: null,
-      });
+    const shown = await scheduleOfferNotification({
+      title,
+      body,
+      sound,
+      tone,
+      badge,
+    });
+    if (shown) {
       if (badge != null) await setDriverOfferBadge(badge);
       return;
-    } catch {
-      /* volgend geluid: Alert, daarna het systeemgeluid */
     }
+  }
+}
+
+async function scheduleOfferNotification(opts: {
+  title: string;
+  body: string;
+  sound: string | boolean;
+  tone: RideAlertTone;
+  badge?: number;
+}): Promise<boolean> {
+  if (!Notifications) return false;
+  const channelId =
+    Platform.OS === 'android'
+      ? opts.sound === true
+        ? await ensureSystemOfferChannel()
+        : opts.sound
+          ? await ensureOfferChannel(
+              opts.sound === rideAlertNotificationSound('alert') ? 'alert' : opts.tone
+            )
+          : await ensureSilentOfferChannel()
+      : undefined;
+  const content = {
+    title: opts.title,
+    body: opts.body,
+    // iOS standby: `true` is het systeemgeluid. De string 'default' is een bestandsnaam.
+    sound: opts.sound,
+    ...(opts.badge != null ? { badge: opts.badge } : {}),
+    data: { type: 'driver_offer', screen: 'requests' },
+    ...(Platform.OS === 'android'
+      ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
+      : {}),
+  };
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        ...content,
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      },
+      trigger: null,
+    });
+    return true;
+  } catch {
+    /* timeSensitive kan ontbreken op dit team; zonder dat niveau alsnog tonen */
+  }
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content,
+      trigger: null,
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 

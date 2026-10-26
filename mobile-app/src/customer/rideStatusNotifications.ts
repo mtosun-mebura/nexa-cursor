@@ -8,6 +8,9 @@ const SEEN_KEY = 'nexa_taxi_seen_status_events';
 let handlerReady = false;
 let permissionReady: Promise<boolean> | null = null;
 
+/** Nieuw id: het oude kanaal 'ride-status' is aangemaakt met sound 'default' (bestandsnaam) en Android wijzigt het geluid niet. */
+const RIDE_STATUS_CHANNEL = 'ride-status-v2';
+
 async function notifications() {
   return import('expo-notifications');
 }
@@ -17,12 +20,22 @@ async function ensureHandler(): Promise<void> {
   try {
     const Notifications = await notifications();
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
+      handleNotification: async (notification) => {
+        if (notification.request.content.data?.soundOnly === true) {
+          return {
+            shouldShowBanner: false,
+            shouldShowList: false,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          };
+        }
+        return {
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        };
+      },
     });
     handlerReady = true;
   } catch {
@@ -33,12 +46,26 @@ async function ensureHandler(): Promise<void> {
 async function ensureRideStatusChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   const Notifications = await notifications();
-  await Notifications.setNotificationChannelAsync('ride-status', {
+  await Notifications.setNotificationChannelAsync(RIDE_STATUS_CHANNEL, {
     name: t("Ritstatus"),
     importance: Notifications.AndroidImportance.HIGH,
-    sound: 'default',
     vibrationPattern: [0, 120, 80, 120],
     lightColor: '#2563EB',
+  });
+}
+
+/** Systeemgeluid zonder banner. `sound: true` is het standaardgeluid, geen bestand 'default'. */
+async function playSystemAttentionSound(): Promise<void> {
+  await ensureHandler();
+  await ensureRideStatusChannel();
+  const Notifications = await notifications();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      sound: true,
+      data: { soundOnly: true },
+      ...(Platform.OS === 'android' ? { channelId: RIDE_STATUS_CHANNEL } : {}),
+    },
+    trigger: null,
   });
 }
 
@@ -105,15 +132,17 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
   if (fresh.length === 0) return;
 
   const granted = await ensurePermission();
-  const inBackground = AppState.currentState !== 'active';
+  const foreground = AppState.currentState === 'active';
 
   for (const update of fresh) {
     seen.add(eventKey(update));
     if (!granted) continue;
-    // Op voorgrond tonen we de timeline in de rit; op achtergrond altijd melding.
-    // Ook op voorgrond een melding zodat elke nieuwe status zichtbaar is.
     try {
       await ensureHandler();
+      if (update.event === 'invoice_sent' && foreground) {
+        await playSystemAttentionSound();
+        continue;
+      }
       await ensureRideStatusChannel();
       const Notifications = await notifications();
       await Notifications.scheduleNotificationAsync({
@@ -124,8 +153,8 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
               ? `De chauffeur is onderweg naar jou. Aankomst over ${ride.eta_label}.`
               : update.label || ride.status_label || t("Status bijgewerkt"),
           data: { rideId: ride.id, event: update.event },
-          sound: 'default',
-          ...(Platform.OS === 'android' ? { channelId: 'ride-status' } : {}),
+          sound: true,
+          ...(Platform.OS === 'android' ? { channelId: RIDE_STATUS_CHANNEL } : {}),
         },
         trigger: null,
       });
@@ -136,7 +165,4 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
 
   seenMap[rideId] = Array.from(seen).slice(-40);
   await saveSeen(seenMap);
-
-  // Silence unused for lint if tree-shaken; keep for clarity of intent.
-  void inBackground;
 }

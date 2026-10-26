@@ -172,6 +172,7 @@ async function checkOnce(input: {
       pickup: priority.ride?.pickup_address,
       dropoff: priority.ride?.dropoff_address,
       playSound: true,
+      systemSound: true,
       tone,
       badge,
     });

@@ -428,16 +428,13 @@ class TaxiRidePaymentService
                 ?? 0);
 
             if ($candidateIds !== []) {
-                try {
-                    \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatch(
-                        (int) $freshRide->id,
-                        0,
-                        $candidateIds,
-                        false
-                    );
-                } catch (\Throwable) {
-                    // dispatch failure logged elsewhere
-                }
+                \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatchWhenCommitted(
+                    $conn,
+                    (int) $freshRide->id,
+                    0,
+                    $candidateIds,
+                    false
+                );
                 try {
                     \App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob::dispatch((int) $freshRide->id, [
                         'settings_company_id' => $settingsCompanyId > 0 ? $settingsCompanyId : null,
@@ -448,11 +445,11 @@ class TaxiRidePaymentService
             } else {
                 $companyId = (int) ($freshRide->company_id ?? 0);
                 if ($companyId > 0) {
-                    try {
-                        app(RideDispatchService::class)->startDispatch($conn, $freshRide, $companyId);
-                    } catch (\Throwable) {
-                        // dispatch failure logged elsewhere
-                    }
+                    \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatchWhenCommitted(
+                        $conn,
+                        (int) $freshRide->id,
+                        $companyId
+                    );
                     try {
                         app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $freshRide);
                     } catch (\Throwable) {

@@ -22,6 +22,9 @@ try {
 
 let permissionReady: Promise<boolean> | null = null;
 
+/** Nieuw id: 'contract-rides' hield sound 'default' vast als bestandsnaam. */
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v2';
+
 export function contractNotificationsAvailable(): boolean {
   return Notifications != null;
 }
@@ -80,7 +83,7 @@ export async function notifyNewContractRide(opts: {
         sound: opts.playSound !== false,
         data: { type: 'contract_ride', screen: 'trips' },
         ...(Platform.OS === 'android'
-          ? { channelId: 'contract-rides', color: '#2563EB' }
+          ? { channelId: CONTRACT_RIDES_CHANNEL, color: '#2563EB' }
           : {}),
       },
       trigger: null,
@@ -92,11 +95,10 @@ export async function notifyNewContractRide(opts: {
 
 export async function setupContractNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync('contract-rides', {
+  await Notifications.setNotificationChannelAsync(CONTRACT_RIDES_CHANNEL, {
     name: t("Contractritten"),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 120, 60, 120],
     lightColor: '#2563EB',
-    sound: 'default',
   });
 }
