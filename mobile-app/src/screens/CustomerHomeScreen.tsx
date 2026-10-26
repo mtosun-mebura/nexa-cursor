@@ -311,6 +311,46 @@ function CustomerTaxiMarker({
   );
 }
 
+const arrivalLine = { alignSelf: 'stretch' as const, width: '100%' as const };
+
+function formatEtaPhrase(minutes: number): string {
+  const rounded = Math.max(1, Math.round(minutes));
+  return rounded === 1 ? 'ongeveer 1 minuut' : `ongeveer ${rounded} minuten`;
+}
+
+function haversineKm(fromLat: number, fromLng: number, toLat: number, toLng: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(toLat - fromLat);
+  const dLng = toRad(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function etaFromStatus(label?: string | null): string | null {
+  const match = String(label || '').match(/Aankomst over\s+(.+?)\.?\s*$/i);
+  if (!match) return null;
+  const value = match[1].replace(/\.+$/, '').trim();
+  if (!value || value === '...') return null;
+  return value;
+}
+
+function arrivalEtaText(live?: LiveRide | null): string | null {
+  const label = String(live?.eta_label || '').trim();
+  if (label) return label;
+  const minutes = Number(live?.eta_minutes);
+  if (Number.isFinite(minutes) && minutes > 0) return formatEtaPhrase(minutes);
+  const fromLat = Number(live?.vehicle_location?.lat);
+  const fromLng = Number(live?.vehicle_location?.lng);
+  const toLat = Number(live?.pickup_lat);
+  const toLng = Number(live?.pickup_lng);
+  if (![fromLat, fromLng, toLat, toLng].every((n) => Number.isFinite(n))) return null;
+  if (fromLat === 0 && fromLng === 0) return null;
+  const km = haversineKm(fromLat, fromLng, toLat, toLng);
+  return formatEtaPhrase(Math.max(1, Math.ceil((km / 28) * 60)));
+}
+
 function DriverComingText({
   eta,
   headlineStyle,
@@ -321,12 +361,17 @@ function DriverComingText({
   detailStyle?: object;
 }) {
   const headline = t("De chauffeur is onderweg naar jou");
-  const detail = eta ? `Aankomst over ${eta}.` : t("Aankomst over...");
-  const detailFull = detail.endsWith('...') ? detail : `${detail}...`;
-  const [headlineCount, setHeadlineCount] = useState(0);
-  const [detailCount, setDetailCount] = useState(0);
+  const detail = eta ? t("Aankomst over {eta}.", { eta }) : t("Aankomst over...");
+  const showFull = Platform.OS === 'android';
+  const [headlineCount, setHeadlineCount] = useState(showFull ? headline.length : 0);
+  const [detailCount, setDetailCount] = useState(showFull ? detail.length : 0);
 
   useEffect(() => {
+    if (showFull) {
+      setHeadlineCount(headline.length);
+      setDetailCount(detail.length);
+      return;
+    }
     setHeadlineCount(0);
     setDetailCount(0);
     let headlineIndex = 0;
@@ -337,7 +382,7 @@ function DriverComingText({
         setHeadlineCount(headlineIndex);
         return;
       }
-      if (detailIndex < detailFull.length) {
+      if (detailIndex < detail.length) {
         detailIndex += 1;
         setDetailCount(detailIndex);
         return;
@@ -345,14 +390,60 @@ function DriverComingText({
       clearInterval(timer);
     }, 28);
     return () => clearInterval(timer);
-  }, [detailFull]);
+  }, [detail, headline, showFull]);
+
+  const headlineShown = headline.slice(0, headlineCount);
+  const detailShown = detail.slice(0, detailCount);
+  const headlineRest = headline.slice(headlineCount);
+  const detailRest = detail.slice(detailCount);
 
   return (
-    <View>
-      <Text style={headlineStyle}>{headline.slice(0, headlineCount)}</Text>
-      <Text style={detailStyle}>{detailFull.slice(0, detailCount)}</Text>
+    <View style={arrivalLine}>
+      <Text style={[headlineStyle, arrivalLine]}>
+        {headlineShown}
+        {headlineRest ? <Text style={{ color: 'transparent' }}>{headlineRest}</Text> : null}
+      </Text>
+      <Text style={[detailStyle, arrivalLine]}>
+        {detailShown}
+        {detailRest ? <Text style={{ color: 'transparent' }}>{detailRest}</Text> : null}
+      </Text>
     </View>
   );
+}
+
+const ROUTE_FIT_PADDING = { top: 56, right: 56, bottom: 56, left: 56 };
+
+function fitMapToPoints(map: MapView | null, points: LatLng[]) {
+  if (!map || points.length === 0) return;
+  if (points.length === 1) {
+    map.animateToRegion(
+      {
+        latitude: points[0].latitude,
+        longitude: points[0].longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      },
+      400
+    );
+    return;
+  }
+  map.fitToCoordinates(points, { edgePadding: ROUTE_FIT_PADDING, animated: true });
+}
+
+function tripRoutePoints(
+  live: LiveRide | null | undefined,
+  line: LatLng[],
+  taxi: { lat: number; lng: number } | null
+): LatLng[] {
+  const points: LatLng[] = line.length > 0 ? [...line] : [];
+  if (live?.pickup_lat != null && live.pickup_lng != null) {
+    points.push({ latitude: Number(live.pickup_lat), longitude: Number(live.pickup_lng) });
+  }
+  if (live?.dropoff_lat != null && live.dropoff_lng != null) {
+    points.push({ latitude: Number(live.dropoff_lat), longitude: Number(live.dropoff_lng) });
+  }
+  if (taxi) points.push({ latitude: taxi.lat, longitude: taxi.lng });
+  return points;
 }
 
 function isSameTaxi(
@@ -538,11 +629,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const freeNearby = freeTaxis.length;
   const canDispatch = freeNearby > 0;
 
+  const tripFitPointsRef = useRef<LatLng[]>([]);
+  tripFitPointsRef.current = tripRoutePoints(live, tripRoute, activeTaxiLoc);
+
   const pauseFollow = useCallback(() => {
     if (Date.now() < ignoreMapGestureUntil.current) return;
     setFollowTaxi(false);
     if (followTimer.current) clearTimeout(followTimer.current);
-    followTimer.current = setTimeout(() => setFollowTaxi(true), 3000);
+    followTimer.current = setTimeout(() => {
+      ignoreMapGestureUntil.current = Date.now() + 1200;
+      fitMapToPoints(tripMapRef.current, tripFitPointsRef.current);
+    }, 3000);
   }, []);
 
   useEffect(() => {
@@ -585,35 +682,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       if (tripFitted.current) return;
       const map = tripMapRef.current;
       if (!map) return;
-      const points: LatLng[] = [...tripRoute];
-      if (live?.pickup_lat != null && live.pickup_lng != null) {
-        points.push({ latitude: Number(live.pickup_lat), longitude: Number(live.pickup_lng) });
-      }
-      if (live?.dropoff_lat != null && live.dropoff_lng != null) {
-        points.push({ latitude: Number(live.dropoff_lat), longitude: Number(live.dropoff_lng) });
-      }
-      if (activeTaxiLoc) {
-        points.push({ latitude: activeTaxiLoc.lat, longitude: activeTaxiLoc.lng });
-      }
+      const points = tripRoutePoints(live, tripRoute, activeTaxiLoc);
       if (points.length === 0) return;
       tripFitted.current = true;
       ignoreMapGestureUntil.current = Date.now() + 1200;
-      if (points.length === 1) {
-        map.animateToRegion(
-          {
-            latitude: points[0].latitude,
-            longitude: points[0].longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          },
-          400
-        );
-        return;
-      }
-      map.fitToCoordinates(points, {
-        edgePadding: { top: 56, right: 56, bottom: 56, left: 56 },
-        animated: true,
-      });
+      fitMapToPoints(map, points);
     }, 350);
     return () => clearTimeout(timer);
   }, [rideMapOpen, tab, tripRoute, activeTaxiLoc, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
@@ -975,23 +1048,20 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
+  function fitTripRoute() {
+    setFollowTaxi(false);
+    if (followTimer.current) clearTimeout(followTimer.current);
+    ignoreMapGestureUntil.current = Date.now() + 1200;
+    fitMapToPoints(tripMapRef.current, tripRoutePoints(live, tripRoute, activeTaxiLoc));
+  }
+
   function fitMapToRoute() {
-    const map = mapRef.current;
-    if (!map) return;
-    const padding = { top: 48, right: 48, bottom: 48, left: 48 };
-    if (routeCoords.length > 1) {
-      map.fitToCoordinates(routeCoords, { edgePadding: padding, animated: true });
-      return;
-    }
-    if (pickup && dropoff) {
-      map.fitToCoordinates(
-        [
-          { latitude: pickup.lat, longitude: pickup.lng },
-          { latitude: dropoff.lat, longitude: dropoff.lng },
-        ],
-        { edgePadding: padding, animated: true }
-      );
-    }
+    const points: LatLng[] = [];
+    if (routeCoords.length > 1) points.push(...routeCoords);
+    if (pickup) points.push({ latitude: pickup.lat, longitude: pickup.lng });
+    if (dropoff) points.push({ latitude: dropoff.lat, longitude: dropoff.lng });
+    if (activeTaxiLoc) points.push({ latitude: activeTaxiLoc.lat, longitude: activeTaxiLoc.lng });
+    fitMapToPoints(mapRef.current, points);
   }
 
   async function saveProfile() {
@@ -1793,6 +1863,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     return label || null;
   })();
 
+  const invoiceSentLabel = (() => {
+    const updates = live?.status_updates;
+    if (!Array.isArray(updates)) return null;
+    for (let i = updates.length - 1; i >= 0; i -= 1) {
+      const update = updates[i];
+      if (update?.event !== 'invoice_sent') continue;
+      const label = String(update.label || '').trim();
+      return label || 'Het factuur is naar je verstuurd.';
+    }
+    return null;
+  })();
+
   const activeBannerRide =
     (live && trackToken && isActiveRidePhase(live.phase)
       ? {
@@ -2476,7 +2558,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {!cancelled ? (
               approaching || (headerStatus || '').includes(t("Aankomst over")) ? (
                 <DriverComingText
-                  eta={live?.eta_label}
+                  eta={
+                    approaching
+                      ? arrivalEtaText(live) || etaFromStatus(headerStatus)
+                      : etaFromStatus(headerStatus)
+                  }
                   headlineStyle={styles.arrivalHeadline}
                   detailStyle={styles.arrivalType}
                 />
@@ -2866,6 +2952,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             >
               <Text style={styles.zoomBtnText}>−</Text>
             </Pressable>
+            {(tripRoute.length > 1 ||
+              (live.pickup_lat != null && live.dropoff_lat != null) ||
+              activeTaxiLoc) ? (
+              <Pressable
+                onPress={fitTripRoute}
+                style={styles.zoomBtn}
+                accessibilityLabel={t("Toon route")}
+                accessibilityHint={t("Centreert de kaart op de geplande rit")}
+              >
+                <Ionicons name="navigate" size={18} color={colors.text} />
+              </Pressable>
+            ) : null}
             {activeTaxiLoc ? (
               <Pressable
                 onPress={focusTripTaxi}
@@ -2879,11 +2977,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </View>
         </View>
         <Card>
-          {tripStarted ? (
+          {invoiceSentLabel ? (
+            <Text style={styles.liveTitle}>{invoiceSentLabel}</Text>
+          ) : tripStarted ? (
             <Text style={styles.liveTitle}>{t("De rit is gestart.")}</Text>
           ) : (
             <DriverComingText
-              eta={live.eta_label}
+              eta={arrivalEtaText(live)}
               headlineStyle={styles.arrivalHeadline}
               detailStyle={styles.arrivalType}
             />

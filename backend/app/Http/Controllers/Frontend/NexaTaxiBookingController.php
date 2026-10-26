@@ -494,9 +494,9 @@ class NexaTaxiBookingController extends Controller
         )));
         if (! $payAtBooking) {
             if ($marketplaceCompanyIds !== []) {
-                StartRideDispatchJob::dispatch((int) $ride->id, 0, $marketplaceCompanyIds, false)->afterResponse();
+                StartRideDispatchJob::dispatchWhenCommitted($conn, (int) $ride->id, 0, $marketplaceCompanyIds, false);
             } elseif ($rideCompanyId && $rideCompanyId > 0) {
-                StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+                StartRideDispatchJob::dispatchWhenCommitted($conn, (int) $ride->id, (int) $rideCompanyId);
             }
         }
 

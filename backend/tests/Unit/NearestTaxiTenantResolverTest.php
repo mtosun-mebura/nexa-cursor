@@ -211,6 +211,47 @@ class NearestTaxiTenantResolverTest extends TestCase
     }
 
     #[Test]
+    public function online_driver_with_stale_ping_stays_bookable_while_the_map_window_is_shorter(): void
+    {
+        $taxi = Module::query()->create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'installed' => true,
+            'active' => true,
+        ]);
+        $company = Company::query()->create([
+            'name' => 'Standby Taxi',
+            'is_active' => true,
+            'is_main' => false,
+            'accepts_nexa_suite_bookings' => true,
+        ]);
+        $company->modules()->attach($taxi->id);
+        Vehicle::on('module_taxi')->create(['company_id' => $company->id, 'name' => 'Sedan', 'active' => true]);
+
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => 401,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.3702,
+            'lng' => 4.9002,
+            'last_seen_at' => now()->subMinutes(30),
+            'location_updated_at' => now()->subMinutes(30),
+        ]);
+
+        $match = app(NearestTaxiTenantResolver::class)->resolve(52.37, 4.90);
+        $this->assertNotNull($match);
+        $this->assertSame($company->id, $match['company']->id);
+
+        DriverAvailability::on('module_taxi')->where('driver_id', 401)->update([
+            'last_seen_at' => now()->subHours(7),
+            'location_updated_at' => now()->subHours(7),
+        ]);
+
+        $this->assertNull(app(NearestTaxiTenantResolver::class)->resolve(52.37, 4.90));
+    }
+
+    #[Test]
     public function it_normalizes_marketplace_radius(): void
     {
         $this->assertSame(10.0, NearestTaxiTenantResolver::normalizeRadiusKm(null));

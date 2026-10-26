@@ -43,8 +43,13 @@ class DriverDispatchController extends Controller
             $dispatch->expireStaleOffers($conn);
             if (TaxiDispatchSchema::tablesExist($conn)) {
                 $dispatch->expireOffersForPastPickups($conn, $companyId);
-                $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
             }
+        }
+        // Elke inbox-pull vult een gemist aanbod aan. De 12s-cache gold ook hiervoor,
+        // waardoor een rit die net geboekt was pas na de volgende cache-ronde verscheen
+        // — of helemaal niet als de app daarna op standby ging.
+        if (TaxiDispatchSchema::tablesExist($conn)) {
+            $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
         }
 
         if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {

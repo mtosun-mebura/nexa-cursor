@@ -54,13 +54,25 @@ class TaxiBookingNotificationService
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
         $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
 
+        // Marktplaats loopt via de dispatch-app. E-mail naar chauffeurs alleen bij een websiteboeking.
+        $driverEmailAllowed = ! $ride->isNexaSuiteBooking();
+        if (! $driverEmailAllowed) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                (int) $ride->id,
+                'Marktplaatsboeking: chauffeurs krijgen de rit via de dispatch-app, geen e-mail.'
+            );
+        }
+
         $companyNotifyIds = $companyId > 0 ? [$companyId] : $candidateIds;
         foreach ($companyNotifyIds as $notifyCompanyId) {
             if ($demo->isDemoCompanyId((int) $notifyCompanyId)) {
                 continue;
             }
             $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, (int) $notifyCompanyId, $context);
-            $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+            if ($driverEmailAllowed) {
+                $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+            }
         }
     }
 
@@ -293,6 +305,16 @@ class TaxiBookingNotificationService
         ?int $settingsCompanyId
     ): void {
         $rideId = (int) $ride->id;
+
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                $rideId,
+                'Marktplaatsboeking: chauffeurs krijgen de rit via de dispatch-app, geen e-mail.'
+            );
+
+            return;
+        }
 
         if ($companyId <= 0) {
             $this->notificationLogs->recordDriverEmailsSkipped(

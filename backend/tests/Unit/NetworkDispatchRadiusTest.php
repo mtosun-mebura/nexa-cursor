@@ -538,4 +538,74 @@ class NetworkDispatchRadiusTest extends TestCase
         ], 'module_taxi');
         $this->assertNull($ride->fresh()->company_id);
     }
+
+    #[Test]
+    public function marketplace_offer_reaches_online_driver_with_stale_ping_finished_ride_and_contract_role(): void
+    {
+        Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
+
+        $company = Company::query()->create(['name' => 'Dual Role Taxi', 'is_active' => true]);
+        $driver = User::factory()->create(['company_id' => $company->id]);
+        $driver->assignRole('chauffeur');
+        $driver->assignRole('chauffeur-inkomsten');
+        $driver->assignRole('contractant');
+
+        DriverAvailability::on('module_taxi')->create([
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'is_online' => true,
+            'lat' => 52.3720,
+            'lng' => 4.8910,
+            'last_seen_at' => now()->subMinutes(30),
+            'location_updated_at' => now()->subMinutes(30),
+        ]);
+
+        RideRequest::on('module_taxi')->create([
+            'company_id' => $company->id,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'pickup_address' => 'Klaar',
+            'dropoff_address' => 'Klaar',
+            'pickup_lat' => 52.37,
+            'pickup_lng' => 4.89,
+            'pickup_at' => now()->subHours(5),
+            'customer_name' => 'Vorige klant',
+        ]);
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'Nu',
+            'dropoff_address' => 'Bestemming',
+            'pickup_lat' => 52.3700,
+            'pickup_lng' => 4.8900,
+            'pickup_at' => now()->addMinutes(5),
+            'customer_name' => 'Nieuwe klant',
+            'booking_payload' => [
+                'channel' => RideRequest::SOURCE_NEXA_SUITE,
+                'marketplace' => [
+                    'channel' => 'customer_app',
+                    'radius_km' => 10,
+                    'candidate_company_ids' => [(int) $company->id],
+                ],
+                'step_data' => ['app' => 'customer'],
+            ],
+        ]);
+
+        app(RideDispatchService::class)->startDispatchForCompanies(
+            'module_taxi',
+            $ride,
+            [(int) $company->id],
+            false
+        );
+
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $driver->id,
+            'company_id' => $company->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+    }
 }

@@ -189,8 +189,12 @@ async function startLocationTask(refreshSeconds: number) {
   await Location.startLocationUpdatesAsync(LOCATION_TASK, {
     accuracy: Location.Accuracy.BestForNavigation,
     timeInterval: intervalMs,
-    distanceInterval: seconds <= 2 ? 0 : 5,
-    deferredUpdatesInterval: intervalMs,
+    // 0 = ook stilstaand een fix. iOS levert een achtergrond-fix alleen aan JS als
+    // deferredUpdatesInterval 0 is: één sample heeft tijdsverschil 0 en wordt
+    // anders ingeslikt tot de telefoon weer beweegt.
+    distanceInterval: 0,
+    deferredUpdatesInterval: 0,
+    deferredUpdatesDistance: 0,
     showsBackgroundLocationIndicator: true,
     pausesUpdatesAutomatically: false,
     activityType: Location.ActivityType.AutomotiveNavigation,

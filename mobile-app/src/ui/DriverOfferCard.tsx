@@ -228,7 +228,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       Animated.timing(highlightOpacity, {
         toValue: to,
         duration: 180,
-        useNativeDriver: true,
+        useNativeDriver: false,
       });
     const anim = Animated.sequence([
       flash(1),
