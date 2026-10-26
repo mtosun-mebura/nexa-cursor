@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\AdminLegacyVacancyRedirectController;
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminJobConfigurationTypeController;
 use App\Http\Controllers\Admin\AdminModuleController;
+use App\Http\Controllers\Admin\AdminMonitoringController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
 use App\Http\Controllers\Admin\AdminTaxiPartnerFinderController;
 use App\Http\Controllers\Admin\AdminNexaPricingController;
@@ -518,6 +519,19 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             ->name('payment-flows.settlements.retry');
         Route::post('payment-flows/settlements/{settlement}/force-paid', [AdminPaymentFlowsGuideController::class, 'forcePaidOut'])
             ->name('payment-flows.settlements.force-paid');
+    });
+
+    Route::middleware('super-admin')->prefix('monitoring')->name('monitoring.')->group(function () {
+        Route::get('/', [AdminMonitoringController::class, 'index'])->name('index');
+        Route::get('status', [AdminMonitoringController::class, 'status'])->name('status');
+        Route::post('vastgelopen/herstart', [AdminMonitoringController::class, 'restartStuck'])->name('jobs.restart-stuck');
+        Route::post('vastgelopen/{id}/vrijgeven', [AdminMonitoringController::class, 'releaseStuck'])
+            ->whereNumber('id')
+            ->name('jobs.release');
+        Route::post('mislukt/{uuid}/herstart', [AdminMonitoringController::class, 'retryFailed'])
+            ->whereUuid('uuid')
+            ->name('jobs.retry');
+        Route::post('fouten/{errorLog}/opgelost', [AdminMonitoringController::class, 'resolveError'])->name('errors.resolve');
     });
 
     // Legacy /admin/vacancies: nooit een kapotte 404; door naar skillmatching of dashboard.

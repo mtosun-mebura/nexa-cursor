@@ -257,10 +257,35 @@ class TaxiTenantSetupServiceTest extends TestCase
 
         $byKey = collect($status['steps'])->keyBy('key');
         $this->assertArrayHasKey('bank_account', $byKey->all());
+        $this->assertArrayNotHasKey('rates', $byKey->all());
+        $this->assertArrayNotHasKey('mail', $byKey->all());
         $this->assertTrue($byKey['bank_account']['required']);
         $this->assertFalse($byKey['bank_account']['done']);
         $this->assertTrue($status['needs_login_prompt']);
         $this->assertStringContainsString('Bankrekening', (string) $byKey['bank_account']['title']);
+        $this->assertStringNotContainsString('Tarieven', (string) $status['summary']);
+        $this->assertStringNotContainsString('mailserver', strtolower((string) $status['summary']));
+    }
+
+    #[Test]
+    public function setup_steps_follow_role_permissions(): void
+    {
+        [$company, $user] = $this->taxiCompanyWithAdmin();
+        foreach (['vehicles.view', 'rates.view', 'view-mailserver'] as $name) {
+            \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+        }
+        $role = Role::firstOrCreate(['name' => 'voertuigen-only', 'guard_name' => 'web']);
+        $role->syncPermissions(['vehicles.view']);
+        $user->assignRole($role);
+
+        $status = app(TaxiTenantSetupService::class)->status($company->fresh(), $user->fresh());
+        $keys = collect($status['steps'])->pluck('key')->all();
+
+        $this->assertContains('vehicles', $keys);
+        $this->assertNotContains('rates', $keys);
+        $this->assertNotContains('mail', $keys);
+        $this->assertStringNotContainsString('Tarieven', (string) ($status['summary'] ?? ''));
+        $this->assertStringContainsString('voertuig', strtolower((string) $status['booking_block_message']));
     }
 
     #[Test]

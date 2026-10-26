@@ -101,7 +101,7 @@ class AppBootstrapController extends Controller
         }
 
         $email = strtolower(trim($validated['email']));
-        $code = $firstLogin->requestCode($email, TaxiAppFirstLoginService::CHANNEL_DRIVER, $ip);
+        $code = $firstLogin->requestCode($email, TaxiAppFirstLoginService::CHANNEL_DRIVER, $ip, true);
 
         return response()->json([
             'message' => ($code['ok'] ?? false)

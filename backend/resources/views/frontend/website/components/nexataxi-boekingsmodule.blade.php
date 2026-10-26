@@ -6999,8 +6999,8 @@ section#boek-rit[data-nexataxi-booking-module],
                         ? payload.marketplace.candidate_company_ids.length
                         : 0;
                     marketplaceNote.textContent = candidateCount > 1
-                        ? 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrales. Wie accepteert, krijgt de klant.'
-                        : 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxicentrale.';
+                        ? 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxi\'s. Wie accepteert, krijgt de klant.'
+                        : 'Algemene boeking via ' + payload.marketplace.label + ': we sturen deze rit naar de dichtstbijzijnde aangesloten taxi\'s.';
                     marketplaceNote.classList.remove('hidden');
                 } else {
                     marketplaceNote.textContent = '';
@@ -7207,7 +7207,7 @@ section#boek-rit[data-nexataxi-booking-module],
     var marketplaceDispatchReady = null;
     var marketplaceAvailabilityCheckInFlight = false;
     var marketplaceAvailabilityLastPickupKey = '';
-    var MARKETPLACE_UNAVAILABLE_MESSAGE = 'Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.';
+    var MARKETPLACE_UNAVAILABLE_MESSAGE = 'Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.';
     var liveTaxiDidFit = false;
     var liveTaxiFittedWithPickup = false;
     var liveTaxiFitRetryTimer = null;
@@ -7226,23 +7226,8 @@ section#boek-rit[data-nexataxi-booking-module],
     var liveFleetCarColorApplied = '';
     var BookingTaxiOverlay = null;
 
-    function normalizeFleetCarColorHex(value) {
-        var raw = String(value || '').trim();
-        if (/^#([A-Fa-f0-9]{3})$/.test(raw)) {
-            return ('#' + raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3]).toLowerCase();
-        }
-        if (/^#([A-Fa-f0-9]{6})$/.test(raw)) {
-            return raw.toLowerCase();
-        }
-        return '';
-    }
-
     function resolveFleetCarColor(taxi) {
-        var fromTaxi = normalizeFleetCarColorHex(taxi && taxi.color);
-        if (fromTaxi) return fromTaxi;
-        var fromConfig = normalizeFleetCarColorHex(config.logic && config.logic.live_fleet_car_color);
-        if (fromConfig) return fromConfig;
-        return '#ea580c';
+        return '#f5c400';
     }
 
     function withFleetCarColor(taxi) {
@@ -7253,7 +7238,7 @@ section#boek-rit[data-nexataxi-booking-module],
     }
 
     function applyFleetCarColorToAllLiveTaxis(color) {
-        var hex = normalizeFleetCarColorHex(color) || resolveFleetCarColor(null);
+        var hex = resolveFleetCarColor(null);
         if (!hex) return;
         if (config.logic) {
             config.logic.live_fleet_car_color = hex;
@@ -7273,15 +7258,7 @@ section#boek-rit[data-nexataxi-booking-module],
     }
 
     function syncFleetCarColorFromPayload(payload, vehicles) {
-        var fromPayload = normalizeFleetCarColorHex(payload && payload.fleet_car_color);
-        var fromVehicle = '';
-        if (!fromPayload && Array.isArray(vehicles)) {
-            for (var i = 0; i < vehicles.length; i++) {
-                fromVehicle = normalizeFleetCarColorHex(vehicles[i] && vehicles[i].color);
-                if (fromVehicle) break;
-            }
-        }
-        var hex = fromPayload || fromVehicle || resolveFleetCarColor(null);
+        var hex = resolveFleetCarColor(null);
         if (!hex) return;
         if (hex !== liveFleetCarColorApplied) {
             applyFleetCarColorToAllLiveTaxis(hex);
@@ -7390,7 +7367,7 @@ section#boek-rit[data-nexataxi-booking-module],
         if (h.length === 3) {
             h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
         }
-        if (h.length !== 6) return { r: 234, g: 88, b: 12 };
+        if (h.length !== 6) return { r: 245, g: 196, b: 0 };
         return {
             r: parseInt(h.slice(0, 2), 16),
             g: parseInt(h.slice(2, 4), 16),
@@ -7521,7 +7498,7 @@ section#boek-rit[data-nexataxi-booking-module],
         var prev = marketplaceDispatchReady;
         marketplaceDispatchReady = !!ready;
         if (marketplaceDispatchReady) {
-            setMarketplaceAvailabilityStatus('Er is een taxicentrale in de buurt beschikbaar. Je kunt de boeking voortzetten.', 'ok');
+            setMarketplaceAvailabilityStatus('Er zijn taxi\'s in de buurt beschikbaar. Je kunt de boeking voortzetten.', 'ok');
             var errEl = root.querySelector('[data-booking-error]');
             if (errEl && String(errEl.textContent || '') === MARKETPLACE_UNAVAILABLE_MESSAGE) {
                 clearError();
@@ -7538,7 +7515,7 @@ section#boek-rit[data-nexataxi-booking-module],
         if (!bookingMarketplaceDispatch) return true;
         if (!isValidMapCoord(state.pickup_lat, state.pickup_lng)) {
             setMarketplaceAvailabilityStatus('', '');
-            showError('Kies een ophaallocatie zodat we de dichtstbijzijnde taxicentrale kunnen bepalen.');
+            showError('Kies een ophaallocatie, zodat we de dichtstbijzijnde taxi\'s kunnen koppelen.');
             return false;
         }
         if (marketplaceDispatchReady === true) return true;
@@ -7870,7 +7847,7 @@ section#boek-rit[data-nexataxi-booking-module],
         marketplaceAvailabilityLastPickupKey = pickupKey;
         marketplaceAvailabilityCheckInFlight = true;
         if (marketplaceDispatchReady !== true) {
-            setMarketplaceAvailabilityStatus('We zoeken naar een beschikbare taxicentrale in de buurt…', 'wait');
+            setMarketplaceAvailabilityStatus('We zoeken naar beschikbare taxi\'s in de buurt…', 'wait');
         }
         return fetchNearbyTaxis({ requestQuotes: true }).finally(function () {
             marketplaceAvailabilityCheckInFlight = false;

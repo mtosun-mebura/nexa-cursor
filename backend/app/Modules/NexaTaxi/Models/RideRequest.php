@@ -600,6 +600,92 @@ class RideRequest extends Model
     }
 
     /**
+     * Rit die een online chauffeur nú van de boekingskaart haalt.
+     *
+     * Alleen een geaccepteerde rit of contractrit waarvan het tijdvak nu is, of een rit
+     * die echt onderweg is. Afgeronde ritten (status, trip_completed_at, of alle stops
+     * klaar) en een rit op een ander tijdstip doen dat niet. De rol contractant speelt geen rol.
+     * Ophaaltijden zijn Amsterdam-muurtijd; trip_started_at is een echt tijdstip.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeOccupyingBookingMap($query)
+    {
+        $connection = $query->getConnection()->getName();
+        $schema = \Illuminate\Support\Facades\Schema::connection($connection);
+        $hasPickupAt = $schema->hasColumn('ride_requests', 'pickup_at');
+        $hasTripStarted = $schema->hasColumn('ride_requests', 'trip_started_at');
+        $hasTripCompleted = $schema->hasColumn('ride_requests', 'trip_completed_at');
+        $hasStops = $schema->hasTable('ride_stops');
+        $graceMinutes = max(0, (int) config('taxi-dispatch.past_pickup_grace_minutes', 60));
+        $nowWall = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::naiveUtcForWallClockQuery(
+            now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)
+        );
+        $windowStart = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::naiveUtcForWallClockQuery(
+            now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)->subMinutes($graceMinutes)
+        );
+        $activeSince = now()->subHours(12);
+        $openStopStatuses = [
+            RideStop::STATUS_PLANNED,
+            RideStop::STATUS_ARRIVED,
+            RideStop::STATUS_PICKED_UP,
+        ];
+
+        $query->whereIn('status', [self::STATUS_ACCEPTED, self::STATUS_ASSIGNED]);
+
+        if ($hasTripCompleted) {
+            $query->whereNull('trip_completed_at');
+        }
+
+        if ($hasStops) {
+            // Stops die allemaal klaar zijn: de rit is afgerond, ook als de status nog assigned is.
+            $query->where(function ($unfinished) use ($openStopStatuses) {
+                $unfinished->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('ride_stops')
+                        ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id');
+                })->orWhereExists(function ($sub) use ($openStopStatuses) {
+                    $sub->selectRaw('1')
+                        ->from('ride_stops')
+                        ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id')
+                        ->whereIn('ride_stops.status', $openStopStatuses);
+                });
+            });
+        }
+
+        return $query->where(function ($window) use ($hasPickupAt, $hasTripStarted, $hasStops, $nowWall, $windowStart, $activeSince) {
+            if ($hasTripStarted) {
+                $window->where(function ($started) use ($activeSince) {
+                    $started->whereNotNull('trip_started_at')
+                        ->where('trip_started_at', '>=', $activeSince);
+                });
+            }
+
+            $window->orWhere(function ($slot) use ($hasPickupAt, $hasTripStarted, $hasStops, $nowWall, $windowStart) {
+                if ($hasTripStarted) {
+                    $slot->whereNull('trip_started_at');
+                }
+                if (! $hasPickupAt) {
+                    return;
+                }
+                $slot->where(function ($time) use ($hasStops, $nowWall, $windowStart) {
+                    $time->where(function ($immediate) use ($hasStops) {
+                        $immediate->whereNull('pickup_at');
+                        if ($hasStops) {
+                            $immediate->whereNotExists(function ($sub) {
+                                $sub->selectRaw('1')
+                                    ->from('ride_stops')
+                                    ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id');
+                            });
+                        }
+                    })->orWhereBetween('pickup_at', [$windowStart, $nowWall]);
+                });
+            });
+        });
+    }
+
+    /**
      * Gewone taxi-/boekingsritten (geen contractvervoer).
      *
      * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query

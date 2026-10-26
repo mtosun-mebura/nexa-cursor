@@ -5,6 +5,16 @@
 @section('title', 'Chauffeur dispatch')
 
 @section('content')
+@php
+    $dispatchSections = $dispatchSections ?? [
+        'accept_timer' => true,
+        'booking_notifications' => true,
+        'customer_login' => true,
+        'customer_accept' => true,
+        'payments' => true,
+        'network' => true,
+    ];
+@endphp
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div class="min-w-0 flex-1">
@@ -56,6 +66,7 @@
         <div class="kt-card w-full min-w-0">
         <div id="dispatch-settings-collapsible-root">
         @unless(!empty($marketplaceNetworkOnly))
+        @if(!empty($dispatchSections['accept_timer']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-accept-timer">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Acceptatietimer'])
             <div class="settings-collapsible-body">
@@ -200,7 +211,9 @@
             </div>
             </div>
         </div>
+        @endif
 
+        @if(!empty($dispatchSections['booking_notifications']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
             <div class="settings-collapsible-body">
@@ -252,7 +265,9 @@
             </div>
             </div>
         </div>
+        @endif
 
+        @if(!empty($dispatchSections['customer_login']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-mijn-taxi-login">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Mijn Taxi – klant inlogcode'])
             <div class="settings-collapsible-body">
@@ -296,7 +311,9 @@
             </div>
             </div>
         </div>
+        @endif
 
+        @if(!empty($dispatchSections['customer_accept']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-customer-accept">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Klantmelding bij acceptatie'])
             <div class="settings-collapsible-body">
@@ -428,7 +445,9 @@
             </div>
             </div>
         </div>
+        @endif
 
+        @if(!empty($dispatchSections['payments']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-payments">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Betalingen (Mollie)'])
             <div class="settings-collapsible-body">
@@ -526,8 +545,10 @@
             </div>
             </div>
         </div>
+        @endif
         @endunless
 
+        @if(!empty($dispatchSections['network']))
         <div class="settings-collapsible-section {{ !empty($marketplaceNetworkOnly) ? '' : 'settings-collapsible-card--collapsed' }}" id="dispatch-nexa-network">
             @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'NEXA Network'])
             <div class="settings-collapsible-body">
@@ -676,6 +697,7 @@
             </div>
             </div>
         </div>
+        @endif
         </div>
         </div>
 
@@ -685,7 +707,7 @@
         </div>
     </form>
 
-    @if(empty($noTenantSelected))
+    @if(empty($noTenantSelected) && !empty($dispatchSections['network']))
         <div class="kt-card w-full min-w-0 mt-5" id="dispatch-nexa-network-partners">
             <div class="kt-card-header px-5 py-5">
                 <h3 class="kt-card-title mb-0">Network-partners (invite)</h3>

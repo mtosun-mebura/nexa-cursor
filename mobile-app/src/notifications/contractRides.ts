@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { Platform, Vibration } from 'react-native';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -52,10 +53,10 @@ export async function notifyNewContractRide(opts: {
   dropoff?: string | null;
   playSound?: boolean;
 }): Promise<void> {
-  const pickup = String(opts.pickup || '').trim() || 'Nieuwe rit';
+  const pickup = String(opts.pickup || '').trim() || t("Nieuwe rit");
   const dropoff = String(opts.dropoff || '').trim();
   const body = dropoff ? `${pickup} → ${dropoff}` : pickup;
-  const title = opts.count > 1 ? `${opts.count} nieuwe ritten` : 'Nieuwe rit';
+  const title = opts.count > 1 ? `${opts.count} nieuwe ritten` : t("Nieuwe rit");
 
   try {
     if (Platform.OS === 'ios') {
@@ -92,7 +93,7 @@ export async function notifyNewContractRide(opts: {
 export async function setupContractNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync('contract-rides', {
-    name: 'Contractritten',
+    name: t("Contractritten"),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 120, 60, 120],
     lightColor: '#2563EB',

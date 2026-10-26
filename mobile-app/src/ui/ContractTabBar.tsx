@@ -1,8 +1,10 @@
+import { t } from '../i18n';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeContext';
+import { compactFontProps } from './androidText';
 import { tabBarBottomPadding } from './tabBarSafeArea';
 
 export type ContractTabKey = 'trips' | 'planning' | 'navigation' | 'absences' | 'profile';
@@ -12,11 +14,11 @@ const TABS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'trips', label: 'Ritten', icon: 'calendar-outline' },
-  { key: 'planning', label: 'Planning', icon: 'calendar-number-outline' },
-  { key: 'navigation', label: 'Navigatie', icon: 'navigate-outline' },
-  { key: 'absences', label: 'Afmeldingen', icon: 'close-circle-outline' },
-  { key: 'profile', label: 'Profiel', icon: 'person-outline' },
+  { key: 'trips', label: t("Ritten"), icon: 'calendar-outline' },
+  { key: 'planning', label: t("Planning"), icon: 'calendar-number-outline' },
+  { key: 'navigation', label: t("Navigatie"), icon: 'navigate-outline' },
+  { key: 'absences', label: t("Afmeldingen"), icon: 'close-circle-outline' },
+  { key: 'profile', label: t("Profiel"), icon: 'person-outline' },
 ];
 
 export function ContractTabBar({
@@ -56,20 +58,20 @@ export function ContractTabBar({
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={
               tab.key === 'trips' && tripsBadge && tripsBadge > 0
-                ? `Ritten (${tripsBadge})`
-                : tab.label
+                ? t('Ritten ({count})', { count: tripsBadge })
+                : t(tab.label)
             }
           >
             {tab.key === 'trips' && tripsBadge && tripsBadge > 0 ? (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>
+                <Text style={styles.badgeText} {...compactFontProps}>
                   {tripsBadge > 9 ? '9+' : String(tripsBadge)}
                 </Text>
               </View>
             ) : null}
             <Ionicons name={tab.icon} size={22} color={tint} style={styles.icon} />
-            <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
-              {tab.label}
+            <Text style={[styles.label, { color: tint }]} numberOfLines={1} {...compactFontProps}>
+              {t(tab.label)}
             </Text>
           </Pressable>
         );

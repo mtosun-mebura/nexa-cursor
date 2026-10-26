@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SystemUpgradeLog;
 use App\Services\SystemDockerComposeService;
 use App\Services\SystemLaravelUpgradeService;
+use App\Services\SystemPhpCriticalUpdateService;
 use App\Services\SystemPhpDockerUpgradeService;
 use App\Services\SystemPostgresDockerUpgradeService;
 use App\Services\SystemStackSnapshotService;
@@ -22,6 +23,7 @@ class AdminSystemUpgradeController extends Controller
         protected SystemUpgradePreviewService $previewService,
         protected SystemUpgradeService $upgrades,
         protected SystemPhpDockerUpgradeService $phpDocker,
+        protected SystemPhpCriticalUpdateService $phpCritical,
         protected SystemLaravelUpgradeService $laravel,
         protected SystemDockerComposeService $docker,
         protected SystemPostgresDockerUpgradeService $postgres,
@@ -30,6 +32,12 @@ class AdminSystemUpgradeController extends Controller
     public function index()
     {
         $this->ensureSuperAdmin();
+
+        $phpCriticalUpdates = [];
+        if ($this->phpCritical->enabled()) {
+            $phpStatus = $this->phpCritical->attachAndNotify($this->phpDocker->status());
+            $phpCriticalUpdates = is_array($phpStatus['critical_updates'] ?? null) ? $phpStatus['critical_updates'] : [];
+        }
 
         $stack = $this->snapshots->labeledStack();
         $releaseVersion = $this->snapshots->currentReleaseVersion();
@@ -45,6 +53,7 @@ class AdminSystemUpgradeController extends Controller
             'upgradeHistory' => $upgradeHistory,
             'webUpgradeEnabled' => $this->upgrades->webUpgradeEnabled(),
             'coolifyVpsPublicIp' => \App\Support\CoolifyVpsPublicIp::get(),
+            'phpCriticalUpdates' => $phpCriticalUpdates,
         ]);
     }
 
@@ -121,9 +130,14 @@ class AdminSystemUpgradeController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        $data = $this->phpDocker->status();
+        if ($this->phpCritical->enabled()) {
+            $data = $this->phpCritical->attachAndNotify($data);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $this->phpDocker->status(),
+            'data' => $data,
         ]);
     }
 

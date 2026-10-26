@@ -667,6 +667,12 @@
             border: 1px solid rgb(185, 28, 28) !important;
             color: rgb(185, 28, 28) !important;
         }
+        /* Eénregelige monitoringbanner: tekst en actie in het midden.
+           Meerregelige flash-alerts blijven bovenaan uitgelijnd. */
+        #content .kt-alert.kt-alert-danger.admin-monitoring-error-banner {
+            align-items: center !important;
+            padding-block: calc(var(--spacing) * 3.5);
+        }
         #content .kt-alert.kt-alert-danger.hidden {
             display: none !important;
         }
@@ -896,16 +902,19 @@
             if ($taxiSetupCompany) {
                 $taxiSetup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
                 if ($taxiSetup->appliesTo($taxiSetupCompany)) {
-                    $taxiStatus = $taxiSetup->status($taxiSetupCompany, $adminUser);
-                    if (! empty($taxiStatus['needs_attention'])) {
+                    $companyTaxiStatus = $taxiSetup->status($taxiSetupCompany);
+                    $viewerTaxiStatus = $taxiSetup->status($taxiSetupCompany, $adminUser);
+                    if (! empty($companyTaxiStatus['needs_attention'])) {
                         $taxiSetup->syncNotification($adminUser, $taxiSetupCompany);
+                    } else {
+                        $taxiSetup->clearNotification($adminUser, $taxiSetupCompany);
+                    }
+                    if (! empty($viewerTaxiStatus['needs_attention'])) {
                         $forceOpen = request()->boolean('taxi_setup') || $taxiSetup->consumePrompt();
-                        $adminTaxiSetup = array_merge($taxiStatus, [
+                        $adminTaxiSetup = array_merge($viewerTaxiStatus, [
                             'force_open' => $forceOpen,
                             'company_name' => $taxiSetupCompany->name,
                         ]);
-                    } else {
-                        $taxiSetup->clearNotification($adminUser, $taxiSetupCompany);
                     }
                 }
             }
@@ -957,8 +966,10 @@
                                 <div class="min-w-0">
                                     <div class="font-semibold">Nexa Taxi is nog niet volledig ingericht</div>
                                     <div class="text-sm text-secondary-foreground">
-                                        {{ $taxiOpenLabel }} — voertuigen, tarieven en mailserver.
-                                        Zonder actief voertuig werkt de boekingsmodule niet.
+                                        {{ $taxiOpenLabel }}@if(!empty($adminTaxiSetup['summary'])) — {{ $adminTaxiSetup['summary'] }}@endif.
+                                        @if(empty($adminTaxiSetup['booking_allowed']))
+                                            Zonder actief voertuig werkt de boekingsmodule niet.
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -968,6 +979,22 @@
                                     onclick="window.adminOpenTaxiSetup && window.adminOpenTaxiSetup()">
                                 Open stappenplan
                             </button>
+                        </div>
+                    @endif
+
+                    @if((int) ($adminMonitoringUnresolvedErrors ?? 0) > 0 && auth()->user()?->isSuperAdmin())
+                        <div class="kt-alert kt-alert-danger admin-monitoring-error-banner mb-5 flex flex-wrap items-center justify-between gap-3" role="alert">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <i class="ki-filled ki-information shrink-0" aria-hidden="true"></i>
+                                <div class="min-w-0 text-sm">
+                                    @if((int) $adminMonitoringUnresolvedErrors === 1)
+                                        Er is 1 onopgeloste monitoringfout.
+                                    @else
+                                        Er zijn {{ (int) $adminMonitoringUnresolvedErrors }} onopgeloste monitoringfouten.
+                                    @endif
+                                </div>
+                            </div>
+                            <a href="{{ route('admin.monitoring.index', ['sectie' => 'fouten']) }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">Bekijk fouten</a>
                         </div>
                     @endif
 

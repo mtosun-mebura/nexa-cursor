@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -14,27 +15,7 @@ final class TaxiContractvervoerSchemaService
     {
         $schema = $this->schema($connection);
 
-        if (! $schema->hasTable('transport_customers')) {
-            $schema->create('transport_customers', function (Blueprint $table) {
-                $table->id();
-                $table->unsignedBigInteger('company_id')->index();
-                $table->string('name');
-                $table->string('organization_type', 32)->default('overig')->index();
-                $table->string('contact_name')->nullable();
-                $table->string('contact_email')->nullable();
-                $table->string('contact_phone')->nullable();
-                $table->string('debtor_number')->nullable()->index();
-                $table->string('billing_address')->nullable();
-                $table->string('billing_city')->nullable();
-                $table->string('billing_postal_code')->nullable();
-                $table->string('billing_country')->nullable();
-                $table->text('notes')->nullable();
-                $table->boolean('active')->default(true)->index();
-                $table->timestamp('archived_at')->nullable()->index();
-                $table->boolean('archive_keep_past_rides')->default(false);
-                $table->timestamps();
-            });
-        }
+        $this->ensureTransportCustomersTable($connection);
 
         if (! $schema->hasTable('transport_contracts')) {
             $schema->create('transport_contracts', function (Blueprint $table) {
@@ -215,6 +196,7 @@ final class TaxiContractvervoerSchemaService
                 $table->decimal('lng', 10, 7)->nullable();
                 $table->timestamp('planned_at')->nullable();
                 $table->string('status', 24)->default('planned')->index();
+                $table->string('status_source', 16)->nullable();
                 $table->timestamp('completed_at')->nullable();
                 $table->timestamps();
                 $table->unique(['ride_request_id', 'sequence'], 'ride_stop_unique_sequence');
@@ -228,6 +210,24 @@ final class TaxiContractvervoerSchemaService
         $this->ensureContractPortalTables($connection);
         $this->ensureRideRequestContractColumns($connection);
         $this->ensureTransportGroupReturnTripColumns($connection);
+        $this->ensureRideStopStatusSourceColumn($connection);
+    }
+
+    public function ensureRideStopStatusSourceColumn(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if (! $schema->hasTable('ride_stops')) {
+            return;
+        }
+
+        $cols = $schema->getColumnListing('ride_stops');
+        if (in_array('status_source', $cols, true)) {
+            return;
+        }
+
+        $schema->table('ride_stops', function (Blueprint $table) {
+            $table->string('status_source', 16)->nullable();
+        });
     }
 
     public function ensurePassengerMapColorColumn(?string $connection = null): void
@@ -470,8 +470,145 @@ final class TaxiContractvervoerSchemaService
         }
     }
 
+    /**
+     * Bestaande tabel: niets doen. Wees-type zonder tabel: alleen dat type in hetzelfde schema weg, daarna aanmaken.
+     */
+    public function ensureTransportCustomersTable(?string $connection = null): void
+    {
+        $schema = $this->schema($connection);
+        if ($schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $plan = $this->transportCustomersCreatePlan(false, $this->orphanTransportCustomersTypeExists($connection));
+        if ($plan === 'drop_orphan_type_then_create') {
+            $this->dropOrphanTransportCustomersType($connection);
+        }
+
+        if ($schema->hasTable('transport_customers')) {
+            return;
+        }
+
+        $schema->create('transport_customers', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('company_id')->index();
+            $table->string('name');
+            $table->string('organization_type', 32)->default('overig')->index();
+            $table->string('contact_name')->nullable();
+            $table->string('contact_email')->nullable();
+            $table->string('contact_phone')->nullable();
+            $table->string('debtor_number')->nullable()->index();
+            $table->string('billing_address')->nullable();
+            $table->string('billing_city')->nullable();
+            $table->string('billing_postal_code')->nullable();
+            $table->string('billing_country')->nullable();
+            $table->text('notes')->nullable();
+            $table->boolean('active')->default(true)->index();
+            $table->timestamp('archived_at')->nullable()->index();
+            $table->boolean('archive_keep_past_rides')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    public function transportCustomersTableExists(?string $connection = null): bool
+    {
+        return $this->schema($connection)->hasTable('transport_customers');
+    }
+
+    /**
+     * @return 'skip'|'drop_orphan_type_then_create'|'create'
+     */
+    public function transportCustomersCreatePlan(bool $tableExists, bool $orphanTypeExists): string
+    {
+        if ($tableExists) {
+            return 'skip';
+        }
+
+        if ($orphanTypeExists) {
+            return 'drop_orphan_type_then_create';
+        }
+
+        return 'create';
+    }
+
+    public function orphanCompositeTypeLookupSql(): string
+    {
+        return <<<'SQL'
+select n.nspname
+from pg_type t
+join pg_namespace n on n.oid = t.typnamespace
+where t.typname = ?
+  and n.nspname = ?
+  and t.typtype = 'c'
+  and t.typrelid = 0
+SQL;
+    }
+
+    public function orphanTypeDropStatement(string $schema): ?string
+    {
+        if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $schema)) {
+            return null;
+        }
+
+        return 'DROP TYPE IF EXISTS '.$this->quoteIdent($schema).'."transport_customers"';
+    }
+
+    public function orphanTransportCustomersTypeExists(?string $connection = null): bool
+    {
+        $name = $this->connectionName($connection);
+        if (Schema::connection($name)->getConnection()->getDriverName() !== 'pgsql') {
+            return false;
+        }
+
+        $schemaName = $this->currentSchemaName($name);
+        if ($schemaName === null) {
+            return false;
+        }
+
+        $row = DB::connection($name)->selectOne(
+            $this->orphanCompositeTypeLookupSql(),
+            ['transport_customers', $schemaName]
+        );
+
+        return $row !== null;
+    }
+
+    private function dropOrphanTransportCustomersType(?string $connection): void
+    {
+        $name = $this->connectionName($connection);
+        $schemaName = $this->currentSchemaName($name);
+        if ($schemaName === null) {
+            return;
+        }
+
+        $statement = $this->orphanTypeDropStatement($schemaName);
+        if ($statement === null || ! $this->orphanTransportCustomersTypeExists($connection)) {
+            return;
+        }
+
+        DB::connection($name)->statement($statement);
+    }
+
+    private function currentSchemaName(string $connection): ?string
+    {
+        $row = DB::connection($connection)->selectOne('select current_schema() as name');
+        $schema = is_object($row) ? trim((string) ($row->name ?? '')) : '';
+
+        return $schema !== '' ? $schema : null;
+    }
+
+    private function connectionName(?string $connection): string
+    {
+        return $connection ?? (string) config('database.default');
+    }
+
+    private function quoteIdent(string $ident): string
+    {
+        return '"'.str_replace('"', '""', $ident).'"';
+    }
+
     private function schema(?string $connection): \Illuminate\Database\Schema\Builder
     {
-        return Schema::connection($connection ?? (string) config('database.default'));
+        return Schema::connection($this->connectionName($connection));
     }
 }

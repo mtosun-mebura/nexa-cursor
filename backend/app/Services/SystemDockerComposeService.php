@@ -86,12 +86,40 @@ class SystemDockerComposeService
 
     /**
      * Bouwt images waarvan de context is veranderd en start de hele compose-stack opnieuw.
+     * Bij een security-release eerst `build --pull` (Dockerfile wijst dan op php:X.Y.Z-cli), daarna force-recreate.
+     * $minimumPhp wordt in de gebouwde image gecontroleerd vóór het herstarten.
      *
      * @param  list<array{label: string, status: string, output?: string}>  $steps
      */
-    public function recreateStack(?callable $emit, array &$steps): void
+    public function recreateStack(?callable $emit, array &$steps, bool $pull = false, ?string $minimumPhp = null): void
     {
         $hostDir = $this->requireHostProjectDir();
+        if ($pull) {
+            $this->runInHelperContainer(
+                $emit,
+                $steps,
+                $hostDir,
+                $this->composeBuildArgs($hostDir, true),
+                'PHP-image pullen',
+                1800,
+                true,
+                $this->composeBuildEnv(),
+                false,
+            );
+            if (is_string($minimumPhp) && $minimumPhp !== '') {
+                $this->assertBuiltImagePhp($emit, $steps, $hostDir, $minimumPhp);
+            }
+            $this->runInHelperContainer(
+                $emit,
+                $steps,
+                $hostDir,
+                $this->composeRecreateArgs($hostDir),
+                'Container opnieuw opzetten',
+            );
+
+            return;
+        }
+
         $this->runInHelperContainer(
             $emit,
             $steps,
@@ -586,6 +614,82 @@ class SystemDockerComposeService
     }
 
     /**
+     * `docker compose build --pull` haalt de basisimage (php:8.5-cli) opnieuw op.
+     * `up --build --pull` zet de pull-policy op build en pullet die basisimage niet.
+     *
+     * `--progress plain` is een globale vlag: de build-subcommand van Compose 2.33 kent die niet.
+     * Zonder plain progress tekent een TTY één frame (`Building 0.0s (0/1)`) en verbergt de echte fout.
+     *
+     * @return list<string>
+     */
+    public function composeBuildArgs(string $hostDir, bool $pull = false): array
+    {
+        $sub = ['build'];
+        if ($pull) {
+            $sub[] = '--pull';
+        }
+
+        return $this->composeSubcommandArgs($hostDir, $sub, ['--progress', 'plain']);
+    }
+
+    /**
+     * Alleen voor `build --pull`. De Bake-hint op stderr is geen fout; bake zelf blijft uit.
+     *
+     * @return list<string>
+     */
+    public function composeBuildEnv(): array
+    {
+        return ['COMPOSE_BAKE=false'];
+    }
+
+    /**
+     * Exit 0 met alleen de Bake-hint is succes. Een echte foutregel faalt ook bij exit 0.
+     */
+    public function composeCommandSucceeded(int $exitCode, string $output): bool
+    {
+        if ($this->realComposeErrorLine($output) !== null) {
+            return false;
+        }
+
+        return $exitCode === 0;
+    }
+
+    public function composeFailureDetail(int $exitCode, string $output): ?string
+    {
+        if ($this->composeCommandSucceeded($exitCode, $output)) {
+            return null;
+        }
+
+        $error = $this->realComposeErrorLine($output);
+        if ($error !== null) {
+            return $error;
+        }
+
+        $clean = trim($this->sanitizeComposeOutput($output));
+        if ($clean !== '') {
+            return $this->truncateComposeOutput($clean, 500);
+        }
+
+        return 'docker compose stopte met exitcode '.$exitCode.'.';
+    }
+
+    public function outputMeansImageUnavailable(string $output): bool
+    {
+        return preg_match(
+            '/manifest unknown|no such image|no match for platform|failed to resolve source metadata/i',
+            $this->sanitizeComposeOutput($output)
+        ) === 1;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function composeRecreateArgs(string $hostDir): array
+    {
+        return $this->composeSubcommandArgs($hostDir, ['up', '-d', '--force-recreate']);
+    }
+
+    /**
      * @param  list<string>  $services
      * @return list<string>
      */
@@ -611,12 +715,13 @@ class SystemDockerComposeService
 
     /**
      * @param  list<string>  $subcommand
+     * @param  list<string>  $globalFlags
      * @return list<string>
      */
-    public function composeSubcommandArgs(string $hostDir, array $subcommand): array
+    public function composeSubcommandArgs(string $hostDir, array $subcommand, array $globalFlags = []): array
     {
         $compose = $this->composeInvocation($hostDir);
-        $args = ['compose'];
+        $args = array_merge(['compose'], $globalFlags);
         if ($compose['project'] !== null) {
             $args = array_merge($args, ['-p', $compose['project']]);
         }
@@ -881,6 +986,7 @@ class SystemDockerComposeService
      *
      * @param  list<array{label: string, status: string, output?: string}>  $steps
      * @param  list<string>  $cmd
+     * @param  list<string>  $extraEnv
      * @return array{output: string, exit_code: int}
      */
     private function runInHelperContainer(
@@ -891,6 +997,8 @@ class SystemDockerComposeService
         string $label,
         int $timeoutSeconds = 1800,
         bool $throwOnFailure = true,
+        array $extraEnv = [],
+        ?bool $tty = null,
     ): array {
         $this->upgrades->emitProgress($emit, $steps, $label, 'running');
         $this->ensureHelperImage();
@@ -900,12 +1008,12 @@ class SystemDockerComposeService
             'Image' => self::HELPER_IMAGE,
             'Cmd' => $cmd,
             'WorkingDir' => $hostDir,
-            'Tty' => true,
-            'Env' => [
+            'Tty' => $tty ?? true,
+            'Env' => array_merge([
                 'DOCKER_HOST=unix:///var/run/docker.sock',
                 'PWD='.$hostDir,
                 'COMPOSE_PROJECT_DIR='.$hostDir,
-            ],
+            ], $extraEnv),
             'HostConfig' => [
                 'Binds' => [
                     '/var/run/docker.sock:/var/run/docker.sock',
@@ -944,13 +1052,13 @@ class SystemDockerComposeService
             if (! ($state['Running'] ?? false)) {
                 $exit = (int) ($state['ExitCode'] ?? 1);
                 $this->dockerDeleteContainer(self::HELPER_CONTAINER);
-                if ($exit !== 0 && $throwOnFailure) {
-                    throw new \RuntimeException(trim(
-                        $label.' mislukt: '.$this->truncateComposeOutput($output)
-                    ));
+                $detail = $this->composeFailureDetail($exit, $output);
+                if ($detail !== null && $throwOnFailure) {
+                    throw new \RuntimeException(trim($label.' mislukt: '.$detail));
                 }
 
-                $this->upgrades->emitProgress($emit, $steps, $label.($exit === 0 ? ' voltooid' : ' (exit '.$exit.')'), $exit === 0 ? 'done' : 'failed');
+                $ok = $detail === null;
+                $this->upgrades->emitProgress($emit, $steps, $label.($ok ? ' voltooid' : ' (exit '.$exit.')'), $ok ? 'done' : 'failed');
 
                 return ['output' => $output, 'exit_code' => $exit];
             }
@@ -1064,12 +1172,140 @@ class SystemDockerComposeService
             return;
         }
 
-        foreach (preg_split("/\r\n|\n|\r/", $chunk) ?: [] as $line) {
+        foreach (preg_split("/\r\n|\n|\r/", $this->stripAnsi($chunk)) ?: [] as $line) {
             $line = trim($line);
-            if ($line !== '') {
-                $emit(['type' => 'note', 'note' => $label.': '.$line]);
+            if ($line === '' || $this->isComposeNoiseLine($line)) {
+                continue;
+            }
+            $emit(['type' => 'note', 'note' => $label.': '.$line]);
+        }
+    }
+
+    /**
+     * @param  list<array{label: string, status: string, output?: string}>  $steps
+     */
+    private function assertBuiltImagePhp(?callable $emit, array &$steps, string $hostDir, string $minimumPhp): void
+    {
+        $result = $this->runInHelperContainer(
+            $emit,
+            $steps,
+            $hostDir,
+            $this->composePhpVersionArgs($hostDir),
+            'PHP-versie in de image controleren',
+            180,
+            true,
+            [],
+            false,
+        );
+        $built = $this->extractPhpVersion($result['output']);
+        if ($built === null) {
+            throw new \RuntimeException('Kon de PHP-versie in de gebouwde image niet lezen.');
+        }
+        if ($this->phpVersionSatisfies($built, $minimumPhp)) {
+            return;
+        }
+
+        throw new \RuntimeException(
+            'De gebouwde image draait PHP '.$built.', ouder dan security-release '.$minimumPhp.'.'
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function composePhpVersionArgs(string $hostDir): array
+    {
+        $service = $this->composeInvocation($hostDir)['service'];
+
+        return $this->composeSubcommandArgs($hostDir, [
+            'run', '--rm', '--no-deps', '-T', '--entrypoint', 'php', $service, '-r', 'echo PHP_VERSION;',
+        ]);
+    }
+
+    private function phpVersionSatisfies(string $running, string $required): bool
+    {
+        $running = $this->extractPhpVersion($running) ?? '';
+        $required = $this->extractPhpVersion($required) ?? '';
+        if ($required === '') {
+            return true;
+        }
+
+        return $running !== '' && version_compare($running, $required, '>=');
+    }
+
+    private function extractPhpVersion(string $output): ?string
+    {
+        $clean = $this->sanitizeComposeOutput($output);
+        if (preg_match_all('/\d+\.\d+\.\d+/', $clean, $matches) < 1) {
+            return null;
+        }
+
+        $found = null;
+        foreach ($matches[0] as $version) {
+            if (version_compare($version, '8.0.0', '>=')) {
+                $found = $version;
             }
         }
+
+        return $found;
+    }
+
+    private function realComposeErrorLine(string $output): ?string
+    {
+        $clean = $this->sanitizeComposeOutput($output);
+        $patterns = [
+            '/failed to (?:solve|resolve source metadata)[^\n]*/i',
+            '/no match for platform in manifest[^\n]*/i',
+            '/manifest unknown[^\n]*/i',
+            '/pull access denied[^\n]*/i',
+            '/no such image[^\n]*/i',
+            '/dockerfile[^\n]*(?:syntax|parse)[^\n]*/i',
+            '/(?:syntax|parse) error[^\n]*/i',
+        ];
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $clean, $matches) === 1) {
+                return trim($matches[0]);
+            }
+        }
+
+        return null;
+    }
+
+    private function sanitizeComposeOutput(string $output): string
+    {
+        $lines = preg_split("/\r\n|\n|\r/", $this->stripAnsi($output)) ?: [];
+        $kept = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || $this->isComposeNoiseLine($line)) {
+                continue;
+            }
+            $kept[] = $line;
+        }
+
+        return implode("\n", $kept);
+    }
+
+    private function isComposeNoiseLine(string $line): bool
+    {
+        if (preg_match('/delegate build to bake/i', $line) === 1) {
+            return true;
+        }
+        if (preg_match('/^Just set COMPOSE_BAKE=true\.?$/i', $line) === 1) {
+            return true;
+        }
+        if (preg_match('/^\[\+\]\s+Building\b/i', $line) === 1 && preg_match('/error|failed|denied|unknown|not found/i', $line) !== 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function stripAnsi(string $output): string
+    {
+        $stripped = preg_replace('/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -\/]*[@-~])/', '', $output);
+
+        return is_string($stripped) ? $stripped : $output;
     }
 
     private function truncateComposeOutput(string $output, int $max = 6000): string

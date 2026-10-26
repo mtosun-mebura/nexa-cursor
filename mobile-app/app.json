@@ -14,12 +14,16 @@
       "backgroundColor": "#0B1220"
     },
     "ios": {
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png"
+      },
       "supportsTablet": false,
       "bundleIdentifier": "nl.nexasuite.taxi",
       "buildNumber": "1",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Nexa Taxi gebruikt je locatie voor ritten in de buurt en ophaaladressen.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kies Altijd zodat marktplaats-klanten je taxi ook vinden als de app op de achtergrond staat.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Nexa Taxi heeft doorlopende locatie nodig zodat marktplaats-klanten de dichtstbijzijnde taxi kunnen vinden.",
         "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marktplaats-matching en chauffeur-tracking.",
         "NSPhotoLibraryUsageDescription": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
         "NSPhotoLibraryAddUsageDescription": "Nexa Taxi bewaart gekozen foto’s alleen voor je chauffeurprofiel.",
@@ -42,10 +46,11 @@
     "android": {
       "package": "nl.nexasuite.taxi",
       "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#0B1220",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
@@ -54,7 +59,8 @@
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "CAMERA"
       ]
     },
     "plugins": [
@@ -64,7 +70,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads."
+          "photosPermission": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
+          "microphonePermission": false
         }
       ],
       "react-native-maps",
@@ -98,6 +105,36 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "style": "light"
+        }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Light",
+            "ios": "./assets/icon.png",
+            "android": {
+              "foregroundImage": "./assets/android-icon-foreground.png",
+              "monochromeImage": "./assets/android-icon-monochrome.png",
+              "backgroundColor": "#FFFFFF"
+            }
+          },
+          {
+            "name": "Dark",
+            "ios": "./assets/icon-dark.png",
+            "android": {
+              "foregroundImage": "./assets/android-icon-foreground.png",
+              "monochromeImage": "./assets/android-icon-monochrome.png",
+              "backgroundColor": "#0B1220"
+            }
+          }
+        ]
       ]
     ],
     "extra": {

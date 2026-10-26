@@ -42,6 +42,7 @@ class ContractDestinationArrivalServiceTest extends TestCase
             $table->unsignedBigInteger('transport_passenger_id')->nullable();
             $table->string('stop_type');
             $table->string('status')->default('planned');
+            $table->string('status_source', 16)->nullable();
             $table->decimal('lat', 10, 7)->nullable();
             $table->decimal('lng', 10, 7)->nullable();
             $table->timestamp('planned_at')->nullable();
@@ -73,7 +74,9 @@ class ContractDestinationArrivalServiceTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-10-13 08:03:00', 'Europe/Amsterdam'));
         $this->assertSame(2, $service->observe($this->conn, 7, [1, 2], self::DEST_LAT + 0.0004, self::DEST_LNG));
         $this->assertSame('completed', RideStop::on($this->conn)->whereKey($a->id)->value('status'));
+        $this->assertSame('auto', RideStop::on($this->conn)->whereKey($a->id)->value('status_source'));
         $this->assertSame('completed', RideStop::on($this->conn)->whereKey($b->id)->value('status'));
+        $this->assertSame('auto', RideStop::on($this->conn)->whereKey($b->id)->value('status_source'));
     }
 
     #[Test]
@@ -93,6 +96,7 @@ class ContractDestinationArrivalServiceTest extends TestCase
     public function manual_reach_at_the_destination_updates_that_group_and_leaves_skipped(): void
     {
         [$a, $b] = $this->twoPassengersAtSchool();
+        $this->boardPickups((int) $a->ride_request_id);
         $skippedPickup = $this->makeStop($a->ride_request_id, 'pickup', 3, 52.2, 6.8, 'skipped');
         $skippedDest = $this->makeStop($a->ride_request_id, 'destination', 3, self::DEST_LAT, self::DEST_LNG);
 
@@ -106,6 +110,7 @@ class ContractDestinationArrivalServiceTest extends TestCase
         $this->assertSame(2, $result['updated']);
         $this->assertNull($result['reason']);
         $this->assertSame('completed', RideStop::on($this->conn)->whereKey($a->id)->value('status'));
+        $this->assertNull(RideStop::on($this->conn)->whereKey($a->id)->value('status_source'));
         $this->assertSame('completed', RideStop::on($this->conn)->whereKey($b->id)->value('status'));
         $this->assertSame('planned', RideStop::on($this->conn)->whereKey($skippedDest->id)->value('status'));
         $this->assertSame('skipped', RideStop::on($this->conn)->whereKey($skippedPickup->id)->value('status'));
@@ -139,6 +144,7 @@ class ContractDestinationArrivalServiceTest extends TestCase
     public function manual_reach_with_gps_only_updates_the_destination_where_the_driver_stopped(): void
     {
         [$a] = $this->twoPassengersAtSchool();
+        $this->boardPickups((int) $a->ride_request_id);
         $otherRide = RideRequest::on($this->conn)->create([
             'status' => 'assigned',
             'ride_type' => 'contract_group',
@@ -156,6 +162,23 @@ class ContractDestinationArrivalServiceTest extends TestCase
         $this->assertSame(2, $result['updated']);
         $this->assertSame('completed', RideStop::on($this->conn)->whereKey($a->id)->value('status'));
         $this->assertSame('planned', RideStop::on($this->conn)->whereKey($otherDest->id)->value('status'));
+    }
+
+    #[Test]
+    public function manual_reach_is_blocked_while_a_passenger_is_not_picked_up(): void
+    {
+        [$a] = $this->twoPassengersAtSchool();
+
+        $result = app(ContractDestinationArrivalService::class)->markAll(
+            $this->conn,
+            [1, 2],
+            self::DEST_LAT,
+            self::DEST_LNG
+        );
+
+        $this->assertSame(0, $result['updated']);
+        $this->assertSame('pickups_open', $result['reason']);
+        $this->assertSame('planned', RideStop::on($this->conn)->whereKey($a->id)->value('status'));
     }
 
     #[Test]
@@ -201,6 +224,15 @@ class ContractDestinationArrivalServiceTest extends TestCase
         $b = $this->makeStop($ride->id, 'destination', 2, self::DEST_LAT, self::DEST_LNG);
 
         return [$a, $b];
+    }
+
+    private function boardPickups(int $rideId): void
+    {
+        RideStop::on($this->conn)
+            ->where('ride_request_id', $rideId)
+            ->where('stop_type', 'pickup')
+            ->where('status', 'planned')
+            ->update(['status' => 'picked_up']);
     }
 
     private function makeStop(

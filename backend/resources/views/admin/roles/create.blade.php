@@ -360,7 +360,9 @@
                             }
                         }
 
-                        $allPermissions = $visibility->filter($allPermissions)->values();
+                        $allPermissions = \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::withoutGranular(
+                            $visibility->filter($allPermissions)
+                        )->values();
 
                         // Group by module/resource (ondersteunt "action-module", "module.resource.action", "resource.action")
                         $permissionModules = $allPermissions->groupBy(function($permission) use ($resourceToModuleMap) {
@@ -515,6 +517,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    @include('admin.roles.partials.dispatch-permissions', ['dispatchEditable' => true])
                 </div>
             </div>
 

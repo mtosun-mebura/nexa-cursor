@@ -7,6 +7,7 @@ use App\Models\Module;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Module as TaxiModule;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -215,6 +216,8 @@ class NexaDemoAccountService
         if ($names === []) {
             $names = (new TaxiModule)->registerPermissions();
         }
+        $preset = TaxiDispatchAccess::rolePresetPermissions()[$this->roleName()] ?? [];
+        $names = array_values(array_unique(array_merge($names, $preset)));
         if ($names === []) {
             return;
         }

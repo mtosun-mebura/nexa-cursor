@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Traits\TenantFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use App\Modules\NexaTaxi\Services\TaxiGpsLiveMapDemoService;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingService;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
@@ -32,8 +33,12 @@ class GpsTrackingController extends Controller
         protected EnvService $env
     ) {}
 
-    public function index(): View
+    public function index(): View|RedirectResponse
     {
+        $user = auth()->user();
+        if ($user && ! TaxiDispatchAccess::sees($user, 'gps_vehicles') && TaxiDispatchAccess::sees($user, 'gps_settings')) {
+            return redirect()->route('admin.taxi.gps_tracking.settings');
+        }
         $this->authorizeGpsView();
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
@@ -266,7 +271,9 @@ class GpsTrackingController extends Controller
 
     public function settings(): View
     {
-        $this->authorizeGpsView();
+        if (! TaxiDispatchAccess::sees(auth()->user(), 'gps_settings')) {
+            abort(403, 'Geen rechten voor deze actie.');
+        }
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
         $companyId = $company?->id ? (int) $company->id : null;
@@ -288,7 +295,7 @@ class GpsTrackingController extends Controller
 
     public function updateSettings(Request $request): RedirectResponse|JsonResponse
     {
-        $this->authorizeGpsManage();
+        TaxiDispatchAccess::authorizeMutate('gps_settings');
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
         if ($company === null) {
@@ -374,7 +381,9 @@ class GpsTrackingController extends Controller
 
     private function authorizeGpsView(): void
     {
-        $this->authorizeOrPermissionAny(['vehicles.view', 'rides.view']);
+        if (! TaxiDispatchAccess::sees(auth()->user(), 'gps_vehicles')) {
+            abort(403, 'Geen rechten voor deze actie.');
+        }
     }
 
     private function authorizeGpsManage(): void
@@ -392,7 +401,9 @@ class GpsTrackingController extends Controller
             return true;
         }
 
-        return $user->can('vehicles.update') || $user->can('rides.update');
+        return $user->can('vehicles.update')
+            || $user->can('rides.update')
+            || TaxiDispatchAccess::allows($user, 'gps_tracking.view');
     }
 
     private function canUseLiveDemo(): bool

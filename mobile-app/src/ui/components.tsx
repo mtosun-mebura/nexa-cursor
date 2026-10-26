@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { t } from '../i18n';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
 import { useOptionalDriverAccent } from '../theme/driverAccent';
+import { compactInputProps } from './androidText';
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const colors = useThemeColors();
@@ -87,14 +89,9 @@ export function Field({
 }) {
   const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [hideError, setHideError] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
 
-  useEffect(() => {
-    setHideError(false);
-  }, [error]);
-
-  const showError = !!error && !hideError;
+  const showError = !!error;
   const showPasswordToggle = !!secureTextEntry;
   const accessory = rightAccessory
     ? rightAccessory
@@ -104,7 +101,7 @@ export function Field({
           hitSlop={8}
           style={styles.passwordToggle}
           accessibilityRole="button"
-          accessibilityLabel={passwordVisible ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}
+          accessibilityLabel={passwordVisible ? t("Wachtwoord verbergen") : t("Wachtwoord tonen")}
         >
           <Ionicons
             name={passwordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -130,10 +127,7 @@ export function Field({
   const inputProps = {
     ref: inputRef,
     value,
-    onChangeText: (v: string) => {
-      if (showError) setHideError(true);
-      onChangeText(v);
-    },
+    onChangeText,
     editable: true as const,
     showSoftInputOnFocus: true as const,
     secureTextEntry: !!secureTextEntry && !passwordVisible,
@@ -173,6 +167,7 @@ export function Field({
         >
           <TextInput
             {...inputProps}
+            {...compactInputProps}
             style={[
               styles.input,
               styles.inputInWrap,
@@ -205,6 +200,7 @@ export function Field({
       ) : (
         <TextInput
           {...inputProps}
+          {...compactInputProps}
           style={[
             styles.input,
             multiline && styles.inputMultiline,

@@ -152,7 +152,7 @@ class TaxiAppFirstLoginService
     /**
      * @return array{ok: bool, status: int, message: string, retry_after?: int}
      */
-    public function requestCode(string $email, string $channel, string $ip): array
+    public function requestCode(string $email, string $channel, string $ip, bool $nexaRegistrationBrand = false): array
     {
         $email = strtolower(trim($email));
         $channel = $this->normalizeChannel($channel);
@@ -233,7 +233,7 @@ class TaxiAppFirstLoginService
             'expires_at' => now()->addMinutes($expiresMinutes),
         ]);
 
-        $mailed = $this->sendCodeMail($user, $channel, $code, $expiresMinutes);
+        $mailed = $this->sendCodeMail($user, $channel, $code, $expiresMinutes, $nexaRegistrationBrand);
         if (! $mailed) {
             return [
                 'ok' => false,
@@ -474,7 +474,7 @@ class TaxiAppFirstLoginService
             ->update(['consumed_at' => now()]);
     }
 
-    private function sendCodeMail(User $user, string $channel, string $code, int $expiresMinutes): bool
+    private function sendCodeMail(User $user, string $channel, string $code, int $expiresMinutes, bool $nexaRegistrationBrand = false): bool
     {
         $companyId = (int) ($user->company_id ?? 0);
         $company = $companyId > 0 ? Company::query()->find($companyId) : null;
@@ -496,18 +496,32 @@ class TaxiAppFirstLoginService
             NexaBranding::emailLogoTemplateVariable()
         );
 
-        $template = $this->codeTemplates->resolveActiveTemplate($companyId > 0 ? $companyId : null);
-        if ($template) {
-            $subject = $this->parser->parseTemplateVariables($template->subject, $variables);
-            $html = $this->parser->parseTemplateVariables($template->html_content, $variables);
-            $text = $template->text_content
-                ? $this->parser->parseTemplateVariables($template->text_content, $variables)
-                : strip_tags($html);
+        if ($nexaRegistrationBrand) {
+            $variables['COMPANY_LOGO'] = $this->codeTemplates->nexaRegistrationLogoHtml();
+        }
+
+        if ($nexaRegistrationBrand) {
+            $subject = $this->parser->parseTemplateVariables($this->codeTemplates->registrationSubject(), $variables);
+            $html = $this->parser->parseTemplateVariables($this->codeTemplates->registrationHtmlContent(), $variables);
+            $text = $this->parser->parseTemplateVariables($this->codeTemplates->registrationTextContent(), $variables);
         } else {
-            $defaults = $this->codeTemplates->defaultPayload(null);
-            $subject = $this->parser->parseTemplateVariables((string) $defaults['subject'], $variables);
-            $html = $this->parser->parseTemplateVariables($this->codeTemplates->defaultHtmlContent(), $variables);
-            $text = $this->parser->parseTemplateVariables($this->codeTemplates->defaultTextContent(), $variables);
+            $template = $this->codeTemplates->resolveActiveTemplate($companyId > 0 ? $companyId : null);
+            if ($template) {
+                $subject = $this->parser->parseTemplateVariables($template->subject, $variables);
+                $html = $this->parser->parseTemplateVariables($template->html_content, $variables);
+                $text = $template->text_content
+                    ? $this->parser->parseTemplateVariables($template->text_content, $variables)
+                    : strip_tags($html);
+            } else {
+                $defaults = $this->codeTemplates->defaultPayload(null);
+                $subject = $this->parser->parseTemplateVariables((string) $defaults['subject'], $variables);
+                $html = $this->parser->parseTemplateVariables($this->codeTemplates->defaultHtmlContent(), $variables);
+                $text = $this->parser->parseTemplateVariables($this->codeTemplates->defaultTextContent(), $variables);
+            }
+        }
+
+        if ($nexaRegistrationBrand) {
+            $html = $this->codeTemplates->withoutHeaderKicker($html);
         }
 
         $payload = [
@@ -520,7 +534,10 @@ class TaxiAppFirstLoginService
             'text' => $text,
             'related_type' => 'user',
             'related_id' => $user->id,
-            'meta' => ['channel' => $channel],
+            'meta' => ['channel' => $channel, 'nexa_registration_brand' => $nexaRegistrationBrand],
+            'from_name' => $nexaRegistrationBrand
+                ? TaxiAppLoginCodeEmailTemplateService::NEXA_REGISTRATION_FROM_NAME
+                : null,
         ];
 
         $deliverable = $this->env->isMailDeliverableToInbox($companyId > 0 ? $companyId : null)

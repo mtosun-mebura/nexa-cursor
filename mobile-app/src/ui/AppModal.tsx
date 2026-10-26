@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,6 +14,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
+import { useAndroidKeyboardOverlap } from './androidText';
 
 type AppModalProps = {
   visible: boolean;
@@ -28,6 +30,15 @@ type AppModalProps = {
   avoidKeyboard?: boolean;
   /** Uitzetten als de inhoud zelf scrollt, bijvoorbeeld bij bijsnijden. */
   scrollEnabled?: boolean;
+  /**
+   * Backdrop-tik roept onRequestClose aan. Standaard true.
+   * Uit: tik op de achtergrond verbergt alleen het toetsenbord.
+   */
+  dismissOnBackdrop?: boolean;
+  /** Verticale scrollbalk in het paneel. Standaard true. */
+  showsVerticalScrollIndicator?: boolean;
+  /** Buiten de scroll, in de modal (bijv. iOS InputAccessoryView). */
+  keyboardAccessory?: ReactNode;
 };
 
 /**
@@ -43,16 +54,28 @@ export function AppModal({
   panelStyle,
   avoidKeyboard,
   scrollEnabled = true,
+  dismissOnBackdrop = true,
+  showsVerticalScrollIndicator = true,
+  keyboardAccessory,
 }: AppModalProps) {
   const colors = useThemeColors();
   const styles = makeStyles(colors);
+  const androidKeyboardOverlap = useAndroidKeyboardOverlap();
   const { height } = useWindowDimensions();
   const isSheet = placement === 'sheet';
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
   const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
+  const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
 
   const body = (
-    <View style={[styles.root, isSheet ? styles.rootSheet : styles.rootCenter]} pointerEvents="box-none">
+    <View
+      style={[
+        styles.root,
+        isSheet ? styles.rootSheet : styles.rootCenter,
+        androidKeyboardOverlap > 0 ? { paddingBottom: androidKeyboardOverlap } : null,
+      ]}
+      pointerEvents="box-none"
+    >
       <BlurView
         pointerEvents="none"
         intensity={Platform.OS === 'ios' ? 36 : 48}
@@ -61,11 +84,17 @@ export function AppModal({
       />
       <Pressable
         style={styles.scrim}
-        disabled={dismissDisabled}
+        disabled={dismissDisabled && dismissOnBackdrop}
         onPress={() => {
-          if (!dismissDisabled) onRequestClose();
+          if (closeFromBackdrop) {
+            onRequestClose();
+            return;
+          }
+          Keyboard.dismiss();
         }}
-        accessibilityLabel="Sluiten"
+        {...(closeFromBackdrop
+          ? { accessibilityLabel: 'Sluiten' }
+          : { accessible: false, importantForAccessibility: 'no' as const })}
       />
       <View pointerEvents="box-none" style={isSheet ? styles.sheetLayer : styles.centerLayer}>
         <View
@@ -79,13 +108,24 @@ export function AppModal({
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             bounces={false}
-            showsVerticalScrollIndicator
+            showsVerticalScrollIndicator={showsVerticalScrollIndicator}
           >
             {children}
           </ScrollView>
         </View>
       </View>
     </View>
+  );
+
+  const modalBody = wrapKeyboard ? (
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {body}
+    </KeyboardAvoidingView>
+  ) : (
+    body
   );
 
   return (
@@ -97,15 +137,13 @@ export function AppModal({
         if (!dismissDisabled) onRequestClose();
       }}
     >
-      {wrapKeyboard ? (
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          {body}
-        </KeyboardAvoidingView>
+      {keyboardAccessory ? (
+        <View style={styles.flex} pointerEvents="box-none">
+          {modalBody}
+          {keyboardAccessory}
+        </View>
       ) : (
-        body
+        modalBody
       )}
     </Modal>
   );

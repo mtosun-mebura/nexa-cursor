@@ -162,6 +162,30 @@
                     tuigt daarna de hele Docker-stack opnieuw op (build waar de image is veranderd) en draait de testdoorloop.
                 </p>
                 <p class="text-sm text-secondary-foreground mb-0" id="php-upgrade-status-text">Status ophalen…</p>
+                @php
+                    $hasPhpCriticalRuntime = false;
+                    foreach ($phpCriticalUpdates ?? [] as $phpCriticalUpdateRow) {
+                        $phpCriticalKey = is_array($phpCriticalUpdateRow) ? (string) ($phpCriticalUpdateRow['key'] ?? '') : '';
+                        if (str_starts_with($phpCriticalKey, 'php-runtime:')) {
+                            $hasPhpCriticalRuntime = true;
+                            break;
+                        }
+                    }
+                @endphp
+                <div id="php-critical-alert" class="kt-alert kt-alert-danger mt-4 flex flex-wrap items-center justify-between gap-3 {{ empty($phpCriticalUpdates) ? 'hidden' : '' }}" role="alert">
+                    <div class="kt-alert-content" id="php-critical-alert-text">
+                        @foreach($phpCriticalUpdates ?? [] as $phpCriticalUpdate)
+                            <div>{{ $phpCriticalUpdate['message'] ?? 'Er is een kritieke PHP-update.' }}</div>
+                        @endforeach
+                    </div>
+                    <button type="button"
+                            id="btn-php-security-release"
+                            class="kt-btn kt-btn-primary shrink-0{{ $hasPhpCriticalRuntime ? '' : ' hidden' }}"
+                            @disabled(!$webUpgradeEnabled)
+                            disabled>
+                        Security-release uitvoeren
+                    </button>
+                </div>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-php-docker-upgrade" class="kt-btn kt-btn-outline" @disabled(!$webUpgradeEnabled) disabled>
                         <svg class="upgrade-php-icon me-1" viewBox="0 0 24 14" aria-hidden="true" focusable="false">
@@ -888,6 +912,16 @@
         border-color: #047857;
         color: #fff;
     }
+
+    /* Kritieke PHP-balk: tekst en knop in het midden. De algemene danger-alert blijft bovenaan uitgelijnd. */
+    #content #php-critical-alert.kt-alert.kt-alert-danger {
+        align-items: center !important;
+    }
+    #content #php-critical-alert.kt-alert-danger .kt-alert-content {
+        width: auto;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
 </style>
 @endpush
 
@@ -1267,6 +1301,8 @@ function announceUpgradeSuccess(message) {
     var dockerExecUrl = @json(route('admin.settings.upgrade.docker-exec'));
     var postgresStatusUrl = @json(route('admin.settings.upgrade.postgres-status'));
     var postgresRunUrl = @json(route('admin.settings.upgrade.postgres-run'));
+    var adminProbeUrl = @json(route('admin.login'));
+    var adminUpStatuses = @json(\App\Support\AdminRestartReadiness::upStatuses());
 
     var laravelStatusEl = document.getElementById('laravel-upgrade-status-text');
     var phpStatusEl = document.getElementById('php-upgrade-status-text');
@@ -1278,6 +1314,7 @@ function announceUpgradeSuccess(message) {
     var btnLaravelMinor = document.getElementById('btn-laravel-minor');
     var btnLaravelMajor = document.getElementById('btn-laravel-major');
     var btnPhp = document.getElementById('btn-php-docker-upgrade');
+    var btnPhpSecurity = document.getElementById('btn-php-security-release');
     var btnPostgresMinor = document.getElementById('btn-postgres-minor');
     var btnPostgresMajor = document.getElementById('btn-postgres-major');
     var btnDockerRestart = document.getElementById('btn-docker-restart');
@@ -1378,11 +1415,15 @@ function announceUpgradeSuccess(message) {
         if (btnLaravelMinor) btnLaravelMinor.disabled = busy || !webUpgradeEnabled || !(laravelStatus && laravelStatus.can_minor);
         if (btnLaravelMajor) btnLaravelMajor.disabled = busy || !webUpgradeEnabled || !(laravelStatus && laravelStatus.can_major);
         if (btnPhp) {
-            var phpOk = phpStatus && (phpStatus.can_run || phpStatus.pending_finalize);
+            var phpOk = phpStatus && (phpStatus.pending_finalize || (phpStatus.can_run && !phpStatus.security_pull));
             btnPhp.disabled = busy || !webUpgradeEnabled || !phpOk;
             btnPhp.classList.toggle('kt-btn-success', !!phpOk);
             btnPhp.classList.toggle('kt-btn-outline', !phpOk);
             btnPhp.classList.remove('kt-btn-primary');
+        }
+        if (btnPhpSecurity) {
+            var phpSecurityOk = phpStatus && (phpStatus.pending_finalize || (phpStatus.can_run && phpStatus.security_pull));
+            btnPhpSecurity.disabled = busy || !webUpgradeEnabled || !phpSecurityOk;
         }
         if (btnDockerRestart) {
             btnDockerRestart.disabled = busy || !(dockerStatus && dockerStatus.can_restart);
@@ -1484,6 +1525,25 @@ function announceUpgradeSuccess(message) {
         if (btnPhp && data && data.button_label) {
             btnPhp.innerHTML = phpIconHtml() + escapeText(data.button_label);
         }
+        var criticalAlert = document.getElementById('php-critical-alert');
+        var criticalAlertText = document.getElementById('php-critical-alert-text');
+        if (criticalAlert && criticalAlertText && data && Array.isArray(data.critical_updates)) {
+            if (data.critical_updates.length) {
+                criticalAlert.classList.remove('hidden');
+                criticalAlertText.textContent = data.critical_updates.map(function (item) {
+                    return item && item.message ? item.message : '';
+                }).filter(Boolean).join(' ');
+            } else {
+                criticalAlert.classList.add('hidden');
+                criticalAlertText.textContent = '';
+            }
+        }
+        if (btnPhpSecurity) {
+            var runtimeVersion = data && typeof data.critical_runtime_version === 'string'
+                ? data.critical_runtime_version
+                : '';
+            btnPhpSecurity.classList.toggle('hidden', runtimeVersion === '');
+        }
         setBusy(false);
     }
 
@@ -1584,25 +1644,89 @@ function announceUpgradeSuccess(message) {
         return new Promise(function (resolve) { setTimeout(resolve, ms); });
     }
 
+    function adminHttpIsUp(response) {
+        if (!response) return false;
+        if (response.type === 'opaqueredirect') return true;
+        return adminUpStatuses.indexOf(response.status) !== -1;
+    }
+
+    function adminCameBackMessage(status, fallback) {
+        if (status && status.needs_login) {
+            return 'De admin is weer online. Log opnieuw in om verder te gaan.';
+        }
+        if (status && status.status_unavailable) {
+            return 'De admin is weer online. Vernieuw de pagina om de status af te ronden.';
+        }
+        return fallback;
+    }
+
+    function probeAdminUp() {
+        return fetch(adminProbeUrl, {
+            method: 'GET',
+            redirect: 'manual',
+            cache: 'no-store',
+            credentials: 'same-origin',
+        }).then(function (response) {
+            if (!adminHttpIsUp(response)) throw new Error('not ready');
+            return response;
+        });
+    }
+
+    function readUpgradeStatus(statusUrl, applyFn) {
+        return fetch(statusUrl, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            cache: 'no-store',
+            credentials: 'same-origin',
+        }).then(function (response) {
+            if (!response || response.status >= 500) throw new Error('status-down');
+            var type = (response.headers.get('content-type') || '').toLowerCase();
+            if (response.ok && type.indexOf('json') !== -1) {
+                return response.json().then(function (payload) {
+                    if (payload && payload.success) {
+                        if (typeof applyFn === 'function') applyFn(payload.data);
+                        return payload.data || { online: true };
+                    }
+                    if (adminHttpIsUp(response)) {
+                        return { online: true, needs_login: response.status === 401 || response.status === 419 };
+                    }
+                    throw new Error('not ready');
+                });
+            }
+            if (adminHttpIsUp(response)) {
+                return {
+                    online: true,
+                    needs_login: response.status === 401 || response.status === 419 || response.type === 'opaqueredirect',
+                };
+            }
+            throw new Error('not ready');
+        });
+    }
+
     function waitForAdmin(statusUrl, applyFn, list) {
         var attempts = 0;
+        var statusFailures = 0;
         function tick() {
             attempts += 1;
             if (attempts > 90) {
                 return Promise.reject(new Error('De admin kwam niet terug na de herstart. Controleer docker compose logs.'));
             }
-            return fetch(statusUrl, {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            }).then(function (response) {
-                if (!response.ok) throw new Error('not ready');
-                return response.json();
-            }).then(function (payload) {
-                if (!payload || !payload.success) throw new Error('not ready');
-                if (typeof applyFn === 'function') {
-                    applyFn(payload.data);
+            return probeAdminUp().then(function () {
+                return readUpgradeStatus(statusUrl, applyFn).catch(function (err) {
+                    if (!err || err.message !== 'status-down') throw err;
+                    statusFailures += 1;
+                    if (statusFailures >= 5) {
+                        return { online: true, status_unavailable: true };
+                    }
+                    appendNote(list, 'Admin antwoordt, status nog niet klaar… (' + statusFailures + ')');
+                    return sleep(2000).then(tick);
+                });
+            }).catch(function (err) {
+                if (err && err.message === 'status-down') {
+                    return { online: true, status_unavailable: true };
                 }
-                return payload.data;
-            }).catch(function () {
                 if (attempts === 1 || attempts % 3 === 0) {
                     appendNote(list, 'Wachten op herstart… (' + attempts + ')');
                 }
@@ -1643,7 +1767,7 @@ function announceUpgradeSuccess(message) {
                         appendStep(list, 'Docker-stack afronden', 'running');
                         return postStream(laravelFinalizeUrl, {}, list);
                     }
-                    return { complete: { success: true, message: 'Laravel-upgrade is afgerond; de stack is weer online.' } };
+                    return { complete: { success: true, message: adminCameBackMessage(status, 'Laravel-upgrade is afgerond; de stack is weer online.') } };
                 });
             }).then(function (outcome) {
                 var event = outcome && outcome.complete;
@@ -1662,13 +1786,37 @@ function announceUpgradeSuccess(message) {
         });
     }
 
-    function runPhp() {
-        var phpOk = phpStatus && (phpStatus.can_run || phpStatus.pending_finalize);
+    function phpVersionAtLeast(running, required) {
+        var left = String(running || '').match(/(\d+)\.(\d+)\.(\d+)/);
+        var right = String(required || '').match(/(\d+)\.(\d+)\.(\d+)/);
+        if (!left || !right) return false;
+        for (var i = 1; i <= 3; i++) {
+            var current = parseInt(left[i], 10);
+            var target = parseInt(right[i], 10);
+            if (current > target) return true;
+            if (current < target) return false;
+        }
+        return true;
+    }
+
+    function runPhp(securityRelease) {
+        var version = phpStatus && typeof phpStatus.critical_runtime_version === 'string'
+            ? phpStatus.critical_runtime_version
+            : '';
+        var security = !!securityRelease && version !== '';
+        var phpOk = security
+            ? (phpStatus && (phpStatus.pending_finalize || (phpStatus.can_run && phpStatus.security_pull)))
+            : (phpStatus && (phpStatus.can_run || phpStatus.pending_finalize) && !(phpStatus.security_pull && !phpStatus.pending_finalize));
         if (!phpOk) {
             return;
         }
-        var label = (phpStatus && phpStatus.button_label) || 'PHP in Docker bijwerken';
-        var message = 'De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?';
+        var image = (phpStatus && phpStatus.security_image) || ('php:' + version + '-cli');
+        var label = security
+            ? ('Security-release ' + version)
+            : ((phpStatus && phpStatus.button_label) || 'PHP in Docker bijwerken');
+        var message = security
+            ? ('Deze pull installeert security-release ' + version + ' (' + image + '). Daarna wordt de hele Docker-stack opnieuw opgetuigd. De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?')
+            : 'De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?';
 
         confirmUpgrade(label, message, 'Upgraden').then(function (ok) {
             if (!ok) return;
@@ -1692,7 +1840,11 @@ function announceUpgradeSuccess(message) {
                         appendStep(list, 'Stabiliteitstests starten', 'running');
                         return postStream(phpFinalizeUrl, {}, list);
                     }
-                    return { complete: { success: true, message: 'PHP-container is weer online.' } };
+                    if (security && !phpVersionAtLeast(status && status.current_php, version)) {
+                        var running = status && status.current_php ? status.current_php : 'onbekend';
+                        return { complete: { success: false, message: 'Security-release ' + version + ' is niet actief. De container draait nog PHP ' + running + '.' } };
+                    }
+                    return { complete: { success: true, message: adminCameBackMessage(status, 'PHP-container is weer online.') } };
                 });
             }).then(function (outcome) {
                 var event = outcome && outcome.complete;
@@ -1895,7 +2047,7 @@ function announceUpgradeSuccess(message) {
                     return {
                         complete: {
                             success: true,
-                            message: (status && status.flash) || successMessage,
+                            message: (status && status.flash) || adminCameBackMessage(status, successMessage),
                         }
                     };
                 });
@@ -2014,6 +2166,9 @@ function announceUpgradeSuccess(message) {
     }
     if (btnPhp) {
         btnPhp.addEventListener('click', function () { runPhp(); });
+    }
+    if (btnPhpSecurity) {
+        btnPhpSecurity.addEventListener('click', function () { runPhp(true); });
     }
     if (btnPostgresMinor) {
         btnPostgresMinor.addEventListener('click', function () { runPostgres('minor'); });

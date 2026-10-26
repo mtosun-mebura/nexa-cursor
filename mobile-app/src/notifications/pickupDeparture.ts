@@ -1,3 +1,4 @@
+import { t, dateLocale } from '../i18n';
 import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import type { DriverActiveRide } from '../api/driver';
@@ -37,24 +38,24 @@ function coord(lat?: number | null, lng?: number | null): { lat: number; lng: nu
 
 function formatTravel(seconds: number): string {
   const mins = Math.max(1, Math.round(seconds / 60));
-  if (mins < 60) return mins === 1 ? '1 minuut' : `${mins} minuten`;
+  if (mins < 60) return mins === 1 ? t("1 minuut") : `${mins} minuten`;
   const hours = Math.floor(mins / 60);
   const rest = mins % 60;
-  const hourLabel = hours === 1 ? '1 uur' : `${hours} uur`;
+  const hourLabel = hours === 1 ? t("1 uur") : `${hours} uur`;
   if (rest === 0) return hourLabel;
   return `${hourLabel} en ${rest} minuten`;
 }
 
 function formatPickupClock(ms: number): string {
   const when = new Date(ms);
-  const time = when.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const time = when.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   const today = new Date();
   const sameDay =
     when.getFullYear() === today.getFullYear() &&
     when.getMonth() === today.getMonth() &&
     when.getDate() === today.getDate();
   if (sameDay) return time;
-  const day = when.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+  const day = when.toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
   return `${day} ${time}`;
 }
 
@@ -164,7 +165,7 @@ export async function alertNextPickupDeparture(input: {
   const where = address ? ` op ${address}` : '';
   const via = viaCurrentRide ? ', inclusief je huidige rit,' : '';
   const notice: PickupDepartureNotice = {
-    title: 'Tijd om te vertrekken',
+    title: t("Tijd om te vertrekken"),
     body: `${name} ophalen om ${formatPickupClock(when)}${where}. Je bent${via} ongeveer ${formatTravel(seconds)} onderweg.`,
     rideId: Number(next.id),
   };

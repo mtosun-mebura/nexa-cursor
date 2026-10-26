@@ -1,3 +1,4 @@
+import { t } from './i18n';
 /** Zelfde landlengtes als iban_country_length() in de backend. */
 const IBAN_LENGTHS: Record<string, number> = {
   AD: 24, AE: 23, AL: 28, AT: 20, AZ: 28, BA: 20, BE: 16, BG: 22, BH: 22, BR: 29, BY: 28,
@@ -21,19 +22,28 @@ function ibanMod97(iban: string): boolean {
   return checksum === 1;
 }
 
-/** null = geldig. duringTyping wacht tot het land-aantal tekens vol is. */
+/**
+ * null = geldig.
+ * duringTyping toont nog geen fout zolang het land-aantal tekens niet vol is.
+ * Een vol nummer wordt altijd gecontroleerd op landlengte en ISO 13616 mod-97.
+ */
 export function ibanFieldError(value: string, duringTyping = false): string | null {
-  const iban = value.replace(/\s+/g, '').toUpperCase();
+  const iban = value.replace(/[\s-]+/g, '').toUpperCase();
   if (!iban) return duringTyping ? null : 'Vul een IBAN in.';
-  if (!/^[A-Z0-9]+$/.test(iban)) return 'Voer een geldig IBAN in.';
-  if (!/^[A-Z]{2}/.test(iban)) return duringTyping ? null : 'Voer een geldig IBAN in.';
+  if (!/^[A-Z0-9]+$/.test(iban)) return t("Dit IBAN klopt niet.");
+  if (iban.length >= 2 && !/^[A-Z]{2}/.test(iban.slice(0, 2))) return t("Dit IBAN klopt niet.");
+  if (iban.length >= 4 && !/^[A-Z]{2}[0-9]{2}/.test(iban.slice(0, 4))) return t("Dit IBAN klopt niet.");
+  if (iban.length < 2) return duringTyping ? null : t("Dit IBAN klopt niet.");
 
   const expected = IBAN_LENGTHS[iban.slice(0, 2)];
   if (!expected) {
-    if (duringTyping && iban.length < 15) return null;
-    return 'Voer een geldig IBAN in.';
+    if (duringTyping && iban.length < 4) return null;
+    return t("Dit IBAN klopt niet.");
   }
-  if (iban.length < expected) return duringTyping ? null : 'Voer een geldig IBAN in.';
-  if (iban.length !== expected || !ibanMod97(iban)) return 'Voer een geldig IBAN in.';
+  if (iban.length !== expected) {
+    if (duringTyping && iban.length < expected) return null;
+    return t("Dit IBAN klopt niet.");
+  }
+  if (!ibanMod97(iban)) return t("Dit IBAN klopt niet.");
   return null;
 }

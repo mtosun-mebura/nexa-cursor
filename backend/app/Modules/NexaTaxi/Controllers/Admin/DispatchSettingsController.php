@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\TaxiNetworkPartnership;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -30,12 +31,12 @@ class DispatchSettingsController extends Controller
 
     public function edit(): View
     {
-        $this->authorizeOrPermissionAny(['rides.view', 'rides.update']);
+        TaxiDispatchAccess::authorizeDispatchScreen();
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $ttlSeconds = $this->dispatchSettings->offerTtlSeconds($companyId);
         $envDefault = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
-        $isSuperAdmin = auth()->user()->hasRole('super-admin');
+        $isSuperAdmin = TaxiDispatchAccess::isSuper(auth()->user());
 
         $inviteCode = null;
         $pendingIncoming = collect();
@@ -48,7 +49,10 @@ class DispatchSettingsController extends Controller
             $acceptedPartners = $this->networkPartnerships->acceptedAsOwner($companyId);
         }
 
-        $marketplaceNetworkOnly = $this->isMarketplacePackageCompany($companyId);
+        $marketplaceNetworkOnly = ! $isSuperAdmin && $this->isMarketplacePackageCompany($companyId);
+        if ($marketplaceNetworkOnly && ! TaxiDispatchAccess::sees(auth()->user(), 'network')) {
+            abort(403, 'Geen rechten voor chauffeur dispatch.');
+        }
         $marketplaceCanOwnNetwork = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
 
         return view('taxi::admin.dispatch-settings.edit', [
@@ -121,12 +125,15 @@ class DispatchSettingsController extends Controller
             'networkPendingIncoming' => $pendingIncoming,
             'networkPendingOutgoing' => $pendingOutgoing,
             'networkAcceptedPartners' => $acceptedPartners,
+            'dispatchSections' => TaxiDispatchAccess::visibleMap(auth()->user()),
         ]);
     }
 
     public function editCustomerAcceptEmail(): View
     {
-        $this->authorizeOrPermissionAny(['rides.view', 'rides.update']);
+        if (! TaxiDispatchAccess::sees(auth()->user(), 'customer_accept')) {
+            abort(403, 'Geen rechten voor deze actie.');
+        }
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $resolved = $this->customerAcceptEmailTemplate->templateForEditing($companyId);
@@ -144,7 +151,7 @@ class DispatchSettingsController extends Controller
 
     public function updateCustomerAcceptEmail(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('customer_accept');
 
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:255'],
@@ -171,16 +178,28 @@ class DispatchSettingsController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        $user = auth()->user();
+        $fullSave = TaxiDispatchAccess::isSuper($user);
+        if (! $fullSave) {
+            TaxiDispatchAccess::authorizeDispatchScreen();
+        }
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null && ! auth()->user()?->hasRole('super-admin')) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
         }
 
-        if ($this->isMarketplacePackageCompany($companyId)) {
+        if (! $fullSave && $this->isMarketplacePackageCompany($companyId)) {
+            TaxiDispatchAccess::authorizeMutate('network');
+
             return $this->updateMarketplaceNetworkOnly($request, $companyId);
         }
+
+        if (! $fullSave) {
+            return $this->updateVisibleSections($request, $companyId);
+        }
+
+        $this->authorizeOrPermissionAny(['rides.update']);
 
         $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
         $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
@@ -306,6 +325,105 @@ class DispatchSettingsController extends Controller
             ->with('success', $success);
     }
 
+    private function updateVisibleSections(Request $request, ?int $companyId): RedirectResponse
+    {
+        $user = auth()->user();
+        $mutating = [];
+        foreach (TaxiDispatchAccess::visibleMap($user) as $key => $visible) {
+            if ($visible && TaxiDispatchAccess::canMutate($user, $key) && ! in_array($key, ['gps_vehicles', 'gps_settings'], true)) {
+                $mutating[] = $key;
+            }
+        }
+        if ($mutating === []) {
+            abort(403, 'Geen rechten voor deze actie.');
+        }
+
+        $rules = [];
+        if (in_array('accept_timer', $mutating, true)) {
+            $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
+            $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
+            $rules['offer_ttl_minutes'] = ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes];
+            $rules['past_pickup_grace_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES];
+            $rules['unaccepted_auto_cancel_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES];
+            $rules['customer_unaccepted_decision_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES];
+            if ($companyId !== null) {
+                $rules['overdue_auto_archive_days'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, 'max:'.TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS];
+            }
+        }
+        if (in_array('customer_login', $mutating, true)) {
+            $rules['customer_login_code_expires_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES];
+        }
+        if (in_array('booking_notifications', $mutating, true)) {
+            $rules['booking_driver_email_enabled'] = ['nullable', 'in:0,1'];
+            $rules['booking_customer_email_enabled'] = ['nullable', 'in:0,1'];
+        }
+        if (in_array('payments', $mutating, true)) {
+            $rules['payment_booking_enabled'] = ['nullable', 'in:0,1'];
+            $rules['payment_driver_enabled'] = ['nullable', 'in:0,1'];
+        }
+        if (in_array('customer_accept', $mutating, true)) {
+            $rules['customer_accept_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_email_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_whatsapp_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_sms_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_sms_provider'] = ['nullable', 'string', 'in:off,demo,vonage'];
+            $rules['customer_whatsapp_status_events'] = ['nullable', 'array'];
+            $rules['customer_whatsapp_status_events.*'] = ['string', 'in:'.implode(',', array_keys(TaxiDispatchSettingsService::customerWhatsappStatusEventLabels()))];
+        }
+        if (in_array('network', $mutating, true)) {
+            $rules['network_enabled'] = ['nullable', 'in:0,1'];
+            $rules['network_mode'] = ['nullable', 'string', 'in:off,manual,auto'];
+            $rules['network_fallback_seconds'] = ['nullable', 'integer', 'min:30', 'max:3600'];
+            $rules['network_max_radius_km'] = ['nullable', 'integer', 'min:1', 'max:200'];
+            if ($user?->hasRole('super-admin')) {
+                $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
+            }
+        }
+
+        $validated = $request->validate($rules);
+
+        if (in_array('accept_timer', $mutating, true)) {
+            $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
+            $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
+            $this->dispatchSettings->setPastPickupGraceMinutes((int) $validated['past_pickup_grace_minutes'], $companyId);
+            if ($companyId !== null && array_key_exists('overdue_auto_archive_days', $validated)) {
+                $this->dispatchSettings->setOverdueAutoArchiveDays((int) $validated['overdue_auto_archive_days'], $companyId);
+            }
+            $this->dispatchSettings->setUnacceptedAutoCancelMinutes((int) $validated['unaccepted_auto_cancel_minutes'], $companyId);
+            $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes((int) $validated['customer_unaccepted_decision_minutes'], $companyId);
+        }
+        if (in_array('customer_login', $mutating, true)) {
+            $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes((int) $validated['customer_login_code_expires_minutes'], $companyId);
+        }
+        if (in_array('booking_notifications', $mutating, true)) {
+            $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);
+            $this->dispatchSettings->setBookingCustomerEmailEnabled($request->boolean('booking_customer_email_enabled'), $companyId);
+        }
+        if (in_array('payments', $mutating, true)) {
+            $this->dispatchSettings->setPaymentBookingEnabled($request->boolean('payment_booking_enabled'), $companyId);
+            $this->dispatchSettings->setPaymentDriverEnabled($request->boolean('payment_driver_enabled'), $companyId);
+        }
+        if (in_array('customer_accept', $mutating, true)) {
+            $acceptEnabled = $request->boolean('customer_accept_enabled');
+            $this->dispatchSettings->setCustomerAcceptNotificationEnabled($acceptEnabled, $companyId);
+            $this->dispatchSettings->setCustomerAcceptEmailEnabled($acceptEnabled && $request->boolean('customer_accept_email_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptWhatsappEnabled($acceptEnabled && $request->boolean('customer_accept_whatsapp_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptSmsEnabled($acceptEnabled && $request->boolean('customer_accept_sms_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptSmsProvider(
+                (string) ($validated['customer_accept_sms_provider'] ?? TaxiDispatchSettingsService::SMS_PROVIDER_OFF),
+                $companyId
+            );
+            $this->dispatchSettings->setCustomerWhatsappStatusEvents($request->input('customer_whatsapp_status_events', []), $companyId);
+        }
+        if (in_array('network', $mutating, true)) {
+            $this->persistNetworkSettings($request, $validated, $companyId, (bool) $user?->hasRole('super-admin'));
+        }
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', 'Chauffeur dispatch is opgeslagen.');
+    }
+
     private function updateMarketplaceNetworkOnly(Request $request, ?int $companyId): RedirectResponse
     {
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
@@ -387,7 +505,7 @@ class DispatchSettingsController extends Controller
 
     public function rotateNetworkInvite(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -403,7 +521,7 @@ class DispatchSettingsController extends Controller
 
     public function updateNetworkInviteAutoAccept(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -419,7 +537,7 @@ class DispatchSettingsController extends Controller
 
     public function redeemNetworkInvite(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -482,7 +600,7 @@ class DispatchSettingsController extends Controller
 
     private function actOnPartnership(TaxiNetworkPartnership $partnership, string $action): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');

@@ -67,4 +67,28 @@ class TaxiContractvervoerSchemaServiceTest extends TestCase
         $this->assertContains('outbound_driver_id', $cols);
         $this->assertContains('return_started_at', $cols);
     }
+
+    #[Test]
+    public function transport_customers_create_plan_skips_table_and_only_drops_orphan_type(): void
+    {
+        $service = app(TaxiContractvervoerSchemaService::class);
+
+        $this->assertSame('skip', $service->transportCustomersCreatePlan(true, true));
+        $this->assertSame('skip', $service->transportCustomersCreatePlan(true, false));
+        $this->assertSame('drop_orphan_type_then_create', $service->transportCustomersCreatePlan(false, true));
+        $this->assertSame('create', $service->transportCustomersCreatePlan(false, false));
+
+        $sql = strtolower($service->orphanCompositeTypeLookupSql());
+        $this->assertStringContainsString('typname = ?', $sql);
+        $this->assertStringContainsString('nspname = ?', $sql);
+        $this->assertStringContainsString("typtype = 'c'", $sql);
+        $this->assertStringContainsString('typrelid = 0', $sql);
+        $this->assertStringNotContainsString('drop table', $sql);
+
+        $drop = $service->orphanTypeDropStatement('nexa_taxi');
+        $this->assertSame('DROP TYPE IF EXISTS "nexa_taxi"."transport_customers"', $drop);
+        $this->assertStringNotContainsString('DROP TABLE', (string) $drop);
+        $this->assertNull($service->orphanTypeDropStatement('public;drop table users'));
+        $this->assertNull($service->orphanTypeDropStatement(''));
+    }
 }

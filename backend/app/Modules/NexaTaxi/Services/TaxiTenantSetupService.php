@@ -127,21 +127,55 @@ class TaxiTenantSetupService
             );
         }
 
+        $steps = $this->withoutMarketplaceHiddenSteps($steps, $isMarketplace || $this->userIsMarketplace($user));
+        $steps = $this->withoutUnauthorizedSteps($steps, $user);
+
+        $vehicleStep = collect($steps)->firstWhere('key', 'vehicles');
+        $showVehicleWarning = is_array($vehicleStep) && empty($vehicleStep['done']);
         $incompleteRequired = collect($steps)->where('required', true)->where('done', false)->count();
         $incompleteAny = collect($steps)->where('done', false)->count();
+        $summary = $this->joinDutch(array_map(
+            fn (array $step) => mb_strtolower((string) $step['title']),
+            $steps
+        ));
 
         return [
             'applies' => true,
             'needs_attention' => $incompleteAny > 0,
             'needs_login_prompt' => $incompleteRequired > 0,
-            'booking_allowed' => $hasVehicles,
-            'booking_block_message' => $hasVehicles
-                ? null
-                : 'Voeg eerst minstens één voertuig toe voordat je de boekingsmodule op de website plaatst.',
-            'steps' => $steps,
+            'booking_allowed' => ! $showVehicleWarning,
+            'booking_block_message' => $showVehicleWarning
+                ? 'Voeg eerst minstens één voertuig toe voordat je de boekingsmodule op de website plaatst.'
+                : null,
+            'steps' => array_values($steps),
             'incomplete_count' => $incompleteAny,
+            'summary' => $summary,
             'company_name' => $company->name,
         ];
+    }
+
+    /**
+     * Tekst voor de bel-melding van deze kijker. Null = niet tonen.
+     */
+    public function messageForViewer(User $user, Notification $notification): ?string
+    {
+        if ((string) $notification->type !== self::NOTIFICATION_TYPE) {
+            return (string) $notification->message;
+        }
+
+        $company = $notification->company_id
+            ? Company::query()->find($notification->company_id)
+            : null;
+        if (! $company || ! $this->appliesTo($company)) {
+            return null;
+        }
+
+        $status = $this->status($company, $user);
+        if (empty($status['needs_attention'])) {
+            return null;
+        }
+
+        return $this->notificationMessage($status);
     }
 
     public function hasVehicles(Company $company): bool
@@ -277,7 +311,7 @@ class TaxiTenantSetupService
 
     public function syncNotification(User $user, Company $company): void
     {
-        $status = $this->status($company, $user);
+        $status = $this->status($company);
         if (! $status['needs_attention']) {
             $this->clearNotification($user, $company);
 
@@ -380,6 +414,97 @@ class TaxiTenantSetupService
         $preferred = $recipients->firstWhere('id', $actor->id);
 
         return $preferred instanceof User ? $preferred : $recipients->first();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $steps
+     * @return list<array<string, mixed>>
+     */
+    private function withoutMarketplaceHiddenSteps(array $steps, bool $marketplace): array
+    {
+        if (! $marketplace) {
+            return $steps;
+        }
+
+        return array_values(array_filter(
+            $steps,
+            fn (array $step) => ! in_array((string) ($step['key'] ?? ''), ['rates', 'mail'], true)
+        ));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $steps
+     * @return list<array<string, mixed>>
+     */
+    private function withoutUnauthorizedSteps(array $steps, ?User $user): array
+    {
+        if ($user === null || $user->isSuperAdmin() || $user->hasRole('super-admin')) {
+            return $steps;
+        }
+
+        $roles = $user->webRoleNames();
+        if ($roles === []) {
+            return $steps;
+        }
+
+        return array_values(array_filter(
+            $steps,
+            fn (array $step) => $this->userMaySeeSetupStep($user, (string) ($step['key'] ?? ''))
+        ));
+    }
+
+    private function userMaySeeSetupStep(User $user, string $key): bool
+    {
+        return match ($key) {
+            'vehicles' => $this->userHasAnyListedPermission($user, ['vehicles.view']),
+            'rates' => $this->userHasAnyListedPermission($user, ['rates.view']),
+            'mail' => $this->userHasAnyListedPermission($user, ['view-mailserver', 'edit-mailserver']),
+            'bank_account' => $user->isTenantAdmin(),
+            default => true,
+        };
+    }
+
+    /**
+     * Ontbrekend recht in de catalogus verbergt de stap niet.
+     * Bestaat het recht wel en heeft de rol het niet, dan blijft de stap weg.
+     *
+     * @param  list<string>  $permissions
+     */
+    private function userHasAnyListedPermission(User $user, array $permissions): bool
+    {
+        $anyExists = false;
+        foreach ($permissions as $permission) {
+            if (! $this->permissionExists($permission)) {
+                continue;
+            }
+            $anyExists = true;
+            try {
+                if ($user->can($permission)) {
+                    return true;
+                }
+            } catch (\Throwable) {
+                // volgend recht
+            }
+        }
+
+        return ! $anyExists;
+    }
+
+    private function permissionExists(string $permission): bool
+    {
+        try {
+            return \Spatie\Permission\Models\Permission::query()
+                ->where('name', $permission)
+                ->where('guard_name', 'web')
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function userIsMarketplace(?User $user): bool
+    {
+        return $user !== null && $user->hasRole('marketplace');
     }
 
     private function userIsSuperAdmin(int $userId): bool

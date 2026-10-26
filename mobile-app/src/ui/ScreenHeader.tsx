@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useThemeColors } from '../theme/ThemeContext';
+import { compactFontProps } from './androidText';
 
 /** Canonieke paginatitel — overal hetzelfde (Ritten, Planning, Navigatie, Profiel, …). */
 export const SCREEN_TITLE_FONT_SIZE = 20;
@@ -23,7 +24,7 @@ export function ScreenHeader({ title, right, style }: Props) {
 
   return (
     <View style={[styles.row, style]}>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={styles.title} numberOfLines={1} {...compactFontProps}>
         {title}
       </Text>
       {right ? <View style={styles.right}>{right}</View> : null}

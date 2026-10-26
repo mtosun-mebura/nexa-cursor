@@ -15,6 +15,7 @@ use App\Modules\NexaTaxi\Services\ContractDemoDayResetService;
 use App\Modules\NexaTaxi\Services\ContractDestinationArrivalService;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractPortalAutoBoardService;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
 use App\Modules\NexaTaxi\Services\ContractPortalRideLifecycleService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
@@ -107,6 +108,7 @@ class ContractPortalController extends Controller
     {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
         $passengers = $access->visiblePassengers($conn, $context);
 
         $tz = ContractTransportTimezone::TIMEZONE;
@@ -512,6 +514,7 @@ class ContractPortalController extends Controller
     ): JsonResponse {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
         if (! $access->canOperateRides($request->user(), $context)) {
             return response()->json(['message' => 'Alleen de contractant kan de locatie doorgeven.'], 403);
         }
@@ -555,6 +558,7 @@ class ContractPortalController extends Controller
     ): JsonResponse {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
         if (! $access->canOperateRides($request->user(), $context)) {
             return response()->json(['message' => 'Alleen de contractant kan de bestemming bevestigen.'], 403);
         }
@@ -573,6 +577,7 @@ class ContractPortalController extends Controller
             'no_location' => 'Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.',
             'too_far' => 'Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.',
             'none' => 'Er is geen openstaande bestemming.',
+            'pickups_open' => 'Niet alle passagiers zijn opgehaald. Zet eerst hun status goed voordat je de bestemming op bereikt zet.',
             default => null,
         };
         if ($blocked !== null || $result['updated'] < 1) {
@@ -789,6 +794,8 @@ class ContractPortalController extends Controller
                 ->keyBy('transport_passenger_id');
         }
 
+        $hasStatusSource = RideStopStatusSource::columnExists($conn);
+
         $pickupStops = RideStop::on($conn)
             ->whereIn('transport_passenger_id', $passengerIds)
             ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
@@ -848,7 +855,8 @@ class ContractPortalController extends Controller
             $tz,
             $canOperateRides,
             $arrival,
-            $customerId
+            $customerId,
+            $hasStatusSource
         ) {
             $absence = $absenceMap->get($p->id);
             $stops = ($stopsByPassenger->get($p->id) ?? collect())
@@ -870,7 +878,8 @@ class ContractPortalController extends Controller
                 $p,
                 $canOperateRides,
                 $arrival,
-                $customerId
+                $customerId,
+                $hasStatusSource
             ) {
                 $ride = $stop->ride;
                 $destination = null;
@@ -895,8 +904,15 @@ class ContractPortalController extends Controller
                 );
                 $absent = $absence !== null;
                 $terminal = in_array($statusKey, ['completed', 'absent'], true);
+                $pickupAuto = $hasStatusSource
+                    && $stop->status === RideStop::STATUS_PICKED_UP
+                    && RideStopStatusSource::isAuto($stop);
+                $destinationAuto = $hasStatusSource
+                    && $destination
+                    && $destination->status === RideStop::STATUS_COMPLETED
+                    && RideStopStatusSource::isAuto($destination);
 
-                return [
+                $leg = [
                     'ride_stop_id' => (int) $stop->id,
                     'ride_request_id' => $stop->ride_request_id ? (int) $stop->ride_request_id : null,
                     'ride_status' => $ride?->status,
@@ -915,7 +931,7 @@ class ContractPortalController extends Controller
                     'destination_reached' => $statusKey === 'completed',
                     'planned_at' => ContractTransportTimezone::toDriverIso8601($plannedAt),
                     'destination_at' => ContractTransportTimezone::toDriverIso8601($destinationAt),
-                    'can_cancel' => $this->canCancelStop($stop, $absent),
+                    'can_cancel' => $this->canCancelStop($stop, $absent) || $pickupAuto,
                     // Contractant: starten vóór assigned; afronden vanaf accepted/assigned.
                     'can_start' => $canOperateRides
                         && ! $absent
@@ -952,17 +968,22 @@ class ContractPortalController extends Controller
                         ], true),
                     'can_skip' => $canOperateRides
                         && ! $absent
-                        && ! $terminal
                         && $statusKey !== 'not_taken'
-                        && $statusKey !== 'picked_up'
-                        && $statusKey !== 'completed'
-                        && $ride
-                        && in_array($ride->status, [
-                            RideRequest::STATUS_ACCEPTED,
-                            RideRequest::STATUS_ASSIGNED,
-                            RideRequest::STATUS_OFFERED,
-                            RideRequest::STATUS_PENDING_DISPATCH,
-                        ], true),
+                        && (
+                            $pickupAuto
+                            || (
+                                ! $terminal
+                                && $statusKey !== 'picked_up'
+                                && $statusKey !== 'completed'
+                                && $ride
+                                && in_array($ride->status, [
+                                    RideRequest::STATUS_ACCEPTED,
+                                    RideRequest::STATUS_ASSIGNED,
+                                    RideRequest::STATUS_OFFERED,
+                                    RideRequest::STATUS_PENDING_DISPATCH,
+                                ], true)
+                            )
+                        ),
                     'status_banner' => ContractPortalRideStatus::bannerLabel($statusKey),
                     'vehicle_location' => $this->vehicleLocationForParent(
                         $conn,
@@ -973,6 +994,12 @@ class ContractPortalController extends Controller
                         $customerId
                     ),
                 ];
+                if ($hasStatusSource) {
+                    $leg['pickup_set_automatically'] = $pickupAuto;
+                    $leg['destination_set_automatically'] = $destinationAuto;
+                }
+
+                return $leg;
             })->values()->all();
 
             $legs = ContractPortalDayLegs::uniqueBySlot($legs);
@@ -1166,6 +1193,10 @@ class ContractPortalController extends Controller
             return true;
         }
 
-        return in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true);
+        if (in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+            return true;
+        }
+
+        return $stop->status === RideStop::STATUS_PICKED_UP && RideStopStatusSource::isAuto($stop);
     }
 }

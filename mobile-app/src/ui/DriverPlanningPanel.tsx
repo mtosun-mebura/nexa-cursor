@@ -1,3 +1,4 @@
+import { t, dateLocale } from '../i18n';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -62,7 +63,7 @@ function formatRangeLabel(from: string, to: string): string {
 }
 
 function formatDayLong(iso: string): string {
-  return parseIsoDate(iso).toLocaleDateString('nl-NL', {
+  return parseIsoDate(iso).toLocaleDateString(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -73,7 +74,7 @@ function formatTime(iso?: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function shortAddress(address?: string | null): string {
@@ -92,7 +93,7 @@ function splitAddress(address?: string | null): { main: string; sub: string } {
 }
 
 function rideCountLabel(count: number): string {
-  return count === 1 ? '1 rit' : `${count} ritten`;
+  return count === 1 ? t("1 rit") : `${count} ritten`;
 }
 
 function rideMeta(ride: PlanningRide): string {
@@ -101,7 +102,7 @@ function rideMeta(ride: PlanningRide): string {
   if (name) parts.push(name);
   parts.push(rideChannelLabel(ride));
   const pax = Number(ride.passengers || 0);
-  if (pax > 0) parts.push(pax === 1 ? '1 passagier' : `${pax} passagiers`);
+  if (pax > 0) parts.push(pax === 1 ? t("1 passagier") : `${pax} passagiers`);
   return parts.join(' · ');
 }
 
@@ -142,7 +143,7 @@ export function DriverPlanningPanel({
         });
         setWeekFrom(data.from);
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : 'Planning laden mislukt.');
+        setError(e instanceof ApiError ? e.message : t("Planning laden mislukt."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -219,38 +220,34 @@ export function DriverPlanningPanel({
     >
       <ErrorText>{error}</ErrorText>
       <ScreenHeader
-        title="Planning"
+        title={t("Planning")}
         right={
           <View style={styles.viewToggle}>
             <Pressable
               style={[styles.viewBtn, view === 'day' && styles.viewBtnActive]}
               onPress={() => setView('day')}
             >
-              <Text style={[styles.viewBtnText, view === 'day' && styles.viewBtnTextActive]}>
-                Dag
-              </Text>
+              <Text style={[styles.viewBtnText, view === 'day' && styles.viewBtnTextActive]}>{t("Dag")}</Text>
             </Pressable>
             <Pressable
               style={[styles.viewBtn, view === 'week' && styles.viewBtnActive]}
               onPress={() => setView('week')}
             >
-              <Text style={[styles.viewBtnText, view === 'week' && styles.viewBtnTextActive]}>
-                Week
-              </Text>
+              <Text style={[styles.viewBtnText, view === 'week' && styles.viewBtnTextActive]}>{t("Week")}</Text>
             </Pressable>
           </View>
         }
       />
 
       <View style={styles.navRow}>
-        <Pressable style={styles.navBtn} onPress={goPrev} accessibilityLabel="Vorige">
+        <Pressable style={styles.navBtn} onPress={goPrev} accessibilityLabel={t("Vorige")}>
           <Ionicons name="chevron-back" size={20} color={colors.text} />
         </Pressable>
         <Pressable style={styles.todayBtn} onPress={goToday}>
-          <Text style={styles.todayBtnText}>Vandaag</Text>
+          <Text style={styles.todayBtnText}>{t("Vandaag")}</Text>
         </Pressable>
         <View style={styles.navSpacer} />
-        <Pressable style={styles.navBtn} onPress={goNext} accessibilityLabel="Volgende">
+        <Pressable style={styles.navBtn} onPress={goNext} accessibilityLabel={t("Volgende")}>
           <Ionicons name="chevron-forward" size={20} color={colors.text} />
         </Pressable>
       </View>
@@ -258,7 +255,7 @@ export function DriverPlanningPanel({
       {loading && !payload ? (
         <ActivityIndicator color={accent.hex} style={{ marginTop: 24 }} />
       ) : !payload ? (
-        <Text style={styles.empty}>Geen planningsdata.</Text>
+        <Text style={styles.empty}>{t("Geen planningsdata.")}</Text>
       ) : (
         <>
           <View style={[styles.heading, view === 'day' && styles.headingDay]}>
@@ -294,7 +291,7 @@ export function DriverPlanningPanel({
                       onPress={() => setSelectedDate(day.date)}
                     >
                       <Text style={[styles.wdName, active && styles.wdNameActive]}>
-                        {WEEKDAYS_SHORT[index] || '—'}
+                        {t(WEEKDAYS_SHORT[index] || '—')}
                       </Text>
                       <Text style={[styles.wdNum, active && styles.wdNumActive]}>{dayNum}</Text>
                       <View style={styles.wdRides}>
@@ -348,7 +345,7 @@ function DayRides({
   const [openIds, setOpenIds] = useState<Record<number, boolean>>({});
 
   if (!rides.length) {
-    return <Text style={styles.empty}>Geen ritten op deze dag.</Text>;
+    return <Text style={styles.empty}>{t("Geen ritten op deze dag.")}</Text>;
   }
 
   function toggle(id: number) {
@@ -401,6 +398,9 @@ function DayRides({
                 {formatTime(ride.pickup_at)}
               </Text>
               <View style={styles.rideTopRight}>
+                {isContract ? (
+                  <Text style={styles.rideContractBanner}>{t("Contractrit")}</Text>
+                ) : null}
                 <Text style={[styles.rideStatus, isCompleted && styles.rideStatusCompleted]}>
                   {(ride.status_label || ride.status || '').toUpperCase()}
                 </Text>
@@ -414,32 +414,32 @@ function DayRides({
             {expanded ? (
               <View style={styles.rideExpand}>
                 <View>
-                  <Text style={styles.rideStopLabel}>Ophalen</Text>
+                  <Text style={styles.rideStopLabel}>{t("Ophalen")}</Text>
                   <Text style={styles.rideStopMain}>{pickup.main}</Text>
                   {pickup.sub ? <Text style={styles.rideStopSub}>{pickup.sub}</Text> : null}
                 </View>
                 <View>
-                  <Text style={styles.rideStopLabel}>Afzetten</Text>
+                  <Text style={styles.rideStopLabel}>{t("Afzetten")}</Text>
                   <Text style={styles.rideStopMain}>{dropoff.main}</Text>
                   {dropoff.sub ? <Text style={styles.rideStopSub}>{dropoff.sub}</Text> : null}
                 </View>
                 {showFee && fee ? (
                   <View style={styles.rideFeeBox}>
                     <View style={styles.rideFeeRow}>
-                      <Text style={styles.rideFeeLabel}>Klant betaalt</Text>
+                      <Text style={styles.rideFeeLabel}>{t("Klant betaalt")}</Text>
                       <Text style={styles.rideFeeValue}>
                         {fee.customer_pays != null ? formatEuroNl(Number(fee.customer_pays)) : '—'}
                       </Text>
                     </View>
                     <View style={styles.rideFeeRow}>
-                      <Text style={styles.rideFeeLabel}>NEXA fee</Text>
+                      <Text style={styles.rideFeeLabel}>{t("NEXA fee")}</Text>
                       <Text style={styles.rideFeeValue}>
                         {fee.nexa_fee != null ? formatEuroNl(Number(fee.nexa_fee)) : '—'}
                         {fee.nexa_fee_percent != null ? ` (${fee.nexa_fee_percent}%)` : ''}
                       </Text>
                     </View>
                     <View style={styles.rideFeeRow}>
-                      <Text style={styles.rideFeeLabel}>Chauffeur</Text>
+                      <Text style={styles.rideFeeLabel}>{t("Chauffeur")}</Text>
                       <Text style={styles.rideFeeValue}>
                         {driverShare != null ? formatEuroNl(driverShare) : '—'}
                       </Text>
@@ -701,8 +701,24 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     rideTopRight: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'flex-end',
+      flexWrap: 'wrap',
       gap: 6,
-      flexShrink: 0,
+      flexShrink: 1,
+    },
+    rideContractBanner: {
+      color: '#D8B4FE',
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+      backgroundColor: 'rgba(168,85,247,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(168,85,247,0.42)',
+      overflow: 'hidden',
+      borderRadius: 999,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
     },
     rideTime: {
       color: accentHex,

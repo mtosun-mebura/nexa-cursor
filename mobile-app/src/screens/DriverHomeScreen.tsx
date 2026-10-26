@@ -4,6 +4,7 @@ import {
   AppState,
   FlatList,
   Image,
+  Keyboard,
   Linking,
   Pressable,
   RefreshControl,
@@ -69,11 +70,14 @@ import {
   RIDE_ALERT_OPTIONS,
   RideAlertTone,
 } from '../audio/rideAlert';
+import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { API_BASE_URL, ColorPalette } from '../config';
+import { ensureForegroundLocationPermission, LOCATION_SETTINGS_HINT } from '../location/background';
 import {
   clampGpsRefreshSeconds,
+  readLastKnownDriverMapPosition,
   startDriverLocationTracking,
   stopDriverLocationTracking,
 } from '../location/tracking';
@@ -94,18 +98,25 @@ import {
 import { alertNextPickupDeparture } from '../notifications/pickupDeparture';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { AppearanceControls } from '../ui/AppearanceControls';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
+import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
+import { DutchPlateInput } from '../ui/DutchPlateInput';
+import { KeyboardDismissAccessory } from '../ui/KeyboardDismissAccessory';
+import { formatDutchPlate } from '../dutchPlate';
 import { ImageCropModal } from '../ui/ImageCropModal';
 import { Card, ErrorText, GhostButton, Screen } from '../ui/components';
 import { DriverOfferCard } from '../ui/DriverOfferCard';
 import { DriverPlanningPanel } from '../ui/DriverPlanningPanel';
+import { ContractHomeScreen } from './ContractHomeScreen';
 import { DriverEarningsPanel } from '../ui/DriverEarningsPanel';
 import { ScreenHeader } from '../ui/ScreenHeader';
 import { DriverTabBar, DriverTabKey } from '../ui/DriverTabBar';
 import { DriverTripCard } from '../ui/DriverTripCard';
 import { PickupAtField } from '../ui/PickupAtPicker';
 import { DriverSettleRideModal } from '../ui/DriverSettleRideModal';
+import { useI18n, t, dateLocale } from '../i18n';
 import { ThemePreference, useTheme, useThemeColors } from '../theme/ThemeContext';
 import {
   DRIVER_ACCENT_OPTIONS,
@@ -127,22 +138,22 @@ const REVIEW_STAR = '#F5B301';
 
 type RideKindFilter = 'all' | 'taxi' | 'contract';
 const RIDE_KIND_OPTIONS: { key: RideKindFilter; label: string }[] = [
-  { key: 'all', label: 'Alles' },
-  { key: 'taxi', label: 'Normaal' },
-  { key: 'contract', label: 'Contract' },
+  { key: 'all', label: t("Alles") },
+  { key: 'taxi', label: t("Normaal") },
+  { key: 'contract', label: t("Contract") },
 ];
 
 type RidePeriodFilter = 'today' | 'week';
 const RIDE_PERIOD_OPTIONS: { key: RidePeriodFilter; label: string }[] = [
-  { key: 'today', label: 'Dag' },
-  { key: 'week', label: 'Week' },
+  { key: 'today', label: t("Dag") },
+  { key: 'week', label: t("Week") },
 ];
 
 function reviewDateLabel(iso?: string | null): string {
   if (!iso) return '';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function isRideKindFilter(value: string | null): value is RideKindFilter {
@@ -229,9 +240,9 @@ function persistArchiveSeenKeys(keys: string[]) {
 }
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
-  { key: 'system', label: 'Systeem', hint: 'Volgt de telefooninstelling' },
-  { key: 'light', label: 'Licht', hint: 'Altijd lichte weergave' },
-  { key: 'dark', label: 'Donker', hint: 'Altijd donkere weergave' },
+  { key: 'system', label: t("Systeem"), hint: t("Volgt de telefooninstelling") },
+  { key: 'light', label: t("Licht"), hint: t("Altijd lichte weergave") },
+  { key: 'dark', label: t("Donker"), hint: t("Altijd donkere weergave") },
 ];
 
 function accentHex(key?: string | null): string {
@@ -240,7 +251,7 @@ function accentHex(key?: string | null): string {
 
 function accountStatusLabel(active: boolean, onlineNow: boolean): string {
   if (!active) return 'Inactief';
-  return onlineNow ? 'Actief · online' : 'Actief · offline';
+  return onlineNow ? t("Actief · online") : t("Actief · offline");
 }
 
 function toIsoDate(date: Date): string {
@@ -328,17 +339,32 @@ function vehicleTypeForPersonRange(range: string): string {
   return 'car';
 }
 
+const VEHICLE_REQUIRED_ERROR = 'Kies eerst een voertuig voordat je online gaat.';
+const VEHICLE_FORM_NAME_ACCESSORY_ID = 'vehicle-form-name-keyboard';
+const VEHICLE_FORM_PLATE_ACCESSORY_ID = 'vehicle-form-plate-keyboard';
+
 export function DriverHomeScreen() {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
-  const { driverToken, logout } = useAuth();
+  useI18n();
+  const { driverToken, contractToken, logout } = useAuth();
+  const [contractantDriver, setContractantDriver] = useState(false);
   const [tab, setTab] = useState<DriverTabKey>(() => lastDriverTab);
   const [showArchived, setShowArchived] = useState(false);
+  useAndroidBackHandler(() => {
+    if (!showArchived) return false;
+    setShowArchived(false);
+    persistDriverArchive(false);
+    return true;
+  });
   const [focusRideId, setFocusRideId] = useState<number | null>(null);
   const [focusOfferId, setFocusOfferId] = useState<number | null>(null);
   const tripsScrollRef = useRef<ScrollView | null>(null);
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
+  const onlineEpochRef = useRef(0);
+  // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
+  const onlinePendingEpochRef = useRef<number | null>(null);
   const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -514,6 +540,8 @@ export function DriverHomeScreen() {
 
   const refresh = useCallback(async () => {
     if (!driverToken) return;
+    const refreshEpoch = onlineEpochRef.current;
+    const toggleWasPending = onlinePendingEpochRef.current !== null;
     setError(null);
     try {
       const [me, vehiclesRes, inbox, fleetRes] = await Promise.all([
@@ -523,7 +551,15 @@ export function DriverHomeScreen() {
         fetchDriverFleet(driverToken),
       ]);
       const isOnlineNow = !!me.user.is_online;
-      setOnline(isOnlineNow);
+      // Negeer is_online van een refresh die vóór de tik startte, tijdens een lopend
+      // availability-verzoek startte, of daar nog in liep (server kan nog de oude waarde hebben).
+      if (
+        onlineEpochRef.current === refreshEpoch &&
+        !toggleWasPending &&
+        onlinePendingEpochRef.current === null
+      ) {
+        setOnline(isOnlineNow);
+      }
       setGpsRefreshSeconds(clampGpsRefreshSeconds(me.meta?.gps_refresh_seconds));
       setName(me.user.name);
       setEmail(me.user.email || '');
@@ -640,7 +676,7 @@ export function DriverHomeScreen() {
         setRideNotice({
           title: pickupDenied.title,
           body: pickupDenied.body,
-          primaryLabel: 'Begrepen',
+          primaryLabel: t("Begrepen"),
           rideId: pickupDenied.rideId,
         });
         if (!openedRequest) {
@@ -654,7 +690,7 @@ export function DriverHomeScreen() {
           setRideNotice({
             title: payout.title,
             body: payout.body,
-            primaryLabel: 'Begrepen',
+            primaryLabel: t("Begrepen"),
             rideId: payout.rideId,
           });
         }
@@ -669,7 +705,7 @@ export function DriverHomeScreen() {
             setRideNotice({
               title: departure.title,
               body: departure.body,
-              primaryLabel: 'Begrepen',
+              primaryLabel: t("Begrepen"),
               rideId: departure.rideId,
             });
             setTab('trips');
@@ -680,9 +716,27 @@ export function DriverHomeScreen() {
         }
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Kon gegevens niet laden.');
+      setError(e instanceof ApiError ? e.message : t("Kon gegevens niet laden."));
     }
   }, [driverToken, handleNewOffers, selectedVehicleId]);
+
+  useEffect(() => {
+    if (!contractToken) {
+      setContractantDriver(false);
+      return;
+    }
+    let cancelled = false;
+    fetchContractMe(contractToken)
+      .then((me) => {
+        if (!cancelled) setContractantDriver(userIsContractant(me.user));
+      })
+      .catch(() => {
+        if (!cancelled) setContractantDriver(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [contractToken]);
 
   useEffect(() => {
     setupDriverNotificationChannel().catch(() => undefined);
@@ -765,6 +819,7 @@ export function DriverHomeScreen() {
     const next = vehicles.find((vehicle) => vehicle.id === id) || null;
     setSelectedVehicleId(id);
     setVehiclePickerOpen(false);
+    setError((current) => (current === VEHICLE_REQUIRED_ERROR ? null : current));
     if (previousId != null && previousId !== id && next && !resolveMediaUrl(next.photo_url)) {
       setVehiclePhotoAsk(next);
     }
@@ -777,7 +832,7 @@ export function DriverHomeScreen() {
         refreshSeconds: gpsRefreshSeconds,
       });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Voertuig opslaan mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Voertuig opslaan mislukt."));
     }
   }
 
@@ -801,7 +856,7 @@ export function DriverHomeScreen() {
         e instanceof ApiError && e.body && typeof e.body === 'object' && 'errors' in e.body
           ? (e.body as { errors?: { iban?: string[] } }).errors?.iban?.[0]
           : null;
-      setIbanError(field || (e instanceof ApiError ? e.message : 'IBAN opslaan mislukt.'));
+      setIbanError(field || (e instanceof ApiError ? e.message : t("IBAN opslaan mislukt.")));
     } finally {
       setIbanBusy(false);
     }
@@ -812,38 +867,53 @@ export function DriverHomeScreen() {
     setError(null);
     if (next && !payoutIbanMasked) {
       setError(
-        'Vul eerst een geldig IBAN in bij Bedrijf in je profiel. Dit is nodig voor de uitbetaling van de ritten.'
+        t("Vul eerst een geldig IBAN in bij Bedrijf in je profiel. Dit is nodig voor de uitbetaling van de ritten.")
       );
       goToTab('profile');
       return;
     }
     if (next && !selectedVehicleId) {
-      setError('Kies eerst een voertuig voordat je online gaat.');
+      setError(VEHICLE_REQUIRED_ERROR);
       setVehiclePickerOpen(true);
       return;
     }
+
+    const epoch = ++onlineEpochRef.current;
+    onlinePendingEpochRef.current = epoch;
+    const settle = () => {
+      if (onlinePendingEpochRef.current === epoch) onlinePendingEpochRef.current = null;
+    };
+    setOnline(next);
+
     try {
       if (next) {
         await ensureDriverNotificationPermission();
-        await startDriverLocationTracking({
-          token: driverToken,
-          vehicleId: selectedVehicleId,
-          refreshSeconds: gpsRefreshSeconds,
-        });
-        await setDriverOnline(driverToken, true, selectedVehicleId);
+        await ensureForegroundLocationPermission();
+        if (onlineEpochRef.current !== epoch) return;
+        const position = await readLastKnownDriverMapPosition();
+        if (onlineEpochRef.current !== epoch) return;
+        await setDriverOnline(driverToken, true, selectedVehicleId, position);
       } else {
         await setDriverOnline(driverToken, false, selectedVehicleId);
-        await stopDriverLocationTracking();
       }
-      setOnline(next);
-      await refresh();
+      settle();
+      if (onlineEpochRef.current !== epoch) return;
+      void refresh();
     } catch (e) {
-      setOnline(false);
-      setError(e instanceof Error ? e.message : 'Online zetten mislukt.');
-      try {
-        await stopDriverLocationTracking();
-      } catch {
-        /* ignore */
+      settle();
+      if (onlineEpochRef.current !== epoch) return;
+      setOnline(!next);
+      const message = e instanceof Error ? e.message : t("Online zetten mislukt.");
+      setError(message);
+      if (message === t(LOCATION_SETTINGS_HINT)) {
+        Linking.openSettings().catch(() => undefined);
+      }
+      if (next) {
+        try {
+          await stopDriverLocationTracking();
+        } catch {
+          /* ignore */
+        }
       }
     }
   }
@@ -853,9 +923,6 @@ export function DriverHomeScreen() {
       ...declinedOffers.map((o) => `declined-${o.id}`),
       ...archivedOffers.map((o) => `offer-${o.id}`),
       ...archivedCompletedRides.map((r) => `done-${r.id}`),
-      ...overdueScheduledRides
-        .filter((r) => !isMarketplaceRide(r) && isContractRide(r))
-        .map((r) => `overdue-contract-${r.id}`),
       ...archivedOverdueScheduledRides
         .filter((r) => !isMarketplaceRide(r))
         .map((r) => `overdue-auto-${r.id}`),
@@ -885,7 +952,7 @@ export function DriverHomeScreen() {
       await refresh();
       goToTab('trips');
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Accepteren mislukt.';
+      const msg = e instanceof ApiError ? e.message : t("Accepteren mislukt.");
       if (!showRideConflictNotice(msg)) setError(msg);
     } finally {
       setBusyId(null);
@@ -899,7 +966,7 @@ export function DriverHomeScreen() {
       await declineOffer(driverToken, id);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Weigeren mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Weigeren mislukt."));
     } finally {
       setBusyId(null);
     }
@@ -926,18 +993,18 @@ export function DriverHomeScreen() {
     if (/gepland rond dit tijdstip|overlapping/i.test(message)) {
       setError(null);
       setRideNotice({
-        title: 'Rit overlapt',
+        title: t("Rit overlapt"),
         body: message,
-        primaryLabel: 'Naar ritten',
+        primaryLabel: t("Naar ritten"),
       });
       return true;
     }
     if (/lopende rit|al een rit actief/i.test(message)) {
       setError(null);
       setRideNotice({
-        title: 'Er is al een rit actief',
+        title: t("Er is al een rit actief"),
         body: message,
-        primaryLabel: blocking ? 'Naar actieve rit' : 'Naar ritten',
+        primaryLabel: blocking ? t("Naar actieve rit") : t("Naar ritten"),
         rideId: blocking?.id,
       });
       return true;
@@ -948,9 +1015,9 @@ export function DriverHomeScreen() {
   function warnRideAlreadyActive(current: DriverActiveRide) {
     setError(null);
     setRideNotice({
-      title: 'Er is al een rit actief',
-      body: 'Rond eerst de lopende rit af voordat je een andere start.',
-      primaryLabel: 'Naar actieve rit',
+      title: t("Er is al een rit actief"),
+      body: t("Rond eerst de lopende rit af voordat je een andere start."),
+      primaryLabel: t("Naar actieve rit"),
       rideId: current.id,
     });
   }
@@ -1011,13 +1078,13 @@ export function DriverHomeScreen() {
       ).trim();
       if (pickupWarning) {
         setRideNotice({
-          title: 'Controleer het ophalen',
+          title: t("Controleer het ophalen"),
           body: pickupWarning,
-          primaryLabel: 'Begrepen',
+          primaryLabel: t("Begrepen"),
         });
       }
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Rit starten mislukt.';
+      const msg = e instanceof ApiError ? e.message : t("Rit starten mislukt.");
       if (usePin) {
         setPinError(msg);
       } else {
@@ -1048,7 +1115,7 @@ export function DriverHomeScreen() {
       setProposeRideId(null);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Voorstel versturen mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Voorstel versturen mislukt."));
     } finally {
       setProposeBusy(false);
     }
@@ -1057,10 +1124,10 @@ export function DriverHomeScreen() {
   function requestReleaseRide(rideId: number) {
     Alert.alert(
       'Rit vrijgeven?',
-      'Andere chauffeurs kunnen deze rit daarna overnemen.',
+      t("Andere chauffeurs kunnen deze rit daarna overnemen."),
       [
-        { text: 'Terug', style: 'cancel' },
-        { text: 'Vrijgeven', style: 'destructive', onPress: () => onReleaseRide(rideId) },
+        { text: t("Terug"), style: 'cancel' },
+        { text: t("Vrijgeven"), style: 'destructive', onPress: () => onReleaseRide(rideId) },
       ]
     );
   }
@@ -1073,7 +1140,7 @@ export function DriverHomeScreen() {
       await releaseAcceptedRide(driverToken, rideId);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Vrijgeven mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Vrijgeven mislukt."));
     } finally {
       setBusyRideId(null);
     }
@@ -1121,13 +1188,13 @@ export function DriverHomeScreen() {
       ).trim();
       if (dropoffWarning) {
         setRideNotice({
-          title: 'Controleer de bestemming',
+          title: t("Controleer de bestemming"),
           body: dropoffWarning,
-          primaryLabel: 'Begrepen',
+          primaryLabel: t("Begrepen"),
         });
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Rit afronden mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Rit afronden mislukt."));
     } finally {
       setBusyRideId(null);
     }
@@ -1155,11 +1222,14 @@ export function DriverHomeScreen() {
       setSelectedCancelReason(null);
       await refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Annuleren mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Annuleren mislukt."));
     } finally {
       setCancelBusy(false);
     }
   }
+
+  const shownError =
+    error === VEHICLE_REQUIRED_ERROR && (vehiclePickerOpen || vehicleFormOpen) ? null : error;
 
   function renderPlaceholder(title: string, text: string) {
     return (
@@ -1169,7 +1239,7 @@ export function DriverHomeScreen() {
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
       >
-        <ErrorText>{error}</ErrorText>
+        <ErrorText>{shownError}</ErrorText>
         <ScreenHeader title={title} />
         <Card>
           <Text style={styles.hint}>{text}</Text>
@@ -1202,6 +1272,8 @@ export function DriverHomeScreen() {
     ownArchivedOverdueRides.some((r) => isContractRide(r));
   const showRideKindFilter = canFilterContractRides || hasAnyContractInTrips;
   const effectiveRideKind: RideKindFilter = showRideKindFilter ? rideKindFilter : 'all';
+  // Chauffeur + contractant: contractritten via het passagiersoverzicht, niet de ritkaart.
+  const showContractPassengerBoard = contractantDriver && effectiveRideKind !== 'taxi';
   const todayIso = toIsoDate(new Date());
   const weekFromIso = mondayIsoFrom();
   const weekToIso = addDaysIso(weekFromIso, 6);
@@ -1213,17 +1285,30 @@ export function DriverHomeScreen() {
     );
   }
 
+  function keepDriverCard(ride: DriverActiveRide | null | undefined): boolean {
+    if (!ride) return false;
+    return !(showContractPassengerBoard && isContractRide(ride));
+  }
+
   // Actieve/geparkeerde ritten altijd tonen (lopend werk), wel soortfilter toepassen.
   const activeRideFiltered =
-    activeRide && rideMatchesKindFilter(activeRide, effectiveRideKind) ? activeRide : null;
-  const parkedRidesFiltered = parkedRides.filter((r) =>
-    rideMatchesKindFilter(r, effectiveRideKind)
+    activeRide && rideMatchesKindFilter(activeRide, effectiveRideKind) && keepDriverCard(activeRide)
+      ? activeRide
+      : null;
+  const parkedRidesFiltered = parkedRides.filter(
+    (r) => rideMatchesKindFilter(r, effectiveRideKind) && keepDriverCard(r)
   );
-  const plannedRides = plannedRidesAll.filter((r) => matchesTripFilters(r));
-  const overdueNonContractRides = overdueNonContractRidesAll.filter((r) =>
-    rideMatchesKindFilter(r, effectiveRideKind)
+  const plannedRides = plannedRidesAll.filter((r) => matchesTripFilters(r) && keepDriverCard(r));
+  const overdueNonContractRides = overdueNonContractRidesAll.filter(
+    (r) => rideMatchesKindFilter(r, effectiveRideKind) && keepDriverCard(r)
   );
-  const visibleCompletedRides = visibleCompletedRidesAll.filter((r) => matchesTripFilters(r));
+  // Verlopen contractritten van een contractant staan in het passagiersoverzicht.
+  const overdueContractRidesOnTrips = showContractPassengerBoard
+    ? []
+    : overdueContractRides.filter((r) => matchesTripFilters(r));
+  const visibleCompletedRides = visibleCompletedRidesAll.filter(
+    (r) => matchesTripFilters(r) && keepDriverCard(r)
+  );
 
   const requestOffers = useMemo(() => {
     if (!focusOfferId) return offers;
@@ -1237,13 +1322,16 @@ export function DriverHomeScreen() {
     parkedRides.length > 0 ||
     plannedRidesAll.length > 0 ||
     overdueNonContractRidesAll.length > 0 ||
+    overdueContractRides.length > 0 ||
     visibleCompletedRidesAll.length > 0;
-  const hasTrips =
+  const hasDriverTripCards =
     !!activeRideFiltered ||
     parkedRidesFiltered.length > 0 ||
     plannedRides.length > 0 ||
     overdueNonContractRides.length > 0 ||
+    overdueContractRidesOnTrips.length > 0 ||
     visibleCompletedRides.length > 0;
+  const hasTrips = hasDriverTripCards || showContractPassengerBoard;
 
   function chooseRideKind(kind: RideKindFilter) {
     setRideKindFilter(kind);
@@ -1286,27 +1374,11 @@ export function DriverHomeScreen() {
   }
 
   const tripsPanel = (
-    <ScrollView
-      ref={tripsScrollRef}
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled"
-      nestedScrollEnabled
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={async () => {
-            setRefreshing(true);
-            await refresh();
-            setRefreshing(false);
-          }}
-          tintColor={colors.text}
-        />
-      }
-    >
-      <ErrorText>{error}</ErrorText>
+    <View style={{ flex: 1, minHeight: 0 }}>
+    <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
+      <ErrorText>{shownError}</ErrorText>
       <ScreenHeader
-        title="Ritten"
+        title={t("Ritten")}
         right={
           <View style={styles.periodToggle}>
             {RIDE_PERIOD_OPTIONS.map((opt) => {
@@ -1320,7 +1392,7 @@ export function DriverHomeScreen() {
                   accessibilityState={{ selected: active }}
                 >
                   <Text style={[styles.periodBtnText, active && styles.periodBtnTextActive]}>
-                    {opt.label}
+                    {t(opt.label)}
                   </Text>
                 </Pressable>
               );
@@ -1341,27 +1413,45 @@ export function DriverHomeScreen() {
                 accessibilityState={{ selected: active }}
               >
                 <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
-                  {opt.label}
+                  {t(opt.label)}
                 </Text>
               </Pressable>
             );
           })}
         </View>
       ) : null}
-      {!hasTrips ? (
+    </View>
+    {hasDriverTripCards || !showContractPassengerBoard ? (
+    <ScrollView
+      ref={tripsScrollRef}
+      style={showContractPassengerBoard && hasDriverTripCards ? { maxHeight: 280 } : { flex: 1 }}
+      contentContainerStyle={styles.scroll}
+      keyboardShouldPersistTaps="handled"
+      nestedScrollEnabled
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await refresh();
+            setRefreshing(false);
+          }}
+          tintColor={colors.text}
+        />
+      }
+    >
+      {!hasDriverTripCards ? (
         <Card>
           <Text style={styles.emptyTitle}>
-            {ridePeriodFilter === 'week' ? 'Geen ritten deze week.' : 'Geen ritten voor vandaag.'}
+            {ridePeriodFilter === 'week' ? t("Geen ritten deze week.") : t("Geen ritten voor vandaag.")}
           </Text>
-          <Text style={styles.hint}>
-            Geaccepteerde ritten verschijnen hier. Afgeronde ritten blijven zichtbaar tot je ze archiveert.
-          </Text>
+          <Text style={styles.hint}>{t("Geaccepteerde ritten verschijnen hier. Afgeronde ritten blijven zichtbaar tot je ze archiveert.")}</Text>
         </Card>
       ) : (
         <>
           {activeRideFiltered ? (
             <>
-              <Text style={styles.sectionLabel}>Actief</Text>
+              <Text style={styles.sectionLabel}>{t("Actief")}</Text>
               <View onLayout={bindRideOffset(activeRideFiltered.id)}>
                 <DriverTripCard
                   ride={activeRideFiltered}
@@ -1400,7 +1490,7 @@ export function DriverHomeScreen() {
           ))}
           {plannedRides.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Geaccepteerd / gepland</Text>
+              <Text style={styles.sectionLabel}>{t("Geaccepteerd / gepland")}</Text>
               {plannedRides.map((ride) => (
                 <View key={`scheduled-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
                   <DriverTripCard
@@ -1424,9 +1514,37 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
+          {overdueContractRidesOnTrips.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>{t("Verlopen contractritten")}</Text>
+              {overdueContractRidesOnTrips.map((ride) => (
+                <View key={`overdue-contract-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
+                  <DriverTripCard
+                    ride={ride}
+                    variant="overdue"
+                    busy={busyRideId === ride.id}
+                    highlighted={focusRideId === ride.id}
+                    onHighlightEnd={() => setFocusRideId(null)}
+                    onStart={() => onStartRide(ride.id)}
+                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
+                    onProposePickup={() => openProposePickup(ride)}
+                    onRelease={() => requestReleaseRide(ride.id)}
+                    onCancel={
+                      ride.can_cancel_with_reason
+                        ? () => {
+                            setSelectedCancelReason(null);
+                            setCancelRideId(ride.id);
+                          }
+                        : undefined
+                    }
+                  />
+                </View>
+              ))}
+            </>
+          ) : null}
           {overdueNonContractRides.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Verlopen ophaalmoment</Text>
+              <Text style={styles.sectionLabel}>{t("Verlopen ophaalmoment")}</Text>
               {overdueNonContractRides.map((ride) => (
                 <View key={`overdue-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
                   <DriverTripCard
@@ -1454,7 +1572,7 @@ export function DriverHomeScreen() {
           ) : null}
           {visibleCompletedRides.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Afgerond</Text>
+              <Text style={styles.sectionLabel}>{t("Afgerond")}</Text>
               {visibleCompletedRides.map((ride) => (
                 <View key={`done-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
                   <DriverTripCard
@@ -1471,6 +1589,13 @@ export function DriverHomeScreen() {
         </>
       )}
     </ScrollView>
+    ) : null}
+    {showContractPassengerBoard ? (
+      <View style={{ flex: 1, minHeight: 0 }}>
+        <ContractHomeScreen embedded />
+      </View>
+    ) : null}
+    </View>
   );
 
   const planningPanel = driverToken ? (
@@ -1480,7 +1605,7 @@ export function DriverHomeScreen() {
     />
   ) : (
     <ScrollView contentContainerStyle={styles.scroll}>
-      <Text style={styles.hint}>Niet ingelogd.</Text>
+      <Text style={styles.hint}>{t("Niet ingelogd.")}</Text>
     </ScrollView>
   );
 
@@ -1503,14 +1628,11 @@ export function DriverHomeScreen() {
       }
       ListHeaderComponent={
         <>
-          <ErrorText>{error}</ErrorText>
-          <ScreenHeader title="Aanvragen" />
+          <ErrorText>{shownError}</ErrorText>
+          <ScreenHeader title={t("Aanvragen")} />
           {!online ? (
             <Card>
-              <Text style={styles.hint}>
-                Zet jezelf online. Locatie blijft actief op de achtergrond (belangrijk voor
-                matching op de NEXA Taxi marktplaats).
-              </Text>
+              <Text style={styles.hint}>{t("Zet jezelf online. Locatie blijft actief op de achtergrond (belangrijk voor matching op de NEXA Taxi marktplaats).")}</Text>
             </Card>
           ) : null}
         </>
@@ -1518,7 +1640,7 @@ export function DriverHomeScreen() {
       ListEmptyComponent={
         <Card>
           <Text style={styles.hint}>
-            {online ? 'Nog geen ritten in je inbox.' : 'Ga online om ritten te ontvangen.'}
+            {online ? t("Nog geen ritten in je inbox.") : t("Ga online om ritten te ontvangen.")}
           </Text>
         </Card>
       }
@@ -1570,10 +1692,10 @@ export function DriverHomeScreen() {
 
   const chooseImageSource = (): Promise<'library' | 'files' | null> =>
     new Promise((resolve) => {
-      Alert.alert('Afbeelding kiezen', 'Waar wil je de foto vandaan halen?', [
-        { text: 'Annuleren', style: 'cancel', onPress: () => resolve(null) },
+      Alert.alert('Afbeelding kiezen', t("Waar wil je de foto vandaan halen?"), [
+        { text: t("Annuleren"), style: 'cancel', onPress: () => resolve(null) },
         { text: 'Fotobibliotheek', onPress: () => resolve('library') },
-        { text: 'Bestanden', onPress: () => resolve('files') },
+        { text: t("Bestanden"), onPress: () => resolve('files') },
       ]);
     });
 
@@ -1587,7 +1709,7 @@ export function DriverHomeScreen() {
       setReviews(Array.isArray(res.reviews) ? res.reviews : []);
     } catch (e) {
       setReviews([]);
-      setReviewsError(e instanceof ApiError ? e.message : 'Beoordelingen laden mislukt.');
+      setReviewsError(e instanceof ApiError ? e.message : t("Beoordelingen laden mislukt."));
     } finally {
       setReviewsBusy(false);
     }
@@ -1606,7 +1728,7 @@ export function DriverHomeScreen() {
       if (source === 'library') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-          setError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+          setError(t("Geen toegang tot foto’s. Sta dit toe in de instellingen."));
           return;
         }
         const picked = await ImagePicker.launchImageLibraryAsync({
@@ -1633,7 +1755,7 @@ export function DriverHomeScreen() {
       setCropUri(uri);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : 'Foto kiezen mislukt.'
+        e instanceof Error ? e.message : t("Foto kiezen mislukt.")
       );
     }
   };
@@ -1649,7 +1771,7 @@ export function DriverHomeScreen() {
     setCropMime(null);
     setCropKind(null);
     if (kind === 'vehicle' && !vehicleId) {
-      setError('Kies eerst een voertuig.');
+      setError(t("Kies eerst een voertuig."));
       return;
     }
     setMediaBusy(true);
@@ -1692,7 +1814,7 @@ export function DriverHomeScreen() {
           ? e.message
           : e instanceof Error
             ? e.message
-            : 'Foto uploaden mislukt.'
+            : t("Foto uploaden mislukt.")
       );
     } finally {
       setMediaBusy(false);
@@ -1707,7 +1829,7 @@ export function DriverHomeScreen() {
       id: vehicle?.id ?? null,
       name: vehicle?.name || '',
       type: vehicle?.type || 'car',
-      license_plate: vehicle?.license_plate || '',
+      license_plate: formatDutchPlate(vehicle?.license_plate || ''),
       person_range: vehicle?.person_range || '1-4',
       photoUri: null,
       photoMime: null,
@@ -1729,7 +1851,7 @@ export function DriverHomeScreen() {
       if (source === 'library') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-          setVehicleFormError('Geen toegang tot foto’s. Sta dit toe in de instellingen.');
+          setVehicleFormError(t("Geen toegang tot foto’s. Sta dit toe in de instellingen."));
           return;
         }
         const picked = await ImagePicker.launchImageLibraryAsync({
@@ -1757,7 +1879,7 @@ export function DriverHomeScreen() {
       setCropMime(mime);
       setCropUri(uri);
     } catch (e) {
-      setVehicleFormError(e instanceof Error ? e.message : 'Foto kiezen mislukt.');
+      setVehicleFormError(e instanceof Error ? e.message : t("Foto kiezen mislukt."));
     }
   }
 
@@ -1780,8 +1902,8 @@ export function DriverHomeScreen() {
 
   function confirmRemovePhoto(message: string, onYes: () => void) {
     Alert.alert('Plaatje verwijderen', message, [
-      { text: 'Annuleren', style: 'cancel' },
-      { text: 'Verwijderen', style: 'destructive', onPress: onYes },
+      { text: t("Annuleren"), style: 'cancel' },
+      { text: t("Verwijderen"), style: 'destructive', onPress: onYes },
     ]);
   }
 
@@ -1803,7 +1925,7 @@ export function DriverHomeScreen() {
         });
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Profielfoto verwijderen mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Profielfoto verwijderen mislukt."));
     } finally {
       setMediaBusy(false);
     }
@@ -1821,7 +1943,7 @@ export function DriverHomeScreen() {
         setDriverMedia({ ...res.media, company_logo_url: null });
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Bedrijfslogo verwijderen mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Bedrijfslogo verwijderen mislukt."));
     } finally {
       setMediaBusy(false);
     }
@@ -1837,7 +1959,7 @@ export function DriverHomeScreen() {
     try {
       await deleteDriverVehiclePhoto(driverToken, vehicleId);
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : 'Auto-foto verwijderen mislukt.';
+      const message = e instanceof ApiError ? e.message : t("Auto-foto verwijderen mislukt.");
       if (vehicleFormOpen) setVehicleFormError(message);
       else setError(message);
     } finally {
@@ -1864,11 +1986,11 @@ export function DriverHomeScreen() {
     const name = vehicleDraft.name.trim();
     const plate = vehicleDraft.license_plate.trim();
     if (name.length < 1) {
-      setVehicleFormError('Vul een naam in.');
+      setVehicleFormError(t("Vul een naam in."));
       return;
     }
     if (plate.length < 1) {
-      setVehicleFormError('Vul een kenteken in.');
+      setVehicleFormError(t("Vul een kenteken in."));
       return;
     }
     setVehicleFormBusy(true);
@@ -1896,7 +2018,7 @@ export function DriverHomeScreen() {
       setVehicleFormOpen(false);
       await refresh();
     } catch (e) {
-      setVehicleFormError(e instanceof ApiError ? e.message : 'Voertuig opslaan mislukt.');
+      setVehicleFormError(e instanceof ApiError ? e.message : t("Voertuig opslaan mislukt."));
     } finally {
       setVehicleFormBusy(false);
     }
@@ -1917,7 +2039,7 @@ export function DriverHomeScreen() {
       await refresh();
     } catch (e) {
       setVehicleConfirmDelete(false);
-      setVehicleFormError(e instanceof ApiError ? e.message : 'Voertuig verwijderen mislukt.');
+      setVehicleFormError(e instanceof ApiError ? e.message : t("Voertuig verwijderen mislukt."));
     } finally {
       setVehicleFormBusy(false);
     }
@@ -1931,22 +2053,22 @@ export function DriverHomeScreen() {
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
     >
-      <ErrorText>{error}</ErrorText>
-      <ScreenHeader title="Profiel" />
+      <ErrorText>{shownError}</ErrorText>
+      <ScreenHeader title={t("Profiel")} />
       <Card>
-        <Text style={styles.profileName}>{name || 'Chauffeur'}</Text>
+        <Text style={styles.profileName}>{name || t("Chauffeur")}</Text>
         <View style={styles.profileRow}>
-          <Text style={styles.profileLabel}>E-mailadres</Text>
+          <Text style={styles.profileLabel}>{t("E-mailadres")}</Text>
           <Text style={styles.profileValue}>{email || '—'}</Text>
         </View>
         <View style={styles.profileRow}>
-          <Text style={styles.profileLabel}>Telefoonnummer</Text>
+          <Text style={styles.profileLabel}>{t("Telefoonnummer")}</Text>
           <Text style={[styles.profileValue, !phone && styles.profileValueMuted]}>
-            {phone || 'Niet beschikbaar'}
+            {phone || t("Niet beschikbaar")}
           </Text>
         </View>
         <View style={styles.profileRow}>
-          <Text style={styles.profileLabel}>Bedrijf</Text>
+          <Text style={styles.profileLabel}>{t("Bedrijf")}</Text>
           <Text style={styles.profileValue}>{company || '—'}</Text>
           <Text style={[styles.profileLabel, { marginTop: 14 }]}>IBAN</Text>
           {!payoutIbanMasked || ibanEditing ? (
@@ -1967,16 +2089,16 @@ export function DriverHomeScreen() {
                 editable={!ibanBusy}
                 accessibilityLabel="IBAN"
               />
-              <Text style={styles.profileIbanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
+              <Text style={styles.profileIbanHint}>{t("Dit is nodig voor de uitbetaling van de ritten.")}</Text>
               {ibanError ? <Text style={styles.reviewsError}>{ibanError}</Text> : null}
               <Pressable
                 onPress={() => void savePayoutIban()}
                 disabled={ibanBusy}
                 accessibilityRole="button"
-                accessibilityLabel="IBAN opslaan"
+                accessibilityLabel={t("IBAN opslaan")}
                 style={[styles.profileIbanSave, ibanBusy && styles.cancelActionDisabled]}
               >
-                <Text style={styles.profileIbanSaveText}>{ibanBusy ? 'Opslaan…' : 'IBAN opslaan'}</Text>
+                <Text style={styles.profileIbanSaveText}>{ibanBusy ? t("Opslaan…") : t("IBAN opslaan")}</Text>
               </Pressable>
               {ibanEditing && payoutIbanMasked ? (
                 <Pressable
@@ -1986,16 +2108,16 @@ export function DriverHomeScreen() {
                     setIbanError(null);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="IBAN wijzigen annuleren"
+                  accessibilityLabel={t("IBAN wijzigen annuleren")}
                 >
-                  <Text style={styles.profileIbanAction}>Annuleren</Text>
+                  <Text style={styles.profileIbanAction}>{t("Annuleren")}</Text>
                 </Pressable>
               ) : null}
             </>
           ) : (
             <>
               <Text style={styles.profileValue}>{payoutIbanMasked}</Text>
-              <Text style={styles.profileIbanHint}>Dit is nodig voor de uitbetaling van de ritten.</Text>
+              <Text style={styles.profileIbanHint}>{t("Dit is nodig voor de uitbetaling van de ritten.")}</Text>
               <Pressable
                 onPress={() => {
                   setIbanEditing(true);
@@ -2003,24 +2125,24 @@ export function DriverHomeScreen() {
                   setIbanError(null);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="IBAN wijzigen"
+                accessibilityLabel={t("IBAN wijzigen")}
               >
-                <Text style={styles.profileIbanAction}>Wijzigen</Text>
+                <Text style={styles.profileIbanAction}>{t("Wijzigen")}</Text>
               </Pressable>
             </>
           )}
         </View>
         <View style={styles.profileRow}>
-          <Text style={styles.profileLabel}>Accountstatus</Text>
+          <Text style={styles.profileLabel}>{t("Accountstatus")}</Text>
           <Text style={styles.profileValue}>{accountStatusLabel(accountActive, online)}</Text>
         </View>
         <Pressable
           style={styles.profileRow}
           onPress={() => void openReviews()}
           accessibilityRole="button"
-          accessibilityLabel="Beoordelingen bekijken"
+          accessibilityLabel={t("Beoordelingen bekijken")}
         >
-          <Text style={styles.profileLabel}>Beoordeling</Text>
+          <Text style={styles.profileLabel}>{t("Beoordeling")}</Text>
           <View style={styles.ratingValue}>
             <Ionicons name="star" size={16} color={REVIEW_STAR} />
             <Text style={styles.profileValue}>
@@ -2033,11 +2155,8 @@ export function DriverHomeScreen() {
         </Pressable>
 
         <View style={styles.profileDivider} />
-        <Text style={styles.profileSection}>Foto’s voor de klant</Text>
-        <Text style={styles.themeHint}>
-          Profielfoto is verplicht voordat je een rit kunt accepteren. Logo en auto-foto zijn
-          optioneel en worden alleen getoond als je ze uploadt.
-        </Text>
+        <Text style={styles.profileSection}>{t("Foto’s voor de klant")}</Text>
+        <Text style={styles.themeHint}>{t("Profielfoto is verplicht voordat je een rit kunt accepteren. Logo en auto-foto zijn optioneel en worden alleen getoond als je ze uploadt.")}</Text>
         <View style={styles.mediaUploadRow}>
           <View style={styles.mediaUploadCard}>
             <Pressable
@@ -2062,18 +2181,18 @@ export function DriverHomeScreen() {
                 <Pressable
                   onPress={() => openPhotoPreview(driverMedia.profile_photo_url || null)}
                   accessibilityRole="button"
-                  accessibilityLabel="Profielfoto vergroten"
+                  accessibilityLabel={t("Profielfoto vergroten")}
                   hitSlop={8}
                 >
                   <Ionicons name="search-outline" size={20} color={colors.text} />
                 </Pressable>
                 <Pressable
                   onPress={() =>
-                    confirmRemovePhoto('De profielfoto wordt verwijderd.', () => void removeProfilePhoto())
+                    confirmRemovePhoto(t("De profielfoto wordt verwijderd."), () => void removeProfilePhoto())
                   }
                   disabled={mediaBusy}
                   accessibilityRole="button"
-                  accessibilityLabel="Profielfoto verwijderen"
+                  accessibilityLabel={t("Profielfoto verwijderen")}
                   hitSlop={8}
                 >
                   <Ionicons name="trash-outline" size={20} color={colors.danger} />
@@ -2081,7 +2200,7 @@ export function DriverHomeScreen() {
               </View>
             ) : null}
             <Text style={styles.mediaUploadLabel}>
-              {driverMedia?.has_profile_photo ? 'Profielfoto wijzigen' : 'Profielfoto (verplicht)'}
+              {driverMedia?.has_profile_photo ? t("Profielfoto wijzigen") : t("Profielfoto (verplicht)")}
             </Text>
           </View>
           <View style={styles.mediaUploadCard}>
@@ -2107,25 +2226,25 @@ export function DriverHomeScreen() {
                 <Pressable
                   onPress={() => openPhotoPreview(driverMedia.company_logo_url || null)}
                   accessibilityRole="button"
-                  accessibilityLabel="Bedrijfslogo vergroten"
+                  accessibilityLabel={t("Bedrijfslogo vergroten")}
                   hitSlop={8}
                 >
                   <Ionicons name="search-outline" size={20} color={colors.text} />
                 </Pressable>
                 <Pressable
                   onPress={() =>
-                    confirmRemovePhoto('Het bedrijfslogo wordt verwijderd.', () => void removeCompanyLogo())
+                    confirmRemovePhoto(t("Het bedrijfslogo wordt verwijderd."), () => void removeCompanyLogo())
                   }
                   disabled={mediaBusy}
                   accessibilityRole="button"
-                  accessibilityLabel="Bedrijfslogo verwijderen"
+                  accessibilityLabel={t("Bedrijfslogo verwijderen")}
                   hitSlop={8}
                 >
                   <Ionicons name="trash-outline" size={20} color={colors.danger} />
                 </Pressable>
               </View>
             ) : null}
-            <Text style={styles.mediaUploadLabel}>Bedrijfslogo</Text>
+            <Text style={styles.mediaUploadLabel}>{t("Bedrijfslogo")}</Text>
           </View>
           <View ref={vehiclePhotoRef} collapsable={false} style={styles.mediaUploadCard}>
             <Pressable
@@ -2150,7 +2269,7 @@ export function DriverHomeScreen() {
                 <Pressable
                   onPress={() => openPhotoPreview(resolveMediaUrl(selectedVehicle?.photo_url))}
                   accessibilityRole="button"
-                  accessibilityLabel="Auto-foto vergroten"
+                  accessibilityLabel={t("Auto-foto vergroten")}
                   hitSlop={8}
                 >
                   <Ionicons name="search-outline" size={20} color={colors.text} />
@@ -2158,14 +2277,14 @@ export function DriverHomeScreen() {
                 <Pressable
                   onPress={() =>
                     selectedVehicleId
-                      ? confirmRemovePhoto('De auto-foto wordt verwijderd.', () =>
+                      ? confirmRemovePhoto(t("De auto-foto wordt verwijderd."), () =>
                           void removeVehiclePhoto(selectedVehicleId)
                         )
                       : undefined
                   }
                   disabled={mediaBusy || !selectedVehicleId}
                   accessibilityRole="button"
-                  accessibilityLabel="Auto-foto verwijderen"
+                  accessibilityLabel={t("Auto-foto verwijderen")}
                   hitSlop={8}
                 >
                   <Ionicons name="trash-outline" size={20} color={colors.danger} />
@@ -2173,23 +2292,21 @@ export function DriverHomeScreen() {
               </View>
             ) : null}
             <Text style={styles.mediaUploadLabel}>
-              {selectedVehicle ? `Auto · ${vehicleDisplayLabel(selectedVehicle)}` : 'Auto'}
+              {selectedVehicle ? `Auto · ${vehicleDisplayLabel(selectedVehicle)}` : t("Auto")}
             </Text>
           </View>
         </View>
 
         <View style={styles.profileDivider} />
         <View style={styles.fleetHeader}>
-          <Text style={styles.profileSection}>Voertuigen</Text>
-          <Pressable onPress={() => openVehicleForm()} accessibilityRole="button" accessibilityLabel="Voertuig toevoegen">
-            <Text style={[styles.fleetAdd, { color: accentHex(accent) }]}>Toevoegen</Text>
+          <Text style={styles.profileSection}>{t("Voertuigen")}</Text>
+          <Pressable onPress={() => openVehicleForm()} accessibilityRole="button" accessibilityLabel={t("Voertuig toevoegen")}>
+            <Text style={[styles.fleetAdd, { color: accentHex(accent) }]}>{t("Toevoegen")}</Text>
           </Pressable>
         </View>
-        <Text style={styles.themeHint}>
-          Naam, type, kenteken en personenbereik. Een rit met meer dan 4 personen gaat alleen naar een voertuig van 5 t/m 8.
-        </Text>
+        <Text style={styles.themeHint}>{t("Naam, type, kenteken en personenbereik. Een rit met meer dan 4 personen gaat alleen naar een voertuig van 5 t/m 8.")}</Text>
         {fleet.length === 0 ? (
-          <Text style={styles.hint}>Nog geen voertuigen.</Text>
+          <Text style={styles.hint}>{t("Nog geen voertuigen.")}</Text>
         ) : (
           fleet.map((vehicle) => (
             <Pressable
@@ -2215,7 +2332,7 @@ export function DriverHomeScreen() {
                   {vehicle.name || vehicleDisplayLabel(vehicle)}
                 </Text>
                 <Text style={styles.themeHint} numberOfLines={1}>
-                  {[vehicle.license_plate, vehicle.type_label || 'Auto', vehicle.person_range_label || 't/m 4 personen']
+                  {[vehicle.license_plate, vehicle.type_label || t("Auto"), vehicle.person_range_label || t("t/m 4 personen")]
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
@@ -2226,7 +2343,7 @@ export function DriverHomeScreen() {
         )}
 
         <View style={styles.profileDivider} />
-        <Text style={styles.profileSection}>Themakleur</Text>
+        <Text style={styles.profileSection}>{t("Themakleur")}</Text>
         <View style={styles.accentRow}>
           {DRIVER_ACCENT_OPTIONS.map((item) => {
             const selected = accent === item.key;
@@ -2248,11 +2365,8 @@ export function DriverHomeScreen() {
         </View>
 
         <View style={styles.profileDivider} />
-        <Text style={styles.profileSection}>Weergave</Text>
-        <Text style={styles.themeHint}>
-          Standaard volgt de app de light/dark-modus van je telefoon. Kies hieronder alleen als je
-          dat wilt overschrijven.
-        </Text>
+        <Text style={styles.profileSection}>{t("Weergave")}</Text>
+        <Text style={styles.themeHint}>{t("Standaard volgt de app de light/dark-modus van je telefoon. Kies hieronder alleen als je dat wilt overschrijven.")}</Text>
         {THEME_OPTIONS.map((opt) => {
           const selected = preference === opt.key;
           return (
@@ -2265,18 +2379,16 @@ export function DriverHomeScreen() {
             >
               <View style={[styles.themeRadio, selected && styles.themeRadioOn]} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.themeLabel}>{opt.label}</Text>
-                <Text style={styles.themeSub}>{opt.hint}</Text>
+                <Text style={styles.themeLabel}>{t(opt.label)}</Text>
+                <Text style={styles.themeSub}>{t(opt.hint)}</Text>
               </View>
             </Pressable>
           );
         })}
 
         <View style={styles.profileDivider} />
-        <Text style={styles.profileSection}>Ritgeluid</Text>
-        <Text style={styles.themeHint}>
-          Kies het geluid bij een nieuwe rit. Tik om te beluisteren.
-        </Text>
+        <Text style={styles.profileSection}>{t("Ritgeluid")}</Text>
+        <Text style={styles.themeHint}>{t("Kies het geluid bij een nieuwe rit. Tik om te beluisteren.")}</Text>
         <View style={styles.toneRow}>
           {RIDE_ALERT_OPTIONS.map((item) => {
             const selected = rideTone === item.key;
@@ -2303,8 +2415,8 @@ export function DriverHomeScreen() {
           onPress={openHandleiding}
           style={[styles.guideLink, { borderColor: `${accentHex(accent)}66` }]}
         >
-          <Text style={[styles.guideLinkTitle, { color: accentHex(accent) }]}>Handleiding</Text>
-          <Text style={[styles.guideLinkAction, { color: accentHex(accent) }]}>Openen →</Text>
+          <Text style={[styles.guideLinkTitle, { color: accentHex(accent) }]}>{t("Handleiding")}</Text>
+          <Text style={[styles.guideLinkAction, { color: accentHex(accent) }]}>{t("Openen →")}</Text>
         </Pressable>
         <Pressable
           style={styles.logoutBtn}
@@ -2315,7 +2427,7 @@ export function DriverHomeScreen() {
             await logout();
           }}
         >
-          <Text style={styles.logoutBtnText}>Uitloggen</Text>
+          <Text style={styles.logoutBtnText}>{t("Uitloggen")}</Text>
         </Pressable>
       </Card>
     </ScrollView>
@@ -2334,9 +2446,6 @@ export function DriverHomeScreen() {
   const archivedCompletedRidesFiltered = archivedCompletedRides.filter((r) =>
     rideMatchesKindFilter(r, rideKindFilter)
   );
-  const overdueContractRidesFiltered = overdueContractRides.filter((r) =>
-    rideMatchesKindFilter(r, rideKindFilter)
-  );
   const ownArchivedOverdueRidesFiltered = ownArchivedOverdueRides.filter((r) =>
     rideMatchesKindFilter(r, rideKindFilter)
   );
@@ -2344,14 +2453,12 @@ export function DriverHomeScreen() {
     ...declinedOffers.map((o) => `declined-${o.id}`),
     ...archivedOffers.map((o) => `offer-${o.id}`),
     ...archivedCompletedRides.map((r) => `done-${r.id}`),
-    ...overdueContractRides.map((r) => `overdue-contract-${r.id}`),
     ...ownArchivedOverdueRides.map((r) => `overdue-auto-${r.id}`),
   ];
   const archiveHasItems =
     declinedOffersFiltered.length > 0 ||
     archivedOffersFiltered.length > 0 ||
     archivedCompletedRidesFiltered.length > 0 ||
-    overdueContractRidesFiltered.length > 0 ||
     ownArchivedOverdueRidesFiltered.length > 0;
   const archiveSeenSet = useMemo(() => new Set(archiveSeenKeys), [archiveSeenKeys]);
   const archiveBadgeCount = archiveKeys.filter((key) => !archiveSeenSet.has(key)).length;
@@ -2374,16 +2481,16 @@ export function DriverHomeScreen() {
         />
       }
     >
-      <ErrorText>{error}</ErrorText>
+      <ErrorText>{shownError}</ErrorText>
       <Pressable
         onPress={() => goToArchive(false)}
         style={styles.archiveNav}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel="Terug naar ritten"
+        accessibilityLabel={t("Terug naar ritten")}
       >
         <Ionicons name="chevron-back" size={22} color={colors.text} />
-        <Text style={styles.archiveNavTitle}>Archief</Text>
+        <Text style={styles.archiveNavTitle}>{t("Archief")}</Text>
       </Pressable>
       <View style={styles.rideKindRow}>
         {RIDE_KIND_OPTIONS.map((opt) => {
@@ -2397,7 +2504,7 @@ export function DriverHomeScreen() {
               accessibilityState={{ selected: active }}
             >
               <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
-                {opt.label}
+                {t(opt.label)}
               </Text>
             </Pressable>
           );
@@ -2407,7 +2514,7 @@ export function DriverHomeScreen() {
         <>
           {declinedOffersFiltered.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Afgewezen / geannuleerd</Text>
+              <Text style={styles.sectionLabel}>{t("Afgewezen / geannuleerd")}</Text>
               {declinedOffersFiltered.map((offer) => (
                 <DriverOfferCard
                   key={`declined-${offer.id}`}
@@ -2419,35 +2526,9 @@ export function DriverHomeScreen() {
               ))}
             </>
           ) : null}
-          {overdueContractRidesFiltered.length > 0 ? (
-            <>
-              <Text style={styles.sectionLabel}>Verlopen contractritten</Text>
-              {overdueContractRidesFiltered.map((ride) => (
-                <View key={`archived-overdue-contract-${ride.id}`}>
-                  <DriverTripCard
-                    ride={ride}
-                    variant="overdue"
-                    busy={busyRideId === ride.id}
-                    onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
-                    onProposePickup={() => openProposePickup(ride)}
-                    onRelease={() => requestReleaseRide(ride.id)}
-                    onCancel={
-                      ride.can_cancel_with_reason
-                        ? () => {
-                            setSelectedCancelReason(null);
-                            setCancelRideId(ride.id);
-                          }
-                        : undefined
-                    }
-                  />
-                </View>
-              ))}
-            </>
-          ) : null}
           {ownArchivedOverdueRidesFiltered.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Verlopen ritten</Text>
+              <Text style={styles.sectionLabel}>{t("Verlopen ritten")}</Text>
               {ownArchivedOverdueRidesFiltered.map((ride) => (
                 <View key={`archived-overdue-auto-${ride.id}`}>
                   <DriverTripCard
@@ -2473,7 +2554,7 @@ export function DriverHomeScreen() {
           ) : null}
           {archivedCompletedRidesFiltered.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Afgeronde ritten</Text>
+              <Text style={styles.sectionLabel}>{t("Afgeronde ritten")}</Text>
               {archivedCompletedRidesFiltered.map((ride) => (
                 <DriverTripCard
                   key={`archived-done-${ride.id}`}
@@ -2487,7 +2568,7 @@ export function DriverHomeScreen() {
           ) : null}
           {archivedOffersFiltered.length > 0 ? (
             <>
-              <Text style={styles.sectionLabel}>Archief</Text>
+              <Text style={styles.sectionLabel}>{t("Archief")}</Text>
               {archivedOffersFiltered.map((offer) => {
                 const ride = offer.ride;
                 const pickup = String(ride?.pickup_address || '').split(',')[0] || '—';
@@ -2496,7 +2577,7 @@ export function DriverHomeScreen() {
                   <Card key={`archived-${offer.id}`}>
                     <Text style={styles.archivedMeta}>
                       {ride?.pickup_at
-                        ? new Date(ride.pickup_at).toLocaleString('nl-NL', {
+                        ? new Date(ride.pickup_at).toLocaleString(dateLocale(), {
                             weekday: 'short',
                             day: 'numeric',
                             month: 'short',
@@ -2519,7 +2600,7 @@ export function DriverHomeScreen() {
         </>
       ) : (
         <Card>
-          <Text style={styles.hint}>Geen gearchiveerde of afgewezen ritten.</Text>
+          <Text style={styles.hint}>{t("Geen gearchiveerde of afgewezen ritten.")}</Text>
         </Card>
       )}
     </ScrollView>
@@ -2537,7 +2618,7 @@ export function DriverHomeScreen() {
         completedRides={completedRides}
       />
     ) : (
-      renderPlaceholder('Inkomsten', 'Niet ingelogd.')
+      renderPlaceholder(t("Inkomsten"), t("Niet ingelogd."))
     );
   } else if (tab === 'profile') body = profilePanel;
 
@@ -2552,10 +2633,10 @@ export function DriverHomeScreen() {
         aspectRatio={cropKind === 'profile' ? 1 : 4 / 3}
         title={
           cropKind === 'profile'
-            ? 'Profielfoto bijsnijden'
+            ? t("Profielfoto bijsnijden")
             : cropKind === 'logo'
-              ? 'Logo bijsnijden'
-              : 'Voertuigfoto bijsnijden'
+              ? t("Logo bijsnijden")
+              : t("Voertuigfoto bijsnijden")
         }
         onCancel={() => {
           setCropUri(null);
@@ -2586,12 +2667,12 @@ export function DriverHomeScreen() {
           <Image source={{ uri: photoPreview }} style={styles.photoLightboxImage} resizeMode="contain" />
         ) : null}
         <Pressable onPress={() => setPhotoPreview(null)} style={styles.vehicleModalCloseBtn}>
-          <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+          <Text style={styles.vehicleModalCloseText}>{t("Sluiten")}</Text>
         </Pressable>
       </AppModal>
       <View style={styles.topBar}>
         <View style={styles.onlineBox}>
-          <Text style={styles.onlineLabel}>{online ? 'Online' : 'Offline'}</Text>
+          <Text style={styles.onlineLabel}>{online ? t("Online") : t("Offline")}</Text>
           <Switch
             value={online}
             onValueChange={toggleOnline}
@@ -2604,8 +2685,8 @@ export function DriverHomeScreen() {
           <AppBrandLogo
             bare
             uri={logoUri}
-            fallbackLabel={company || 'Chauffeur'}
-            accessibilityLabel={company || 'Bedrijfslogo'}
+            fallbackLabel={company || t("Chauffeur")}
+            accessibilityLabel={company || t("Bedrijfslogo")}
           />
         </View>
 
@@ -2614,7 +2695,7 @@ export function DriverHomeScreen() {
             style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
             onPress={() => goToArchive(!showArchived)}
             accessibilityLabel={
-              archiveBadgeCount > 0 ? `Archief (${archiveBadgeCount})` : 'Archief'
+              archiveBadgeCount > 0 ? `Archief (${archiveBadgeCount})` : t("Archief")
             }
           >
             {archiveBadgeCount > 0 ? (
@@ -2632,6 +2713,9 @@ export function DriverHomeScreen() {
           </Pressable>
         </View>
       </View>
+      <View style={styles.prefsRow}>
+        <AppearanceControls />
+      </View>
 
       <Pressable
         onPress={() => {
@@ -2641,7 +2725,7 @@ export function DriverHomeScreen() {
         style={[styles.vehicleRow, needsVehicle && styles.vehicleRowNeeded]}
         accessibilityRole={vehicleLocked ? 'text' : 'button'}
         accessibilityLabel={
-          vehicleLocked ? 'Toegewezen voertuig' : 'Voertuig wisselen'
+          vehicleLocked ? t("Toegewezen voertuig") : t("Voertuig wisselen")
         }
       >
         <Ionicons name="car-outline" size={20} color={colors.muted} />
@@ -2660,7 +2744,7 @@ export function DriverHomeScreen() {
               ) : null}
             </Text>
           ) : (
-            <Text style={styles.vehicleBrand}>Kies een voertuig…</Text>
+            <Text style={styles.vehicleBrand}>{t("Kies een voertuig…")}</Text>
           )}
         </Text>
         {!vehicleLocked ? (
@@ -2694,11 +2778,11 @@ export function DriverHomeScreen() {
         onRequestClose={() => setReviewsOpen(false)}
         panelStyle={styles.reviewsModal}
       >
-        <Text style={styles.pickerTitle}>Beoordelingen</Text>
-        {reviewsBusy ? <Text style={styles.hint}>Laden…</Text> : null}
+        <Text style={styles.pickerTitle}>{t("Beoordelingen")}</Text>
+        {reviewsBusy ? <Text style={styles.hint}>{t("Laden…")}</Text> : null}
         {reviewsError ? <Text style={styles.reviewsError}>{reviewsError}</Text> : null}
         {!reviewsBusy && !reviewsError && reviews.length === 0 ? (
-          <Text style={styles.hint}>Nog geen beoordelingen.</Text>
+          <Text style={styles.hint}>{t("Nog geen beoordelingen.")}</Text>
         ) : null}
         <ScrollView
           style={styles.reviewsScroll}
@@ -2733,7 +2817,7 @@ export function DriverHomeScreen() {
             );
           })}
         </ScrollView>
-        <GhostButton title="Sluiten" onPress={() => setReviewsOpen(false)} />
+        <GhostButton title={t("Sluiten")} onPress={() => setReviewsOpen(false)} />
       </AppModal>
 
       <AppModal
@@ -2741,17 +2825,17 @@ export function DriverHomeScreen() {
         onRequestClose={() => setVehiclePhotoAsk(null)}
         panelStyle={styles.centeredSheet}
       >
-        <Text style={styles.pickerTitle}>Foto van dit voertuig</Text>
+        <Text style={styles.pickerTitle}>{t("Foto van dit voertuig")}</Text>
         <Text style={styles.noticeBody}>
           Wil je een andere foto uploaden voor{' '}
-          {vehiclePhotoAsk ? vehicleDisplayLabel(vehiclePhotoAsk) : 'dit voertuig'}?
+          {vehiclePhotoAsk ? vehicleDisplayLabel(vehiclePhotoAsk) : t("dit voertuig")}?
         </Text>
         <View style={styles.cancelActions}>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionGhost]}
             onPress={() => setVehiclePhotoAsk(null)}
           >
-            <Text style={styles.cancelActionGhostText}>Nee</Text>
+            <Text style={styles.cancelActionGhostText}>{t("Nee")}</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
@@ -2761,7 +2845,7 @@ export function DriverHomeScreen() {
               setFocusVehiclePhoto(true);
             }}
           >
-            <Text style={styles.cancelActionPrimaryText}>Ja</Text>
+            <Text style={styles.cancelActionPrimaryText}>{t("Ja")}</Text>
           </Pressable>
         </View>
       </AppModal>
@@ -2771,22 +2855,22 @@ export function DriverHomeScreen() {
         onRequestClose={() => setVehiclePickerOpen(false)}
         panelStyle={styles.vehicleModalCard}
       >
-        <Text style={styles.pickerTitle}>Voertuig kiezen</Text>
+        <Text style={styles.pickerTitle}>{t("Voertuig kiezen")}</Text>
         {vehicles.length === 0 ? (
           fleet.length === 0 ? (
             <>
-              <Text style={styles.hint}>Nog geen voertuig. Voeg er een toe om online te gaan.</Text>
+              <Text style={styles.hint}>{t("Nog geen voertuig. Voeg er een toe om online te gaan.")}</Text>
               <Pressable
                 onPress={() => openVehicleForm()}
                 style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }]}
                 accessibilityRole="button"
-                accessibilityLabel="Voertuig toevoegen"
+                accessibilityLabel={t("Voertuig toevoegen")}
               >
-                <Text style={styles.vehicleModalAdminText}>Voertuig toevoegen</Text>
+                <Text style={styles.vehicleModalAdminText}>{t("Voertuig toevoegen")}</Text>
               </Pressable>
             </>
           ) : (
-            <Text style={styles.hint}>Alle voertuigen zijn nu in gebruik.</Text>
+            <Text style={styles.hint}>{t("Alle voertuigen zijn nu in gebruik.")}</Text>
           )
         ) : (
           vehicles.map((v) => {
@@ -2821,24 +2905,33 @@ export function DriverHomeScreen() {
             onPress={() => openVehicleForm()}
             style={styles.vehicleModalCloseBtn}
             accessibilityRole="button"
-            accessibilityLabel="Voertuig toevoegen"
+            accessibilityLabel={t("Voertuig toevoegen")}
           >
-            <Text style={[styles.vehicleModalCloseText, { color: accentHex(accent) }]}>Voertuig toevoegen</Text>
+            <Text style={[styles.vehicleModalCloseText, { color: accentHex(accent) }]}>{t("Voertuig toevoegen")}</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => setVehiclePickerOpen(false)}
           style={styles.vehicleModalCloseBtn}
           accessibilityRole="button"
-          accessibilityLabel="Sluiten"
+          accessibilityLabel={t("Sluiten")}
         >
-          <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+          <Text style={styles.vehicleModalCloseText}>{t("Sluiten")}</Text>
         </Pressable>
       </AppModal>
 
       <AppModal
         visible={vehicleFormOpen}
         scrollEnabled={!(cropKind === 'vehicle-draft' && cropUri)}
+        dismissOnBackdrop={false}
+        showsVerticalScrollIndicator={false}
+        keyboardAccessory={
+          vehicleFormOpen ? (
+            <KeyboardDismissAccessory
+              nativeIDs={[VEHICLE_FORM_NAME_ACCESSORY_ID, VEHICLE_FORM_PLATE_ACCESSORY_ID]}
+            />
+          ) : null
+        }
         onRequestClose={() => {
           if (vehicleFormBusy) return;
           if (cropKind === 'vehicle-draft') {
@@ -2855,7 +2948,7 @@ export function DriverHomeScreen() {
             setVehicleConfirmDelete(false);
             return;
           }
-          setVehicleFormOpen(false);
+          Keyboard.dismiss();
         }}
         dismissDisabled={vehicleFormBusy}
         panelStyle={styles.centeredSheet}
@@ -2868,7 +2961,7 @@ export function DriverHomeScreen() {
             sourceMimeType={cropMime}
             aspectRatio={4 / 3}
             maxFrameHeight={180}
-            title="Voertuigfoto bijsnijden"
+            title={t("Voertuigfoto bijsnijden")}
             onCancel={() => {
               setCropUri(null);
               setCropMime(null);
@@ -2887,7 +2980,7 @@ export function DriverHomeScreen() {
           />
         ) : vehiclePhotoZoom && (vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto)) ? (
           <>
-            <Text style={styles.pickerTitle}>Voertuigfoto</Text>
+            <Text style={styles.pickerTitle}>{t("Voertuigfoto")}</Text>
             <Image
               source={{ uri: vehicleDraft.photoUri || resolveMediaUrl(vehicleDraft.existingPhoto) || '' }}
               style={styles.photoLightboxImage}
@@ -2897,16 +2990,16 @@ export function DriverHomeScreen() {
               onPress={() => setVehiclePhotoZoom(false)}
               style={styles.vehicleModalCloseBtn}
               accessibilityRole="button"
-              accessibilityLabel="Sluiten"
+              accessibilityLabel={t("Sluiten")}
             >
-              <Text style={styles.vehicleModalCloseText}>Sluiten</Text>
+              <Text style={styles.vehicleModalCloseText}>{t("Sluiten")}</Text>
             </Pressable>
           </>
         ) : vehicleConfirmDelete ? (
           <>
-            <Text style={styles.pickerTitle}>Voertuig verwijderen</Text>
+            <Text style={styles.pickerTitle}>{t("Voertuig verwijderen")}</Text>
             <Text style={styles.hint}>
-              Weet je zeker dat je {vehicleDraft.name.trim() || 'dit voertuig'} wilt verwijderen?
+              Weet je zeker dat je {vehicleDraft.name.trim() || t("dit voertuig")} wilt verwijderen?
             </Text>
             <View style={styles.cancelActions}>
               <Pressable
@@ -2914,7 +3007,7 @@ export function DriverHomeScreen() {
                 onPress={() => setVehicleConfirmDelete(false)}
                 disabled={vehicleFormBusy}
               >
-                <Text style={styles.cancelActionGhostText}>Annuleren</Text>
+                <Text style={styles.cancelActionGhostText}>{t("Annuleren")}</Text>
               </Pressable>
               <Pressable
                 style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
@@ -2922,14 +3015,14 @@ export function DriverHomeScreen() {
                 disabled={vehicleFormBusy}
               >
                 <Text style={styles.cancelActionPrimaryText}>
-                  {vehicleFormBusy ? 'Verwijderen…' : 'Verwijderen'}
+                  {vehicleFormBusy ? t("Verwijderen…") : t("Verwijderen")}
                 </Text>
               </Pressable>
             </View>
           </>
         ) : (
           <>
-        <Text style={styles.pickerTitle}>{vehicleDraft.id ? 'Voertuig bewerken' : 'Voertuig toevoegen'}</Text>
+        <Text style={styles.pickerTitle}>{vehicleDraft.id ? t("Voertuig bewerken") : t("Voertuig toevoegen")}</Text>
         <View style={styles.fleetPhotoPick}>
           <Pressable
             onPress={() => void pickVehicleDraftPhoto()}
@@ -2946,7 +3039,7 @@ export function DriverHomeScreen() {
             ) : (
               <View style={[styles.fleetPhotoLarge, styles.mediaPreviewEmpty]}>
                 <Ionicons name="image-outline" size={28} color={colors.muted} />
-                <Text style={styles.fleetPhotoEmptyLabel}>Foto, optioneel</Text>
+                <Text style={styles.fleetPhotoEmptyLabel}>{t("Foto, optioneel")}</Text>
               </View>
             )}
           </Pressable>
@@ -2955,18 +3048,18 @@ export function DriverHomeScreen() {
               <Pressable
                 onPress={() => setVehiclePhotoZoom(true)}
                 accessibilityRole="button"
-                accessibilityLabel="Voertuigfoto vergroten"
+                accessibilityLabel={t("Voertuigfoto vergroten")}
                 hitSlop={8}
               >
                 <Ionicons name="search-outline" size={20} color={colors.text} />
               </Pressable>
               <Pressable
                 onPress={() =>
-                  confirmRemovePhoto('De voertuigfoto wordt verwijderd.', removeVehicleDraftPhoto)
+                  confirmRemovePhoto(t("De voertuigfoto wordt verwijderd."), removeVehicleDraftPhoto)
                 }
                 disabled={vehicleFormBusy || mediaBusy}
                 accessibilityRole="button"
-                accessibilityLabel="Voertuigfoto verwijderen"
+                accessibilityLabel={t("Voertuigfoto verwijderen")}
                 hitSlop={8}
               >
                 <Ionicons name="trash-outline" size={20} color={colors.danger} />
@@ -2974,18 +3067,19 @@ export function DriverHomeScreen() {
             </View>
           ) : null}
         </View>
-        <Text style={styles.fleetFieldLabel}>Naam</Text>
+        <Text style={styles.fleetFieldLabel}>{t("Naam")}</Text>
         <TextInput
           value={vehicleDraft.name}
           onChangeText={(name) => setVehicleDraft((current) => ({ ...current, name }))}
-          placeholder="bijv. Auto 1"
+          placeholder={t("bijv. Auto 1")}
           placeholderTextColor={colors.muted}
           style={styles.fleetInput}
+          inputAccessoryViewID={VEHICLE_FORM_NAME_ACCESSORY_ID}
         />
-        <Text style={styles.fleetFieldLabel}>Type</Text>
+        <Text style={styles.fleetFieldLabel}>{t("Type")}</Text>
         <View style={styles.fleetChips}>
           {[
-            { key: 'car', label: 'Auto' },
+            { key: 'car', label: t("Auto") },
             { key: 'van', label: 'Busje' },
             { key: 'bus', label: 'Bus' },
           ].map((item) => {
@@ -3007,21 +3101,18 @@ export function DriverHomeScreen() {
             );
           })}
         </View>
-        <Text style={styles.fleetFieldLabel}>Kenteken</Text>
-        <TextInput
+        <Text style={styles.fleetFieldLabel}>{t("Kenteken")}</Text>
+        <DutchPlateInput
           value={vehicleDraft.license_plate}
           onChangeText={(license_plate) => setVehicleDraft((current) => ({ ...current, license_plate }))}
-          autoCapitalize="characters"
-          placeholder="Kenteken"
-          placeholderTextColor={colors.muted}
-          style={styles.fleetInput}
+          inputAccessoryViewID={VEHICLE_FORM_PLATE_ACCESSORY_ID}
         />
-        <Text style={styles.fleetFieldLabel}>Personenbereik</Text>
+        <Text style={styles.fleetFieldLabel}>{t("Personenbereik")}</Text>
         <View style={styles.fleetChips}>
           {[
-            { key: '1-4', label: 't/m 4 personen' },
-            { key: '5-8', label: '5 t/m 8 personen' },
-            { key: '9+', label: 'meer dan 8 personen' },
+            { key: '1-4', label: t("t/m 4 personen") },
+            { key: '5-8', label: t("5 t/m 8 personen") },
+            { key: '9+', label: t("meer dan 8 personen") },
           ].map((item) => {
             const selected = vehicleDraft.person_range === item.key;
             return (
@@ -3041,14 +3132,14 @@ export function DriverHomeScreen() {
             );
           })}
         </View>
-        <Text style={styles.themeHint}>Bepaalt welke standaardtarievenset wordt gebruikt.</Text>
+        <Text style={styles.themeHint}>{t("Bepaalt welke standaardtarievenset wordt gebruikt.")}</Text>
         {vehicleFormError ? <Text style={styles.fleetError}>{vehicleFormError}</Text> : null}
         <Pressable
           onPress={() => void saveVehicleDraft()}
           disabled={vehicleFormBusy}
           style={[styles.vehicleModalAdminBtn, { backgroundColor: accentHex(accent) }, vehicleFormBusy && { opacity: 0.6 }]}
         >
-          <Text style={styles.vehicleModalAdminText}>{vehicleFormBusy ? 'Opslaan…' : 'Opslaan'}</Text>
+          <Text style={styles.vehicleModalAdminText}>{vehicleFormBusy ? t("Opslaan…") : t("Opslaan")}</Text>
         </Pressable>
         {vehicleDraft.id ? (
           <Pressable
@@ -3056,7 +3147,7 @@ export function DriverHomeScreen() {
             disabled={vehicleFormBusy}
             style={styles.vehicleModalCloseBtn}
           >
-            <Text style={[styles.vehicleModalCloseText, { color: colors.danger }]}>Verwijderen</Text>
+            <Text style={[styles.vehicleModalCloseText, { color: colors.danger }]}>{t("Verwijderen")}</Text>
           </Pressable>
         ) : null}
         <Pressable
@@ -3067,7 +3158,7 @@ export function DriverHomeScreen() {
           disabled={vehicleFormBusy}
           style={styles.vehicleModalCloseBtn}
         >
-          <Text style={styles.vehicleModalCloseText}>Annuleren</Text>
+          <Text style={styles.vehicleModalCloseText}>{t("Annuleren")}</Text>
         </Pressable>
           </>
         )}
@@ -3084,10 +3175,8 @@ export function DriverHomeScreen() {
         dismissDisabled={cancelBusy}
         panelStyle={styles.centeredSheet}
       >
-        <Text style={styles.pickerTitle}>Rit annuleren</Text>
-        <Text style={styles.hint}>
-          Kies een reden. Deze melding wordt getoond bij de klant.
-        </Text>
+        <Text style={styles.pickerTitle}>{t("Rit annuleren")}</Text>
+        <Text style={styles.hint}>{t("Kies een reden. Deze melding wordt getoond bij de klant.")}</Text>
         <ScrollView style={styles.cancelReasonList} keyboardShouldPersistTaps="handled">
           {cancelReasons.map((reason) => {
             const active = selectedCancelReason === reason.code;
@@ -3118,7 +3207,7 @@ export function DriverHomeScreen() {
               setSelectedCancelReason(null);
             }}
           >
-            <Text style={styles.cancelActionGhostText}>Terug</Text>
+            <Text style={styles.cancelActionGhostText}>{t("Terug")}</Text>
           </Pressable>
           <Pressable
             style={[
@@ -3130,7 +3219,7 @@ export function DriverHomeScreen() {
             onPress={() => confirmCancelRide()}
           >
             <Text style={styles.cancelActionPrimaryText}>
-              {cancelBusy ? 'Bezig…' : 'Bevestigen'}
+              {cancelBusy ? t("Bezig…") : t("Bevestigen")}
             </Text>
           </Pressable>
         </View>
@@ -3144,10 +3233,8 @@ export function DriverHomeScreen() {
         dismissDisabled={proposeBusy}
         panelStyle={styles.centeredSheet}
       >
-        <Text style={styles.pickerTitle}>Nieuw ophaalmoment</Text>
-        <Text style={styles.hint}>
-          De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.
-        </Text>
+        <Text style={styles.pickerTitle}>{t("Nieuw ophaalmoment")}</Text>
+        <Text style={styles.hint}>{t("De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.")}</Text>
         <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} />
         <View style={styles.cancelActions}>
           <Pressable
@@ -3155,7 +3242,7 @@ export function DriverHomeScreen() {
             disabled={proposeBusy}
             onPress={() => setProposeRideId(null)}
           >
-            <Text style={styles.cancelActionGhostText}>Terug</Text>
+            <Text style={styles.cancelActionGhostText}>{t("Terug")}</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
@@ -3163,7 +3250,7 @@ export function DriverHomeScreen() {
             onPress={() => confirmProposePickup()}
           >
             <Text style={styles.cancelActionPrimaryText}>
-              {proposeBusy ? 'Versturen…' : 'Voorstellen'}
+              {proposeBusy ? t("Versturen…") : t("Voorstellen")}
             </Text>
           </Pressable>
         </View>
@@ -3180,10 +3267,8 @@ export function DriverHomeScreen() {
         dismissDisabled={pinBusy}
         panelStyle={styles.centeredSheet}
       >
-        <Text style={styles.pickerTitle}>Ophaalcode</Text>
-        <Text style={styles.noticeBody}>
-          Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.
-        </Text>
+        <Text style={styles.pickerTitle}>{t("Ophaalcode")}</Text>
+        <Text style={styles.noticeBody}>{t("Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.")}</Text>
         <TextInput
           value={pickupPin}
           onChangeText={(v) => {
@@ -3209,7 +3294,7 @@ export function DriverHomeScreen() {
               setPinError(null);
             }}
           >
-            <Text style={styles.cancelActionGhostText}>Annuleren</Text>
+            <Text style={styles.cancelActionGhostText}>{t("Annuleren")}</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary, pinBusy && { opacity: 0.55 }]}
@@ -3219,7 +3304,7 @@ export function DriverHomeScreen() {
             }}
           >
             <Text style={styles.cancelActionPrimaryText}>
-              {pinBusy ? 'Bezig…' : 'Start rit'}
+              {pinBusy ? t("Bezig…") : t("Start rit")}
             </Text>
           </Pressable>
         </View>
@@ -3237,7 +3322,7 @@ export function DriverHomeScreen() {
             style={[styles.cancelActionBtn, styles.cancelActionGhost]}
             onPress={() => setRideNotice(null)}
           >
-            <Text style={styles.cancelActionGhostText}>Sluiten</Text>
+            <Text style={styles.cancelActionGhostText}>{t("Sluiten")}</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
@@ -3305,6 +3390,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1,
+    },
+    prefsRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 12,
+      paddingBottom: 2,
     },
     headerIcons: {
       marginLeft: 'auto',

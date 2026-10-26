@@ -11,6 +11,7 @@ use App\Models\Chat;
 use App\Models\Candidate;
 use App\Models\User;
 use App\Modules\Skillmatching\Models\JobMatch;
+use App\Services\ChatUnreadCounter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -968,22 +969,8 @@ class ChatController extends Controller
             return response()->json(['unread_count' => 0]);
         }
         
-        // Count unread messages in active chats
-        // For admin users: count messages from candidates
-        // For candidate users: count messages from admins
-        $userClass = get_class($user);
-        
-        $unreadCount = ChatMessage::whereHas('chat', function($query) use ($user) {
-            $query->where(function($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhere('candidate_id', $user->id);
-            })
-            ->where('is_active', true);
-        })
-        ->where('sender_type', '!=', $userClass)
-        ->whereNull('read_at')
-        ->count();
-        
+        $unreadCount = app(ChatUnreadCounter::class)->countForUser((int) $user->id, $user::class);
+
         return response()->json(['unread_count' => $unreadCount]);
     }
     

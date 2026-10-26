@@ -88,10 +88,29 @@
     <h2 id="nexataxi-tarieven-heading" class="text-2xl md:text-3xl text-gray-900 dark:text-white mb-8 md:mb-10 {{ $sectionTitleAlignClass }}" style="{{ $sectionTitleStyle }}">{{ e($sectionTitle) }}</h2>
     @if($hasRates || $hasSectionItemsWithContent)
         @if(!empty($sectionItems))
-            {{-- Per-card configuratie: één kaart per sectie-item met gekozen tarief (1-4 of 5-8), afbeelding en kaartopties --}}
+            {{-- Per-card configuratie: voertuigkaarten op één gecentreerde rij, Overige kosten altijd op een rij eronder. --}}
             <div class="nexataxi-pricing my-10 md:my-14" data-nexataxi-pricing data-price-animation="{{ $priceAnimation ? '1' : '0' }}">
-                <div class="flex flex-wrap justify-center items-stretch gap-6 lg:gap-8 mb-6 lg:mb-8">
-                    @foreach($sectionItems as $itemIndex => $item)
+                @php
+                    $nexataxiVehicleItems = [];
+                    $nexataxiOverigeItems = [];
+                    foreach ($sectionItems as $itemIndex => $item) {
+                        if (($item['rate_type'] ?? '1-4') === 'overige_kosten') {
+                            $nexataxiOverigeItems[$itemIndex] = $item;
+                        } else {
+                            $nexataxiVehicleItems[$itemIndex] = $item;
+                        }
+                    }
+                    $nexataxiPricingRows = [];
+                    if ($nexataxiVehicleItems !== []) {
+                        $nexataxiPricingRows[] = ['key' => 'vehicles', 'items' => $nexataxiVehicleItems];
+                    }
+                    if ($nexataxiOverigeItems !== []) {
+                        $nexataxiPricingRows[] = ['key' => 'overige', 'items' => $nexataxiOverigeItems];
+                    }
+                @endphp
+                @foreach($nexataxiPricingRows as $pricingRow)
+                <div class="nexataxi-pricing-row flex flex-wrap justify-center items-stretch gap-6 lg:gap-8 {{ $pricingRow['key'] === 'overige' && $nexataxiVehicleItems !== [] ? 'mt-6 lg:mt-8' : '' }} {{ $loop->last ? 'mb-6 lg:mb-8' : '' }}">
+                    @foreach($pricingRow['items'] as $itemIndex => $item)
                         @php
                             $rateType = $item['rate_type'] ?? '1-4';
                             $title = $item['title'] ?? ($rateType === '5-8' ? '5 t/m 8 personen' : ($rateType === 'overige_kosten' ? 'Overige kosten' : 't/m 4 personen'));
@@ -245,6 +264,7 @@
                         @endif
                     @endforeach
                 </div>
+                @endforeach
             </div>
             <script>
             (function() {
@@ -252,11 +272,14 @@
                     var cards = Array.prototype.slice.call(root.querySelectorAll('[data-nexataxi-card]'));
                     cards.forEach(function(card) { card.style.minHeight = ''; });
                     var groups = {};
+                    var rows = root.querySelectorAll('.nexataxi-pricing-row');
                     cards.forEach(function(card) {
                         var size = card.getAttribute('data-card-size') || 'normal';
                         if (size === 'max' || size === 'total_width') return;
-                        if (!groups[size]) groups[size] = [];
-                        groups[size].push(card);
+                        var row = card.closest('.nexataxi-pricing-row');
+                        var key = size + ':' + (row ? Array.prototype.indexOf.call(rows, row) : 0);
+                        if (!groups[key]) groups[key] = [];
+                        groups[key].push(card);
                     });
                     Object.keys(groups).forEach(function(size) {
                         var maxHeight = 0;

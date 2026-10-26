@@ -59,27 +59,14 @@ class ModuleManager
         $orphanedModules = ModuleModel::whereNotIn('name', $discoveredNames)->get();
 
         foreach ($orphanedModules as $orphaned) {
-            // Only remove if the directory doesn't exist
-            $possiblePaths = [
-                app_path('Modules/'.$orphaned->name),
-                app_path('Modules/'.ucfirst($orphaned->name)),
-                base_path('modules/'.$orphaned->name),
-                base_path('modules/'.ucfirst($orphaned->name)),
-            ];
-
-            $exists = false;
-            foreach ($possiblePaths as $path) {
-                if (File::exists($path) && File::exists($path.'/Module.php')) {
-                    $exists = true;
-                    break;
-                }
+            // Mapnaam mag afwijken van de modulenaam (NexaTaxi → taxi).
+            // Alleen een record verwijderen als de code écht weg is.
+            if ($this->moduleCodeExists((string) $orphaned->name)) {
+                continue;
             }
 
-            // If directory doesn't exist, remove from database
-            if (! $exists) {
-                $orphaned->delete();
-                Log::info("Removed orphaned module record: {$orphaned->name}");
-            }
+            $orphaned->delete();
+            Log::info("Removed orphaned module record: {$orphaned->name}");
         }
     }
 
@@ -137,6 +124,36 @@ class ModuleManager
         }
 
         return $modules;
+    }
+
+    /**
+     * True als de moduleclass of Module.php-map bestaat.
+     * Nodig omdat de map (NexaTaxi) niet gelijk hoeft te zijn aan de modulenaam (taxi).
+     */
+    protected function moduleCodeExists(string $moduleName): bool
+    {
+        if ($moduleName === '') {
+            return false;
+        }
+
+        if ($this->loadModule($moduleName) !== null) {
+            return true;
+        }
+
+        $possiblePaths = [
+            app_path('Modules/'.$moduleName),
+            app_path('Modules/'.ucfirst($moduleName)),
+            base_path('modules/'.$moduleName),
+            base_path('modules/'.ucfirst($moduleName)),
+        ];
+
+        foreach ($possiblePaths as $path) {
+            if (File::exists($path) && File::exists($path.'/Module.php')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

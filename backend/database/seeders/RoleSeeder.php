@@ -7,6 +7,7 @@ use App\Services\DurableUserCredentials;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\ModuleSchemaService;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
@@ -217,6 +218,8 @@ class RoleSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
         }
 
+        TaxiDispatchAccess::ensurePermissions();
+
         // Get API roles
         $apiSuperAdmin = Role::where(['name' => 'super-admin', 'guard_name' => 'api'])->first();
         $apiCompanyAdmin = Role::where(['name' => 'company-admin', 'guard_name' => 'api'])->first();
@@ -233,7 +236,7 @@ class RoleSeeder extends Seeder
         $apiSuperAdmin->givePermissionTo($apiPermissions);
 
         // Company admin: alle tenant-/Beheer-rechten, geen Systeem (rollen/permissies) en geen nieuwe tenants aanmaken/verwijderen
-        $excludeForCompanyAdmin = [
+        $excludeForCompanyAdmin = array_merge([
             'view-roles',
             'create-roles',
             'edit-roles',
@@ -244,7 +247,7 @@ class RoleSeeder extends Seeder
             'delete-permissions',
             'create-companies',
             'delete-companies',
-        ];
+        ], TaxiDispatchAccess::permissionNames());
 
         $companyAdminWebPerms = Permission::where('guard_name', 'web')
             ->whereNotIn('name', $excludeForCompanyAdmin)
@@ -256,9 +259,11 @@ class RoleSeeder extends Seeder
             ->get();
         $apiCompanyAdmin->syncPermissions($companyAdminApiPerms);
 
-        // Marketplace:zelfde tenant-rechten als company-admin (+ chauffeur via rolnaam).
+        // Marketplace:zelfde tenant-rechten als company-admin, daarna alleen NEXA Network.
         $marketplace->syncPermissions($companyAdminWebPerms);
         $apiMarketplace->syncPermissions($companyAdminApiPerms);
+
+        TaxiDispatchAccess::syncKnownRolePresets();
 
         // Assign limited permissions to staff (web)
         $staff->givePermissionTo([

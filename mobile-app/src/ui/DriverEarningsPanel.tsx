@@ -1,3 +1,4 @@
+import { t, dateLocale } from '../i18n';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -166,7 +167,7 @@ export function DriverEarningsPanel({
         setPayload(next);
         if (next?.date) setDate(next.date);
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : 'Inkomsten laden mislukt.');
+        setError(e instanceof ApiError ? e.message : t("Inkomsten laden mislukt."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -242,7 +243,7 @@ export function DriverEarningsPanel({
         ride
       );
       const time = ride.pickup_at
-        ? new Date(ride.pickup_at).toLocaleTimeString('nl-NL', {
+        ? new Date(ride.pickup_at).toLocaleTimeString(dateLocale(), {
             hour: '2-digit',
             minute: '2-digit',
           })
@@ -293,12 +294,12 @@ export function DriverEarningsPanel({
       }
     >
       <ErrorText>{error}</ErrorText>
-      <ScreenHeader title="Inkomsten" />
+      <ScreenHeader title={t("Inkomsten")} />
       <View style={styles.periodRow}>
         {(['day', 'week', ...(canViewMonth ? (['month'] as const) : [])] as Period[]).map(
           (key) => {
             const active = period === key;
-            const label = key === 'day' ? 'Dag' : key === 'week' ? 'Week' : 'Maand';
+            const label = key === 'day' ? t("Dag") : key === 'week' ? t("Week") : 'Maand';
             return (
               <Pressable
                 key={key}
@@ -334,16 +335,16 @@ export function DriverEarningsPanel({
       ) : (
         <>
           <View style={styles.summary}>
-            <Text style={styles.summaryLabel}>{payload?.total_label || 'Totaal'}</Text>
+            <Text style={styles.summaryLabel}>{payload?.total_label || t("Totaal")}</Text>
             <Text style={styles.summaryValue}>{formatEuroNl(total)}</Text>
             <Text style={styles.summaryHint}>
-              {count === 1 ? '1 afgeronde rit' : `${count} afgeronde ritten`}
+              {count === 1 ? t("1 afgeronde rit") : `${count} afgeronde ritten`}
             </Text>
           </View>
 
           {displayRides.length === 0 ? (
             <Text style={styles.empty}>
-              {payload?.empty_message || 'Geen afgeronde ritten in deze periode.'}
+              {payload?.empty_message || t("Geen afgeronde ritten in deze periode.")}
             </Text>
           ) : (
             <View style={styles.list}>

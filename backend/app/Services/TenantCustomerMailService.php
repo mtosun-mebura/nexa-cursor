@@ -40,7 +40,8 @@ class TenantCustomerMailService
      *     attachments?: list<array{bytes: string, filename: string, mime?: string}>,
      *     meta?: array<string, mixed>,
      *     throw?: bool,
-     *     platform_mail?: bool
+     *     platform_mail?: bool,
+     *     from_name?: string|null
      * }  $data
      */
     public function send(array $data): TenantCustomerEmail
@@ -91,6 +92,10 @@ class TenantCustomerMailService
         } else {
             $this->env->applyMailConfigToRuntime($companyId);
             $from = $this->env->resolveMailFromHeaders($companyId);
+        }
+        $fromNameOverride = trim((string) ($data['from_name'] ?? ''));
+        if ($fromNameOverride !== '') {
+            $from['from_name'] = $fromNameOverride;
         }
         $companyName = $companyId ? (Company::query()->find($companyId)?->name) : null;
         $replyTo = trim((string) ($data['reply_to'] ?? ''));

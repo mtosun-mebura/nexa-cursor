@@ -281,6 +281,7 @@ class TransportGroupRouteController extends Controller
             if (! $isDriver) {
                 throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur voor dit bedrijf.']);
             }
+            $this->driverEligibility->assertContractantForContractAssignment($driverId);
         }
 
         if ($vehicleId !== null) {
@@ -420,7 +421,9 @@ class TransportGroupRouteController extends Controller
             ->buildChauffeurQuery((int) $group->company_id)
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->get(['id', 'first_name', 'last_name']);
+            ->get(['id', 'first_name', 'last_name'])
+            ->filter(fn ($driver) => $driver instanceof \App\Models\User && $this->driverEligibility->hasContractantRole($driver))
+            ->values();
 
         $vehicles = Vehicle::on($conn)
             ->where('company_id', $group->company_id)

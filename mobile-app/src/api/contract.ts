@@ -19,6 +19,11 @@ export type ContractMe = {
   user: ContractUser;
 };
 
+export function userIsContractant(user?: Pick<ContractUser, 'portal_role' | 'is_contractant'> | null): boolean {
+  if (user?.is_contractant === true) return true;
+  return String(user?.portal_role || '').toLowerCase() === 'contractant';
+}
+
 export type ContractLeg = {
   ride_stop_id?: number;
   ride_request_id?: number | null;
@@ -42,6 +47,9 @@ export type ContractLeg = {
   can_complete?: boolean;
   can_board?: boolean;
   can_skip?: boolean;
+  /** Aanwezig zodra de server de herkomst van de status bewaart. Ontbreekt op een oudere API. */
+  pickup_set_automatically?: boolean;
+  destination_set_automatically?: boolean;
   status_banner?: string | null;
   vehicle_location?: { lat: number; lng: number; updated_at?: string | null } | null;
 };

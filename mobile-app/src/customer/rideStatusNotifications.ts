@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform } from 'react-native';
 import type { LiveRide, RideStatusUpdate } from '../api/customer';
@@ -27,6 +28,18 @@ async function ensureHandler(): Promise<void> {
   } catch {
     /* Expo Go / ontbrekende native module */
   }
+}
+
+async function ensureRideStatusChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  const Notifications = await notifications();
+  await Notifications.setNotificationChannelAsync('ride-status', {
+    name: t("Ritstatus"),
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: 'default',
+    vibrationPattern: [0, 120, 80, 120],
+    lightColor: '#2563EB',
+  });
 }
 
 async function ensurePermission(): Promise<boolean> {
@@ -101,16 +114,18 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
     // Ook op voorgrond een melding zodat elke nieuwe status zichtbaar is.
     try {
       await ensureHandler();
+      await ensureRideStatusChannel();
       const Notifications = await notifications();
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Ritstatus',
+          title: t("Ritstatus"),
           body:
             update.event === 'en_route' && ride.eta_label
               ? `De chauffeur is onderweg naar jou. Aankomst over ${ride.eta_label}.`
-              : update.label || ride.status_label || 'Status bijgewerkt',
+              : update.label || ride.status_label || t("Status bijgewerkt"),
           data: { rideId: ride.id, event: update.event },
-          sound: Platform.OS === 'ios' ? 'default' : undefined,
+          sound: 'default',
+          ...(Platform.OS === 'android' ? { channelId: 'ride-status' } : {}),
         },
         trigger: null,
       });

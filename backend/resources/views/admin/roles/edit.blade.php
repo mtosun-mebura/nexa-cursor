@@ -614,7 +614,9 @@
                             }
                         }
 
-                        $allPermissions = $visibility->filter($allPermissions)->values();
+                        $allPermissions = \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::withoutGranular(
+                            $visibility->filter($allPermissions)
+                        )->values();
                         
                         // Build resource to module mapping (voor 3-delige en 2-delige permissienamen)
                         $resourceToModuleMap = $visibility->resourceToProductModule();
@@ -953,6 +955,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    @include('admin.roles.partials.dispatch-permissions', ['dispatchEditable' => true])
                 </div>
             </div>
 

@@ -87,6 +87,7 @@ class AdminSettingsController extends Controller
         if (! $user || ! $user->canViewMailSettings()) {
             abort(403, 'Je hebt geen rechten om de mailserver in te stellen.');
         }
+        $this->abortMailForMarketplaceUser($user);
     }
 
     protected function ensureCanEditMailSettings(): void
@@ -94,6 +95,20 @@ class AdminSettingsController extends Controller
         $user = auth()->user();
         if (! $user || ! $user->canEditMailSettings()) {
             abort(403, 'Je hebt geen rechten om de mailserver te wijzigen.');
+        }
+        $this->abortMailForMarketplaceUser($user);
+    }
+
+    protected function abortMailForMarketplaceUser(\App\Models\User $user): void
+    {
+        if ($user->isSuperAdmin() || $user->hasRole('super-admin')) {
+            return;
+        }
+
+        $company = $user->company;
+        $package = strcasecmp((string) ($company->package_key ?? ''), \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
+        if ($package || $user->hasRole('marketplace')) {
+            abort(403, 'Mailserver is niet beschikbaar voor marketplace-bedrijven.');
         }
     }
 

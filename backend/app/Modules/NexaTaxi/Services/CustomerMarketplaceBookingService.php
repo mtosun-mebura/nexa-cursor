@@ -54,7 +54,7 @@ class CustomerMarketplaceBookingService
         );
         if ($matches === []) {
             throw ValidationException::withMessages([
-                'pickup_address' => ['Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.'],
+                'pickup_address' => ['Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.'],
             ]);
         }
 

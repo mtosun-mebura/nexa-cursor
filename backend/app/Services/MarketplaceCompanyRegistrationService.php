@@ -139,7 +139,7 @@ class MarketplaceCompanyRegistrationService
             $payouts->setDriverIban($user, $iban);
 
             $codeResult = $sendLoginCode
-                ? $this->firstLogin->requestCode($email, $ip)
+                ? $this->firstLogin->requestCode($email, $ip, true)
                 : ['ok' => true, 'status' => 200, 'message' => ''];
 
             return [

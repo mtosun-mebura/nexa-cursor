@@ -448,76 +448,138 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>
 
+        @include('admin.roles.partials.dispatch-permissions', ['dispatchEditable' => false])
+
         <!-- Users with this role -->
-        @if($role->users->count() > 0)
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Gebruikers met deze rol ({{ $role->users->count() }})</h3>
-            </div>
-            <div class="kt-card-content">
-                <div class="kt-scrollable-x-auto">
-                    <table class="kt-table kt-table-border align-middle">
-                        <thead>
-                            <tr>
-                                <th class="min-w-[200px]">Gebruiker</th>
-                                <th class="min-w-[200px]">Email</th>
-                                <th class="min-w-[150px]">Bedrijf</th>
-                                <th class="min-w-[100px]">Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($role->users as $user)
-                            <tr>
-                                <td>
-                                    <div class="flex items-center gap-2.5">
-                                        @if($user->photo_blob)
-                                            <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}"/>
-                                        @else
-                                            <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
-                                                <span class="text-xs font-semibold text-secondary-foreground">
-                                                    {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
-                                                </span>
-                                            </div>
-                                        @endif
-                                        <div class="flex flex-col">
-                                            <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.users.show', $user) }}">
-                                                {{ $user->first_name }} {{ $user->last_name }}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <a class="text-sm text-secondary-foreground hover:text-primary" href="mailto:{{ $user->email }}">
-                                        {{ $user->email }}
-                                    </a>
-                                </td>
-                                <td>
-                                    @if($user->company)
-                                        <span class="kt-badge kt-badge-info">{{ $user->company->name }}</span>
-                                    @else
-                                        <span class="text-sm text-muted-foreground">Geen bedrijf</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
-                                            <i class="ki-filled ki-eye"></i>
-                                        </a>
-                                        @can('edit-users')
-                                        <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
-                                            <i class="ki-filled ki-pencil"></i>
-                                        </a>
-                                        @endcan
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+        @php
+            $roleUsers = $role->users;
+            $roleUserCompanies = $roleUsers->pluck('company')->filter()->unique('id')->sortBy('name')->values();
+        @endphp
+        <div class="kt-card kt-card-grid w-full min-w-0">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 min-w-0">
+                <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Gebruikers met deze rol ({{ $roleUsers->count() }})</h3>
+                @if($roleUsers->count() > 0)
+                <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center"
+                     data-admin-live-filter="off">
+                    <label class="kt-input w-full sm:w-64 min-w-0">
+                        <i class="ki-filled ki-magnifier"></i>
+                        <input placeholder="Zoek gebruiker of e-mail..."
+                               type="text"
+                               name="search"
+                               id="role-users-search"
+                               value=""
+                               autocomplete="off"
+                               data-admin-datatable-search="#role_users_table">
+                    </label>
+                    @if($roleUserCompanies->count() > 0)
+                    <select class="kt-select w-full sm:w-44" name="company" data-admin-datatable-filter="company" aria-label="Bedrijf">
+                        <option value="">Alle bedrijven</option>
+                        @foreach($roleUserCompanies as $company)
+                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                        @if($roleUsers->contains(fn ($roleUser) => $roleUser->company === null))
+                            <option value="none">Geen bedrijf</option>
+                        @endif
+                    </select>
+                    @endif
+                    <button type="button"
+                            data-admin-datatable-reset
+                            class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
+                            title="Filters resetten">
+                        <i class="ki-filled ki-arrows-circle text-base"></i>
+                    </button>
                 </div>
+                @endif
+            </div>
+            <div class="kt-card-content p-0 min-w-0">
+                @if($roleUsers->count() > 0)
+                <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="10" id="role_users_table" data-admin-datatable-label="gebruikers">
+                    <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                        <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                            <thead>
+                                <tr>
+                                    <th class="text-secondary-foreground font-normal" data-label="Gebruiker">Gebruiker</th>
+                                    <th class="text-secondary-foreground font-normal" data-label="Email">Email</th>
+                                    <th class="text-secondary-foreground font-normal" data-label="Bedrijf">Bedrijf</th>
+                                    <th class="text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($roleUsers as $user)
+                                <tr data-company="{{ $user->company ? $user->company->id : 'none' }}"
+                                    data-search-text="{{ trim($user->first_name.' '.$user->last_name.' '.$user->email.' '.($user->company->name ?? '')) }}">
+                                    <td>
+                                        <div class="flex items-center gap-2.5">
+                                            @if($user->photo_blob)
+                                                <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"/>
+                                            @else
+                                                <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                    <span class="text-xs font-semibold text-secondary-foreground">
+                                                        {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
+                                                    </span>
+                                                </div>
+                                            @endif
+                                            <div class="flex flex-col">
+                                                <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.users.show', $user) }}">
+                                                    {{ $user->first_name }} {{ $user->last_name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a class="text-sm text-secondary-foreground hover:text-primary" href="mailto:{{ $user->email }}">
+                                            {{ $user->email }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        @if($user->company)
+                                            <span class="kt-badge kt-badge-info">{{ $user->company->name }}</span>
+                                        @else
+                                            <span class="text-sm text-muted-foreground">Geen bedrijf</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
+                                                <i class="ki-filled ki-eye"></i>
+                                            </a>
+                                            @can('edit-users')
+                                            <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
+                                                <i class="ki-filled ki-pencil"></i>
+                                            </a>
+                                            @endcan
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
+                        <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
+                            Toon
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            per pagina
+                        </div>
+                        <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
+                        </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
+                    </div>
+                </div>
+                @else
+                    <div class="p-5">
+                        <p class="text-sm text-muted-foreground mb-0">Geen gebruikers met deze rol.</p>
+                    </div>
+                @endif
             </div>
         </div>
-        @endif
     </div>
 </div>
 

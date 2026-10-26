@@ -1320,7 +1320,7 @@ class NexaTaxiBookingController extends Controller
                 'resolved' => $resolved,
                 'error' => response()->json([
                     'success' => false,
-                    'message' => 'Kies een ophaallocatie zodat we de dichtstbijzijnde taxicentrale kunnen bepalen.',
+                    'message' => 'Kies een ophaallocatie, zodat we de dichtstbijzijnde taxi\'s kunnen koppelen.',
                 ], 422),
             ];
         }
@@ -1339,7 +1339,7 @@ class NexaTaxiBookingController extends Controller
                 'resolved' => $resolved,
                 'error' => response()->json([
                     'success' => false,
-                    'message' => 'Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.',
+                    'message' => 'Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.',
                 ], 422),
             ];
         }

@@ -9,6 +9,7 @@ return [
     */
     'exempt_route_names' => [
         'admin.dashboard',
+        'admin.monitoring.*',
         'admin.tenant.switch',
         'admin.tenant-setup-checklist',
         'admin.nexa-network.*',

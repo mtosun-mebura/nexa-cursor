@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideStop;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -144,16 +145,18 @@ class ContractPortalRideLifecycleService
             ]);
         }
 
-        if (! in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+        $autoBoarded = $stop->status === RideStop::STATUS_PICKED_UP
+            && RideStopStatusSource::isAuto($stop);
+        if (! in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true) && ! $autoBoarded) {
             throw ValidationException::withMessages([
                 'stop' => ['Deze passagier is al afgehandeld.'],
             ]);
         }
 
-        $stop->update([
+        $stop->update(array_merge([
             'status' => RideStop::STATUS_SKIPPED,
             'completed_at' => now(),
-        ]);
+        ], RideStopStatusSource::clearedAttributes($conn)));
 
         return $stop->fresh() ?? $stop;
     }

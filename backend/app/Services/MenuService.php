@@ -34,14 +34,12 @@ class MenuService
             }
 
             $user = auth()->user();
-            $isSuperAdmin = $user->hasRole('super-admin');
+            $isSuperAdmin = $this->userIsSuperAdmin($user);
             $isDemoUser = app(NexaDemoAccountService::class)->isDemoUser($user);
             $demoMenuKeys = $isDemoUser ? app(NexaDemoAccountService::class)->menuKeys() : [];
 
             $activeModules = $this->moduleManager->getActiveModules();
-            $companyId = $isSuperAdmin && session('selected_tenant')
-                ? (int) session('selected_tenant')
-                : ($user->company_id ? (int) $user->company_id : null);
+            $companyId = $this->menuCompanyId($user, $isSuperAdmin);
             $allowedModuleNames = $this->allowedModuleNamesForMenu($user, $companyId);
             $menuCompany = ($companyId !== null && $companyId > 0)
                 ? Company::query()->find($companyId)
@@ -73,43 +71,27 @@ class MenuService
                             continue;
                         }
                     }
-                    // Check permission if specified
-                    $permissionOk = true;
-                    if (isset($item['permission']) || ! empty($item['permission_any'])) {
-                        if ($isSuperAdmin) {
-                            $permissionOk = true;
-                        } else {
-                            $permissionsToCheck = isset($item['permission_any']) && is_array($item['permission_any'])
-                                ? $item['permission_any']
-                                : (isset($item['permission']) ? [$item['permission']] : []);
-                            $hasAny = false;
-                            foreach ($permissionsToCheck as $perm) {
-                                $exists = Permission::where('name', $perm)->where('guard_name', 'web')->exists();
-                                if ($exists) {
-                                    try {
-                                        if ($user->can($perm)) {
-                                            $hasAny = true;
-                                            break;
-                                        }
-                                    } catch (\Exception $e) {
-                                        // skip
-                                    }
-                                }
-                            }
-                            $permissionOk = $hasAny;
-                            if (! $permissionOk && ! empty($permissionsToCheck)) {
-                                continue;
-                            }
-                        }
+                    // Super-admin ziet het volledige admin-menu, los van rolvinkjes en pakket.
+                    if (! $isSuperAdmin && ! $this->menuItemPermissionGranted($item, $user)) {
+                        continue;
                     }
-                    if (! $this->menuItemAllowedForPackage($item, $entitlements, $menuCompany)) {
+                    if (! $isSuperAdmin && ! $this->menuItemAllowedForPackage($item, $entitlements, $menuCompany)) {
                         continue;
                     }
                     if (! empty($item['children']) && is_array($item['children'])) {
                         $item['children'] = array_values(array_filter(
                             $item['children'],
-                            fn (array $child) => $this->menuItemAllowedForPackage($child, $entitlements, $menuCompany)
+                            function (array $child) use ($entitlements, $menuCompany, $isSuperAdmin, $user) {
+                                if (! $isSuperAdmin && ! $this->menuItemAllowedForPackage($child, $entitlements, $menuCompany)) {
+                                    return false;
+                                }
+
+                                return $isSuperAdmin || $this->menuItemPermissionGranted($child, $user);
+                            }
                         ));
+                        if ($item['children'] === []) {
+                            continue;
+                        }
                     }
                     // If no permission specified, show for everyone (or check if logged in)
 
@@ -137,15 +119,37 @@ class MenuService
         return $menuItems;
     }
 
+    private function userIsSuperAdmin($user): bool
+    {
+        return $user->isSuperAdmin() || $user->hasRole('super-admin');
+    }
+
     /**
-     * Module-namen die in het admin-menu mogen. Null = geen filter (super-admin zonder tenant).
+     * Super-admin volgt alleen de gekozen tenant. Een company_id op het account
+     * mag het platformmenu niet inkorten.
+     */
+    private function menuCompanyId($user, bool $isSuperAdmin): ?int
+    {
+        if ($isSuperAdmin) {
+            $selected = session('selected_tenant');
+            if ($selected !== null && $selected !== '' && is_numeric($selected) && (int) $selected > 0) {
+                return (int) $selected;
+            }
+
+            return null;
+        }
+
+        return $user->company_id ? (int) $user->company_id : null;
+    }
+
+    /**
+     * Module-namen die in het admin-menu mogen. Null = geen filter (super-admin).
      *
      * @return list<string>|null
      */
     private function allowedModuleNamesForMenu($user, ?int $companyId): ?array
     {
-        $isSuperAdmin = $user->hasRole('super-admin');
-        if ($isSuperAdmin && ($companyId === null || $companyId <= 0)) {
+        if ($this->userIsSuperAdmin($user)) {
             return null;
         }
 
@@ -153,15 +157,11 @@ class MenuService
         if ($companyId !== null && $companyId > 0) {
             $company = Company::query()->find($companyId);
         }
-        if ($company === null && ! $isSuperAdmin && $user->company_id) {
+        if ($company === null && $user->company_id) {
             $company = Company::query()->find((int) $user->company_id);
         }
-        if ($company === null) {
-            return $isSuperAdmin ? null : [];
-        }
-
-        if (! Schema::hasTable('company_module')) {
-            return $isSuperAdmin ? null : [];
+        if ($company === null || ! Schema::hasTable('company_module')) {
+            return [];
         }
 
         return $company->modules()
@@ -206,6 +206,40 @@ class MenuService
         }
 
         return $enabled;
+    }
+
+    /**
+     * Geen permission op het item = zichtbaar. Anders minstens één bestaand recht.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function menuItemPermissionGranted(array $item, $user): bool
+    {
+        $permissionsToCheck = isset($item['permission_any']) && is_array($item['permission_any']) && $item['permission_any'] !== []
+            ? $item['permission_any']
+            : (isset($item['permission']) ? [$item['permission']] : []);
+        if ($permissionsToCheck === []) {
+            return true;
+        }
+
+        foreach ($permissionsToCheck as $perm) {
+            if (! is_string($perm) || $perm === '') {
+                continue;
+            }
+            $exists = Permission::where('name', $perm)->where('guard_name', 'web')->exists();
+            if (! $exists) {
+                continue;
+            }
+            try {
+                if ($user->can($perm)) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                // skip
+            }
+        }
+
+        return false;
     }
 
     /**

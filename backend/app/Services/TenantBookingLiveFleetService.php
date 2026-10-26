@@ -348,14 +348,11 @@ class TenantBookingLiveFleetService
             return [];
         }
 
+        // Zelfde regel als de publieke kaart: alleen een rit die nú loopt verbergt de taxi.
         $ids = RideRequest::on($connection)
             ->where('company_id', $companyId)
             ->whereNotNull('driver_id')
-            ->whereIn('status', [
-                RideRequest::STATUS_OFFERED,
-                RideRequest::STATUS_ACCEPTED,
-                RideRequest::STATUS_ASSIGNED,
-            ])
+            ->occupyingBookingMap()
             ->pluck('driver_id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)

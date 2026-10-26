@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TaxiDriverEligibilityService
 {
@@ -54,6 +55,28 @@ class TaxiDriverEligibilityService
         $names = $user->webRoleNames();
 
         return $this->rolesIncludeChauffeur($names) && $this->rolesIncludeContract($names);
+    }
+
+    public const CONTRACT_ASSIGNMENT_DENIED = 'Alleen een chauffeur met de rol contractant kan aan contractvervoer worden toegewezen.';
+
+    public function hasContractantRole(User $user): bool
+    {
+        $names = array_map(static fn ($name) => strtolower(trim((string) $name)), $user->webRoleNames());
+
+        return in_array(TaxiContractPortalAccessService::SPATIE_CONTRACTANT, $names, true);
+    }
+
+    /**
+     * Contractrit of contractroute: de chauffeur moet ook contractant zijn.
+     */
+    public function assertContractantForContractAssignment(int $driverId): void
+    {
+        $user = $driverId > 0 ? User::query()->find($driverId) : null;
+        if (! $user || ! $this->hasContractantRole($user)) {
+            throw ValidationException::withMessages([
+                'driver_id' => self::CONTRACT_ASSIGNMENT_DENIED,
+            ]);
+        }
     }
 
     public function isChauffeurForCompany(User $user, int $companyId): bool

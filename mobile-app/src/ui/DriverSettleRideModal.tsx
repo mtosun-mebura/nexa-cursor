@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -158,7 +159,7 @@ export function DriverSettleRideModal({
   const qrUrl = qrVisible ? qrImageUrl(openPayment) : null;
   const qrEnabled = current.payment?.driver_payment_enabled !== false;
   const cashEnabled = current.payment?.cash_payment_enabled !== false;
-  const title = contract ? 'Rit afronden' : needsPay ? 'Betalen' : 'Factuur en afronden';
+  const title = contract ? t("Rit afronden") : needsPay ? t("Betalen") : t("Factuur en afronden");
 
   function startPoll(rideId: number) {
     stopPoll();
@@ -173,7 +174,7 @@ export function DriverSettleRideModal({
         if (failed) {
           stopPoll();
           setOpenPayment(null);
-          setError(data.data?.payment?.payment_error || 'Betaling is niet gelukt. Probeer opnieuw.');
+          setError(data.data?.payment?.payment_error || t("Betaling is niet gelukt. Probeer opnieuw."));
           return;
         }
         if (nextRide && isRidePaid(nextRide)) {
@@ -197,7 +198,7 @@ export function DriverSettleRideModal({
   async function onShowQr() {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      setError('Vul een geldig bedrag in.');
+      setError(t("Vul een geldig bedrag in."));
       return;
     }
     setBusy(true);
@@ -220,7 +221,7 @@ export function DriverSettleRideModal({
       setOpenPayment(created.data?.open_payment || null);
       if (created.data?.open_payment) startPoll(rideId);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'QR-betaling starten mislukt.');
+      setError(e instanceof ApiError ? e.message : t("QR-betaling starten mislukt."));
     } finally {
       setBusy(false);
     }
@@ -229,15 +230,15 @@ export function DriverSettleRideModal({
   function onCash() {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      setError('Vul een geldig bedrag in.');
+      setError(t("Vul een geldig bedrag in."));
       return;
     }
     Alert.alert(
       'Contant betalen?',
       `Bevestig: klant heeft ${formatEuro(amount)} contant betaald? Dit bedrag wordt vastgelegd.`,
       [
-        { text: 'Terug', style: 'cancel' },
-        { text: 'Bevestigen', onPress: () => void submitCash(amount) },
+        { text: t("Terug"), style: 'cancel' },
+        { text: t("Bevestigen"), onPress: () => void submitCash(amount) },
       ]
     );
   }
@@ -260,7 +261,7 @@ export function DriverSettleRideModal({
         /* optioneel */
       }
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Contante betaling mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Contante betaling mislukt."));
     } finally {
       setBusy(false);
     }
@@ -269,7 +270,7 @@ export function DriverSettleRideModal({
   async function onSendInvoice() {
     const mail = email.trim();
     if (!mail) {
-      setError('Vul een e-mailadres in.');
+      setError(t("Vul een e-mailadres in."));
       return;
     }
     setBusy(true);
@@ -278,11 +279,11 @@ export function DriverSettleRideModal({
     setInvoiceMessage(null);
     try {
       const res = await sendRideInvoice(token, rideId, mail, invoiceNumber.trim() || undefined);
-      setInvoiceMessage(res.message || 'Factuur verstuurd.');
+      setInvoiceMessage(res.message || t("Factuur verstuurd."));
       if (res.data?.invoice) setInvoice(res.data.invoice);
       if (res.data?.ride) applyRide(res.data.ride);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Factuur versturen mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Factuur versturen mislukt."));
     } finally {
       setSendingInvoice(false);
       setBusy(false);
@@ -291,7 +292,7 @@ export function DriverSettleRideModal({
 
   async function onComplete() {
     if (!contract && rideRequiresPaymentBeforeComplete(current)) {
-      setError('Rond eerst de betaling af voordat je de rit afrondt.');
+      setError(t("Rond eerst de betaling af voordat je de rit afrondt."));
       return;
     }
     setBusy(true);
@@ -301,7 +302,7 @@ export function DriverSettleRideModal({
       stopPoll();
       onCompleted();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Rit afronden mislukt.');
+      setError(e instanceof ApiError ? e.message : t("Rit afronden mislukt."));
     } finally {
       setBusy(false);
     }
@@ -324,18 +325,14 @@ export function DriverSettleRideModal({
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {contract ? (
-          <Text style={styles.hint}>
-            Contractrit: geen betaling in de app. Je kunt deze rit afronden.
-          </Text>
+          <Text style={styles.hint}>{t("Contractrit: geen betaling in de app. Je kunt deze rit afronden.")}</Text>
         ) : needsPay ? (
               <>
-                <Text style={styles.hint}>
-                  Afronden kan pas na betaling. Laat de klant via QR betalen of registreer contant.
-                </Text>
+                <Text style={styles.hint}>{t("Afronden kan pas na betaling. Laat de klant via QR betalen of registreer contant.")}</Text>
                 {current.payment?.payment_leg_label ? (
                   <Text style={styles.meta}>{current.payment.payment_leg_label}</Text>
                 ) : null}
-                <Text style={styles.label}>Te betalen bedrag</Text>
+                <Text style={styles.label}>{t("Te betalen bedrag")}</Text>
                 <View style={styles.amountWrap}>
                   <Text style={styles.amountPrefix}>€</Text>
                   <TextInput
@@ -350,11 +347,11 @@ export function DriverSettleRideModal({
                 </View>
                 {qrVisible && qrUrl ? (
                   <View style={styles.qrBox}>
-                    <Text style={styles.hint}>Laat de klant deze QR scannen</Text>
+                    <Text style={styles.hint}>{t("Laat de klant deze QR scannen")}</Text>
                     <View style={styles.qrFrame}>
                       <Image source={{ uri: qrUrl }} style={styles.qrImage} />
                     </View>
-                    <Text style={styles.meta}>Wachten op betaling…</Text>
+                    <Text style={styles.meta}>{t("Wachten op betaling…")}</Text>
                     <Pressable
                       style={[styles.btn, styles.btnGhost]}
                       disabled={busy}
@@ -363,7 +360,7 @@ export function DriverSettleRideModal({
                         setOpenPayment(null);
                       }}
                     >
-                      <Text style={styles.btnGhostText}>Terug</Text>
+                      <Text style={styles.btnGhostText}>{t("Terug")}</Text>
                     </Pressable>
                   </View>
                 ) : (
@@ -377,7 +374,7 @@ export function DriverSettleRideModal({
                         {busy ? (
                           <ActivityIndicator color="#fff" />
                         ) : (
-                          <Text style={styles.btnPrimaryText}>QR-code tonen</Text>
+                          <Text style={styles.btnPrimaryText}>{t("QR-code tonen")}</Text>
                         )}
                       </Pressable>
                     ) : null}
@@ -387,7 +384,7 @@ export function DriverSettleRideModal({
                         disabled={busy}
                         onPress={onCash}
                       >
-                        <Text style={styles.btnGhostText}>Contant betalen</Text>
+                        <Text style={styles.btnGhostText}>{t("Contant betalen")}</Text>
                       </Pressable>
                     ) : null}
                   </View>
@@ -397,12 +394,10 @@ export function DriverSettleRideModal({
               <>
                 <View style={styles.paidRow}>
                   <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                  <Text style={styles.paidText}>Betaald</Text>
+                  <Text style={styles.paidText}>{t("Betaald")}</Text>
                 </View>
-                <Text style={styles.hint}>
-                  Verstuur de factuur als PDF naar de klant, en rond daarna de rit af.
-                </Text>
-                <Text style={styles.label}>E-mailadres klant</Text>
+                <Text style={styles.hint}>{t("Verstuur de factuur als PDF naar de klant, en rond daarna de rit af.")}</Text>
+                <Text style={styles.label}>{t("E-mailadres klant")}</Text>
                 <TextInput
                   style={styles.input}
                   value={email}
@@ -414,14 +409,14 @@ export function DriverSettleRideModal({
                   placeholder="klant@email.nl"
                   placeholderTextColor={colors.muted}
                 />
-                <Text style={styles.label}>Factuurnummer</Text>
+                <Text style={styles.label}>{t("Factuurnummer")}</Text>
                 <TextInput
                   style={styles.input}
                   value={invoiceNumber}
                   onChangeText={setInvoiceNumber}
                   editable={!busy}
                   autoCapitalize="none"
-                  placeholder="Optioneel"
+                  placeholder={t("Optioneel")}
                   placeholderTextColor={colors.muted}
                 />
                 {invoiceMessage ? <Text style={styles.success}>{invoiceMessage}</Text> : null}
@@ -438,13 +433,13 @@ export function DriverSettleRideModal({
                   {sendingInvoice ? (
                     <View style={styles.btnLoading}>
                       <ActivityIndicator color="#fff" />
-                      <Text style={styles.btnSuccessText}>Bezig…</Text>
+                      <Text style={styles.btnSuccessText}>{t("Bezig…")}</Text>
                     </View>
                   ) : (
                     <Text style={styles.btnSuccessText}>
                       {invoice?.invoice_leg_label
                         ? `Factuur ${invoice.invoice_leg_label} versturen`
-                        : 'Factuur versturen'}
+                        : t("Factuur versturen")}
                     </Text>
                   )}
                 </Pressable>
@@ -460,7 +455,7 @@ export function DriverSettleRideModal({
               onClose();
             }}
           >
-            <Text style={styles.btnGhostText}>Sluiten</Text>
+            <Text style={styles.btnGhostText}>{t("Sluiten")}</Text>
           </Pressable>
           <Pressable
             style={[
@@ -472,7 +467,7 @@ export function DriverSettleRideModal({
             onPress={onComplete}
           >
             <Text style={styles.btnPrimaryText}>
-              {busy && paid ? 'Bezig…' : 'Rit afronden'}
+              {busy && paid ? t("Bezig…") : t("Rit afronden")}
             </Text>
           </Pressable>
         </View>

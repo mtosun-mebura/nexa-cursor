@@ -49,9 +49,11 @@ import { useAuth } from '../auth/AuthContext';
 import { playRideAlertTone } from '../audio/rideAlert';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { AppearanceControls } from '../ui/AppearanceControls';
 import { APP_PAGE_TOP_INSET, APP_PAGE_HEADER_PAD_H } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { AppScrollView } from '../ui/AppScrollView';
+import { fitLineFontProps } from '../ui/androidText';
 import { Card, ErrorText, GhostButton } from '../ui/components';
 import { ContractTabBar, ContractTabKey } from '../ui/ContractTabBar';
 import { ScreenHeader } from '../ui/ScreenHeader';
@@ -62,6 +64,7 @@ import {
   hexAlpha,
   normalizeDriverAccent,
 } from '../theme/driverAccent';
+import { useI18n, t, dateLocale } from '../i18n';
 import { ThemePreference, useTheme, useThemeColors } from '../theme/ThemeContext';
 import {
   notifyNewContractRide,
@@ -78,14 +81,14 @@ function resolveMediaUrl(url?: string | null): string | null {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  contractant: 'Contractant',
-  contractouder: 'Contractouder',
+  contractant: t("Contractant"),
+  contractouder: t("Contractouder"),
 };
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
-  { key: 'system', label: 'Systeem', hint: 'Volgt de telefooninstelling' },
-  { key: 'light', label: 'Licht', hint: 'Altijd lichte weergave' },
-  { key: 'dark', label: 'Donker', hint: 'Altijd donkere weergave' },
+  { key: 'system', label: t("Systeem"), hint: t("Volgt de telefooninstelling") },
+  { key: 'light', label: t("Licht"), hint: t("Altijd lichte weergave") },
+  { key: 'dark', label: t("Donker"), hint: t("Altijd donkere weergave") },
 ];
 
 const WEEKDAYS_SHORT = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
@@ -120,11 +123,11 @@ function formatTime(iso?: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDayLong(iso: string): string {
-  return parseIsoDate(iso).toLocaleDateString('nl-NL', {
+  return parseIsoDate(iso).toLocaleDateString(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -155,9 +158,9 @@ function splitAddress(address?: string | null): { main: string; sub: string } {
 
 function legDisplayLabel(leg?: ContractLeg | null): string {
   const key = String(leg?.leg_key || '').toLowerCase();
-  if (key === 'retour' || /terug|retour/i.test(String(leg?.leg_label || ''))) return 'Terugweg';
+  if (key === 'retour' || /terug|retour/i.test(String(leg?.leg_label || ''))) return t("Terugweg");
   if (key === 'heen' || /heen/i.test(String(leg?.leg_label || ''))) return 'Heenweg';
-  return String(leg?.leg_label || 'Rit').trim() || 'Rit';
+  return String(leg?.leg_label || t("Rit")).trim() || t("Rit");
 }
 
 function isExpiredStatus(status?: string | null, statusKey?: string | null): boolean {
@@ -240,9 +243,9 @@ function resetContractTabToTrips() {
 
 type TripStatusFilter = 'all' | 'open' | 'expired';
 const TRIP_STATUS_OPTIONS: { key: TripStatusFilter; label: string }[] = [
-  { key: 'all', label: 'Alles' },
-  { key: 'open', label: 'Openstaand' },
-  { key: 'expired', label: 'Verlopen' },
+  { key: 'all', label: t("Alles") },
+  { key: 'open', label: t("Openstaand") },
+  { key: 'expired', label: t("Verlopen") },
 ];
 
 function isTripStatusFilter(value: string | null): value is TripStatusFilter {
@@ -305,6 +308,48 @@ function openDestinationCoords(items: ContractDayItem[]): Array<{ lat: number; l
     }
   }
   return points;
+}
+
+const PICKUP_STATUS_RESOLVED = new Set([
+  'picked_up',
+  'completed',
+  'not_taken',
+  'absent',
+  'skipped',
+]);
+
+function normalizeAddress(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Passagiers van de getoonde bestemming die nog geen ophaalstatus hebben. */
+function unresolvedPassengerNames(
+  items: ContractDayItem[],
+  summary: string | null,
+  near?: { lat: number; lng: number } | null
+): string[] {
+  if (!summary) return [];
+  const multiple = summary === 'Meerdere bestemmingen';
+  const wanted = normalizeAddress(summary);
+  const names: string[] = [];
+  for (const item of items) {
+    for (const leg of itemLegs(item)) {
+      const dest = String(leg.destination_address || item.destination_address || '').trim();
+      if (!dest) continue;
+      if (!multiple && normalizeAddress(dest) !== wanted) continue;
+      if (multiple && near) {
+        const lat = Number(leg.destination_lat);
+        const lng = Number(leg.destination_lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+        if (distanceMeters(near.lat, near.lng, lat, lng) > DEST_REACH_RADIUS_M) continue;
+      }
+      const key = legStatusKey(leg, item);
+      if (PICKUP_STATUS_RESOLVED.has(key)) continue;
+      const name = String(item.name || '').trim() || t("Passagier");
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+  return names;
 }
 
 const CHILD_MAP_COLORS = [
@@ -498,7 +543,7 @@ function FluidTaxiMarker({
   return (
     <Marker
       coordinate={coord}
-      title="Taxi"
+      title={t("Taxi")}
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={trackView}
       zIndex={50}
@@ -547,15 +592,15 @@ function legStatusBanner(leg: ContractLeg, item: ContractDayItem): string {
   const api = String(leg.status_banner || '').trim();
   if (api) return api;
   const key = legStatusKey(leg, item);
-  if (key === 'absent') return 'Afgemeld';
-  if (key === 'not_taken') return 'Niet meegenomen';
-  if (key === 'picked_up') return 'Opgehaald · onderweg';
+  if (key === 'absent') return t("Afgemeld");
+  if (key === 'not_taken') return t("Niet meegenomen");
+  if (key === 'picked_up') return t("Opgehaald · onderweg");
   if (key === 'completed') return 'Gearriveerd';
-  if (key === 'arrived') return 'Chauffeur ter plaatse';
-  if (key === 'en_route') return 'Chauffeur onderweg';
-  if (key === 'expired') return 'Ophaalmoment verlopen';
-  if (key === 'planned') return 'Nog niet opgehaald';
-  return String(leg.status || item.status || 'Gepland');
+  if (key === 'arrived') return t("Chauffeur ter plaatse");
+  if (key === 'en_route') return t("Chauffeur onderweg");
+  if (key === 'expired') return t("Ophaalmoment verlopen");
+  if (key === 'planned') return t("Nog niet opgehaald");
+  return String(leg.status || item.status || t("Gepland"));
 }
 
 function PulsingIcon({
@@ -694,9 +739,10 @@ function anyPassengerPickedUp(items: ContractDayItem[]): boolean {
   return false;
 }
 
-export function ContractHomeScreen() {
+export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const colors = useThemeColors();
   const { colorScheme, preference, setPreference } = useTheme();
+  useI18n();
   const { session, contractToken, logout } = useAuth();
   const [tab, setTab] = useState<ContractTabKey>(() => lastContractTab);
   const [planningView, setPlanningView] = useState<'day' | 'week'>('day');
@@ -715,7 +761,7 @@ export function ContractHomeScreen() {
   const [simResetBusy, setSimResetBusy] = useState(false);
   const [simResetError, setSimResetError] = useState<string | null>(null);
   const [simSpeed, setSimSpeed] = useState(60);
-  const [simLabel, setSimLabel] = useState('De chauffeur rijdt de haltes af.');
+  const [simLabel, setSimLabel] = useState(t("De chauffeur rijdt de haltes af."));
   const [simExtraLines, setSimExtraLines] = useState<LatLng[][]>([]);
   const simActiveRef = useRef(false);
   const simSpeedRef = useRef(60);
@@ -741,7 +787,15 @@ export function ContractHomeScreen() {
   const [destReachOpen, setDestReachOpen] = useState(false);
   const [destReachBusy, setDestReachBusy] = useState(false);
   const [destReachError, setDestReachError] = useState<string | null>(null);
+  const [pickupGateOpen, setPickupGateOpen] = useState(false);
+  const [pickupGateNames, setPickupGateNames] = useState<string[]>([]);
+  const [localAuto, setLocalAuto] = useState<
+    Record<string, { pickup?: boolean; destination?: boolean }>
+  >({});
   const ignoreDestOpenUntil = useRef(0);
+  const manualPickupStops = useRef<Set<number>>(new Set());
+  const manualDestToken = useRef(0);
+  const seenManualDestToken = useRef(0);
   const [childRouteLines, setChildRouteLines] = useState<Record<number, LatLng[]>>({});
   const [colorPassengerId, setColorPassengerId] = useState<number | null>(null);
   const [colorOverrides, setColorOverrides] = useState<Record<number, string>>({});
@@ -920,18 +974,18 @@ export function ContractHomeScreen() {
 
         if (rejected && !softFail && !silent && !anyOk) {
           setError(
-            apiErrorMessage(rejected.reason, 'Kon contractgegevens niet laden.')
+            apiErrorMessage(rejected.reason, t("Kon contractgegevens niet laden."))
           );
         } else if (rejected && !softFail && !silent && !hasLoadedOnceRef.current) {
           setError(
-            apiErrorMessage(rejected.reason, 'Kon contractgegevens niet laden.')
+            apiErrorMessage(rejected.reason, t("Kon contractgegevens niet laden."))
           );
         }
       } catch (e) {
         const status = apiErrorStatus(e);
         if (status === 429 || status === 401 || silent) return;
         if (!hasLoadedOnceRef.current) {
-          setError(apiErrorMessage(e, 'Kon contractgegevens niet laden.'));
+          setError(apiErrorMessage(e, t("Kon contractgegevens niet laden.")));
         }
       } finally {
         refreshBusyRef.current = false;
@@ -1096,7 +1150,7 @@ export function ContractHomeScreen() {
       setAbsenceOpen(false);
       await refresh();
     } catch (e) {
-      setError(apiErrorMessage(e, 'Afmelden mislukt.'));
+      setError(apiErrorMessage(e, t("Afmelden mislukt.")));
     } finally {
       setAbsenceBusy(false);
     }
@@ -1104,17 +1158,17 @@ export function ContractHomeScreen() {
 
   async function cancelAbsence(id: number) {
     if (!contractToken) return;
-    Alert.alert('Afmelding intrekken', 'Weet je zeker dat je deze afmelding wilt intrekken?', [
-      { text: 'Nee', style: 'cancel' },
+    Alert.alert('Afmelding intrekken', t("Weet je zeker dat je deze afmelding wilt intrekken?"), [
+      { text: t("Nee"), style: 'cancel' },
       {
-        text: 'Intrekken',
+        text: t("Intrekken"),
         style: 'destructive',
         onPress: async () => {
           try {
             await destroyContractAbsence(contractToken, id);
             await refresh();
           } catch (e) {
-            setError(apiErrorMessage(e, 'Intrekken mislukt.'));
+            setError(apiErrorMessage(e, t("Intrekken mislukt.")));
           }
         },
       },
@@ -1129,7 +1183,7 @@ export function ContractHomeScreen() {
       await startContractRide(contractToken, rideStopId);
       await refresh();
     } catch (e) {
-      setError(apiErrorMessage(e, 'Rit starten mislukt.'));
+      setError(apiErrorMessage(e, t("Rit starten mislukt.")));
     } finally {
       setRideActionStopId(null);
     }
@@ -1154,11 +1208,18 @@ export function ContractHomeScreen() {
 
   async function onBoardLeg(rideStopId?: number) {
     if (!contractToken || !rideStopId) return;
-    await runRideAction(
-      rideStopId,
-      () => boardContractPassenger(contractToken, rideStopId),
-      'Ophalen bevestigen mislukt.'
-    );
+    manualPickupStops.current.add(rideStopId);
+    setRideActionStopId(rideStopId);
+    setError(null);
+    try {
+      await boardContractPassenger(contractToken, rideStopId);
+      await refresh();
+    } catch (e) {
+      manualPickupStops.current.delete(rideStopId);
+      setError(apiErrorMessage(e, t("Ophalen bevestigen mislukt.")));
+    } finally {
+      setRideActionStopId(null);
+    }
   }
 
   function onSkipLeg(rideStopId?: number, passengerName?: string) {
@@ -1167,15 +1228,15 @@ export function ContractHomeScreen() {
       'Niet meegenomen',
       `${passengerName || 'Deze passagier'} is niet meegenomen. Doorgaan?`,
       [
-        { text: 'Annuleren', style: 'cancel' },
+        { text: t("Annuleren"), style: 'cancel' },
         {
-          text: 'Bevestigen',
+          text: t("Bevestigen"),
           style: 'destructive',
           onPress: () => {
             void runRideAction(
               rideStopId,
               () => skipContractPassenger(contractToken, rideStopId),
-              'Overslaan mislukt.'
+              t("Overslaan mislukt.")
             );
           },
         },
@@ -1196,17 +1257,19 @@ export function ContractHomeScreen() {
         'Bevestig ophalen',
         `${item?.name || 'Passagier'} is nog niet gemarkeerd. Is deze persoon opgehaald?`,
         [
-          { text: 'Annuleren', style: 'cancel' },
+          { text: t("Annuleren"), style: 'cancel' },
           {
-            text: 'Niet meegenomen',
+            text: t("Niet meegenomen"),
             style: 'destructive',
             onPress: () => onSkipLeg(rideStopId, item?.name),
           },
           {
-            text: 'Opgehaald → afronden',
+            text: t("Opgehaald → afronden"),
             style: 'default',
             onPress: () => {
               void (async () => {
+                manualPickupStops.current.add(rideStopId);
+                const destToken = ++manualDestToken.current;
                 setRideActionStopId(rideStopId);
                 setError(null);
                 try {
@@ -1214,7 +1277,11 @@ export function ContractHomeScreen() {
                   await completeContractRide(contractToken, rideStopId);
                   await refresh();
                 } catch (e) {
-                  setError(apiErrorMessage(e, 'Afronden mislukt.'));
+                  manualPickupStops.current.delete(rideStopId);
+                  if (seenManualDestToken.current !== destToken) {
+                    seenManualDestToken.current = destToken;
+                  }
+                  setError(apiErrorMessage(e, t("Afronden mislukt.")));
                 } finally {
                   setRideActionStopId(null);
                 }
@@ -1226,24 +1293,49 @@ export function ContractHomeScreen() {
       return;
     }
 
-    Alert.alert('Bestemming bereikt', 'Bevestig dat de passagier is afgezet.', [
-      { text: 'Nee', style: 'cancel' },
+    Alert.alert('Bestemming bereikt', t("Bevestig dat de passagier is afgezet."), [
+      { text: t("Nee"), style: 'cancel' },
       {
-        text: 'Afronden',
+        text: t("Afronden"),
         style: 'default',
         onPress: () => {
-          void runRideAction(
-            rideStopId,
-            () => completeContractRide(contractToken, rideStopId),
-            'Rit afronden mislukt.'
-          );
+          const destToken = ++manualDestToken.current;
+          void (async () => {
+            setRideActionStopId(rideStopId);
+            setError(null);
+            try {
+              await completeContractRide(contractToken, rideStopId);
+              await refresh();
+            } catch (e) {
+              if (seenManualDestToken.current !== destToken) {
+                seenManualDestToken.current = destToken;
+              }
+              setError(apiErrorMessage(e, t("Rit afronden mislukt.")));
+            } finally {
+              setRideActionStopId(null);
+            }
+          })();
         },
       },
     ]);
   }
 
+  function missingPickupsForShownDestination(): string[] {
+    return unresolvedPassengerNames(
+      todayItems,
+      openDestinationSummary,
+      openDestinationSummary === 'Meerdere bestemmingen' ? lastFixRef.current : null
+    );
+  }
+
   function openDestReach() {
     if (Date.now() < ignoreDestOpenUntil.current) return;
+    const missing = missingPickupsForShownDestination();
+    if (missing.length > 0) {
+      setPickupGateNames(missing);
+      setPickupGateOpen(true);
+      return;
+    }
     setDestReachError(null);
     bumpPulses(destinationPulseKeys());
     setDestBtnPulse((n) => n + 1);
@@ -1258,13 +1350,22 @@ export function ContractHomeScreen() {
 
   async function confirmReachAllDestinations() {
     if (!contractToken || destReachBusy) return;
+    const missing = missingPickupsForShownDestination();
+    if (missing.length > 0) {
+      setDestReachOpen(false);
+      setPickupGateNames(missing);
+      setPickupGateOpen(true);
+      return;
+    }
+    const destToken = ++manualDestToken.current;
     setDestReachBusy(true);
     setDestReachError(null);
     try {
       const fix = lastFixRef.current;
       if (!fix) {
+        seenManualDestToken.current = destToken;
         setDestReachError(
-          'Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.'
+          t("Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.")
         );
         return;
       }
@@ -1273,14 +1374,18 @@ export function ContractHomeScreen() {
         (point) => distanceMeters(fix.lat, fix.lng, point.lat, point.lng) <= DEST_REACH_RADIUS_M
       );
       if (points.length > 0 && !near) {
+        seenManualDestToken.current = destToken;
         setDestReachError(
-          'Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.'
+          t("Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.")
         );
         return;
       }
       const res = await reachContractDestinations(contractToken, fix);
       if ((res.data?.updated || 0) < 1) {
-        setDestReachError(res.message || 'De bestemming kan niet op bereikt gezet worden.');
+        if (seenManualDestToken.current !== destToken) {
+          seenManualDestToken.current = destToken;
+        }
+        setDestReachError(res.message || t("De bestemming kan niet op bereikt gezet worden."));
         return;
       }
       bumpPulses(destinationPulseKeys());
@@ -1289,7 +1394,10 @@ export function ContractHomeScreen() {
       setDestReachOpen(false);
       await refresh();
     } catch (e) {
-      setDestReachError(apiErrorMessage(e, 'Bestemming bijwerken mislukt.'));
+      if (seenManualDestToken.current !== destToken) {
+        seenManualDestToken.current = destToken;
+      }
+      setDestReachError(apiErrorMessage(e, t("Bestemming bijwerken mislukt.")));
     } finally {
       setDestReachBusy(false);
     }
@@ -1346,7 +1454,7 @@ export function ContractHomeScreen() {
 
     void (async () => {
       if (stops.length === 0) {
-        fail('Geen open haltes om te rijden.');
+        fail(t("Geen open haltes om te rijden."));
         return;
       }
       setSimLabel(stopLabel(stops[0]));
@@ -1407,7 +1515,7 @@ export function ContractHomeScreen() {
       const stop = stops[cursor.segment];
       const line = lines[cursor.segment];
       if (!stop || !line) {
-        setSimLabel('Rit gesimuleerd.');
+        setSimLabel(t("Rit gesimuleerd."));
         setSimRunning(false);
         return;
       }
@@ -1447,17 +1555,17 @@ export function ContractHomeScreen() {
               lng: stop.lng,
             });
             if ((res.data?.updated || 0) < 1) {
-              throw new Error(res.message || 'De bestemming kan niet op bereikt gezet worden.');
+              throw new Error(res.message || t("De bestemming kan niet op bereikt gezet worden."));
             }
           }
           await pollToday();
           cursor.segment += 1;
           cursor.meters = 0;
           const next = stops[cursor.segment];
-          setSimLabel(next ? stopLabel(next) : 'Rit gesimuleerd.');
+          setSimLabel(next ? stopLabel(next) : t("Rit gesimuleerd."));
           if (!next) setSimRunning(false);
         } catch (e) {
-          fail(apiErrorMessage(e, 'Status bijwerken mislukt.'));
+          fail(apiErrorMessage(e, t("Status bijwerken mislukt.")));
         } finally {
           busy = false;
         }
@@ -1488,15 +1596,15 @@ export function ContractHomeScreen() {
     setSimResetBusy(true);
     setSimResetError(null);
     setSimRunning(false);
-    setSimLabel('Ritten resetten…');
+    setSimLabel(t("Ritten resetten…"));
     try {
       await resetContractToday(contractToken);
-      setSimLabel('Ritten van vandaag zijn gereset.');
+      setSimLabel(t("Ritten van vandaag zijn gereset."));
       setSimResetOpen(false);
       await refresh();
     } catch (e) {
-      setSimResetError(apiErrorMessage(e, 'Resetten mislukt.'));
-      setSimLabel('Resetten mislukt.');
+      setSimResetError(apiErrorMessage(e, t("Resetten mislukt.")));
+      setSimLabel(t("Resetten mislukt."));
     } finally {
       setSimResetBusy(false);
     }
@@ -1823,9 +1931,12 @@ export function ContractHomeScreen() {
 
   useEffect(() => {
     const next = new Map<string, string>();
+    const stopByExpand = new Map<string, number>();
     todayItems.forEach((item) => {
       itemLegs(item).forEach((leg, index) => {
-        next.set(rideExpandKey(item, leg, index, today?.date), legStatusKey(leg, item));
+        const id = rideExpandKey(item, leg, index, today?.date);
+        next.set(id, legStatusKey(leg, item));
+        if (leg.ride_stop_id) stopByExpand.set(id, leg.ride_stop_id);
       });
     });
     const prev = statusSeenRef.current;
@@ -1833,16 +1944,47 @@ export function ContractHomeScreen() {
     if (!prev) return;
     const keys: string[] = [];
     const arrivedKeys: string[] = [];
+    const pickupAutoIds: string[] = [];
+    const destAutoIds: string[] = [];
+    const manualDestWave = manualDestToken.current !== seenManualDestToken.current;
+    let sawDestFlip = false;
     for (const [id, status] of next) {
       const before = prev.get(id);
       if (!before || before === status) continue;
-      if (status === 'completed') arrivedKeys.push(id);
+      if (status === 'completed') {
+        arrivedKeys.push(id);
+        sawDestFlip = true;
+      }
+      if (canOperateRides && !simActiveRef.current) {
+        if (status === 'picked_up' && before !== 'picked_up' && before !== 'completed') {
+          const stopId = stopByExpand.get(id);
+          if (stopId != null && manualPickupStops.current.has(stopId)) {
+            manualPickupStops.current.delete(stopId);
+          } else {
+            pickupAutoIds.push(id);
+          }
+        }
+        if (status === 'completed' && before !== 'completed' && !manualDestWave) {
+          destAutoIds.push(id);
+        }
+      }
       if (canOperateRides) continue;
       const wasBoarded = before === 'picked_up' || before === 'completed';
       if ((status === 'picked_up' || status === 'completed') && !wasBoarded) {
         keys.push(`pickup:${id}`);
       }
       if (status === 'completed') keys.push(`dest:${id}`);
+    }
+    if (manualDestWave && sawDestFlip) {
+      seenManualDestToken.current = manualDestToken.current;
+    }
+    if (pickupAutoIds.length > 0 || destAutoIds.length > 0) {
+      setLocalAuto((cur) => {
+        const copy = { ...cur };
+        for (const id of pickupAutoIds) copy[id] = { ...copy[id], pickup: true };
+        for (const id of destAutoIds) copy[id] = { ...copy[id], destination: true };
+        return copy;
+      });
     }
     if (arrivedKeys.length > 0) {
       selectTab('trips');
@@ -1938,13 +2080,59 @@ export function ContractHomeScreen() {
             : absent
               ? ABSENT_GREY
               : colors.muted;
-          const destinationLabel = canOperateRides ? 'Bestemming' : 'Op bestemming';
+          const destinationLabel = canOperateRides ? t("Bestemming") : t("Op bestemming");
+          const remembered = localAuto[expandKey];
+          const pickupAuto =
+            leg.pickup_set_automatically === true ||
+            (leg.pickup_set_automatically == null && !!remembered?.pickup);
+          const destinationAuto =
+            leg.destination_set_automatically === true ||
+            (leg.destination_set_automatically == null && !!remembered?.destination);
+          const autoLines: string[] = [];
+          if (pickupAuto && !absent && !notTaken) {
+            autoLines.push(t("Opgehaald is automatisch gezet."));
+          }
+          if (destinationAuto && !absent) {
+            autoLines.push(t("Bestemming is automatisch gezet."));
+          }
+          const showSkip =
+            canOperateRides &&
+            !absent &&
+            !notTaken &&
+            (showBoard || pickupAuto || leg.can_skip === true);
+          const showAfmelden =
+            !item.absence_id &&
+            !absent &&
+            !notTaken &&
+            (Boolean(item.can_cancel) || (canOperateRides && pickupAuto));
+          const autoNotice =
+            autoLines.length > 0 ? (
+              <View style={[styles.statusBanner, styles.statusBannerSuccess, styles.autoStatusBanner]}>
+                {autoLines.map((line) => (
+                  <Text
+                    key={line}
+                    style={[styles.statusBannerText, styles.statusBannerTextSuccess, styles.autoStatusLine]}
+                  >
+                    {line}
+                  </Text>
+                ))}
+              </View>
+            ) : null;
           const cardBorder = absent || notTaken
             ? hexAlpha(ABSENT_GREY, 0.55)
             : expired
               ? OVERDUE_RED
               : hexAlpha(accentHex, 0.55);
           const cardAccent = absent || notTaken ? ABSENT_GREY : expired ? OVERDUE_RED : accentHex;
+          const boardPassenger = () => {
+            if (!showBoard || rideActionStopId != null) return;
+            if (canOperateRides) bumpPulses([`pickup:${expandKey}`]);
+            void onBoardLeg(leg.ride_stop_id);
+          };
+          const reachDestination = () => {
+            if (!canOperateRides || isAtDestination) return;
+            openDestReach();
+          };
 
           return (
             <View
@@ -1988,24 +2176,22 @@ export function ContractHomeScreen() {
                           styles.badgeText,
                           { color: absent ? ABSENT_GREY : accentHex },
                         ]}
-                      >
-                        Contract
-                      </Text>
+                      >{t("Contract")}</Text>
                     </View>
                     <View style={[styles.badge, styles.badgeLeg]}>
                       <Text style={styles.badgeLegText}>{label}</Text>
                     </View>
                     {absent ? (
                       <View style={[styles.badge, styles.badgeAbsent]}>
-                        <Text style={styles.badgeAbsentText}>Afgemeld</Text>
+                        <Text style={styles.badgeAbsentText}>{t("Afgemeld")}</Text>
                       </View>
                     ) : notTaken ? (
                       <View style={[styles.badge, styles.badgeAbsent]}>
-                        <Text style={styles.badgeAbsentText}>Niet meegenomen</Text>
+                        <Text style={styles.badgeAbsentText}>{t("Niet meegenomen")}</Text>
                       </View>
                     ) : expired ? (
                       <View style={[styles.badge, styles.badgeDanger]}>
-                        <Text style={styles.badgeDangerText}>Ophaalmoment verlopen</Text>
+                        <Text style={styles.badgeDangerText}>{t("Ophaalmoment verlopen")}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -2039,37 +2225,64 @@ export function ContractHomeScreen() {
                     >
                       {bannerText}
                     </Text>
+                    {autoNotice}
                     <Text style={styles.rideCollapsedRoute} numberOfLines={1}>
                       {pickup.main}
                       {dropoff.main ? ` → ${dropoff.main}` : ''}
                     </Text>
-                    <View style={styles.rideCollapsedIcons}>
-                      <View style={styles.rideCollapsedIcon}>
-                        <PulsingIcon
-                          name="navigate-outline"
-                          size={18}
-                          color={absent ? ABSENT_GREY : boardedColor}
-                          pulseToken={iconPulse[`pickup:${expandKey}`] || 0}
-                        />
-                        <Text style={[styles.rideCollapsedIconLabel, { color: absent ? ABSENT_GREY : boardedColor }]}>
-                          Opgehaald
-                        </Text>
-                      </View>
-                      <View style={styles.rideCollapsedIcon}>
-                        <PulsingIcon
-                          name="flag-outline"
-                          size={18}
-                          color={destinationColor}
-                          pulseToken={iconPulse[`dest:${expandKey}`] || 0}
-                        />
-                        <Text style={[styles.rideCollapsedIconLabel, { color: destinationColor }]}>
-                          {destinationLabel}
-                        </Text>
-                      </View>
-                    </View>
                   </View>
                 ) : null}
               </Pressable>
+
+              {!expanded ? (
+                <View style={styles.rideCollapsedIcons}>
+                  <Pressable
+                    style={[
+                      styles.rideCollapsedIcon,
+                      rideActionStopId === leg.ride_stop_id && showBoard && { opacity: 0.55 },
+                    ]}
+                    disabled={!showBoard || rideActionStopId != null}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      boardPassenger();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={isPickedUp ? t("Opgehaald") : t("Nog niet opgehaald")}
+                    accessibilityState={{ disabled: !showBoard || rideActionStopId != null }}
+                  >
+                    <PulsingIcon
+                      name="navigate-outline"
+                      size={18}
+                      color={absent ? ABSENT_GREY : boardedColor}
+                      pulseToken={iconPulse[`pickup:${expandKey}`] || 0}
+                    />
+                    <Text style={[styles.rideCollapsedIconLabel, { color: absent ? ABSENT_GREY : boardedColor }]}>{t("Opgehaald")}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.rideCollapsedIcon}
+                    disabled={!canOperateRides || isAtDestination}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      reachDestination();
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isAtDestination ? `${destinationLabel}: ja` : `${destinationLabel}: nog niet`
+                    }
+                    accessibilityState={{ disabled: !canOperateRides || isAtDestination }}
+                  >
+                    <PulsingIcon
+                      name="flag-outline"
+                      size={18}
+                      color={destinationColor}
+                      pulseToken={iconPulse[`dest:${expandKey}`] || 0}
+                    />
+                    <Text style={[styles.rideCollapsedIconLabel, { color: destinationColor }]}>
+                      {destinationLabel}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
 
               {expanded ? (
                 <>
@@ -2094,6 +2307,7 @@ export function ContractHomeScreen() {
                 >
                   {bannerText}
                 </Text>
+                {autoNotice}
                 {canOperateRides && showBoard ? (
                   <Text style={styles.statusBannerHint}>
                     Markeer Opgehaald of Overslaan.{'\n'}
@@ -2113,7 +2327,7 @@ export function ContractHomeScreen() {
                     <View style={[styles.dotOuter, styles.dotOuterPickup]}>
                       <View style={[styles.dot, styles.dotPickup]} />
                     </View>
-                    <Text style={styles.routeLabel}>Ophalen</Text>
+                    <Text style={styles.routeLabel}>{t("Ophalen")}</Text>
                   </View>
                   <View style={styles.routeAddress}>
                     <Text style={styles.routeMain}>{pickup.main}</Text>
@@ -2125,7 +2339,7 @@ export function ContractHomeScreen() {
                     <View style={[styles.dotOuter, styles.dotOuterDropoff]}>
                       <View style={[styles.dot, styles.dotDropoff]} />
                     </View>
-                    <Text style={styles.routeLabel}>Afzetten</Text>
+                    <Text style={styles.routeLabel}>{t("Afzetten")}</Text>
                   </View>
                   <View style={styles.routeAddress}>
                     <Text style={styles.routeMain}>{dropoff.main}</Text>
@@ -2141,13 +2355,9 @@ export function ContractHomeScreen() {
                     rideActionStopId === leg.ride_stop_id && showBoard && { opacity: 0.55 },
                   ]}
                   disabled={!showBoard || rideActionStopId != null}
-                  onPress={() => {
-                    if (!showBoard) return;
-                    if (canOperateRides) bumpPulses([`pickup:${expandKey}`]);
-                    void onBoardLeg(leg.ride_stop_id);
-                  }}
+                  onPress={boardPassenger}
                   accessibilityRole="button"
-                  accessibilityLabel={isPickedUp ? 'Opgehaald' : 'Nog niet opgehaald'}
+                  accessibilityLabel={isPickedUp ? t("Opgehaald") : t("Nog niet opgehaald")}
                   accessibilityState={{ disabled: !showBoard }}
                 >
                   <PulsingIcon
@@ -2163,15 +2373,14 @@ export function ContractHomeScreen() {
                     ]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
+                    {...fitLineFontProps}
                     minimumFontScale={0.7}
-                  >
-                    Opgehaald
-                  </Text>
+                  >{t("Opgehaald")}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.rideIconTab}
                   disabled={!canOperateRides || isAtDestination}
-                  onPress={openDestReach}
+                  onPress={reachDestination}
                   accessibilityRole="button"
                   accessibilityLabel={
                     isAtDestination ? `${destinationLabel}: ja` : `${destinationLabel}: nog niet`
@@ -2188,6 +2397,7 @@ export function ContractHomeScreen() {
                     style={[styles.rideIconLabel, { color: destinationColor }]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
+                    {...fitLineFontProps}
                     minimumFontScale={0.7}
                   >
                     {destinationLabel}
@@ -2202,20 +2412,21 @@ export function ContractHomeScreen() {
                     disabled={rideActionStopId != null}
                     onPress={() => void onStartLeg(leg.ride_stop_id)}
                     accessibilityRole="button"
-                    accessibilityLabel="Rit starten"
+                    accessibilityLabel={t("Rit starten")}
                   >
                     <Ionicons name="play-outline" size={22} color={colors.muted} />
                     <Text
                       style={styles.rideIconLabel}
                       numberOfLines={1}
                       adjustsFontSizeToFit
+                    {...fitLineFontProps}
                       minimumFontScale={0.7}
                     >
-                      {rideActionStopId === leg.ride_stop_id ? 'Bezig…' : 'Starten'}
+                      {rideActionStopId === leg.ride_stop_id ? t("Bezig…") : t("Starten")}
                     </Text>
                   </Pressable>
                 ) : null}
-                {showBoard ? (
+                {showSkip ? (
                   <Pressable
                     style={[
                       styles.rideIconTab,
@@ -2224,17 +2435,16 @@ export function ContractHomeScreen() {
                     disabled={rideActionStopId != null}
                     onPress={() => onSkipLeg(leg.ride_stop_id, item.name)}
                     accessibilityRole="button"
-                    accessibilityLabel="Niet meegenomen"
+                    accessibilityLabel={t("Niet meegenomen")}
                   >
                     <Ionicons name="person-remove-outline" size={22} color={colors.muted} />
                     <Text
                       style={styles.rideIconLabel}
                       numberOfLines={1}
                       adjustsFontSizeToFit
+                    {...fitLineFontProps}
                       minimumFontScale={0.7}
-                    >
-                      Overslaan
-                    </Text>
+                    >{t("Overslaan")}</Text>
                   </Pressable>
                 ) : null}
                 {showComplete ? (
@@ -2246,37 +2456,37 @@ export function ContractHomeScreen() {
                     disabled={rideActionStopId != null}
                       onPress={() => onCompleteLeg(leg.ride_stop_id, leg, item)}
                       accessibilityRole="button"
-                      accessibilityLabel="Afronden"
+                      accessibilityLabel={t("Afronden")}
                     >
                       <Ionicons name="checkmark-circle-outline" size={22} color={colors.muted} />
                       <Text
                         style={styles.rideIconLabel}
                         numberOfLines={1}
                         adjustsFontSizeToFit
+                    {...fitLineFontProps}
                         minimumFontScale={0.7}
                       >
                         {rideActionStopId === leg.ride_stop_id && !showStart && !showBoard
-                          ? 'Bezig…'
-                          : 'Afronden'}
+                          ? t("Bezig…")
+                          : t("Afronden")}
                       </Text>
                     </Pressable>
                   ) : null}
-                {item.can_cancel && !item.absence_id ? (
+                {showAfmelden ? (
                   <Pressable
                     style={styles.rideIconTab}
                     onPress={() => openAbsence(item.passenger_id, dateLabel)}
                     accessibilityRole="button"
-                    accessibilityLabel="Afmelden"
+                    accessibilityLabel={t("Afmelden")}
                   >
                     <Ionicons name="close-circle-outline" size={22} color={colors.muted} />
                     <Text
                       style={styles.rideIconLabel}
                       numberOfLines={1}
                       adjustsFontSizeToFit
+                    {...fitLineFontProps}
                       minimumFontScale={0.7}
-                    >
-                      Afmelden
-                    </Text>
+                    >{t("Afmelden")}</Text>
                   </Pressable>
                 ) : null}
                 {item.absence_id ? (
@@ -2284,17 +2494,16 @@ export function ContractHomeScreen() {
                     style={styles.rideIconTab}
                     onPress={() => cancelAbsence(item.absence_id!)}
                     accessibilityRole="button"
-                    accessibilityLabel="Afmelding intrekken"
+                    accessibilityLabel={t("Afmelding intrekken")}
                   >
                     <Ionicons name="arrow-undo-outline" size={22} color={colors.muted} />
                     <Text
                       style={styles.rideIconLabel}
                       numberOfLines={1}
                       adjustsFontSizeToFit
+                    {...fitLineFontProps}
                       minimumFontScale={0.7}
-                    >
-                      Intrekken
-                    </Text>
+                    >{t("Intrekken")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -2316,14 +2525,16 @@ export function ContractHomeScreen() {
       }
     >
       <ErrorText>{error}</ErrorText>
-      <ScreenHeader
-        title="Ritten"
-        right={
-          <Text style={styles.headerDate}>
-            {today?.date ? formatDayLong(today.date) : 'Vandaag'}
-          </Text>
-        }
-      />
+      {embedded ? null : (
+        <ScreenHeader
+          title={t("Ritten")}
+          right={
+            <Text style={styles.headerDate}>
+              {today?.date ? formatDayLong(today.date) : t("Vandaag")}
+            </Text>
+          }
+        />
+      )}
       <View style={styles.statusFilterRow}>
         {TRIP_STATUS_OPTIONS.map((opt) => {
           const active = tripStatusFilter === opt.key;
@@ -2334,7 +2545,7 @@ export function ContractHomeScreen() {
               onPress={() => chooseTripStatusFilter(opt.key)}
             >
               <Text style={[styles.statusFilterText, active && styles.statusFilterTextActive]}>
-                {opt.label}
+                {t(opt.label)}
               </Text>
             </Pressable>
           );
@@ -2342,7 +2553,7 @@ export function ContractHomeScreen() {
       </View>
       {openDestinationSummary ? (
         <View style={styles.destBanner}>
-          <Text style={styles.destLabel}>Bestemming</Text>
+          <Text style={styles.destLabel}>{t("Bestemming")}</Text>
           <Text style={styles.destValue}>{openDestinationSummary}</Text>
           {canOperateRides ? (
             <Animated.View style={{ transform: [{ scale: destBtnScale }] }}>
@@ -2350,7 +2561,7 @@ export function ContractHomeScreen() {
                 style={styles.primaryBtn}
                 onPress={openDestReach}
               >
-                <Text style={styles.primaryBtnText}>Bestemming bereikt</Text>
+                <Text style={styles.primaryBtnText}>{t("Bestemming bereikt")}</Text>
               </Pressable>
             </Animated.View>
           ) : null}
@@ -2360,17 +2571,17 @@ export function ContractHomeScreen() {
         <Card>
           <Text style={styles.emptyTitle}>
             {todayItems.length === 0
-              ? 'Geen ritten vandaag.'
+              ? t("Geen ritten vandaag.")
               : tripStatusFilter === 'expired'
-                ? 'Geen verlopen ritten.'
+                ? t("Geen verlopen ritten.")
                 : tripStatusFilter === 'open'
-                  ? 'Geen openstaande ritten.'
-                  : 'Geen ritten vandaag.'}
+                  ? t("Geen openstaande ritten.")
+                  : t("Geen ritten vandaag.")}
           </Text>
           <Text style={styles.emptyHint}>
             {todayItems.length === 0
-              ? 'Geplande contractritten voor vandaag verschijnen hier.'
-              : 'Pas het filter aan om andere ritten te zien.'}
+              ? t("Geplande contractritten voor vandaag verschijnen hier.")
+              : t("Pas het filter aan om andere ritten te zien.")}
           </Text>
         </Card>
       ) : (
@@ -2389,7 +2600,7 @@ export function ContractHomeScreen() {
     >
       <ErrorText>{error}</ErrorText>
       <ScreenHeader
-        title="Planning"
+        title={t("Planning")}
         right={
           <View style={styles.periodToggle}>
             {(['day', 'week'] as const).map((key) => {
@@ -2401,7 +2612,7 @@ export function ContractHomeScreen() {
                   onPress={() => setPlanningView(key)}
                 >
                   <Text style={[styles.periodBtnText, active && styles.periodBtnTextActive]}>
-                    {key === 'day' ? 'Dag' : 'Week'}
+                    {key === 'day' ? t("Dag") : t("Week")}
                   </Text>
                 </Pressable>
               );
@@ -2414,7 +2625,7 @@ export function ContractHomeScreen() {
         <Pressable
           style={styles.navBtn}
           onPress={() => loadWeek(addDaysIso(weekFrom, -7))}
-          accessibilityLabel="Vorige week"
+          accessibilityLabel={t("Vorige week")}
         >
           <Ionicons name="chevron-back" size={20} color={colors.text} />
         </Pressable>
@@ -2426,13 +2637,13 @@ export function ContractHomeScreen() {
             loadWeek(mondayIso(todayIso));
           }}
         >
-          <Text style={styles.todayBtnText}>Vandaag</Text>
+          <Text style={styles.todayBtnText}>{t("Vandaag")}</Text>
         </Pressable>
         <View style={styles.navSpacer} />
         <Pressable
           style={styles.navBtn}
           onPress={() => loadWeek(addDaysIso(weekFrom, 7))}
-          accessibilityLabel="Volgende week"
+          accessibilityLabel={t("Volgende week")}
         >
           <Ionicons name="chevron-forward" size={20} color={colors.text} />
         </Pressable>
@@ -2456,7 +2667,7 @@ export function ContractHomeScreen() {
                 onPress={() => setSelectedDate(day.date)}
               >
                 <Text style={[styles.weekDayName, active && styles.weekDayNameActive]}>
-                  {WEEKDAYS_SHORT[index] || '—'}
+                  {t(WEEKDAYS_SHORT[index] || '—')}
                 </Text>
                 <Text style={[styles.weekDayNum, active && styles.weekDayNumActive]}>
                   {parseIsoDate(day.date).getDate()}
@@ -2472,7 +2683,7 @@ export function ContractHomeScreen() {
 
       {planningItems.length === 0 ? (
         <Card>
-          <Text style={styles.emptyHint}>Geen ritten in deze periode.</Text>
+          <Text style={styles.emptyHint}>{t("Geen ritten in deze periode.")}</Text>
         </Card>
       ) : (
         planningItems.map((item) =>
@@ -2503,7 +2714,7 @@ export function ContractHomeScreen() {
     try {
       await updateContractPassengerColor(contractToken, passengerId, color);
     } catch (e) {
-      setError(apiErrorMessage(e, 'Kleur opslaan mislukt.'));
+      setError(apiErrorMessage(e, t("Kleur opslaan mislukt.")));
     }
   }
 
@@ -2538,7 +2749,7 @@ export function ContractHomeScreen() {
   const parentNavigation = (
     <View style={styles.parentNav}>
       <View style={styles.parentNavHeader}>
-        <ScreenHeader title="Navigatie" />
+        <ScreenHeader title={t("Navigatie")} />
       </View>
       <View
         style={styles.parentNavMapWrap}
@@ -2609,7 +2820,7 @@ export function ContractHomeScreen() {
           <Marker
             key={pin.key}
             coordinate={pin.coordinate}
-            title={pin.kind === 'destination' ? 'Bestemming' : pin.label}
+            title={pin.kind === 'destination' ? t("Bestemming") : pin.label}
             anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges
             zIndex={pin.kind === 'destination' ? 40 : 30}
@@ -2617,7 +2828,7 @@ export function ContractHomeScreen() {
             <View style={styles.childMarker}>
               {pin.arrivedNames.length > 0 ? (
                 <View style={styles.destinationNames}>
-                  <Text style={styles.destinationCaption}>Bestemming</Text>
+                  <Text style={styles.destinationCaption}>{t("Bestemming")}</Text>
                   {pin.arrivedNames.map((person) => (
                     <View
                       key={person.label}
@@ -2666,7 +2877,7 @@ export function ContractHomeScreen() {
         ) : taxiOnMap ? (
           <Marker
             coordinate={taxiOnMap}
-            title="Taxi"
+            title={t("Taxi")}
             anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={trackTaxiHeading}
           >
@@ -2685,7 +2896,7 @@ export function ContractHomeScreen() {
           style={styles.mapFocusBtn}
           onPress={focusTaxi}
           accessibilityRole="button"
-          accessibilityLabel="Focus op de taxi"
+          accessibilityLabel={t("Focus op de taxi")}
         >
           <Ionicons name="locate" size={22} color={colors.text} />
         </Pressable>
@@ -2693,7 +2904,7 @@ export function ContractHomeScreen() {
       </View>
       {childRides.length === 0 && !taxiOnMap ? (
         <View style={styles.parentNavEmpty} pointerEvents="none">
-          <Text style={styles.parentNavEmptyText}>Geen open rit om te volgen.</Text>
+          <Text style={styles.parentNavEmptyText}>{t("Geen open rit om te volgen.")}</Text>
         </View>
       ) : null}
       {canOperateRides ? (
@@ -2704,21 +2915,21 @@ export function ContractHomeScreen() {
             void openPassengerRoute(navStops).catch(() => undefined);
           }}
           accessibilityRole="button"
-          accessibilityLabel="Start navigatie"
+          accessibilityLabel={t("Start navigatie")}
         >
-          <Text style={styles.primaryBtnText}>Start navigatie</Text>
+          <Text style={styles.primaryBtnText}>{t("Start navigatie")}</Text>
         </Pressable>
       ) : null}
       {showSimulator ? (
         <View style={styles.simCard}>
-          <Text style={styles.simTitle}>Ritsimulator</Text>
+          <Text style={styles.simTitle}>{t("Ritsimulator")}</Text>
           <Text style={styles.simHint}>
             {simRunning
               ? simLabel
-              : 'Laat de chauffeur de haltes afrijden. Bij elke stop wordt de status echt gezet.'}
+              : t("Laat de chauffeur de haltes afrijden. Bij elke stop wordt de status echt gezet.")}
           </Text>
           <View style={styles.simSpeedRow}>
-            <Text style={styles.simSpeedLabel}>Snelheid</Text>
+            <Text style={styles.simSpeedLabel}>{t("Snelheid")}</Text>
             <Text style={styles.simSpeedValue}>{simSpeed} km/u</Text>
           </View>
           <View
@@ -2747,7 +2958,7 @@ export function ContractHomeScreen() {
               setSimSpeed(next);
             }}
             accessibilityRole="adjustable"
-            accessibilityLabel="Snelheid van de rit"
+            accessibilityLabel={t("Snelheid van de rit")}
           >
             <View
               style={[
@@ -2772,16 +2983,16 @@ export function ContractHomeScreen() {
             onPress={() => {
               if (simRunning) {
                 setSimRunning(false);
-                setSimLabel('Simulator gestopt.');
+                setSimLabel(t("Simulator gestopt."));
                 return;
               }
-              setSimLabel('Route laden…');
+              setSimLabel(t("Route laden…"));
               setSimRunning(true);
             }}
             accessibilityRole="button"
-            accessibilityLabel={simRunning ? 'Stop simulator' : 'Start simulator'}
+            accessibilityLabel={simRunning ? t("Stop simulator") : t("Start simulator")}
           >
-            <Text style={styles.primaryBtnText}>{simRunning ? 'Stop simulator' : 'Start simulator'}</Text>
+            <Text style={styles.primaryBtnText}>{simRunning ? t("Stop simulator") : t("Start simulator")}</Text>
           </Pressable>
           {isDemo ? (
             <Pressable
@@ -2789,17 +3000,15 @@ export function ContractHomeScreen() {
               disabled={simResetBusy}
               onPress={openSimReset}
               accessibilityRole="button"
-              accessibilityLabel="Ritten resetten"
+              accessibilityLabel={t("Ritten resetten")}
             >
-              <Text style={styles.secondaryBtnText}>Ritten resetten</Text>
+              <Text style={styles.secondaryBtnText}>{t("Ritten resetten")}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
       {passengers.length > 0 || childRides.length > 0 ? (
-        <Text style={styles.childLegendHint}>
-          Tik op de naam van een kind om de kleur aan te passen.
-        </Text>
+        <Text style={styles.childLegendHint}>{t("Tik op de naam van een kind om de kleur aan te passen.")}</Text>
       ) : null}
       <View style={styles.childLegend}>
         {(passengers.length > 0 ? passengers : childRides.map((ride) => ({
@@ -2837,15 +3046,13 @@ export function ContractHomeScreen() {
       }
     >
       <ErrorText>{error}</ErrorText>
-      <ScreenHeader title="Afmeldingen" />
-      <Text style={styles.hint}>
-        Meld een passagier af voor één of meer dagen. Intrekken kan zolang de dag nog openstaat.
-      </Text>
+      <ScreenHeader title={t("Afmeldingen")} />
+      <Text style={styles.hint}>{t("Meld een passagier af voor één of meer dagen. Intrekken kan zolang de dag nog openstaat.")}</Text>
 
-      <Text style={styles.sectionLabel}>Passagiers</Text>
+      <Text style={styles.sectionLabel}>{t("Passagiers")}</Text>
       {passengers.length === 0 ? (
         <Card>
-          <Text style={styles.emptyHint}>Geen passagiers zichtbaar.</Text>
+          <Text style={styles.emptyHint}>{t("Geen passagiers zichtbaar.")}</Text>
         </Card>
       ) : (
         passengers.map((p) => (
@@ -2858,16 +3065,16 @@ export function ContractHomeScreen() {
               <Text style={styles.rideMeta}>Vandaag afgemeld{p.absence_reason ? `: ${p.absence_reason}` : ''}</Text>
             ) : null}
             <Pressable style={styles.secondaryBtn} onPress={() => openAbsence(p.id)}>
-              <Text style={styles.secondaryBtnText}>Afmelden</Text>
+              <Text style={styles.secondaryBtnText}>{t("Afmelden")}</Text>
             </Pressable>
           </Card>
         ))
       )}
 
-      <Text style={styles.sectionLabel}>Geplande afmeldingen</Text>
+      <Text style={styles.sectionLabel}>{t("Geplande afmeldingen")}</Text>
       {absences.length === 0 ? (
         <Card>
-          <Text style={styles.emptyHint}>Geen openstaande afmeldingen.</Text>
+          <Text style={styles.emptyHint}>{t("Geen openstaande afmeldingen.")}</Text>
         </Card>
       ) : (
         absences.map((a) => (
@@ -2876,7 +3083,7 @@ export function ContractHomeScreen() {
             <Text style={styles.rideMeta}>{formatDayLong(a.date)}</Text>
             {a.reason ? <Text style={styles.hint}>{a.reason}</Text> : null}
             <Pressable style={styles.secondaryBtn} onPress={() => cancelAbsence(a.id)}>
-              <Text style={styles.secondaryBtnText}>Intrekken</Text>
+              <Text style={styles.secondaryBtnText}>{t("Intrekken")}</Text>
             </Pressable>
           </Card>
         ))
@@ -2887,28 +3094,28 @@ export function ContractHomeScreen() {
   const profilePanel = (
     <AppScrollView persistKey="contract-profile" contentContainerStyle={styles.scroll}>
       <ErrorText>{error}</ErrorText>
-      <ScreenHeader title="Profiel" style={styles.profileHeader} />
+      <ScreenHeader title={t("Profiel")} style={styles.profileHeader} />
       <View style={styles.profileCardWrap}>
         <Card>
-          <Text style={styles.profileName}>{name || 'Contract'}</Text>
+          <Text style={styles.profileName}>{name || t("Contract")}</Text>
           <View style={styles.profileRow}>
-            <Text style={styles.profileLabel}>E-mailadres</Text>
+            <Text style={styles.profileLabel}>{t("E-mailadres")}</Text>
             <Text style={styles.profileValue}>{email || '—'}</Text>
           </View>
           <View style={styles.profileRow}>
-            <Text style={styles.profileLabel}>Bedrijf</Text>
+            <Text style={styles.profileLabel}>{t("Bedrijf")}</Text>
             <Text style={styles.profileValue}>{customerName || '—'}</Text>
           </View>
           <View style={styles.profileRowLast}>
-            <Text style={styles.profileLabel}>Rol</Text>
+            <Text style={styles.profileLabel}>{t("Rol")}</Text>
             <Text style={styles.profileValue}>
-              {portalRole ? ROLE_LABEL[portalRole] || portalRole : 'Contractant / contractouder'}
+              {portalRole ? t(ROLE_LABEL[portalRole] || portalRole) : t("Contractant / contractouder")}
             </Text>
           </View>
         </Card>
       </View>
 
-      <Text style={styles.sectionLabel}>Thema</Text>
+      <Text style={styles.sectionLabel}>{t("Thema")}</Text>
       <View style={styles.optionList}>
         {THEME_OPTIONS.map((opt) => {
           const active = preference === opt.key;
@@ -2919,8 +3126,8 @@ export function ContractHomeScreen() {
               onPress={() => setPreference(opt.key)}
             >
               <View>
-                <Text style={styles.optionTitle}>{opt.label}</Text>
-                <Text style={styles.themeSub}>{opt.hint}</Text>
+                <Text style={styles.optionTitle}>{t(opt.label)}</Text>
+                <Text style={styles.themeSub}>{t(opt.hint)}</Text>
               </View>
               {active ? <Ionicons name="checkmark-circle" size={20} color={accentHex} /> : null}
             </Pressable>
@@ -2928,7 +3135,7 @@ export function ContractHomeScreen() {
         })}
       </View>
 
-      <Text style={styles.sectionLabel}>Kleur</Text>
+      <Text style={styles.sectionLabel}>{t("Kleur")}</Text>
       <View style={styles.accentRow}>
         {DRIVER_ACCENT_OPTIONS.map((opt) => {
           const active = accent === opt.key;
@@ -2941,7 +3148,7 @@ export function ContractHomeScreen() {
                 active && styles.accentDotActive,
               ]}
               onPress={() => chooseAccent(opt.key)}
-              accessibilityLabel={opt.label}
+              accessibilityLabel={t(opt.label)}
             />
           );
         })}
@@ -2957,7 +3164,7 @@ export function ContractHomeScreen() {
           void logout();
         }}
       >
-        <Text style={styles.logoutBtnText}>Uitloggen</Text>
+        <Text style={styles.logoutBtnText}>{t("Uitloggen")}</Text>
       </Pressable>
     </AppScrollView>
   );
@@ -2973,31 +3180,40 @@ export function ContractHomeScreen() {
   return (
     <DriverAccentProvider accent={accent}>
       <View style={[styles.shell, { backgroundColor: colors.bg }]}>
-        <View style={styles.topBar}>
-          <AppBrandLogo
-            bare
-            uri={logoUri}
-            fallbackLabel={customerName || 'Contract'}
-            accessibilityLabel={customerName || 'Bedrijfslogo'}
-          />
-        </View>
+        {embedded ? null : (
+          <View style={styles.topBar}>
+            <AppBrandLogo
+              bare
+              uri={logoUri}
+              fallbackLabel={customerName || t("Contract")}
+              accessibilityLabel={customerName || t("Bedrijfslogo")}
+            />
+          </View>
+        )}
+        {embedded ? null : (
+          <View style={styles.prefsRow}>
+            <AppearanceControls />
+          </View>
+        )}
 
-        <View style={styles.body}>{body}</View>
-        <ContractTabBar
-          active={tab}
-          onChange={selectTab}
-          tripsBadge={tripsBadge}
-          accent={accentHex}
-        />
+        <View style={styles.body}>{embedded ? tripsPanel : body}</View>
+        {embedded ? null : (
+          <ContractTabBar
+            active={tab}
+            onChange={selectTab}
+            tripsBadge={tripsBadge}
+            accent={accentHex}
+          />
+        )}
 
         <AppModal
           visible={absenceOpen}
           onRequestClose={() => setAbsenceOpen(false)}
           dismissDisabled={absenceBusy}
         >
-          <ScreenHeader title="Afmelden" />
-          <Text style={styles.hint}>{absencePassenger?.name || 'Passagier'}</Text>
-          <Text style={styles.fieldLabel}>Van (jjjj-mm-dd)</Text>
+          <ScreenHeader title={t("Afmelden")} />
+          <Text style={styles.hint}>{absencePassenger?.name || t("Passagier")}</Text>
+          <Text style={styles.fieldLabel}>{t("Van (jjjj-mm-dd)")}</Text>
           <TextInput
             style={styles.input}
             value={absenceFrom}
@@ -3006,7 +3222,7 @@ export function ContractHomeScreen() {
             placeholder="2026-10-07"
             placeholderTextColor={colors.muted}
           />
-          <Text style={styles.fieldLabel}>Tot (jjjj-mm-dd)</Text>
+          <Text style={styles.fieldLabel}>{t("Tot (jjjj-mm-dd)")}</Text>
           <TextInput
             style={styles.input}
             value={absenceTo}
@@ -3015,12 +3231,12 @@ export function ContractHomeScreen() {
             placeholder="2026-10-07"
             placeholderTextColor={colors.muted}
           />
-          <Text style={styles.fieldLabel}>Reden (optioneel)</Text>
+          <Text style={styles.fieldLabel}>{t("Reden (optioneel)")}</Text>
           <TextInput
             style={styles.input}
             value={absenceReason}
             onChangeText={setAbsenceReason}
-            placeholder="Bijv. ziek"
+            placeholder={t("Bijv. ziek")}
             placeholderTextColor={colors.muted}
           />
           <ErrorText>{error}</ErrorText>
@@ -3030,10 +3246,33 @@ export function ContractHomeScreen() {
             onPress={() => void submitAbsence()}
           >
             <Text style={styles.primaryBtnText}>
-              {absenceBusy ? 'Bezig…' : 'Afmelden'}
+              {absenceBusy ? t("Bezig…") : t("Afmelden")}
             </Text>
           </Pressable>
-          <GhostButton title="Annuleren" onPress={() => setAbsenceOpen(false)} />
+          <GhostButton title={t("Annuleren")} onPress={() => setAbsenceOpen(false)} />
+        </AppModal>
+
+        <AppModal visible={pickupGateOpen} onRequestClose={() => setPickupGateOpen(false)}>
+          <ScreenHeader title={t("Nog niet iedereen opgehaald")} />
+          <Text style={styles.hint}>{t("Niet alle passagiers zijn opgehaald. Zet eerst hun status goed (opgehaald, overslaan of afmelden). Daarna kun je Bestemming bereikt gebruiken.")}</Text>
+          {pickupGateNames.length > 0 ? (
+            <Text style={styles.hint}>
+              {pickupGateNames.map((name, index) => (
+                <Text key={`${name}-${index}`}>
+                  {index > 0 ? ', ' : ''}
+                  <Text
+                    style={{
+                      fontWeight: '700',
+                      color: colorScheme === 'dark' ? '#FFFFFF' : colors.text,
+                    }}
+                  >
+                    {name}
+                  </Text>
+                </Text>
+              ))}
+            </Text>
+          ) : null}
+          <GhostButton title={t("Sluiten")} onPress={() => setPickupGateOpen(false)} />
         </AppModal>
 
         <AppModal
@@ -3041,10 +3280,8 @@ export function ContractHomeScreen() {
           onRequestClose={closeDestReach}
           dismissDisabled={destReachBusy}
         >
-          <ScreenHeader title="Bestemming bereikt" />
-          <Text style={styles.hint}>
-            Dit zet de bestemming op bereikt voor de passagiers bij de bestemming waar de auto staat.
-          </Text>
+          <ScreenHeader title={t("Bestemming bereikt")} />
+          <Text style={styles.hint}>{t("Dit zet de bestemming op bereikt voor de passagiers bij de bestemming waar de auto staat.")}</Text>
           <ErrorText>{destReachError}</ErrorText>
           <Pressable
             style={[styles.primaryBtn, destReachBusy && { opacity: 0.6 }]}
@@ -3052,10 +3289,10 @@ export function ContractHomeScreen() {
             onPress={() => void confirmReachAllDestinations()}
           >
             <Text style={styles.primaryBtnText}>
-              {destReachBusy ? 'Bezig…' : 'Bevestigen'}
+              {destReachBusy ? t("Bezig…") : t("Bevestigen")}
             </Text>
           </Pressable>
-          <GhostButton title="Annuleren" onPress={closeDestReach} />
+          <GhostButton title={t("Annuleren")} onPress={closeDestReach} />
         </AppModal>
 
         <AppModal
@@ -3063,10 +3300,8 @@ export function ContractHomeScreen() {
           onRequestClose={closeSimReset}
           dismissDisabled={simResetBusy}
         >
-          <ScreenHeader title="Ritten resetten" />
-          <Text style={styles.hint}>
-            Dit zet de ritten van vandaag terug, zodat je de simulator opnieuw kunt testen.
-          </Text>
+          <ScreenHeader title={t("Ritten resetten")} />
+          <Text style={styles.hint}>{t("Dit zet de ritten van vandaag terug, zodat je de simulator opnieuw kunt testen.")}</Text>
           <ErrorText>{simResetError}</ErrorText>
           <Pressable
             style={[styles.primaryBtn, simResetBusy && { opacity: 0.6 }]}
@@ -3075,16 +3310,16 @@ export function ContractHomeScreen() {
               void confirmSimReset();
             }}
           >
-            <Text style={styles.primaryBtnText}>{simResetBusy ? 'Bezig…' : 'Resetten'}</Text>
+            <Text style={styles.primaryBtnText}>{simResetBusy ? t("Bezig…") : t("Resetten")}</Text>
           </Pressable>
-          <GhostButton title="Annuleren" onPress={closeSimReset} />
+          <GhostButton title={t("Annuleren")} onPress={closeSimReset} />
         </AppModal>
 
         <AppModal
           visible={colorPassengerId != null}
           onRequestClose={() => setColorPassengerId(null)}
         >
-          <ScreenHeader title="Kleur van het kind" />
+          <ScreenHeader title={t("Kleur van het kind")} />
           <Text style={styles.hint}>{colorPassengerName}</Text>
           <View style={styles.colorGrid}>
             {CHILD_MAP_COLORS.map((swatch, index) => {
@@ -3105,12 +3340,12 @@ export function ContractHomeScreen() {
                     if (colorPassengerId != null) void saveChildColor(colorPassengerId, swatch);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={CHILD_COLOR_LABELS[index] || 'Kleur'}
+                  accessibilityLabel={CHILD_COLOR_LABELS[index] || t("Kleur")}
                 />
               );
             })}
           </View>
-          <GhostButton title="Annuleren" onPress={() => setColorPassengerId(null)} />
+          <GhostButton title={t("Annuleren")} onPress={() => setColorPassengerId(null)} />
         </AppModal>
       </View>
     </DriverAccentProvider>
@@ -3122,6 +3357,12 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     shell: {
       flex: 1,
       minHeight: 0,
+    },
+    prefsRow: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: APP_PAGE_HEADER_PAD_H,
+      paddingBottom: 2,
     },
     topBar: {
       paddingHorizontal: APP_PAGE_HEADER_PAD_H,
@@ -3644,7 +3885,8 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 16,
-      marginTop: 6,
+      marginTop: 10,
+      paddingLeft: 4,
     },
     rideCollapsedIcon: {
       flexDirection: 'row',
@@ -3794,6 +4036,13 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     dotDropoff: {
       backgroundColor: accentHex,
+    },
+    autoStatusBanner: {
+      marginTop: 8,
+      marginBottom: 0,
+    },
+    autoStatusLine: {
+      marginTop: 2,
     },
     statusBanner: {
       marginTop: 10,

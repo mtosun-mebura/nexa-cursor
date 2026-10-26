@@ -10,6 +10,7 @@ use App\Services\AiWebsite\Providers\AiProviderInterface;
 use App\Services\AiWebsite\Providers\OpenAiProvider;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\Monitoring\ScheduledTaskRunRecorder;
 use App\Services\WebsiteBuilderService;
 use App\Support\Admin\AdminTenantScope;
 use App\Support\DestructiveDatabaseGuard;
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -63,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerDestructiveDatabaseGuard();
+        app(ScheduledTaskRunRecorder::class)->listen();
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
         $this->syncMapsConfigFromSettings();
@@ -86,12 +89,33 @@ class AppServiceProvider extends ServiceProvider
 
             $hideContent = $data['adminHideContentWithoutTenant'] ?? $scope->shouldHideContent();
 
+            $unresolvedMonitoringErrors = 0;
+            if ($user = auth()->user()) {
+                if ($user instanceof User && $user->isSuperAdmin()) {
+                    $unresolvedMonitoringErrors = app(\App\Services\Monitoring\MonitoringErrorLogger::class)->unresolvedCount();
+                }
+            }
+
             $view->with([
                 'adminTenantScopedActive' => $tenantScopedActive,
                 'adminShowTenantNotice' => $showNotice,
                 'adminHideContentWithoutTenant' => $hideContent,
                 'adminTenantScopeVariant' => $data['adminTenantScopeVariant'] ?? $scope->noticeVariant(),
+                'adminMonitoringUnresolvedErrors' => $unresolvedMonitoringErrors,
             ]);
+        });
+
+        Event::listen(JobFailed::class, function (JobFailed $event): void {
+            $jobName = method_exists($event->job, 'resolveName') ? $event->job->resolveName() : $event->job::class;
+            app(\App\Services\Monitoring\MonitoringErrorLogger::class)->record(
+                $event->exception->getMessage() !== '' ? $event->exception->getMessage() : $jobName,
+                'queue',
+                [
+                    'job' => $jobName,
+                    'uuid' => $event->job->uuid(),
+                    'queue' => $event->job->getQueue(),
+                ]
+            );
         });
 
         View::composer(['frontend.layouts.website', 'frontend.layouts.app', 'frontend.layouts.partials.header'], function ($view) {
