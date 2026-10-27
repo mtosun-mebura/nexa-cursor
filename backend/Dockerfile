@@ -6,7 +6,7 @@ RUN apt-get update \
         libfreetype6-dev libjpeg62-turbo-dev libpng-dev \
         openssh-client postgresql-client \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql intl zip gd \
+    && docker-php-ext-install pdo pdo_pgsql intl zip gd bcmath \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
