@@ -88,7 +88,7 @@ class AdminPaymentController extends Controller
     private function ensureSuperAdmin(): void
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot betalingen.');
+            abort(403, __('Alleen super-admin heeft toegang tot betalingen.'));
         }
     }
 }

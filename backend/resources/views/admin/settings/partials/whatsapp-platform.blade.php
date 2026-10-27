@@ -1,6 +1,6 @@
 {{-- Platform WhatsApp Business API (Configuraties → Algemene configuraties) --}}
 <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed" id="whatsapp">
-    @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> WhatsApp Business API (platform)'])
+    @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-whatsapp me-2"></i> ' . __('WhatsApp Business API (platform)')])
     <div class="settings-collapsible-body">
         <div class="kt-card-table pb-3 min-w-0 overflow-hidden">
             @php
@@ -9,7 +9,7 @@
             <div class="mx-0 sm:mx-5 mt-4 mb-4 space-y-3">
                 @if($waStatus !== null && !empty($waStatus['ok']))
                     <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 break-words" id="whatsapp-connection-status">
-                        Verbinding OK
+                        {{ __('Verbinding OK') }}
                         @if(!empty($waStatus['meta']['verified_name']) || !empty($waStatus['meta']['display_phone_number']))
                             —
                             {{ $waStatus['meta']['verified_name'] ?? '' }}
@@ -18,12 +18,12 @@
                     </div>
                 @elseif($waStatus !== null)
                     <div class="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive break-words" id="whatsapp-connection-status">
-                        WhatsApp API-verbinding mislukt: {{ $waStatus['error'] ?? 'Onbekende fout' }}
-                        <div class="mt-1 text-xs opacity-90">Vernieuw de token (permanente System User token) en sla opnieuw op.</div>
+                        {{ __('WhatsApp API-verbinding mislukt:') }} {{ $waStatus['error'] ?? __('Onbekende fout') }}
+                        <div class="mt-1 text-xs opacity-90">{{ __('Vernieuw de token (permanente System User token) en sla opnieuw op.') }}</div>
                     </div>
                 @else
                     <div class="rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground break-words" id="whatsapp-connection-status">
-                        Nog niet getest. Klik op <strong>Verbinding testen</strong> om token + Phone Number ID bij Meta te controleren.
+                        {{ __('Nog niet getest. Klik op') }} <strong>{{ __('Verbinding testen') }}</strong> {{ __('om token + Phone Number ID bij Meta te controleren.') }}
                     </div>
                 @endif
                 <form method="POST"
@@ -33,7 +33,7 @@
                     @csrf
                     <button type="submit" class="kt-btn kt-btn-outline inline-flex items-center gap-2" id="whatsapp-platform-test-btn">
                         <i class="ki-filled ki-check-circle" aria-hidden="true"></i>
-                        <span>Verbinding testen</span>
+                        <span>{{ __('Verbinding testen') }}</span>
                     </button>
                 </form>
             </div>
@@ -60,15 +60,15 @@
                     <tr>
                         <td colspan="2" class="px-4 sm:px-6 pt-2 pb-2 align-top min-w-0">
                             <p class="text-xs text-muted-foreground mb-0 max-w-3xl break-words whitespace-normal">
-                                Eén WhatsApp Business-account voor de hele SaaS. Boekings- en ritmeldingen van alle tenants worden hierover verstuurd.
+                                {{ __('Eén WhatsApp Business-account voor de hele SaaS. Boekings- en ritmeldingen van alle tenants worden hierover verstuurd.') }}
                             </p>
                             <p class="text-xs text-muted-foreground mb-0 mt-1 max-w-3xl break-words whitespace-normal">
-                                In de <strong>berichttekst</strong> staat de tenantnaam (bijv. Taxi Royaal). De WhatsApp-profielnaam in de chat is die van het Meta-telefoonnummer — die kan Meta niet per tenant wijzigen.
+                                {!! __('In de :text staat de tenantnaam (bijv. Taxi Royaal). De WhatsApp-profielnaam in de chat is die van het Meta-telefoonnummer — die kan Meta niet per tenant wijzigen.', ['text' => '<strong>'.e(__('berichttekst')).'</strong>']) !!}
                             </p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">WhatsApp Business API Token</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('WhatsApp Business API Token') }}</td>
                         <td class="min-w-0 w-full align-top">
                             <input type="text"
                                    class="kt-input w-full max-w-xl @error('WHATSAPP_API_TOKEN') border-destructive @enderror"
@@ -78,7 +78,7 @@
                                    placeholder="EAAxxxxxxxxxxxx"
                                    autocomplete="off">
                             <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                Permanente <strong>System User token</strong> (Meta Business Suite). Leeg laten bij opslaan behoudt de bestaande token.
+                                {!! __('Permanente :token (Meta Business Suite). Leeg laten bij opslaan behoudt de bestaande token.', ['token' => '<strong>System User token</strong>']) !!}
                             </p>
                             @error('WHATSAPP_API_TOKEN')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -97,7 +97,7 @@
                                    data-validate-as="text"
                                    autocomplete="off"
                                    inputmode="numeric">
-                            <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">Meta Phone Number ID (cijfer-ID), geen telefoonnummer.</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">{{ __('Meta Phone Number ID (cijfer-ID), geen telefoonnummer.') }}</p>
                             @error('WHATSAPP_PHONE_NUMBER_ID')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                             @enderror
@@ -119,7 +119,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">API-versie</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('API-versie') }}</td>
                         <td class="min-w-0 w-full align-top">
                             <input type="text"
                                    class="kt-input w-full max-w-xl @error('WHATSAPP_API_VERSION') border-destructive @enderror"
@@ -143,10 +143,10 @@
                                    placeholder="your-verify-token"
                                    autocomplete="off">
                             <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                Zelfde waarde als in Meta → Configure Webhooks → Verify token.
+                                {{ __('Zelfde waarde als in Meta → Configure Webhooks → Verify token.') }}
                             </p>
                             <p class="text-xs text-muted-foreground mt-1 max-w-xl break-all">
-                                Callback URL: <code class="text-xs">https://nexasuite.nl/api/whatsapp/webhook</code>
+                                {{ __('Callback URL:') }} <code class="text-xs">https://nexasuite.nl/api/whatsapp/webhook</code>
                             </p>
                             @error('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -154,7 +154,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Standaardbericht</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Standaardbericht') }}</td>
                         <td class="min-w-0 w-full align-top">
                             <textarea rows="4"
                                       class="kt-input w-full max-w-xl pt-1 @error('WHATSAPP_DEFAULT_MESSAGE') border-destructive @enderror"
@@ -207,7 +207,7 @@
 
                 <div class="mx-0 sm:mx-5 mt-4 mb-2 border border-border rounded-lg overflow-hidden whatsapp-template-sections">
                     <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="whatsapp-booking-templates">
-                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-message-text-2 me-2"></i> Boekingssjablonen'])
+                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-message-text-2 me-2"></i> ' . __('Boekingssjablonen')])
                         <div class="settings-collapsible-body">
                             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table mb-0">
                                 <colgroup>
@@ -216,7 +216,7 @@
                                 </colgroup>
                                 <tbody>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Boekingstemplate (dispatch)</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Boekingstemplate (dispatch)') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="flex flex-col sm:flex-row flex-wrap gap-2 max-w-xl">
                                             <input type="text"
@@ -233,14 +233,14 @@
                                                    value="{{ old('WHATSAPP_BOOKING_TEMPLATE_LANG', $whatsappPlatformSettings['WHATSAPP_BOOKING_TEMPLATE_LANG'] ?? 'nl') }}"
                                                    placeholder="nl"
                                                    autocomplete="off"
-                                                   aria-label="Taalcode dispatch-template">
+                                                   aria-label="{{ __('Taalcode dispatch-template') }}">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Goedgekeurde Meta-template (utility) om het bedrijf te informeren bij nieuwe boekingen.
-                                            Het ontvangernummer stel je per tenant in onder Instellingen → WhatsApp (tenant).
+                                            {{ __('Goedgekeurde Meta-template (utility) om het bedrijf te informeren bij nieuwe boekingen.') }}
+                                            {{ __('Het ontvangernummer stel je per tenant in onder Instellingen → WhatsApp (tenant).') }}
                                         </p>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Variabelen: <code>@{{1}}</code> bedrijf, <code>@{{2}}</code> klantnaam, <code>@{{3}}</code> boekingsgegevens, <code>@{{4}}</code> afzender.
+                                            {{ __('Variabelen:') }} <code>@{{1}}</code> {{ __('bedrijf,') }} <code>@{{2}}</code> {{ __('klantnaam,') }} <code>@{{3}}</code> {{ __('boekingsgegevens,') }} <code>@{{4}}</code> {{ __('afzender.') }}
                                         </p>
                                         @error('WHATSAPP_BOOKING_TEMPLATE')
                                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -248,7 +248,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Berichten naar bedrijf</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Berichten naar bedrijf') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="flex flex-wrap items-center gap-3 max-w-xl">
                                             <input type="hidden" name="WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED" value="0">
@@ -258,15 +258,15 @@
                                                    name="WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED"
                                                    value="1"
                                                    {{ old('WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED', $whatsappPlatformSettings['WHATSAPP_COMPANY_BOOKING_NOTIFY_ENABLED'] ?? '0') === '1' ? 'checked' : '' }}>
-                                            <span class="text-sm text-secondary-foreground">Stuur bij elke boeking een WhatsApp naar het bedrijf</span>
+                                            <span class="text-sm text-secondary-foreground">{{ __('Stuur bij elke boeking een WhatsApp naar het bedrijf') }}</span>
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Alleen als het tenant-WhatsApp-nummer voor bedrijfsboekingen is ingevuld.
+                                            {{ __('Alleen als het tenant-WhatsApp-nummer voor bedrijfsboekingen is ingevuld.') }}
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Boekingstemplate (klant)</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Boekingstemplate (klant)') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="flex flex-col sm:flex-row flex-wrap gap-2 max-w-xl">
                                             <input type="text"
@@ -283,36 +283,36 @@
                                                    value="{{ old('WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG', $whatsappPlatformSettings['WHATSAPP_BOOKING_CUSTOMER_TEMPLATE_LANG'] ?? 'nl') }}"
                                                    placeholder="nl"
                                                    autocomplete="off"
-                                                   aria-label="Taalcode klant-template">
+                                                   aria-label="{{ __('Taalcode klant-template') }}">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Template voor klantbevestiging. Leeg = zelfde als dispatch-template.
+                                            {{ __('Template voor klantbevestiging. Leeg = zelfde als dispatch-template.') }}
                                         </p>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-xl break-words whitespace-normal">
-                                            Variabelen: <code>@{{1}}</code> klantnaam, <code>@{{2}}</code> bedrijf,
-                                            <code>@{{3}}</code>–<code>@{{10}}</code> boekingsvelden (vaste labels in Meta-tekst),
-                                            <code>@{{11}}</code> afzender. Meta staat geen regeleinden in één variabele toe —
-                                            gebruik de aanbevolen Meta-sjabloontekst hieronder (nieuwe/bijgewerkte template vereist).
+                                            {{ __('Variabelen:') }} <code>@{{1}}</code> {{ __('klantnaam,') }} <code>@{{2}}</code> {{ __('bedrijf,') }}
+                                            <code>@{{3}}</code>–<code>@{{10}}</code> {{ __('boekingsvelden (vaste labels in Meta-tekst),') }}
+                                            <code>@{{11}}</code> {{ __('afzender.') }} {{ __('Meta staat geen regeleinden in één variabele toe —') }}
+                                            {{ __('gebruik de aanbevolen Meta-sjabloontekst hieronder (nieuwe/bijgewerkte template vereist).') }}
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst (klant)</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Meta-sjabloontekst (klant)') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer deze body 1-op-1 naar Meta (Hulpmiddel). De vaste zinnen staan in Meta; in Nexa vul je alleen de variabelen.
+                                            {{ __('Kopieer deze body 1-op-1 naar Meta (Hulpmiddel). De vaste zinnen staan in Meta; in Nexa vul je alleen de variabelen.') }}
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['customer'] ?? '' }}</pre>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst (dispatch)</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Meta-sjabloontekst (dispatch)') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['dispatch'] ?? '' }}</pre>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Boekingsvelden in @{{3}}</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Boekingsvelden in :var', ['var' => '{'.'{3}'.'}']) }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl" id="whatsapp-booking-detail-fields">
                                             @foreach($detailFieldOptions as $fieldKey => $fieldLabel)
@@ -329,18 +329,18 @@
                                             @endforeach
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-2 max-w-2xl break-words whitespace-normal">
-                                            Bepaalt welke regels in <code>@{{3}}</code> komen (klant én dispatch). Volgorde = volgorde hierboven.
+                                            {{ __('Bepaalt welke regels in') }} <code>@{{3}}</code> {{ __('komen (klant én dispatch). Volgorde = volgorde hierboven.') }}
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voorbeeldbericht</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Voorbeeldbericht') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <pre id="whatsapp-booking-sample-preview"
                                              class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words py-3 h-auto min-h-[10rem]"
                                              data-meta-body="{{ $whatsappMetaBodyAttr }}"
                                              data-sample-values="{{ $whatsappSampleValuesAttr }}">{{ $whatsappBookingSamplePreview['preview'] ?? '' }}</pre>
-                                        <p class="text-xs text-muted-foreground mt-1 max-w-2xl">Live voorbeeld o.b.v. de aangevinkte velden (sample-data).</p>
+                                        <p class="text-xs text-muted-foreground mt-1 max-w-2xl">{{ __('Live voorbeeld o.b.v. de aangevinkte velden (sample-data).') }}</p>
                                     </td>
                                 </tr>
                                 </tbody>
@@ -349,7 +349,7 @@
                     </div>
 
                     <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="whatsapp-status-templates">
-                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-notification-status me-2"></i> Statussjablonen (universeel)'])
+                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-notification-status me-2"></i> ' . __('Statussjablonen (universeel)')])
                         <div class="settings-collapsible-body">
                             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table mb-0">
                                 <colgroup>
@@ -358,7 +358,7 @@
                                 </colgroup>
                                 <tbody>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Status-template</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Status-template') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="flex flex-col sm:flex-row flex-wrap gap-2 max-w-xl">
                                             <input type="text"
@@ -375,36 +375,36 @@
                                                    value="{{ old('WHATSAPP_RIDE_STATUS_TEMPLATE_LANG', $whatsappPlatformSettings['WHATSAPP_RIDE_STATUS_TEMPLATE_LANG'] ?? 'nl') }}"
                                                    placeholder="nl"
                                                    autocomplete="off"
-                                                   aria-label="Taalcode status-template">
+                                                   aria-label="{{ __('Taalcode status-template') }}">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
-                                            Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking), start, afronding, annulering en herdispatch.
-                                            Welke statussen de klant ontvangt, stel je per bedrijf in onder
+                                            {{ __('Eén Meta-template voor acceptatie, afwijzing (met optionele opmerking), start, afronding, annulering en herdispatch.') }}
+                                            {{ __('Welke statussen de klant ontvangt, stel je per bedrijf in onder') }}
                                             @if(\Illuminate\Support\Facades\Route::has('admin.taxi.dispatch_settings.edit'))
-                                                <a href="{{ route('admin.taxi.dispatch_settings.edit') }}#dispatch-customer-accept" class="underline">Chauffeur dispatch → Klantmelding bij acceptatie</a>
+                                                <a href="{{ route('admin.taxi.dispatch_settings.edit') }}#dispatch-customer-accept" class="underline">{{ __('Chauffeur dispatch → Klantmelding bij acceptatie') }}</a>
                                             @else
-                                                Chauffeur dispatch → Klantmelding bij acceptatie
+                                                {{ __('Chauffeur dispatch → Klantmelding bij acceptatie') }}
                                             @endif
-                                            (WhatsApp communicatie klant). Rit afgerond staat standaard uit.
-                                            Variabelen: <code>@{{1}}</code> klant, <code>@{{2}}</code> bedrijf, <code>@{{3}}</code> statuslabel, <code>@{{4}}</code> opmerking, <code>@{{5}}</code> chauffeur, <code>@{{6}}</code> ophaalmoment, <code>@{{7}}</code> ophaaladres, <code>@{{8}}</code> kenteken (onder chauffeur in Meta-body).
+                                            {{ __('(WhatsApp communicatie klant). Rit afgerond staat standaard uit.') }}
+                                            {{ __('Variabelen:') }} <code>@{{1}}</code> {{ __('klant,') }} <code>@{{2}}</code> {{ __('bedrijf,') }} <code>@{{3}}</code> {{ __('statuslabel,') }} <code>@{{4}}</code> {{ __('opmerking,') }} <code>@{{5}}</code> {{ __('chauffeur,') }} <code>@{{6}}</code> {{ __('ophaalmoment,') }} <code>@{{7}}</code> {{ __('ophaaladres,') }} <code>@{{8}}</code> {{ __('kenteken (onder chauffeur in Meta-body).') }}
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst (status)</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Meta-sjabloontekst (status)') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer naar Meta als Hulpmiddel-sjabloon. <code>@{{3}}</code> (status) en <code>@{{4}}</code> (opmerking) wisselen per gebeurtenis; chauffeur, kenteken (<code>@{{8}}</code>) en ophaalgegevens vullen automatisch bij toewijzing en chauffeur onderweg.
+                                            {{ __('Kopieer naar Meta als Hulpmiddel-sjabloon.') }} <code>@{{3}}</code> {{ __('(status) en') }} <code>@{{4}}</code> {{ __('(opmerking) wisselen per gebeurtenis; chauffeur, kenteken (') }}<code>@{{8}}</code>{{ __(') en ophaalgegevens vullen automatisch bij toewijzing en chauffeur onderweg.') }}
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['status'] ?? '' }}</pre>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Statusberichten versturen bij</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Statusberichten versturen bij') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl">
-                                            Eerste bevestiging gaat via WhatsApp (<code>nieuwe_boeking</code>). Statusupdates voor ritten met app-tracking verschijnen in de Nexa Taxi-app (melding + ritgeschiedenis). Zonder app-tracking blijft WhatsApp actief voor aangevinkte events.
-                                            <strong>Chauffeur toegewezen</strong> en <strong>Rit gestart</strong> zijn verplicht.
+                                            {{ __('Eerste bevestiging gaat via WhatsApp (') }}<code>nieuwe_boeking</code>{{ __('). Statusupdates voor ritten met app-tracking verschijnen in de Nexa Taxi-app (melding + ritgeschiedenis). Zonder app-tracking blijft WhatsApp actief voor aangevinkte events.') }}
+                                            <strong>{{ __('Chauffeur toegewezen') }}</strong> {{ __('en') }} <strong>{{ __('Rit gestart') }}</strong> {{ __('zijn verplicht.') }}
                                         </p>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl">
                                             @php
@@ -426,7 +426,7 @@
                                                         {{ $eventLabel }}
                                                         <span class="text-muted-foreground">({{ $eventKey }})</span>
                                                         @if($isRequired)
-                                                            <span class="text-muted-foreground"> — verplicht</span>
+                                                            <span class="text-muted-foreground"> — {{ __('verplicht') }}</span>
                                                         @endif
                                                     </span>
                                                 </label>
@@ -435,7 +435,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voorbeeld statusbericht</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Voorbeeld statusbericht') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words py-3 h-auto min-h-[10rem]">{{ $whatsappStatusSamplePreview['preview'] ?? '' }}</pre>
                                     </td>
@@ -446,7 +446,7 @@
                     </div>
 
                     <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="whatsapp-pickup-proposal-template">
-                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-time me-2"></i> Ophaalvoorstel (verlopen rit)'])
+                        @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-time me-2"></i> ' . __('Ophaalvoorstel (verlopen rit)')])
                         <div class="settings-collapsible-body">
                             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table mb-0">
                                 <colgroup>
@@ -455,7 +455,7 @@
                                 </colgroup>
                                 <tbody>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Template-naam</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Template-naam') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <div class="flex flex-col sm:flex-row flex-wrap gap-2 max-w-xl">
                                             <input type="text"
@@ -472,48 +472,48 @@
                                                    value="{{ old('WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG', $whatsappPlatformSettings['WHATSAPP_PICKUP_PROPOSAL_TEMPLATE_LANG'] ?? 'nl') }}"
                                                    placeholder="nl"
                                                    autocomplete="off"
-                                                   aria-label="Taalcode ophaalvoorstel-template">
+                                                   aria-label="{{ __('Taalcode ophaalvoorstel-template') }}">
                                         </div>
                                         <p class="text-xs text-muted-foreground mt-1 max-w-2xl break-words whitespace-normal">
-                                            In het Meta-sjabloon hoort <strong>geen webhook</strong>. Kies twee knoppen van het type
-                                            <strong>Snel antwoord</strong> met knoptekst <code>Accepteren</code> en <code>Weigeren</code>
-                                            (geen aparte payload nodig: WhatsApp stuurt die tekst terug).
-                                            Het antwoord komt binnen via de webhook van de WhatsApp-app
-                                            (Meta Developer → WhatsApp → Configuratie → Webhook), niet via het sjabloon.
-                                            Abonneer daar het veld <code>messages</code>. Callback-URL:
+                                            {{ __('In het Meta-sjabloon hoort') }} <strong>{{ __('geen webhook') }}</strong>. {{ __('Kies twee knoppen van het type') }}
+                                            <strong>{{ __('Snel antwoord') }}</strong> {{ __('met knoptekst') }} <code>Accepteren</code> {{ __('en') }} <code>Weigeren</code>
+                                            {{ __('(geen aparte payload nodig: WhatsApp stuurt die tekst terug).') }}
+                                            {{ __('Het antwoord komt binnen via de webhook van de WhatsApp-app') }}
+                                            {{ __('(Meta Developer → WhatsApp → Configuratie → Webhook), niet via het sjabloon.') }}
+                                            {{ __('Abonneer daar het veld') }} <code>messages</code>. {{ __('Callback-URL:') }}
                                             <code>https://nexasuite.nl/api/whatsapp/webhook</code>
-                                            (zelfde verify-token als hierboven).
-                                            Variabelen (elk maximaal 1×, in leesvolgorde):
-                                            <code>@{{1}}</code> klant,
-                                            <code>@{{2}}</code> bedrijf,
-                                            <code>@{{3}}</code> telefoon tenant,
-                                            <code>@{{4}}</code> huidig ophaalmoment,
-                                            <code>@{{5}}</code> voorstel,
-                                            <code>@{{6}}</code> ophaaladres,
-                                            <code>@{{7}}</code> afleveradres,
-                                            <code>@{{8}}</code> chauffeur,
-                                            <code>@{{9}}</code> kenteken.
-                                            Bronnummer: bedrijfsveld <code>phone</code> van de tenant (internationaal +31…).
-                                            Na Weigeren mag de klant een los tekstbericht sturen als opmerking.
-                                            Lokaal en op test: <a href="{{ route('admin.whatsapp-pickup-proposal-mock.index') }}" class="underline">WhatsApp voorstel-test</a>
-                                            (voorstellen uit de chauffeur-app + gemockt antwoord, zonder Meta).
+                                            {{ __('(zelfde verify-token als hierboven).') }}
+                                            {{ __('Variabelen (elk maximaal 1×, in leesvolgorde):') }}
+                                            <code>@{{1}}</code> {{ __('klant,') }}
+                                            <code>@{{2}}</code> {{ __('bedrijf,') }}
+                                            <code>@{{3}}</code> {{ __('telefoon tenant,') }}
+                                            <code>@{{4}}</code> {{ __('huidig ophaalmoment,') }}
+                                            <code>@{{5}}</code> {{ __('voorstel,') }}
+                                            <code>@{{6}}</code> {{ __('ophaaladres,') }}
+                                            <code>@{{7}}</code> {{ __('afleveradres,') }}
+                                            <code>@{{8}}</code> {{ __('chauffeur,') }}
+                                            <code>@{{9}}</code> {{ __('kenteken.') }}
+                                            {{ __('Bronnummer: bedrijfsveld') }} <code>phone</code> {{ __('van de tenant (internationaal +31…).') }}
+                                            {{ __('Na Weigeren mag de klant een los tekstbericht sturen als opmerking.') }}
+                                            {{ __('Lokaal en op test:') }} <a href="{{ route('admin.whatsapp-pickup-proposal-mock.index') }}" class="underline">{{ __('WhatsApp voorstel-test') }}</a>
+                                            {{ __('(voorstellen uit de chauffeur-app + gemockt antwoord, zonder Meta).') }}
                                         </p>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Meta-sjabloontekst</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Meta-sjabloontekst') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <p class="text-xs text-muted-foreground mb-2 max-w-2xl break-words whitespace-normal">
-                                            Kopieer naar Meta als Utility-sjabloon en voeg twee <strong>Snel antwoord</strong>-knoppen toe.
-                                            Elke parameter <code>@{{1}}</code>–<code>@{{9}}</code> mag maar 1× in de body staan.
-                                            Zet het telefoonnummer (<code>@{{3}}</code>) op een eigen regel zodat het in WhatsApp klikbaar is.
-                                            Geen website- of bel-knop in hetzelfde sjabloon: Quick Reply en Call-to-action mogen niet gemengd.
+                                            {{ __('Kopieer naar Meta als Utility-sjabloon en voeg twee') }} <strong>{{ __('Snel antwoord') }}</strong>{{ __('-knoppen toe.') }}
+                                            {{ __('Elke parameter') }} <code>@{{1}}</code>–<code>@{{9}}</code> {{ __('mag maar 1× in de body staan.') }}
+                                            {{ __('Zet het telefoonnummer (') }}<code>@{{3}}</code>{{ __(') op een eigen regel zodat het in WhatsApp klikbaar is.') }}
+                                            {{ __('Geen website- of bel-knop in hetzelfde sjabloon: Quick Reply en Call-to-action mogen niet gemengd.') }}
                                         </p>
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ $whatsappBookingMetaBodies['pickup_proposal'] ?? '' }}</pre>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voorbeeld</td>
+                                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Voorbeeld') }}</td>
                                     <td class="min-w-0 w-full align-top">
                                         <pre class="kt-input w-full max-w-2xl text-xs whitespace-pre-wrap break-words py-3 h-auto min-h-[10rem]">{{ $whatsappPickupProposalSamplePreview['preview'] ?? '' }}</pre>
                                     </td>
@@ -526,7 +526,7 @@
 
                 <div class="kt-card-footer flex flex-wrap justify-end items-center gap-3 pt-5 border-t border-border px-5">
                     <button type="submit" class="kt-btn kt-btn-primary">
-                        <i class="ki-filled ki-check me-2"></i> WhatsApp Business opslaan
+                        <i class="ki-filled ki-check me-2"></i> {{ __('WhatsApp Business opslaan') }}
                     </button>
                 </div>
             </form>
@@ -563,7 +563,7 @@
                     '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"></circle>' +
                     '<path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>' +
                 '</svg>' +
-                '<span>Bezig met testen…</span>';
+                '<span>' + @json(__('Bezig met testen…')) + '</span>';
         });
     }
 

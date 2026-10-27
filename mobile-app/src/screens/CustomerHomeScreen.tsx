@@ -99,6 +99,15 @@ import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppearanceControls } from '../ui/AppearanceControls';
 import { useAndroidKeyboardOverlap } from '../ui/androidText';
 import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
+import { DemoModeRow } from '../ui/DemoModeRow';
+import { useDemo } from '../demo/DemoContext';
+import {
+  claimNearestDemoTaxi,
+  startDemoSimulation,
+  stopDemoSimulation,
+  useDemoTaxiCount,
+  useDemoTaxis,
+} from '../demo/taxiSimulation';
 import { PickupAtField } from '../ui/PickupAtPicker';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { useI18n, t, dateLocale } from '../i18n';
@@ -213,9 +222,14 @@ function androidTaxiUri(heading: number): Promise<string | null> {
 function CustomerTaxiMarker({
   taxi,
   title = t("Taxi beschikbaar"),
+  smoothMs = 3800,
+  stepMs = 100,
 }: {
   taxi: NearbyTaxi;
   title?: string;
+  /** Duur van de beweging naar een nieuwe positie, en de tijdstap daarvan. */
+  smoothMs?: number;
+  stepMs?: number;
 }) {
   const [pos, setPos] = useState({ lat: taxi.lat, lng: taxi.lng });
   const posRef = useRef(pos);
@@ -258,13 +272,13 @@ function CustomerTaxiMarker({
     if (!moved) return;
     const started = Date.now();
     const timer = setInterval(() => {
-      const t = Math.min(1, (Date.now() - started) / 3800);
+      const t = Math.min(1, (Date.now() - started) / smoothMs);
       const next = { lat: from.lat + dLat * t, lng: from.lng + dLng * t };
       posRef.current = next;
       setPos(next);
       if (t >= 1) clearInterval(timer);
-    }, 100);
-    const off = setTimeout(() => setTrackView(false), 4200);
+    }, stepMs);
+    const off = setTimeout(() => setTrackView(false), smoothMs + 400);
     return () => {
       clearInterval(timer);
       clearTimeout(off);
@@ -308,6 +322,18 @@ function CustomerTaxiMarker({
         />
       </View>
     </Marker>
+  );
+}
+
+/** Eigen component: alleen dit rendert elke simulatietick, niet het hele scherm. */
+function DemoTaxiMarkers() {
+  const taxis = useDemoTaxis();
+  return (
+    <>
+      {taxis.map((taxi) => (
+        <CustomerTaxiMarker key={taxi.id} taxi={taxi} smoothMs={1500} stepMs={200} />
+      ))}
+    </>
   );
 }
 
@@ -583,6 +609,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [nearbyTaxis, setNearbyTaxis] = useState<NearbyTaxi[]>([]);
+  const demo = useDemo();
+  const demoActive = demo.active;
+  const demoCount = useDemoTaxiCount();
+  const [demoBookedInfo, setDemoBookedInfo] = useState<{ eta: string } | null>(null);
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pickupSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropoffSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -625,10 +655,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     live?.vehicle_location?.lng,
     live?.vehicle_location?.heading,
   ]);
-  const freeTaxis = nearbyTaxis.filter(
-    (taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc)
-  );
-  const freeNearby = freeTaxis.length;
+  // Demo vervangt de echte vloot op de kaart, zodat een presentatie schoon blijft.
+  const freeTaxis = demoActive
+    ? []
+    : nearbyTaxis.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc));
+  const freeNearby = demoActive ? demoCount : freeTaxis.length;
   const canDispatch = freeNearby > 0;
 
   const tripFitPointsRef = useRef<LatLng[]>([]);
@@ -1143,6 +1174,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt]);
 
   const refreshFleet = useCallback(async () => {
+    if (demoActive) return;
     const origin = pickup
       ? { lat: pickup.lat, lng: pickup.lng }
       : fleetOrigin;
@@ -1156,7 +1188,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     } catch {
       /* behoud vorige markers */
     }
-  }, [pickup, fleetOrigin, activeTaxiLoc]);
+  }, [pickup, fleetOrigin, activeTaxiLoc, demoActive]);
+
+  useEffect(() => {
+    if (!demoActive) return;
+    // Simulatie rond de huidige locatie (niet rond een gekozen ophaaladres).
+    let cancelled = false;
+    (async () => {
+      const coords = (await peekCurrentCoords()) ?? DEFAULT_MAP_CENTER;
+      if (!cancelled) startDemoSimulation(coords);
+    })();
+    return () => {
+      cancelled = true;
+      stopDemoSimulation();
+    };
+  }, [demoActive]);
 
   useEffect(() => {
     refreshFleet();
@@ -1421,6 +1467,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       setFieldErrors({ dispatch: msg });
       setError(msg);
       Alert.alert('Geen taxi’s beschikbaar', msg);
+      return;
+    }
+
+    if (demoActive && pickup) {
+      // Demo: nooit een echte rit, betaling of dispatch. Alleen de dichtstbijzijnde demo-taxi 'accepteert'.
+      const claimed = claimNearestDemoTaxi(pickup);
+      if (claimed) {
+        const minutes = Math.max(1, Math.ceil((claimed.distanceKm / 28) * 60));
+        setDemoBookedInfo({ eta: formatEtaPhrase(minutes) });
+      }
       return;
     }
 
@@ -1787,6 +1843,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         {freeTaxis.map((taxi) => (
           <CustomerTaxiMarker key={taxi.id} taxi={taxi} />
         ))}
+        {demoActive ? <DemoTaxiMarkers /> : null}
         {routeCoords.length > 1 ? (
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
@@ -1817,6 +1874,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </Pressable>
         ) : null}
       </View>
+      {demoActive ? (
+        <View style={styles.demoBadge} pointerEvents="none">
+          <Text style={styles.demoBadgeText}>DEMO</Text>
+        </View>
+      ) : null}
       <View style={styles.fleetBadge}>
         <Text style={styles.fleetBadgeText}>
           {freeNearby === 1
@@ -1852,20 +1914,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Ionicons name="home-outline" size={24} color={colors.text} />
         </Pressable>
       }
-      right={
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {tab === 'rides' && showArchivedRides ? (
-            <Pressable
-              onPress={() => setShowArchivedRides(false)}
-              hitSlop={10}
-              accessibilityLabel={t("Terug naar ritten")}
-            >
-              <Ionicons name="chevron-back" size={24} color={colors.text} />
-            </Pressable>
-          ) : null}
-          <AppearanceControls />
-        </View>
-      }
+      right={<AppearanceControls />}
     />
   );
 
@@ -1884,7 +1933,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       const update = updates[i];
       if (update?.event !== 'invoice_sent') continue;
       const label = String(update.label || '').trim();
-      return label || 'Het factuur is naar je verstuurd.';
+      return label || 'De factuur is naar je verstuurd.';
     }
     return null;
   })();
@@ -3056,19 +3105,30 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       nestedScrollEnabled
     >
       {showArchivedRides ? (
-        archivedPast.length === 0 ? (
-          <Card>
-            <Text style={styles.meta}>
-              Gearchiveerde ritten verschijnen hier. Tik op het archieficoon bij een eerdere rit om
-              die te bewaren.
-            </Text>
-          </Card>
-        ) : (
-          <>
-            <Text style={styles.ridesSection}>Gearchiveerde ritten</Text>
-            {archivedPast.map(renderRideCard)}
-          </>
-        )
+        <>
+          <View style={styles.archiveSectionRow}>
+            <Text style={styles.archiveSectionTitle}>{t("Gearchiveerde ritten")}</Text>
+            <Pressable
+              onPress={() => setShowArchivedRides(false)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t("Terug naar ritten")}
+              style={styles.archiveBackLinkPress}
+            >
+              <Text style={styles.archiveBackLink}>{t("Ritten →")}</Text>
+            </Pressable>
+          </View>
+          {archivedPast.length === 0 ? (
+            <Card>
+              <Text style={styles.meta}>
+                Gearchiveerde ritten verschijnen hier. Tik op het archieficoon bij een eerdere rit om
+                die te bewaren.
+              </Text>
+            </Card>
+          ) : (
+            archivedPast.map(renderRideCard)
+          )}
+        </>
       ) : !rideMapOpen &&
         listedActive.length === 0 &&
         visiblePast.length === 0 &&
@@ -3167,6 +3227,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           );
         })}
       </Card>
+
+      {demo.isSuperAdmin ? (
+        <Card>
+          <DemoModeRow showOpenBooking={false} />
+        </Card>
+      ) : null}
 
     </ScrollView>
   );
@@ -3352,6 +3418,23 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               }}
               loading={busy}
             />
+          </View>
+        </View>
+      </AppModal>
+
+      <AppModal
+        visible={!!demoBookedInfo}
+        onRequestClose={() => setDemoBookedInfo(null)}
+        panelStyle={styles.confirmBanner}
+      >
+        <Text style={styles.confirmTitle}>{t("Demo-modus")}</Text>
+        <Text style={styles.confirmText}>{t("Demo-modus: er is geen echte rit aangevraagd.")}</Text>
+        <Text style={styles.confirmText}>
+          {t("Taxi komt eraan (gesimuleerd).")} {t("Aankomst over {eta}.", { eta: demoBookedInfo?.eta ?? '' })}
+        </Text>
+        <View style={styles.confirmActions}>
+          <View style={styles.confirmActionSlot}>
+            <PrimaryButton title={t("Sluiten")} onPress={() => setDemoBookedInfo(null)} />
           </View>
         </View>
       </AppModal>
@@ -3695,6 +3778,30 @@ function makeStyles(colors: ColorPalette) {
       letterSpacing: 0,
       marginTop: 8,
       marginBottom: 8,
+    },
+    archiveSectionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      columnGap: 12,
+      rowGap: 2,
+      marginTop: 8,
+      marginBottom: 8,
+    },
+    archiveSectionTitle: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0,
+      flexShrink: 1,
+    },
+    archiveBackLinkPress: {
+      marginLeft: 'auto',
+    },
+    archiveBackLink: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
     },
     rideCard: {
       borderWidth: 1,
@@ -4053,6 +4160,21 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 12,
       fontWeight: '600',
+    },
+    demoBadge: {
+      position: 'absolute',
+      left: 10,
+      top: 10,
+      backgroundColor: colors.amber,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    demoBadgeText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 1,
     },
     taxiMarker: {
       width: 26,

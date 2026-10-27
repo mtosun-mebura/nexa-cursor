@@ -1,14 +1,14 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Dienst bewerken')
+@section('title', __('Dienst bewerken'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Dienst bewerken</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Dienst bewerken') }}</h1>
         <a href="{{ route('admin.taxi.driver_schedules.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     </div>
 
@@ -22,11 +22,11 @@
 
             <div class="admin-form-actions flex flex-wrap items-center justify-between gap-2.5 w-full min-w-0">
                 <button type="button" class="kt-btn kt-btn-outline text-destructive" id="driver-schedule-delete-btn">
-                    Verwijderen
+                    {{ __('Verwijderen') }}
                 </button>
                 <div class="flex flex-wrap gap-2.5">
-                    <a href="{{ route('admin.taxi.driver_schedules.index') }}" class="kt-btn kt-btn-outline">Annuleren</a>
-                    <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                    <a href="{{ route('admin.taxi.driver_schedules.index') }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
+                    <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
                 </div>
             </div>
         </div>
@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var ok = true;
         if (typeof window.showAdminConfirm === 'function') {
             ok = await window.showAdminConfirm({
-                title: 'Dienst verwijderen',
-                message: 'Weet je zeker dat je deze dienst wilt verwijderen? Bij een wekelijkse herhaling verdwijnen ook alle toekomstige dagen.',
-                confirmLabel: 'Verwijderen'
+                title: @json(__('Dienst verwijderen')),
+                message: @json(__('Weet je zeker dat je deze dienst wilt verwijderen? Bij een wekelijkse herhaling verdwijnen ook alle toekomstige dagen.')),
+                confirmLabel: @json(__('Verwijderen'))
             });
         } else {
-            ok = window.confirm('Weet je zeker dat je deze ingeplande dienst wilt verwijderen?');
+            ok = window.confirm(@json(__('Weet je zeker dat je deze ingeplande dienst wilt verwijderen?')));
         }
         if (ok) {
             form.submit();

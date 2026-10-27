@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Front-end configuraties')
+@section('title', __('Front-end configuraties'))
 
 @section('content')
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Front-end configuraties
+            {{ __('Front-end configuraties') }}
         </h1>
     </div>
 
@@ -17,51 +17,51 @@
             <div class="kt-card-header flex flex-wrap items-start justify-between gap-3 py-5">
                 <div>
                     <h3 class="kt-card-title">
-                        <i class="ki-filled ki-calendar-tick me-2"></i> Coming Soon-pagina
+                        <i class="ki-filled ki-calendar-tick me-2"></i> {{ __('Coming Soon-pagina') }}
                     </h3>
                     <p class="text-sm text-muted-foreground mt-1 mb-0 max-w-3xl">
-                        Wordt automatisch getoond op het tenant-domein zolang er <strong class="font-medium text-foreground">geen actieve homepage</strong> is (Websitepagina’s).
-                        Tekst en optionele afbeelding stel je hier in. Het <strong class="font-medium text-foreground">bedrijfslogo</strong> (Bedrijven → logo) heeft voorrang; anders het logo uit Algemene configuraties.
+                        {{ __('Wordt automatisch getoond op het tenant-domein zolang er') }} <strong class="font-medium text-foreground">{{ __('geen actieve homepage') }}</strong> {{ __('is (Websitepagina’s).') }}
+                        {{ __('Tekst en optionele afbeelding stel je hier in. Het') }} <strong class="font-medium text-foreground">{{ __('bedrijfslogo') }}</strong> {{ __('(Bedrijven → logo) heeft voorrang; anders het logo uit Algemene configuraties.') }}
                     </p>
                     <ul class="text-sm text-muted-foreground mt-3 mb-0 list-disc ps-5 space-y-1 max-w-3xl">
-                        <li><strong class="font-medium text-foreground">Coming Soon actief houden:</strong> nog geen homepage, of zet de homepage op inactief.</li>
-                        <li><strong class="font-medium text-foreground">Echte website tonen:</strong> maak of activeer de homepage onder Websitepagina’s (type Home, actief).</li>
-                        <li><strong class="font-medium text-foreground">Logo tonen:</strong> upload het tenantlogo bij het bedrijf (of in Algemene configuraties).</li>
+                        <li><strong class="font-medium text-foreground">{{ __('Coming Soon actief houden:') }}</strong> {{ __('nog geen homepage, of zet de homepage op inactief.') }}</li>
+                        <li><strong class="font-medium text-foreground">{{ __('Echte website tonen:') }}</strong> {{ __('maak of activeer de homepage onder Websitepagina’s (type Home, actief).') }}</li>
+                        <li><strong class="font-medium text-foreground">{{ __('Logo tonen:') }}</strong> {{ __('upload het tenantlogo bij het bedrijf (of in Algemene configuraties).') }}</li>
                     </ul>
                 </div>
                 <a href="{{ route('admin.settings.frontend.preview') }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-outline shrink-0">
-                    <i class="ki-filled ki-eye me-2"></i> Voorbeeld pagina
+                    <i class="ki-filled ki-eye me-2"></i> {{ __('Voorbeeld pagina') }}
                 </a>
             </div>
             <div class="px-5 lg:px-7.5 pb-5 border-b border-border">
-                <h4 class="pt-1 text-sm font-medium text-secondary-foreground mb-1">Centrale afbeelding</h4>
-                <p class="text-sm text-muted-foreground mb-4">Optioneel: een afbeelding in het midden van het scherm, boven de titel en tekst op de Coming Soon-pagina.</p>
+                <h4 class="pt-1 text-sm font-medium text-secondary-foreground mb-1">{{ __('Centrale afbeelding') }}</h4>
+                <p class="text-sm text-muted-foreground mb-4">{{ __('Optioneel: een afbeelding in het midden van het scherm, boven de titel en tekst op de Coming Soon-pagina.') }}</p>
                 <div class="flex flex-wrap sm:flex-nowrap gap-5 lg:gap-7.5 max-w-3xl w-full items-start">
                     <div id="coming-soon-image-preview-wrap" class="flex flex-col items-center {{ !empty($comingSoonImageUrl) ? '' : 'hidden' }}">
-                        <img alt="Coming Soon afbeelding preview" class="h-[200px] w-auto max-w-full object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ !empty($comingSoonImageUrl) ? route('admin.settings.coming-soon-image').'?t='.time() : '' }}" id="coming-soon-image-preview" title="Klik om groot te bekijken"/>
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="coming-soon-image-remove-btn" data-url-input-id="hero-coming-soon-center_image-url" data-preview-id="coming-soon-image-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">
+                        <img alt="{{ __('Coming Soon afbeelding preview') }}" class="h-[200px] w-auto max-w-full object-contain rounded-lg border border-input shrink-0 cursor-pointer hover:opacity-90 transition-opacity" src="{{ !empty($comingSoonImageUrl) ? route('admin.settings.coming-soon-image').'?t='.time() : '' }}" id="coming-soon-image-preview" title="{{ __('Klik om groot te bekijken') }}"/>
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive mt-2" id="coming-soon-image-remove-btn" data-url-input-id="hero-coming-soon-center_image-url" data-preview-id="coming-soon-image-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}">
                             <i class="ki-filled ki-trash text-lg"></i>
                         </button>
                     </div>
                     <div class="flex flex-col flex-1 min-w-[180px]">
-                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 cursor-pointer hover:border-primary transition-colors w-full max-w-md" data-section-key="coming-soon" data-field="center_image" id="coming-soon-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
+                        <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 cursor-pointer hover:border-primary transition-colors w-full max-w-md" data-section-key="coming-soon" data-field="center_image" id="coming-soon-image-upload-area" role="button" tabindex="0" title="{{ __('Klik of sleep een afbeelding') }}">
                             <div class="flex flex-col place-items-center place-content-center text-center rounded-xl w-full pointer-events-none">
                                 <i class="ki-filled ki-picture text-2xl text-primary mb-1"></i>
-                                <span class="text-mono text-xs font-medium text-primary">Klik of sleep afbeelding</span>
-                                <span class="text-xs text-secondary-foreground mt-0.5">JPG, PNG, WebP (max. 5MB)</span>
+                                <span class="text-mono text-xs font-medium text-primary">{{ __('Klik of sleep afbeelding') }}</span>
+                                <span class="text-xs text-secondary-foreground mt-0.5">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                             </div>
                         </div>
-                        <input type="file" id="hero-coming-soon-center_image" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" aria-label="Coming Soon afbeelding kiezen">
+                        <input type="file" id="hero-coming-soon-center_image" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" aria-label="{{ __('Coming Soon afbeelding kiezen') }}">
                         <input type="hidden" id="hero-coming-soon-center_image-url" value="{{ !empty($comingSoonImageUrl) ? route('admin.settings.coming-soon-image') : '' }}">
                         <p id="coming-soon-image-error" class="text-sm text-destructive mt-2 hidden" role="alert"></p>
                     </div>
                 </div>
-                <div id="coming-soon-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Afbeelding groot">
+                <div id="coming-soon-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="{{ __('Afbeelding groot') }}">
                     <div class="relative max-h-[90vh] max-w-[90vw] p-4">
-                        <button type="button" id="coming-soon-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
+                        <button type="button" id="coming-soon-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="{{ __('Sluiten') }}">
                             <i class="ki-filled ki-cross text-xl"></i>
                         </button>
-                        <img id="coming-soon-image-modal-img" src="" alt="Grote weergave" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
+                        <img id="coming-soon-image-modal-img" src="" alt="{{ __('Grote weergave') }}" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
                     </div>
                 </div>
             </div>
@@ -70,7 +70,7 @@
                     @csrf
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Titel *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Titel *') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text"
@@ -78,34 +78,34 @@
                                            id="coming_soon_title"
                                            name="coming_soon_title"
                                            value="{{ old('coming_soon_title', $comingSoonSettings['coming_soon_title'] ?? '') }}"
-                                           placeholder="We zijn bijna live"
+                                           placeholder="{{ __('We zijn bijna live') }}"
                                            required>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Hoofdtitel op de coming soon-pagina</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Hoofdtitel op de coming soon-pagina') }}</div>
                                 @error('coming_soon_title')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Tekst *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Tekst *') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <textarea rows="4"
                                               class="kt-input pt-1 @error('coming_soon_text') border-destructive @enderror"
                                               id="coming_soon_text"
                                               name="coming_soon_text"
-                                              placeholder="Onze website wordt op dit moment voor u klaargemaakt..."
+                                              placeholder="{{ __('Onze website wordt op dit moment voor u klaargemaakt...') }}"
                                               required>{{ old('coming_soon_text', $comingSoonSettings['coming_soon_text'] ?? '') }}</textarea>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Korte uitleg onder de titel</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Korte uitleg onder de titel') }}</div>
                                 @error('coming_soon_text')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Secundaire tekst</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Secundaire tekst') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text"
@@ -113,16 +113,16 @@
                                            id="coming_soon_secondary_text"
                                            name="coming_soon_secondary_text"
                                            value="{{ old('coming_soon_secondary_text', $comingSoonSettings['coming_soon_secondary_text'] ?? '') }}"
-                                           placeholder="Heeft u vragen? Neem gerust contact met ons op.">
+                                           placeholder="{{ __('Heeft u vragen? Neem gerust contact met ons op.') }}">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Optionele regel onder de hoofdtekst</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Optionele regel onder de hoofdtekst') }}</div>
                                 @error('coming_soon_secondary_text')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">E-mail tonen</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('E-mail tonen') }}</td>
                             <td class="min-w-48 w-full">
                                 <label class="inline-flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox"
@@ -130,13 +130,13 @@
                                            value="1"
                                            {{ old('coming_soon_show_email', $comingSoonSettings['coming_soon_show_email'] ?? '1') === '1' ? 'checked' : '' }}
                                            class="kt-checkbox rounded border-input">
-                                    <span class="text-sm">Toon contact-e-mail op de coming soon-pagina</span>
+                                    <span class="text-sm">{{ __('Toon contact-e-mail op de coming soon-pagina') }}</span>
                                 </label>
-                                <div class="text-xs text-muted-foreground mt-1">Als uitgeschakeld wordt het e-mailadres niet getoond</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Als uitgeschakeld wordt het e-mailadres niet getoond') }}</div>
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Contact e-mailadres</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Contact e-mailadres') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="email"
@@ -146,14 +146,14 @@
                                            value="{{ old('coming_soon_contact_email', $comingSoonSettings['coming_soon_contact_email'] ?? '') }}"
                                            placeholder="info@voorbeeld.nl">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt alleen getoond als "E-mail tonen" aanstaat</div>
+                                <div class="text-xs text-muted-foreground mt-1">{!! __('Wordt alleen getoond als "E-mail tonen" aanstaat') !!}</div>
                                 @error('coming_soon_contact_email')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Label bij e-mail</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Label bij e-mail') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text"
@@ -169,7 +169,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Footertekst</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Footertekst') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text"
@@ -177,9 +177,9 @@
                                            id="coming_soon_footer_text"
                                            name="coming_soon_footer_text"
                                            value="{{ old('coming_soon_footer_text', $comingSoonSettings['coming_soon_footer_text'] ?? '') }}"
-                                           placeholder="© {year} {site}. Binnenkort beschikbaar.">
+                                           placeholder="{{ __('© {year} {site}. Binnenkort beschikbaar.') }}">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Gebruik <code>{year}</code> voor het jaar en <code>{site}</code> voor de sitenaam.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Gebruik') }} <code>{year}</code> {{ __('voor het jaar en') }} <code>{site}</code> {{ __('voor de sitenaam.') }}</div>
                                 @error('coming_soon_footer_text')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -188,7 +188,7 @@
                     </table>
                     <div class="kt-card-footer flex justify-end items-center gap-5 pt-5 border-t border-border">
                         <button type="submit" class="kt-btn kt-btn-primary">
-                            <i class="ki-filled ki-check me-2"></i> Coming soon-instellingen opslaan
+                            <i class="ki-filled ki-check me-2"></i> {{ __('Coming soon-instellingen opslaan') }}
                         </button>
                     </div>
                 </form>
@@ -221,10 +221,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showCsImgError(msg) {
         if (csImgErrorEl) {
-            csImgErrorEl.textContent = msg || 'Upload mislukt.';
+            csImgErrorEl.textContent = msg || @json(__('Upload mislukt.'));
             csImgErrorEl.classList.remove('hidden');
         }
-        if (typeof alert !== 'undefined') alert(msg || 'Upload mislukt.');
+        if (typeof alert !== 'undefined') alert(msg || @json(__('Upload mislukt.')));
     }
     function clearCsImgError() {
         if (csImgErrorEl) {
@@ -238,13 +238,13 @@ document.addEventListener('DOMContentLoaded', function() {
         clearCsImgError();
         var allowed = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
         if (!allowed.includes(file.type)) {
-            showCsImgError('Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.');
+            showCsImgError({{ \Illuminate\Support\Js::from(__('Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.')) }});
             csImgInput.value = '';
             return;
         }
         var maxBytes = 5 * 1024 * 1024;
         if (file.size > maxBytes) {
-            showCsImgError('Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is ' + Math.round(file.size / 1024) + ' KB.');
+            showCsImgError(@json(__('Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is :size KB.')).replace(':size', Math.round(file.size / 1024)));
             csImgInput.value = '';
             return;
         }
@@ -262,13 +262,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return r.text().then(function(text) {
                 var data;
                 try { data = text ? JSON.parse(text) : {}; } catch (e) {
-                    if (status === 413) throw new Error('Het bestand is te groot. Maximaal 5MB toegestaan.');
-                    throw new Error('Upload mislukt. De server gaf een onverwachte reactie (status ' + status + ').');
+                    if (status === 413) throw new Error(@json(__('Het bestand is te groot. Maximaal 5MB toegestaan.')));
+                    throw new Error(@json(__('Upload mislukt. De server gaf een onverwachte reactie (status :status).')).replace(':status', status));
                 }
                 if (r.ok) return data;
                 var msg = (data.errors && data.errors.coming_soon_image && data.errors.coming_soon_image[0])
                     ? data.errors.coming_soon_image[0]
-                    : (data.message || 'Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).');
+                    : (data.message || {{ \Illuminate\Support\Js::from(__('Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).')) }});
                 throw new Error(msg);
             });
         })
@@ -280,11 +280,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (csImgUrlHidden && url) csImgUrlHidden.value = url.split('?')[0];
                 clearCsImgError();
             } else {
-                showCsImgError(data.message || 'Upload mislukt.');
+                showCsImgError(data.message || @json(__('Upload mislukt.')));
             }
         })
         .catch(function(err) {
-            showCsImgError(err && err.message ? err.message : 'Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.');
+            showCsImgError(err && err.message ? err.message : @json(__('Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.')));
         });
         csImgInput.value = '';
     }
@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(r) {
                 return r.json().then(function(data) {
                     if (!r.ok || !data.success) {
-                        throw new Error(data.message || 'Verwijderen mislukt.');
+                        throw new Error(data.message || @json(__('Verwijderen mislukt.')));
                     }
                     return data;
                 });
@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 clearCsImgError();
             })
             .catch(function(err) {
-                showCsImgError(err && err.message ? err.message : 'Verwijderen mislukt.');
+                showCsImgError(err && err.message ? err.message : @json(__('Verwijderen mislukt.')));
             });
         });
     }

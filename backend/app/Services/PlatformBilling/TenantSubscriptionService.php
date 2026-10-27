@@ -686,11 +686,11 @@ class TenantSubscriptionService
 
         if ($this->calculator->isEnded($profile, $asOf)
             && trim((string) ($profile->pending_change_type ?? '')) !== CompanySubscriptionChange::TYPE_CANCEL) {
-            throw new RuntimeException('Dit abonnement is al beëindigd.');
+            throw new RuntimeException(__('Dit abonnement is al beëindigd.'));
         }
 
         if ($profile->billing_mode === CompanyBillingProfile::MODE_FREE) {
-            throw new RuntimeException('Een gratis abonnement heeft geen lopende incasso om te beëindigen.');
+            throw new RuntimeException(__('Een gratis abonnement heeft geen lopende incasso om te beëindigen.'));
         }
 
         $effectiveOn = $asOf->copy()->endOfMonth()->startOfDay();

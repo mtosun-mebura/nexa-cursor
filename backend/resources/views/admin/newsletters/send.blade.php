@@ -1,20 +1,20 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nieuwsbrief versturen')
+@section('title', __('Nieuwsbrief versturen'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Versturen</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Versturen') }}</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0">
-            Alleen opt-inadressen. Afgemelde bedrijven en eerdere ontvangers van dezelfde campagne worden overgeslagen.
+            {{ __('Alleen opt-inadressen. Afgemelde bedrijven en eerdere ontvangers van dezelfde campagne worden overgeslagen.') }}
         </p>
         <div class="pt-3 flex w-full flex-wrap items-center justify-between gap-3">
             <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline shrink-0">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
-            <a href="{{ route('admin.newsletters.prospects') }}" class="kt-btn kt-btn-primary shrink-0 ms-auto">Klantenlijst</a>
+            <a href="{{ route('admin.newsletters.prospects') }}" class="kt-btn kt-btn-primary shrink-0 ms-auto">{{ __('Klantenlijst') }}</a>
         </div>
     </div>
 
@@ -30,21 +30,21 @@
 
     <div class="kt-card w-full min-w-0">
         <div class="kt-card-header px-5 py-5">
-            <h5 class="kt-card-title mb-0">{{ $subscribedCount }} adressen in de opt-inlijst</h5>
+            <h5 class="kt-card-title mb-0">{{ __(':count adressen in de opt-inlijst', ['count' => $subscribedCount]) }}</h5>
         </div>
         <div class="kt-card-content p-5 min-w-0">
             @if($campaigns->isEmpty())
-                <p class="text-sm text-muted-foreground mb-0">Maak eerst een nieuwsbrief in de designer.</p>
+                <p class="text-sm text-muted-foreground mb-0">{{ __('Maak eerst een nieuwsbrief in de designer.') }}</p>
             @else
                 <form method="POST" action="{{ route('admin.newsletters.send.store') }}" id="send-form" class="min-w-0">
                     @csrf
-                    <label class="kt-label mb-1" for="campaign_id">Nieuwsbrief *</label>
+                    <label class="kt-label mb-1" for="campaign_id">{{ __('Nieuwsbrief *') }}</label>
                     <select id="campaign_id" name="campaign_id" class="kt-select admin-field-fit mb-4" data-kt-select="true" required>
                         @foreach($campaigns as $campaign)
                             <option value="{{ $campaign->id }}">{{ $campaign->name }} — {{ $campaign->subject }}</option>
                         @endforeach
                     </select>
-                    <p class="kt-label mb-2">Alleen deze provincies (leeg = heel Nederland)</p>
+                    <p class="kt-label mb-2">{{ __('Alleen deze provincies (leeg = heel Nederland)') }}</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-5">
                         @foreach($provinces as $province)
                             <label class="flex items-center gap-2 text-sm min-w-0">
@@ -55,7 +55,7 @@
                     </div>
                     <button type="button" id="open-send-modal" class="kt-btn kt-btn-primary">
                         <i class="ki-filled ki-send me-2"></i>
-                        Verstuur nieuwsbrief
+                        {{ __('Verstuur nieuwsbrief') }}
                     </button>
                 </form>
             @endif
@@ -67,14 +67,14 @@
 <div id="send-modal" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-slate-900/45 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="send-modal-title">
     <div class="w-full max-w-lg rounded-2xl border border-border bg-background shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="send-modal-title" class="text-lg font-semibold text-foreground mb-1">Nieuwsbrief versturen?</h2>
+            <h2 id="send-modal-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Nieuwsbrief versturen?') }}</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                De mail gaat naar de opt-inlijst via het NEXA Suite-mailaccount. Elk bericht heeft een afmeldlink. Wie zich afmeldt, krijgt de volgende ronde niet.
+                {{ __('De mail gaat naar de opt-inlijst via het NEXA Suite-mailaccount. Elk bericht heeft een afmeldlink. Wie zich afmeldt, krijgt de volgende ronde niet.') }}
             </p>
         </div>
         <div class="px-6 py-5 flex justify-end gap-2">
-            <button type="button" id="cancel-send-modal" class="kt-btn kt-btn-outline">Annuleren</button>
-            <button type="button" id="confirm-send-modal" class="kt-btn kt-btn-primary">Versturen</button>
+            <button type="button" id="cancel-send-modal" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</button>
+            <button type="button" id="confirm-send-modal" class="kt-btn kt-btn-primary">{{ __('Versturen') }}</button>
         </div>
     </div>
 </div>

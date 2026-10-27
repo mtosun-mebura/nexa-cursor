@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Rol Bewerken - ' . ucfirst(str_replace('-', ' ', $role->name)))
+@section('title', __('Rol Bewerken - :name', ['name' => ucfirst(str_replace('-', ' ', $role->name))]))
 
 @push('styles')
 <style>
@@ -232,22 +232,22 @@
                     {{ ucfirst(str_replace('-', ' ', $role->name)) }}
                 </div>
                 @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                    <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Systeem') }}</span>
                 @else
-                    <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Aangepast') }}</span>
                 @endif
             </div>
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-key text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ app(\App\Support\PermissionModuleVisibility::class)->filter($role->permissions)->count() }} rechten
+                        {{ app(\App\Support\PermissionModuleVisibility::class)->filter($role->permissions)->count() }} {{ __('rechten') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-people text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $role->users->count() }} gebruikers
+                        {{ $role->users->count() }} {{ __('gebruikers') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -266,11 +266,11 @@
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-5 lg:pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Rol Bewerken
+            {{ __('Rol Bewerken') }}
         </h1>
         <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     </div>
 
@@ -284,7 +284,7 @@
             <!-- Basis Informatie -->
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Basis Informatie</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Basis Informatie') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
@@ -294,7 +294,7 @@
                         @endphp
                         @if(!$isSystemRole)
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Rol Naam *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Rol Naam *') }}</td>
                             <td class="min-w-48 w-full">
                                 <div class="relative">
                                     <input type="text"
@@ -311,15 +311,15 @@
                         </tr>
                         @else
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Rol Naam</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Rol Naam') }}</td>
                             <td class="min-w-48 w-full">
                                 <span class="text-foreground font-medium">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
-                                <div class="text-xs text-muted-foreground mt-1">Systeem rollen kunnen niet worden hernoemd</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Systeem rollen kunnen niet worden hernoemd') }}</div>
                             </td>
                         </tr>
                         @endif
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Beschrijving</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Beschrijving') }}</td>
                             <td>
                                 <textarea name="description"
                                           rows="4"
@@ -330,15 +330,15 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Status</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Status') }}</td>
                             <td class="min-w-48 w-full">
                                 @php
                                     $isActive = $role->is_active ?? true;
                                 @endphp
                                 @if($isActive)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                 @endif
                             </td>
                         </tr>
@@ -350,7 +350,7 @@
             <!-- Rechten -->
             <div class="kt-card w-full min-w-0" id="role-permissions-card">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Permissies Toewijzen *</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Permissies Toewijzen *') }}</h3>
                 </div>
                 <div class="kt-card-content no-padding min-w-0">
                     @error('permissions')
@@ -367,8 +367,8 @@
                                 <x-heroicon-s-information-circle class="w-6 h-6 flex-shrink-0" style="color: rgb(59, 130, 246);" />
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-base font-medium text-foreground dark:text-white mb-1">Snel Toepassen: Permission Sets</h4>
-                                <p class="text-sm text-muted-foreground dark:text-gray-300">Selecteer een set om automatisch alle bijbehorende rechten toe te passen op alle modules.</p>
+                                <h4 class="text-base font-medium text-foreground dark:text-white mb-1">{{ __('Snel Toepassen: Permission Sets') }}</h4>
+                                <p class="text-sm text-muted-foreground dark:text-gray-300">{{ __('Selecteer een set om automatisch alle bijbehorende rechten toe te passen op alle modules.') }}</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
@@ -397,8 +397,8 @@
                                         data-set-key="{{ $setKey }}"
                                         data-permissions='@json($setPermissions)'>
                                     <div class="flex flex-col items-start gap-1.5 w-full overflow-hidden" style="width: 100%; max-width: 100%;">
-                                        <span class="font-medium text-sm text-foreground leading-tight whitespace-normal" style="flex-shrink: 0;">{{ $set['name'] }}</span>
-                                        <span class="text-xs text-muted-foreground leading-relaxed line-clamp-2" style="display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; max-width: 100% !important; width: 100% !important; line-height: 1.4 !important;">{{ $set['description'] }}</span>
+                                        <span class="font-medium text-sm text-foreground leading-tight whitespace-normal" style="flex-shrink: 0;">{{ __($set['name']) }}</span>
+                                        <span class="text-xs text-muted-foreground leading-relaxed line-clamp-2" style="display: -webkit-box !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: normal !important; word-wrap: break-word !important; word-break: break-word !important; max-width: 100% !important; width: 100% !important; line-height: 1.4 !important;">{{ __($set['description']) }}</span>
                                     </div>
                                 </button>
                             @endforeach
@@ -407,9 +407,9 @@
                             <button type="button"
                                     class="kt-btn kt-btn-sm kt-btn-outline text-xs shrink-0"
                                     id="clear-all-permissions">
-                                Alles Wissen
+                                {{ __('Alles Wissen') }}
                             </button>
-                            <span class="text-xs text-muted-foreground min-w-0">of selecteer individuele rechten hieronder</span>
+                            <span class="text-xs text-muted-foreground min-w-0">{{ __('of selecteer individuele rechten hieronder') }}</span>
                         </div>
                     </div>
 
@@ -426,14 +426,14 @@
                             <div class="p-4 bg-primary/5 border border-border rounded-lg">
                                 <h4 class="font-semibold mb-3 text-primary flex items-center gap-2">
                                     <x-heroicon-s-puzzle-piece class="w-5 h-5 text-primary flex-shrink-0" />
-                                    <span>Module Permissies (Alleen van actieve modules)</span>
+                                    <span>{{ __('Module Permissies (Alleen van actieve modules)') }}</span>
                                 </h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     @foreach($modulePermissionsInfo as $moduleDisplayName => $moduleData)
                                         <div class="text-sm">
-                                            <span class="font-medium text-foreground">{{ $moduleDisplayName }}:</span>
+                                            <span class="font-medium text-foreground">{{ __($moduleDisplayName) }}:</span>
                                             <span class="text-muted-foreground">
-                                                {{ count($moduleData['permissions']) }} permissies
+                                                {{ __(':count permissies', ['count' => count($moduleData['permissions'])]) }}
                                             </span>
                                         </div>
                                     @endforeach
@@ -849,10 +849,10 @@
                     <table class="kt-table kt-table-border align-middle text-sm w-full admin-keep-table-layout role-permissions-matrix" data-required-checkbox-group="permissions[]">
                         <thead>
                             <tr>
-                                <th class="text-left text-secondary-foreground font-normal">Module / Resource</th>
+                                <th class="text-left text-secondary-foreground font-normal">{{ __('Module / Resource') }}</th>
                                 @foreach($allActions as $action)
                                     <th class="text-center text-secondary-foreground font-normal">
-                                        {{ $actionNames[$action] ?? ucfirst(str_replace('_', ' ', $action)) }}
+                                        {{ __($actionNames[$action] ?? ucfirst(str_replace('_', ' ', $action))) }}
                                     </th>
                                 @endforeach
                             </tr>
@@ -910,11 +910,11 @@
                                             @if($isActiveModule)
                                                 <span class="font-semibold text-foreground text-sm flex items-center gap-1">
                                                     <x-heroicon-s-puzzle-piece class="w-4 h-4 text-primary flex-shrink-0" />
-                                                    {{ $headerDisplayName }}
+                                                    {{ __($headerDisplayName) }}
                                                 </span>
                                             @else
                                                 <span class="font-semibold text-foreground text-sm">
-                                                    {{ $headerDisplayName }}
+                                                    {{ __($headerDisplayName) }}
                                                 </span>
                                             @endif
                                         </td>
@@ -928,11 +928,11 @@
                                         <tr class="role-permission-resource-row">
                                             <td class="text-foreground pl-6 role-permission-resource-name">
                                                 <span class="font-medium text-sm">
-                                                    {{ $moduleNames[$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey)) }}
+                                                    {{ __($moduleNames[$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey))) }}
                                                 </span>
                                             </td>
                                             @foreach($allActions as $action)
-                                                <td class="text-center role-permission-action-cell" @if(isset($permissionMap[$moduleKey][$action])) data-permission-action="{{ $actionNames[$action] ?? ucfirst($action) }}" @endif>
+                                                <td class="text-center role-permission-action-cell" @if(isset($permissionMap[$moduleKey][$action])) data-permission-action="{{ __($actionNames[$action] ?? ucfirst($action)) }}" @endif>
                                                     @if(isset($permissionMap[$moduleKey][$action]))
                                                         @php
                                                             $permission = $permissionMap[$moduleKey][$action];
@@ -961,11 +961,11 @@
 
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-outline">
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Wijzigingen Opslaan
+                    {{ __('Wijzigingen Opslaan') }}
                 </button>
             </div>
         </div>
@@ -1010,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkedCount === 0) {
                 // Show message with fade-in - ensure fade-out and hidden are removed first
                 feedbackElement.classList.remove('fade-out', 'hidden');
-                feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                feedbackElement.textContent = @json(__('Selecteer minimaal één recht.'));
                 feedbackElement.style.display = 'block';
                 // Force reflow and then set opacity to ensure fade-in works
                 void feedbackElement.offsetHeight; // Force reflow
@@ -1074,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Show feedback
             const setName = this.querySelector('.font-medium').textContent;
-            showTemporaryFeedback(`Permission set "${setName}" toegepast!`, 'success');
+            showTemporaryFeedback(@json(__('Permission set ":name" toegepast!')).replace(':name', setName), 'success');
         });
     });
 
@@ -1090,7 +1090,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 checkPermissionsValidation();
             }, 10);
-            showTemporaryFeedback('Alle rechten gewist', 'danger');
+            showTemporaryFeedback(@json(__('Alle rechten gewist')), 'danger');
         });
     }
 

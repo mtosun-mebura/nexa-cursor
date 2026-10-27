@@ -77,7 +77,7 @@ class AdminSettingsController extends Controller
     protected function ensureSuperAdmin()
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om deze pagina te bekijken. Alleen super-admins hebben toegang tot instellingen.');
+            abort(403, __('Je hebt geen rechten om deze pagina te bekijken. Alleen super-admins hebben toegang tot instellingen.'));
         }
     }
 
@@ -85,7 +85,7 @@ class AdminSettingsController extends Controller
     {
         $user = auth()->user();
         if (! $user || ! $user->canViewMailSettings()) {
-            abort(403, 'Je hebt geen rechten om de mailserver in te stellen.');
+            abort(403, __('Je hebt geen rechten om de mailserver in te stellen.'));
         }
         $this->abortMailForMarketplaceUser($user);
     }
@@ -94,7 +94,7 @@ class AdminSettingsController extends Controller
     {
         $user = auth()->user();
         if (! $user || ! $user->canEditMailSettings()) {
-            abort(403, 'Je hebt geen rechten om de mailserver te wijzigen.');
+            abort(403, __('Je hebt geen rechten om de mailserver te wijzigen.'));
         }
         $this->abortMailForMarketplaceUser($user);
     }
@@ -108,7 +108,7 @@ class AdminSettingsController extends Controller
         $company = $user->company;
         $package = strcasecmp((string) ($company->package_key ?? ''), \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
         if ($package || $user->hasRole('marketplace')) {
-            abort(403, 'Mailserver is niet beschikbaar voor marketplace-bedrijven.');
+            abort(403, __('Mailserver is niet beschikbaar voor marketplace-bedrijven.'));
         }
     }
 
@@ -147,8 +147,8 @@ class AdminSettingsController extends Controller
         }
         if ($this->settingsCompanyId() === null) {
             $message = $user->hasRole('super-admin')
-                ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk om per-tenant configuraties te bewerken.'
-                : 'Geen bedrijf gekoppeld aan dit account.';
+                ? __('Selecteer eerst een tenant (bedrijf) in de zijbalk om per-tenant configuraties te bewerken.')
+                : __('Geen bedrijf gekoppeld aan dit account.');
 
             return redirect()->route('admin.settings.index')->with('settings_tenant_save_notice', $message);
         }
@@ -168,8 +168,8 @@ class AdminSettingsController extends Controller
         return response()->json([
             'success' => false,
             'message' => auth()->user()?->hasRole('super-admin')
-                ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk.'
-                : 'Geen bedrijf gekoppeld aan dit account.',
+                ? __('Selecteer eerst een tenant (bedrijf) in de zijbalk.')
+                : __('Geen bedrijf gekoppeld aan dit account.'),
         ], 422);
     }
 
@@ -396,7 +396,7 @@ class AdminSettingsController extends Controller
         $dispatch->setPaymentBookingEnabled(($validated['mollie_booking_payments'] ?? '0') === '1', $companyId);
 
         return redirect()->to(route('admin.settings.index').'?saved=1#mollie')
-            ->with('success', 'Mollie-instellingen voor deze tenant opgeslagen.');
+            ->with('success', __('Mollie-instellingen voor deze tenant opgeslagen.'));
     }
 
     /**
@@ -416,12 +416,12 @@ class AdminSettingsController extends Controller
             $target = $this->tenantSyncSettings->saveFromRequest($request);
 
             return redirect()->to($redirectBase.'?saved=1#tenant-sync')
-                ->with('success', 'Omgeving "'.$target->name.'" opgeslagen.');
+                ->with('success', __('Omgeving ":name" opgeslagen.', ['name' => $target->name]));
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e->redirectTo($redirectTo);
         } catch (\Throwable $e) {
             return redirect()->to($redirectTo)
-                ->with('error', 'Opslaan mislukt: '.$e->getMessage())
+                ->with('error', __('Opslaan mislukt: :message', ['message' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -440,7 +440,7 @@ class AdminSettingsController extends Controller
         $target = $this->tenantSyncSettings->createTarget($validated['name'] ?? null);
 
         return redirect()->to(route('admin.settings.index').'#tenant-sync')
-            ->with('success', 'Nieuwe omgeving "'.$target->name.'" toegevoegd.');
+            ->with('success', __('Nieuwe omgeving ":name" toegevoegd.', ['name' => $target->name]));
     }
 
     /**
@@ -461,7 +461,7 @@ class AdminSettingsController extends Controller
             if ($target === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Omgeving niet gevonden.',
+                    'message' => __('Omgeving niet gevonden.'),
                 ], 404);
             }
 
@@ -489,7 +489,7 @@ class AdminSettingsController extends Controller
         $this->tenantSyncSettings->deleteTarget((int) $validated['tenant_sync_target_id']);
 
         return redirect()->to(route('admin.settings.index').'#tenant-sync')
-            ->with('success', 'Omgeving verwijderd.');
+            ->with('success', __('Omgeving verwijderd.'));
     }
 
     private function mergeTenantSyncDefaults(Request $request): void
@@ -517,9 +517,9 @@ class AdminSettingsController extends Controller
                 $config
             );
 
-            $message = 'Verbinding met doel-database OK.';
+            $message = __('Verbinding met doel-database OK.');
             if ($config->sshEnabled) {
-                $message .= ' (via SSH-tunnel naar '.$config->sshHost.')';
+                $message .= ' '.__('(via SSH-tunnel naar :host)', ['host' => $config->sshHost]);
             }
 
             return response()->json([
@@ -552,7 +552,7 @@ class AdminSettingsController extends Controller
         $tenantSyncRedirect = fn () => redirect()->route('admin.settings.index')->withFragment('tenant-sync');
 
         if (! $this->tenantWebsiteBundle->isPushGloballyEnabled()) {
-            $msg = 'Sync staat uit. Schakel push in bij onderstaande instellingen of zet TENANT_SYNC_PUSH_ENABLED in .env.';
+            $msg = __('Sync staat uit. Schakel push in bij onderstaande instellingen of zet TENANT_SYNC_PUSH_ENABLED in .env.');
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => $msg], 422);
             }
@@ -561,7 +561,7 @@ class AdminSettingsController extends Controller
         }
 
         if (! $this->tenantWebsiteBundle->pushAllowedForEnvironment()) {
-            $msg = 'Sync naar productie is geblokkeerd. Zet TENANT_SYNC_ALLOW_PRODUCTION_PUSH=true in .env als dit bewust moet.';
+            $msg = __('Sync naar productie is geblokkeerd. Zet TENANT_SYNC_ALLOW_PRODUCTION_PUSH=true in .env als dit bewust moet.');
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => $msg], 422);
             }
@@ -575,21 +575,21 @@ class AdminSettingsController extends Controller
                     return;
                 }
                 if (! is_numeric($value) || Company::query()->whereKey((int) $value)->doesntExist()) {
-                    $fail('Kies een bron-tenant (bedrijf) of NEXA Suite.');
+                    $fail(__('Kies een bron-tenant (bedrijf) of NEXA Suite.'));
                 }
             }],
             'confirm_full_sync' => ['required', 'accepted'],
         ], [
-            'source_company_id.required' => 'Kies een bron-tenant (bedrijf) of NEXA Suite.',
-            'confirm_full_sync.required' => 'Vink de bevestiging aan om de sync te starten.',
-            'confirm_full_sync.accepted' => 'Vink de bevestiging aan om de sync te starten.',
+            'source_company_id.required' => __('Kies een bron-tenant (bedrijf) of NEXA Suite.'),
+            'confirm_full_sync.required' => __('Vink de bevestiging aan om de sync te starten.'),
+            'confirm_full_sync.accepted' => __('Vink de bevestiging aan om de sync te starten.'),
         ]);
 
         if ($validator->fails()) {
             if ($wantsJson) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Controleer het formulier.',
+                    'message' => __('Controleer het formulier.'),
                     'errors' => $validator->errors(),
                 ], 422);
             }
@@ -613,7 +613,7 @@ class AdminSettingsController extends Controller
                 ? $this->tenantCompanyDataPush->pushCentralWebsite()
                 : $this->tenantCompanyDataPush->pushFullTenant((int) $sourceCompanyId);
         } catch (\Throwable $e) {
-            $msg = 'Sync mislukt: '.$e->getMessage();
+            $msg = __('Sync mislukt: :message', ['message' => $e->getMessage()]);
             if ($wantsJson) {
                 return response()->json(['success' => false, 'message' => $msg], 500);
             }
@@ -623,9 +623,8 @@ class AdminSettingsController extends Controller
 
         $msg = $result['report']['summary'] ?? (
             $isCentral
-                ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
-                : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
-                    .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                ? __('NEXA Suite-website-sync voltooid. Ingevoegd: :inserted, overgeslagen: :skipped.', ['inserted' => $result['inserted'], 'skipped' => $result['skipped']])
+                : __('Tenant-sync voltooid. Doel company_id: :company_id. Ingevoegd: :inserted, overgeslagen: :skipped.', ['company_id' => $result['remote_company_id'], 'inserted' => $result['inserted'], 'skipped' => $result['skipped']])
         );
 
         if ($wantsJson) {
@@ -663,9 +662,8 @@ class AdminSettingsController extends Controller
                     'success' => true,
                     'message' => $result['report']['summary'] ?? (
                         $isCentral
-                            ? 'NEXA Suite-website-sync voltooid. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
-                            : 'Tenant-sync voltooid. Doel company_id: '.$result['remote_company_id']
-                                .'. Ingevoegd: '.$result['inserted'].', overgeslagen: '.$result['skipped'].'.'
+                            ? __('NEXA Suite-website-sync voltooid. Ingevoegd: :inserted, overgeslagen: :skipped.', ['inserted' => $result['inserted'], 'skipped' => $result['skipped']])
+                            : __('Tenant-sync voltooid. Doel company_id: :company_id. Ingevoegd: :inserted, overgeslagen: :skipped.', ['company_id' => $result['remote_company_id'], 'inserted' => $result['inserted'], 'skipped' => $result['skipped']])
                     ),
                     'report' => $result['report'] ?? null,
                 ]);
@@ -673,7 +671,7 @@ class AdminSettingsController extends Controller
                 $emit([
                     'type' => 'complete',
                     'success' => false,
-                    'message' => 'Sync mislukt: '.$e->getMessage(),
+                    'message' => __('Sync mislukt: :message', ['message' => $e->getMessage()]),
                 ]);
             }
         }, 200, [
@@ -732,9 +730,9 @@ class AdminSettingsController extends Controller
                 : ['required', 'integer', 'exists:companies,id'],
             'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
-            'bundle.required' => 'Selecteer een ZIP-bestand.',
-            'bundle.mimes' => 'Alleen ZIP is toegestaan.',
-            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
+            'bundle.required' => __('Selecteer een ZIP-bestand.'),
+            'bundle.mimes' => __('Alleen ZIP is toegestaan.'),
+            'bundle.max' => __('ZIP is te groot (max. :mb MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).', ['mb' => (int) floor($maxKb / 1024)]),
         ]);
 
         try {
@@ -747,17 +745,20 @@ class AdminSettingsController extends Controller
         } catch (\Throwable $e) {
             return redirect()->route('admin.settings.index')
                 ->withFragment('tenant-sync')
-                ->with('error', 'Import mislukt: '.$e->getMessage())
+                ->with('error', __('Import mislukt: :message', ['message' => $e->getMessage()]))
                 ->withInput();
         }
 
-        $label = $isCentral ? 'NEXA Suite-website geïmporteerd' : 'Tenant-export geïmporteerd';
+        $label = $isCentral ? __('NEXA Suite-website geïmporteerd') : __('Tenant-export geïmporteerd');
 
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
-            ->with('success', $label.': '.$result['copied_files'].' bestand(en), '
-                .$result['imported_pages']." pagina's, ".$result['imported_settings'].' instelling(en), '
-                .($result['imported_photos'] ?? 0).' profielfoto(\'s).');
+            ->with('success', $label.': '.__(':files bestand(en), :pages pagina\'s, :settings instelling(en), :photos profielfoto(\'s).', [
+                'files' => $result['copied_files'],
+                'pages' => $result['imported_pages'],
+                'settings' => $result['imported_settings'],
+                'photos' => $result['imported_photos'] ?? 0,
+            ]));
     }
 
     /**
@@ -786,9 +787,9 @@ class AdminSettingsController extends Controller
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'bundle' => ['required', 'file', 'mimes:zip', 'max:'.$maxKb],
         ], [
-            'bundle.required' => 'Selecteer een ZIP-bestand.',
-            'bundle.mimes' => 'Alleen ZIP is toegestaan.',
-            'bundle.max' => 'ZIP is te groot (max. '.(int) floor($maxKb / 1024).' MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).',
+            'bundle.required' => __('Selecteer een ZIP-bestand.'),
+            'bundle.mimes' => __('Alleen ZIP is toegestaan.'),
+            'bundle.max' => __('ZIP is te groot (max. :mb MB). Bij 413 Request Entity Too Large: verhoog client_max_body_size in nginx (zie deploy/nginx-nexa.conf).', ['mb' => (int) floor($maxKb / 1024)]),
         ]);
 
         try {
@@ -797,13 +798,13 @@ class AdminSettingsController extends Controller
         } catch (\Throwable $e) {
             return redirect()->route('admin.settings.index')
                 ->withFragment('tenant-sync')
-                ->with('error', 'Website-import mislukt: '.$e->getMessage())
+                ->with('error', __('Website-import mislukt: :message', ['message' => $e->getMessage()]))
                 ->withInput();
         }
 
         return redirect()->route('admin.settings.index')
             ->withFragment('tenant-sync')
-            ->with('success', 'Website-import voltooid: '.$result['imported_pages']." pagina's, ".$result['copied_files'].' bestand(en) gekopieerd naar storage/app/public.');
+            ->with('success', __('Website-import voltooid: :pages pagina\'s, :files bestand(en) gekopieerd naar storage/app/public.', ['pages' => $result['imported_pages'], 'files' => $result['copied_files']]));
     }
 
     public function updateDatabaseBackupSettings(Request $request)
@@ -821,7 +822,7 @@ class AdminSettingsController extends Controller
         $this->databaseBackupSettings->saveFromRequest($request);
 
         return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
-            ->with('success', 'Database-backup instellingen opgeslagen.');
+            ->with('success', __('Database-backup instellingen opgeslagen.'));
     }
 
     public function databaseBackupsTable()
@@ -840,7 +841,7 @@ class AdminSettingsController extends Controller
         try {
             $backup = $this->databaseBackupService->createBackup(DatabaseBackup::TRIGGER_MANUAL);
         } catch (\Throwable $e) {
-            $message = 'Backup mislukt: '.$e->getMessage();
+            $message = __('Backup mislukt: :message', ['message' => $e->getMessage()]);
             if ($request->expectsJson() || $request->ajax()) {
                 return response()->json(['ok' => false, 'message' => $message], 422);
             }
@@ -850,7 +851,7 @@ class AdminSettingsController extends Controller
                 ->with('database_backup_error', $message);
         }
 
-        $message = 'Backup voltooid: '.$backup->filename.' ('.$backup->humanSize().').';
+        $message = __('Backup voltooid: :filename (:size).', ['filename' => $backup->filename, 'size' => $backup->humanSize()]);
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
                 'ok' => true,
@@ -874,11 +875,11 @@ class AdminSettingsController extends Controller
         } catch (\Throwable $e) {
             return redirect()->route('admin.settings.index')
                 ->withFragment('database-backups')
-                ->with('database_backup_error', 'Herstel mislukt: '.$e->getMessage());
+                ->with('database_backup_error', __('Herstel mislukt: :message', ['message' => $e->getMessage()]));
         }
 
         return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
-            ->with('success', 'Database hersteld vanuit '.$databaseBackup->filename.'.');
+            ->with('success', __('Database hersteld vanuit :filename.', ['filename' => $databaseBackup->filename]));
     }
 
     public function downloadDatabaseBackup(DatabaseBackup $databaseBackup)
@@ -900,7 +901,7 @@ class AdminSettingsController extends Controller
         $this->databaseBackupService->deleteBackup($databaseBackup);
 
         return redirect()->to(route('admin.settings.index').'?saved=1#database-backups')
-            ->with('success', 'Backup verwijderd: '.$name.'.');
+            ->with('success', __('Backup verwijderd: :name.', ['name' => $name]));
     }
 
     public function bulkDestroyDatabaseBackups(Request $request)
@@ -917,12 +918,12 @@ class AdminSettingsController extends Controller
         $skipped = (int) ($result['skipped'] ?? 0);
 
         $message = $deleted === 1
-            ? '1 backup verwijderd.'
-            : $deleted.' backups verwijderd.';
+            ? __('1 backup verwijderd.')
+            : __(':count backups verwijderd.', ['count' => $deleted]);
         if ($skipped > 0) {
             $message .= $skipped === 1
-                ? ' 1 bezig-backup overgeslagen.'
-                : ' '.$skipped.' bezig-backups overgeslagen.';
+                ? ' '.__('1 bezig-backup overgeslagen.')
+                : ' '.__(':count bezig-backups overgeslagen.', ['count' => $skipped]);
         }
 
         if ($request->expectsJson() || $request->ajax()) {
@@ -949,7 +950,7 @@ class AdminSettingsController extends Controller
         $companyId = $this->settingsCompanyId();
         $user = auth()->user();
         if ($companyId === null && ! $user->isSuperAdmin() && ! $user->hasRole('super-admin')) {
-            abort(403, 'Geen bedrijf gekoppeld aan dit account.');
+            abort(403, __('Geen bedrijf gekoppeld aan dit account.'));
         }
 
         $validator = Validator::make($request->all(), [
@@ -964,13 +965,13 @@ class AdminSettingsController extends Controller
             'MAIL_SMTP_PROVIDER' => 'nullable|string|max:120',
             'MAIL_SMTP_PROVIDER_NAME' => 'nullable|string|max:120',
         ], [
-            'MAIL_MAILER.required' => 'Mailer is verplicht.',
-            'MAIL_MAILER.in' => 'Ongeldige mailer geselecteerd.',
-            'MAIL_HOST.required_if' => 'SMTP host is verplicht wanneer SMTP mailer is geselecteerd.',
-            'MAIL_PORT.required_if' => 'SMTP poort is verplicht wanneer SMTP mailer is geselecteerd.',
-            'MAIL_FROM_ADDRESS.required' => 'From adres is verplicht.',
-            'MAIL_FROM_ADDRESS.email' => 'From adres moet een geldig e-mailadres zijn.',
-            'MAIL_FROM_NAME.required' => 'From naam is verplicht.',
+            'MAIL_MAILER.required' => __('Mailer is verplicht.'),
+            'MAIL_MAILER.in' => __('Ongeldige mailer geselecteerd.'),
+            'MAIL_HOST.required_if' => __('SMTP host is verplicht wanneer SMTP mailer is geselecteerd.'),
+            'MAIL_PORT.required_if' => __('SMTP poort is verplicht wanneer SMTP mailer is geselecteerd.'),
+            'MAIL_FROM_ADDRESS.required' => __('From adres is verplicht.'),
+            'MAIL_FROM_ADDRESS.email' => __('From adres moet een geldig e-mailadres zijn.'),
+            'MAIL_FROM_NAME.required' => __('From naam is verplicht.'),
         ]);
 
         if ($validator->fails()) {
@@ -987,7 +988,7 @@ class AdminSettingsController extends Controller
                 GeneralSetting::set('MAIL_FROM_NAME', (string) $request->input('MAIL_FROM_NAME'), $companyId);
 
                 return redirect()->route('admin.settings.index')
-                    ->with('success', 'Afzendernaam opgeslagen. Mails blijven via de NEXA Suite-mailserver gaan met het vaste From-adres.');
+                    ->with('success', __('Afzendernaam opgeslagen. Mails blijven via de NEXA Suite-mailserver gaan met het vaste From-adres.'));
             }
 
             $mailSettings = [
@@ -1032,14 +1033,14 @@ class AdminSettingsController extends Controller
             GeneralSetting::set(\App\Support\MailSmtpProviderCatalog::SELECTED_SETTING_KEY, $providerId, $companyId);
 
             $success = $companyId === null
-                ? 'NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.'
-                : 'Mail instellingen van deze tenant opgeslagen.';
+                ? __('NEXA Suite-mailserver opgeslagen. Tenants zonder eigen mailserver gebruiken deze instellingen.')
+                : __('Mail instellingen van deze tenant opgeslagen.');
 
             return redirect()->route('admin.settings.index')
                 ->with('success', $success);
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index')
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -1061,7 +1062,7 @@ class AdminSettingsController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ongeldig e-mailadres.',
+                'message' => __('Ongeldig e-mailadres.'),
             ], 422);
         }
 
@@ -1087,13 +1088,13 @@ class AdminSettingsController extends Controller
             if ($mailer === 'log') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode — er is niets naar een inbox verstuurd.)',
+                    'message' => __('Email is gelogd. Check storage/logs/laravel.log voor de inhoud. (Mailer staat op "log" mode — er is niets naar een inbox verstuurd.)'),
                 ]);
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Test email succesvol verzonden naar '.$request->input('test_email').'!',
+                'message' => __('Test email succesvol verzonden naar :email!', ['email' => $request->input('test_email')]),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -1139,14 +1140,14 @@ class AdminSettingsController extends Controller
         try {
             $this->googleSeoSettings->saveFromRequest($request->all(), $companyId);
 
-            $message = 'SEO instellingen succesvol bijgewerkt!';
+            $message = __('SEO instellingen succesvol bijgewerkt!');
             if ($this->googleSeoSettings->isSearchConsoleEnabled($companyId)
                 && $this->googleSeoSettings->shouldAutoSubmitSitemap($companyId)
                 && $this->googleSeoSettings->hasServiceAccount($companyId)) {
                 $submit = $this->googleSearchConsole->submitSitemap($companyId);
                 $message .= $submit['ok']
                     ? ' '.$submit['message']
-                    : ' Let op: sitemap kon niet automatisch worden ingediend — '.$submit['message'];
+                    : ' '.__('Let op: sitemap kon niet automatisch worden ingediend — :message', ['message' => $submit['message']]);
             }
 
             return redirect()->route('admin.settings.index', ['saved' => 1], 303)
@@ -1159,7 +1160,7 @@ class AdminSettingsController extends Controller
                 ->withFragment('seo');
         } catch (\Exception $e) {
             return redirect()->route('admin.settings.index', [], 303)
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput()
                 ->withFragment('seo');
         }
@@ -1207,15 +1208,15 @@ class AdminSettingsController extends Controller
             'GOOGLE_MAPS_CENTER_LNG' => 'nullable|numeric|between:-180,180',
             'GOOGLE_MAPS_TYPE' => 'nullable|in:roadmap,satellite,hybrid,terrain',
         ], [
-            'GOOGLE_MAPS_API_KEY.required' => 'Google Maps API Key is verplicht.',
-            'GOOGLE_MAPS_ZOOM.integer' => 'Zoom level moet een getal zijn tussen 1 en 20.',
-            'GOOGLE_MAPS_ZOOM.min' => 'Zoom level moet minimaal 1 zijn.',
-            'GOOGLE_MAPS_ZOOM.max' => 'Zoom level mag maximaal 20 zijn.',
-            'GOOGLE_MAPS_CENTER_LAT.numeric' => 'Latitude moet een geldig getal zijn.',
-            'GOOGLE_MAPS_CENTER_LAT.between' => 'Latitude moet tussen -90 en 90 liggen.',
-            'GOOGLE_MAPS_CENTER_LNG.numeric' => 'Longitude moet een geldig getal zijn.',
-            'GOOGLE_MAPS_CENTER_LNG.between' => 'Longitude moet tussen -180 en 180 liggen.',
-            'GOOGLE_MAPS_TYPE.in' => 'Ongeldig kaart type geselecteerd.',
+            'GOOGLE_MAPS_API_KEY.required' => __('Google Maps API Key is verplicht.'),
+            'GOOGLE_MAPS_ZOOM.integer' => __('Zoom level moet een getal zijn tussen 1 en 20.'),
+            'GOOGLE_MAPS_ZOOM.min' => __('Zoom level moet minimaal 1 zijn.'),
+            'GOOGLE_MAPS_ZOOM.max' => __('Zoom level mag maximaal 20 zijn.'),
+            'GOOGLE_MAPS_CENTER_LAT.numeric' => __('Latitude moet een geldig getal zijn.'),
+            'GOOGLE_MAPS_CENTER_LAT.between' => __('Latitude moet tussen -90 en 90 liggen.'),
+            'GOOGLE_MAPS_CENTER_LNG.numeric' => __('Longitude moet een geldig getal zijn.'),
+            'GOOGLE_MAPS_CENTER_LNG.between' => __('Longitude moet tussen -180 en 180 liggen.'),
+            'GOOGLE_MAPS_TYPE.in' => __('Ongeldig kaart type geselecteerd.'),
         ]);
 
         if ($validator->fails()) {
@@ -1245,10 +1246,10 @@ class AdminSettingsController extends Controller
             }
 
             return redirect()->to(route('admin.settings.general.index').'#maps')
-                ->with('success', 'Google Maps instellingen succesvol bijgewerkt!');
+                ->with('success', __('Google Maps instellingen succesvol bijgewerkt!'));
         } catch (\Exception $e) {
             return redirect()->to(route('admin.settings.general.index').'#maps')
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -1291,7 +1292,7 @@ class AdminSettingsController extends Controller
         $bgNorm = GoogleReviewsService::normalizeHexColor($bgRaw);
         if ($bgRaw !== '' && $bgNorm === '') {
             return redirect()->to(route('admin.settings.index').'#google-reviews')
-                ->withErrors(['google_reviews_section_background' => 'Ongeldige kleur. Gebruik een hex-waarde, bijv. #f3f4f6 of #abc.'])
+                ->withErrors(['google_reviews_section_background' => __('Ongeldige kleur. Gebruik een hex-waarde, bijv. #f3f4f6 of #abc.')])
                 ->withInput();
         }
 
@@ -1321,10 +1322,10 @@ class AdminSettingsController extends Controller
             }
 
             return redirect()->to(route('admin.settings.index').'#google-reviews')
-                ->with('success', 'Google Reviews instellingen succesvol bijgewerkt!');
+                ->with('success', __('Google Reviews instellingen succesvol bijgewerkt!'));
         } catch (\Exception $e) {
             return redirect()->to(route('admin.settings.index').'#google-reviews')
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -1413,10 +1414,10 @@ class AdminSettingsController extends Controller
             }
 
             return redirect()->to(route('admin.settings.general.index').'#whatsapp')
-                ->with('success', 'WhatsApp Business API (platform) succesvol bijgewerkt!');
+                ->with('success', __('WhatsApp Business API (platform) succesvol bijgewerkt!'));
         } catch (\Exception $e) {
             return redirect()->to(route('admin.settings.general.index').'#whatsapp')
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -1493,13 +1494,13 @@ class AdminSettingsController extends Controller
 
             return $redirect->with(
                 'success',
-                'WhatsApp-verbinding OK'.($detail !== '' ? ' — '.$detail : '').'.'
+                __('WhatsApp-verbinding OK').($detail !== '' ? ' — '.$detail : '').'.'
             );
         }
 
         return $redirect->with(
             'error',
-            'WhatsApp-verbinding mislukt: '.((string) ($result['error'] ?? 'Onbekende fout'))
+            __('WhatsApp-verbinding mislukt: :error', ['error' => (string) ($result['error'] ?? __('Onbekende fout'))])
         );
     }
 
@@ -1533,7 +1534,7 @@ class AdminSettingsController extends Controller
                 ->withInput();
         }
 
-        $phoneError = 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).';
+        $phoneError = __('Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).');
         $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
             trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
         );
@@ -1576,10 +1577,10 @@ class AdminSettingsController extends Controller
             }
 
             return redirect()->to($redirectUrl)
-                ->with('success', 'WhatsApp tenant-instellingen succesvol bijgewerkt!');
+                ->with('success', __('WhatsApp tenant-instellingen succesvol bijgewerkt!'));
         } catch (\Exception $e) {
             return redirect()->to($redirectUrl)
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -1619,8 +1620,8 @@ class AdminSettingsController extends Controller
             'coming_soon_contact_label' => 'nullable|string|max:100',
             'coming_soon_footer_text' => 'nullable|string|max:500',
         ], [
-            'coming_soon_title.required' => 'Titel is verplicht.',
-            'coming_soon_text.required' => 'Tekst is verplicht.',
+            'coming_soon_title.required' => __('Titel is verplicht.'),
+            'coming_soon_text.required' => __('Tekst is verplicht.'),
         ]);
 
         if ($validator->fails()) {
@@ -1638,7 +1639,7 @@ class AdminSettingsController extends Controller
         GeneralSetting::set('coming_soon_footer_text', $request->input('coming_soon_footer_text', '© {year} {site}. Binnenkort beschikbaar.'), $companyId);
 
         return redirect()->route('admin.settings.frontend.index')
-            ->with('success', 'Coming soon-instellingen opgeslagen. Deze pagina wordt getoond zolang er geen actieve module is.');
+            ->with('success', __('Coming soon-instellingen opgeslagen. Deze pagina wordt getoond zolang er geen actieve module is.'));
     }
 
     /**
@@ -1870,15 +1871,15 @@ class AdminSettingsController extends Controller
             'favicon' => 'nullable|image|mimes:ico,png,jpg|max:2048',
             'logo_size' => 'nullable|integer|min:10|max:100',
         ], [
-            'logo.image' => 'Logo moet een afbeelding zijn.',
-            'logo.mimes' => 'Logo moet een jpeg, png, jpg, gif of svg bestand zijn.',
-            'logo.max' => 'Logo mag maximaal 5MB groot zijn.',
-            'favicon.image' => 'Favicon moet een afbeelding zijn.',
-            'favicon.mimes' => 'Favicon moet een ico, png of jpg bestand zijn.',
-            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
-            'logo_size.integer' => 'Logo grootte moet een getal zijn.',
-            'logo_size.min' => 'Logo grootte moet minimaal 10px zijn.',
-            'logo_size.max' => 'Logo grootte mag maximaal 100px zijn.',
+            'logo.image' => __('Logo moet een afbeelding zijn.'),
+            'logo.mimes' => __('Logo moet een jpeg, png, jpg, gif of svg bestand zijn.'),
+            'logo.max' => __('Logo mag maximaal 5MB groot zijn.'),
+            'favicon.image' => __('Favicon moet een afbeelding zijn.'),
+            'favicon.mimes' => __('Favicon moet een ico, png of jpg bestand zijn.'),
+            'favicon.max' => __('Favicon mag maximaal 2MB groot zijn.'),
+            'logo_size.integer' => __('Logo grootte moet een getal zijn.'),
+            'logo_size.min' => __('Logo grootte moet minimaal 10px zijn.'),
+            'logo_size.max' => __('Logo grootte mag maximaal 100px zijn.'),
         ]);
 
         if ($validator->fails()) {
@@ -1963,7 +1964,7 @@ class AdminSettingsController extends Controller
                         'storage_path' => storage_path('app/public'),
                         'settings_dir_exists' => file_exists($settingsDir),
                     ]);
-                    throw new \Exception('Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.');
+                    throw new \Exception(__('Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.'));
                 }
 
                 // Save path to database
@@ -1997,7 +1998,7 @@ class AdminSettingsController extends Controller
                         'storage_path' => storage_path('app/public'),
                         'settings_dir_exists' => file_exists($settingsDir),
                     ]);
-                    throw new \Exception('Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.');
+                    throw new \Exception(__('Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.'));
                 }
 
                 // Save path to database
@@ -2020,7 +2021,7 @@ class AdminSettingsController extends Controller
             }
 
             return redirect()->route('admin.settings.general.index')
-                ->with('success', 'Algemene configuraties succesvol bijgewerkt!');
+                ->with('success', __('Algemene configuraties succesvol bijgewerkt!'));
         } catch (\Exception $e) {
             \Log::error('Error updating general settings', [
                 'error' => $e->getMessage(),
@@ -2028,7 +2029,7 @@ class AdminSettingsController extends Controller
             ]);
 
             return redirect()->route('admin.settings.general.index')
-                ->with('error', 'Er is een fout opgetreden: '.$e->getMessage())
+                ->with('error', __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]))
                 ->withInput();
         }
     }
@@ -2044,10 +2045,10 @@ class AdminSettingsController extends Controller
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:5120',
             'logo_type' => 'nullable|string|in:light,dark',
         ], [
-            'logo.required' => 'Selecteer een logo bestand.',
-            'logo.file' => 'Het bestand moet een geldig bestand zijn.',
-            'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.',
-            'logo.max' => 'Het bestand mag maximaal 5MB groot zijn.',
+            'logo.required' => __('Selecteer een logo bestand.'),
+            'logo.file' => __('Het bestand moet een geldig bestand zijn.'),
+            'logo.mimes' => __('Alleen JPEG, PNG, JPG, GIF en SVG bestanden zijn toegestaan.'),
+            'logo.max' => __('Het bestand mag maximaal 5MB groot zijn.'),
         ]);
 
         $isDark = $request->input('logo_type') === 'dark';
@@ -2082,7 +2083,7 @@ class AdminSettingsController extends Controller
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.',
+                    'message' => __('Logo bestand kon niet worden opgeslagen. Controleer de storage permissies.'),
                 ], 500);
             }
 
@@ -2099,7 +2100,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Logo succesvol geüpload.',
+                'message' => __('Logo succesvol geüpload.'),
                 'logo_url' => $logoUrl,
                 'logo_type' => $isDark ? 'dark' : 'light',
             ]);
@@ -2108,7 +2109,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+                'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
     }
@@ -2128,7 +2129,7 @@ class AdminSettingsController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Light logo verwijderd.',
+            'message' => __('Light logo verwijderd.'),
         ]);
     }
 
@@ -2148,7 +2149,7 @@ class AdminSettingsController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Dark logo verwijderd. Er wordt weer het light mode-logo gebruikt.',
+            'message' => __('Dark logo verwijderd. Er wordt weer het light mode-logo gebruikt.'),
         ]);
     }
 
@@ -2162,10 +2163,10 @@ class AdminSettingsController extends Controller
         $request->validate([
             'favicon' => 'required|file|mimes:ico,png,jpg|max:2048',
         ], [
-            'favicon.required' => 'Selecteer een favicon bestand.',
-            'favicon.file' => 'Het bestand moet een geldig bestand zijn.',
-            'favicon.mimes' => 'Alleen ICO, PNG en JPG bestanden zijn toegestaan.',
-            'favicon.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+            'favicon.required' => __('Selecteer een favicon bestand.'),
+            'favicon.file' => __('Het bestand moet een geldig bestand zijn.'),
+            'favicon.mimes' => __('Alleen ICO, PNG en JPG bestanden zijn toegestaan.'),
+            'favicon.max' => __('Het bestand mag maximaal 2MB groot zijn.'),
         ]);
 
         try {
@@ -2195,7 +2196,7 @@ class AdminSettingsController extends Controller
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.',
+                    'message' => __('Favicon bestand kon niet worden opgeslagen. Controleer de storage permissies.'),
                 ], 500);
             }
 
@@ -2208,7 +2209,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Favicon succesvol geüpload.',
+                'message' => __('Favicon succesvol geüpload.'),
                 'favicon_url' => $faviconMeta['url'],
             ]);
         } catch (\Exception $e) {
@@ -2216,7 +2217,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+                'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
     }
@@ -2231,10 +2232,10 @@ class AdminSettingsController extends Controller
         $request->validate([
             'nexa_suite_avatar' => 'required|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ], [
-            'nexa_suite_avatar.required' => 'Selecteer een afbeelding.',
-            'nexa_suite_avatar.file' => 'Het bestand moet een geldig bestand zijn.',
-            'nexa_suite_avatar.mimes' => 'Alleen JPEG, PNG, JPG, GIF en WebP bestanden zijn toegestaan.',
-            'nexa_suite_avatar.max' => 'Het bestand mag maximaal 5MB groot zijn.',
+            'nexa_suite_avatar.required' => __('Selecteer een afbeelding.'),
+            'nexa_suite_avatar.file' => __('Het bestand moet een geldig bestand zijn.'),
+            'nexa_suite_avatar.mimes' => __('Alleen JPEG, PNG, JPG, GIF en WebP bestanden zijn toegestaan.'),
+            'nexa_suite_avatar.max' => __('Het bestand mag maximaal 5MB groot zijn.'),
         ]);
 
         try {
@@ -2253,7 +2254,7 @@ class AdminSettingsController extends Controller
             if (! $path || ! Storage::disk('public')->exists($path)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Afbeelding kon niet worden opgeslagen. Controleer de storage permissies.',
+                    'message' => __('Afbeelding kon niet worden opgeslagen. Controleer de storage permissies.'),
                 ], 500);
             }
 
@@ -2261,7 +2262,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'NEXA Suite-avatar succesvol geüpload.',
+                'message' => __('NEXA Suite-avatar succesvol geüpload.'),
                 'avatar_url' => GeneralSetting::nexaSuiteAvatarUrl(),
             ]);
         } catch (\Exception $e) {
@@ -2269,7 +2270,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+                'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
     }
@@ -2289,7 +2290,7 @@ class AdminSettingsController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'NEXA Suite-avatar verwijderd.',
+            'message' => __('NEXA Suite-avatar verwijderd.'),
             'avatar_url' => GeneralSetting::nexaSuiteAvatarUrl(),
         ]);
     }
@@ -2301,7 +2302,7 @@ class AdminSettingsController extends Controller
     {
         $path = GeneralSetting::get('nexa_suite_avatar');
         if (! $path || ! Storage::disk('public')->exists($path)) {
-            abort(404, 'Avatar niet gevonden');
+            abort(404, __('Avatar niet gevonden'));
         }
         $file = Storage::disk('public')->get($path);
         $mimeType = Storage::disk('public')->mimeType($path);
@@ -2322,16 +2323,16 @@ class AdminSettingsController extends Controller
             $request->validate([
                 'info_request_success_image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
             ], [
-                'info_request_success_image.required' => 'Selecteer een afbeelding.',
-                'info_request_success_image.file' => 'Het bestand is ongeldig of kon niet worden gelezen.',
-                'info_request_success_image.mimes' => 'Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.',
-                'info_request_success_image.max' => 'Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.',
+                'info_request_success_image.required' => __('Selecteer een afbeelding.'),
+                'info_request_success_image.file' => __('Het bestand is ongeldig of kon niet worden gelezen.'),
+                'info_request_success_image.mimes' => __('Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.'),
+                'info_request_success_image.max' => __('Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.'),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->errors();
             $message = isset($errors['info_request_success_image'][0])
                 ? $errors['info_request_success_image'][0]
-                : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+                : __('De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).');
 
             return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
         }
@@ -2349,20 +2350,20 @@ class AdminSettingsController extends Controller
 
             $path = $request->file('info_request_success_image')->store('settings', 'public');
             if (! $path || ! Storage::disk('public')->exists($path)) {
-                return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
+                return response()->json(['success' => false, 'message' => __('Bestand kon niet worden opgeslagen.')], 500);
             }
 
             GeneralSetting::set('info_request_success_image', $path);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Afbeelding geüpload.',
+                'message' => __('Afbeelding geüpload.'),
                 'image_url' => route('admin.settings.success-image').'?t='.time(),
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading success image', ['error' => $e->getMessage()]);
 
-            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: '.$e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()])], 500);
         }
     }
 
@@ -2379,7 +2380,7 @@ class AdminSettingsController extends Controller
         }
         GeneralSetting::set('info_request_success_image', '');
 
-        return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
+        return response()->json(['success' => true, 'message' => __('Afbeelding verwijderd.')]);
     }
 
     /**
@@ -2398,16 +2399,16 @@ class AdminSettingsController extends Controller
             $request->validate([
                 'coming_soon_image' => 'required|file|mimes:jpeg,png,jpg,gif,svg,webp|max:5120',
             ], [
-                'coming_soon_image.required' => 'Selecteer een afbeelding.',
-                'coming_soon_image.file' => 'Het bestand is ongeldig of kon niet worden gelezen.',
-                'coming_soon_image.mimes' => 'Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.',
-                'coming_soon_image.max' => 'Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.',
+                'coming_soon_image.required' => __('Selecteer een afbeelding.'),
+                'coming_soon_image.file' => __('Het bestand is ongeldig of kon niet worden gelezen.'),
+                'coming_soon_image.mimes' => __('Ongeldig bestandstype. Alleen JPEG, PNG, JPG, GIF, SVG en WebP zijn toegestaan.'),
+                'coming_soon_image.max' => __('Het bestand is te groot. Maximaal 5MB (5120 KB) toegestaan. Uw bestand is groter.'),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errors = $e->errors();
             $message = isset($errors['coming_soon_image'][0])
                 ? $errors['coming_soon_image'][0]
-                : 'De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).';
+                : __('De afbeelding voldoet niet aan de eisen. Controleer het formaat (max. 5MB) en het type (JPEG, PNG, GIF, SVG, WebP).');
 
             return response()->json(['success' => false, 'message' => $message, 'errors' => $errors], 422);
         }
@@ -2425,20 +2426,20 @@ class AdminSettingsController extends Controller
 
             $path = $request->file('coming_soon_image')->store('settings', 'public');
             if (! $path || ! Storage::disk('public')->exists($path)) {
-                return response()->json(['success' => false, 'message' => 'Bestand kon niet worden opgeslagen.'], 500);
+                return response()->json(['success' => false, 'message' => __('Bestand kon niet worden opgeslagen.')], 500);
             }
 
             GeneralSetting::set('coming_soon_image', $path, $companyId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Afbeelding geüpload.',
+                'message' => __('Afbeelding geüpload.'),
                 'image_url' => route('admin.settings.coming-soon-image').'?t='.time(),
             ]);
         } catch (\Exception $e) {
             \Log::error('Error uploading coming soon image', ['error' => $e->getMessage()]);
 
-            return response()->json(['success' => false, 'message' => 'Er is een fout opgetreden: '.$e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()])], 500);
         }
     }
 
@@ -2460,7 +2461,7 @@ class AdminSettingsController extends Controller
         }
         GeneralSetting::set('coming_soon_image', '', $companyId);
 
-        return response()->json(['success' => true, 'message' => 'Afbeelding verwijderd.']);
+        return response()->json(['success' => true, 'message' => __('Afbeelding verwijderd.')]);
     }
 
     /**
@@ -2471,7 +2472,7 @@ class AdminSettingsController extends Controller
         $logoPath = GeneralSetting::get('logo');
 
         if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
-            abort(404, 'Logo niet gevonden');
+            abort(404, __('Logo niet gevonden'));
         }
 
         $file = Storage::disk('public')->get($logoPath);
@@ -2491,7 +2492,7 @@ class AdminSettingsController extends Controller
     {
         $logoPath = GeneralSetting::get('logo_dark');
         if (! $logoPath || ! Storage::disk('public')->exists($logoPath)) {
-            abort(404, 'Dark logo niet gevonden');
+            abort(404, __('Dark logo niet gevonden'));
         }
         $file = Storage::disk('public')->get($logoPath);
         $mimeType = Storage::disk('public')->mimeType($logoPath);
@@ -2510,7 +2511,7 @@ class AdminSettingsController extends Controller
     {
         $path = GeneralSetting::get('info_request_success_image');
         if (! $path || ! Storage::disk('public')->exists($path)) {
-            abort(404, 'Afbeelding niet gevonden');
+            abort(404, __('Afbeelding niet gevonden'));
         }
         $file = Storage::disk('public')->get($path);
         $mimeType = Storage::disk('public')->mimeType($path);
@@ -2527,7 +2528,7 @@ class AdminSettingsController extends Controller
     {
         $path = GeneralSetting::get('coming_soon_image');
         if (! $path || ! Storage::disk('public')->exists($path)) {
-            abort(404, 'Afbeelding niet gevonden');
+            abort(404, __('Afbeelding niet gevonden'));
         }
         $file = Storage::disk('public')->get($path);
         $mimeType = Storage::disk('public')->mimeType($path);
@@ -2545,7 +2546,7 @@ class AdminSettingsController extends Controller
         $faviconPath = GeneralSetting::get('favicon');
 
         if (! $faviconPath || ! Storage::disk('public')->exists($faviconPath)) {
-            abort(404, 'Favicon niet gevonden');
+            abort(404, __('Favicon niet gevonden'));
         }
 
         $file = Storage::disk('public')->get($faviconPath);
@@ -2566,10 +2567,10 @@ class AdminSettingsController extends Controller
         $request->validate([
             'logo_size' => 'required|integer|min:10|max:100',
         ], [
-            'logo_size.required' => 'Logo grootte is verplicht.',
-            'logo_size.integer' => 'Logo grootte moet een getal zijn.',
-            'logo_size.min' => 'Logo grootte moet minimaal 10px zijn.',
-            'logo_size.max' => 'Logo grootte mag maximaal 100px zijn.',
+            'logo_size.required' => __('Logo grootte is verplicht.'),
+            'logo_size.integer' => __('Logo grootte moet een getal zijn.'),
+            'logo_size.min' => __('Logo grootte moet minimaal 10px zijn.'),
+            'logo_size.max' => __('Logo grootte mag maximaal 100px zijn.'),
         ]);
 
         try {
@@ -2580,7 +2581,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Logo grootte succesvol bijgewerkt.',
+                'message' => __('Logo grootte succesvol bijgewerkt.'),
                 'logo_size' => $logoSize,
             ]);
         } catch (\Exception $e) {
@@ -2588,7 +2589,7 @@ class AdminSettingsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+                'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
     }

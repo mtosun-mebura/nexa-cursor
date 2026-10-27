@@ -6,6 +6,7 @@ import {
   Image,
   Keyboard,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -100,8 +101,10 @@ import { alertNextPickupDeparture } from '../notifications/pickupDeparture';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { AppearanceControls } from '../ui/AppearanceControls';
+import { DemoModeRow } from '../ui/DemoModeRow';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
+import { LimitedPhotoPickerModal, loadMediaLibrary, PickedLibraryImage } from '../ui/LimitedPhotoPickerModal';
 import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import { DutchPlateInput } from '../ui/DutchPlateInput';
 import { KeyboardDismissAccessory } from '../ui/KeyboardDismissAccessory';
@@ -386,6 +389,8 @@ export function DriverHomeScreen() {
   const [reviewsBusy, setReviewsBusy] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [limitedPickerOpen, setLimitedPickerOpen] = useState(false);
+  const limitedPickResolve = useRef<((r: { uri: string; mime: string | null } | null) => void) | null>(null);
   const [cropUri, setCropUri] = useState<string | null>(null);
   const [cropMime, setCropMime] = useState<string | null>(null);
   const [cropKind, setCropKind] = useState<'profile' | 'logo' | 'vehicle' | 'vehicle-draft' | null>(null);
@@ -1741,6 +1746,43 @@ export function DriverHomeScreen() {
     }
   }
 
+  /**
+   * Fotobibliotheek. Bij iOS-beperkte toegang tonen we alleen de toegestane foto's
+   * (met "Meer foto's toevoegen"); PHPicker (ImagePicker) negeert die selectie.
+   */
+  const pickFromLibrary = async (
+    quality: number
+  ): Promise<{ uri: string; mime: string | null } | null> => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      throw new Error(t("Geen toegang tot foto’s. Sta dit toe in de instellingen."));
+    }
+    if (Platform.OS === 'ios') {
+      const ml = loadMediaLibrary();
+      const access = ml ? await ml.getPermissionsAsync().catch(() => null) : null;
+      if (access?.accessPrivileges === 'limited') {
+        return new Promise((resolve) => {
+          limitedPickResolve.current = resolve;
+          setLimitedPickerOpen(true);
+        });
+      }
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality,
+      allowsEditing: false,
+    });
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset?.uri) return null;
+    return { uri: asset.uri, mime: asset.mimeType || null };
+  };
+
+  const finishLimitedPick = (image: PickedLibraryImage | null) => {
+    setLimitedPickerOpen(false);
+    limitedPickResolve.current?.(image ? { uri: image.uri, mime: image.mimeType } : null);
+    limitedPickResolve.current = null;
+  };
+
   const pickAndUploadMedia = async (kind: 'profile' | 'logo' | 'vehicle') => {
     if (!driverToken || mediaBusy || cropUri) return;
     setError(null);
@@ -1752,19 +1794,10 @@ export function DriverHomeScreen() {
       let mime: string | null = null;
 
       if (source === 'library') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          setError(t("Geen toegang tot foto’s. Sta dit toe in de instellingen."));
-          return;
-        }
-        const picked = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 1,
-          allowsEditing: false,
-        });
-        if (picked.canceled || !picked.assets?.[0]?.uri) return;
-        uri = picked.assets[0].uri;
-        mime = picked.assets[0].mimeType || null;
+        const picked = await pickFromLibrary(1);
+        if (!picked) return;
+        uri = picked.uri;
+        mime = picked.mime;
       } else {
         const picked = await DocumentPicker.getDocumentAsync({
           type: ['image/*'],
@@ -1875,20 +1908,10 @@ export function DriverHomeScreen() {
       let mime: string | null = null;
 
       if (source === 'library') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          setVehicleFormError(t("Geen toegang tot foto’s. Sta dit toe in de instellingen."));
-          return;
-        }
-        const picked = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 0.85,
-          allowsEditing: false,
-        });
-        const asset = picked.assets?.[0];
-        if (picked.canceled || !asset?.uri) return;
-        uri = asset.uri;
-        mime = asset.mimeType || null;
+        const picked = await pickFromLibrary(0.85);
+        if (!picked) return;
+        uri = picked.uri;
+        mime = picked.mime;
       } else {
         const picked = await DocumentPicker.getDocumentAsync({
           type: ['image/*'],
@@ -2437,6 +2460,7 @@ export function DriverHomeScreen() {
           })}
         </View>
 
+        <DemoModeRow />
         <Pressable
           onPress={openHandleiding}
           style={[styles.guideLink, { borderColor: `${accentHex(accent)}66` }]}
@@ -2846,6 +2870,12 @@ export function DriverHomeScreen() {
         <GhostButton title={t("Sluiten")} onPress={() => setReviewsOpen(false)} />
       </AppModal>
 
+      <LimitedPhotoPickerModal
+        visible={limitedPickerOpen && !vehicleFormOpen}
+        onClose={() => finishLimitedPick(null)}
+        onPick={finishLimitedPick}
+      />
+
       <AppModal
         visible={vehiclePhotoAsk != null}
         onRequestClose={() => setVehiclePhotoAsk(null)}
@@ -2979,7 +3009,14 @@ export function DriverHomeScreen() {
         dismissDisabled={vehicleFormBusy}
         panelStyle={styles.centeredSheet}
       >
-        {cropKind === 'vehicle-draft' && cropUri ? (
+        {limitedPickerOpen ? (
+          <LimitedPhotoPickerModal
+            embedded
+            visible
+            onClose={() => finishLimitedPick(null)}
+            onPick={finishLimitedPick}
+          />
+        ) : cropKind === 'vehicle-draft' && cropUri ? (
           <ImageCropModal
             embedded
             visible

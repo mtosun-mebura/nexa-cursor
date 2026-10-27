@@ -1,16 +1,16 @@
 @extends('admin.layouts.app')
 
-@section('title', 'NEXA Suite facturen')
+@section('title', __('NEXA Suite facturen'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div>
-            <h1 class="text-xl font-medium leading-none text-mono">NEXA Suite facturen</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('NEXA Suite facturen') }}</h1>
             <div class="text-sm text-secondary-foreground mt-2">
-                Maandelijkse fee-specificatie over gereden ritten vanaf nexasuite.nl.
-                Bij platform collect: naslag van reeds ingehouden fee — geen openstaande vordering.
-                <a href="{{ route('admin.nexa-suite-bookings.settings') }}" class="text-primary underline">Uitleg op Instellingen</a>
+                {{ __('Maandelijkse fee-specificatie over gereden ritten vanaf nexasuite.nl.') }}
+                {{ __('Bij platform collect: naslag van reeds ingehouden fee — geen openstaande vordering.') }}
+                <a href="{{ route('admin.nexa-suite-bookings.settings') }}" class="text-primary underline">{{ __('Uitleg op Instellingen') }}</a>
             </div>
         </div>
         <form method="POST" action="{{ route('admin.nexa-suite-bookings.generate') }}" class="flex flex-wrap gap-2">
@@ -24,9 +24,9 @@
             <label class="kt-label flex items-center gap-2">
                 <input type="hidden" name="send" value="0">
                 <input type="checkbox" name="send" value="1" class="kt-switch" checked>
-                Direct versturen
+                {{ __('Direct versturen') }}
             </label>
-            <button type="submit" class="kt-btn kt-btn-primary">Facturen maken</button>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Facturen maken') }}</button>
         </form>
     </div>
 
@@ -34,39 +34,39 @@
 
     <div class="kt-card w-full min-w-0">
         <div class="kt-card-header px-5 py-5 flex-wrap gap-3 justify-between items-center">
-            <h3 class="kt-card-title text-sm mb-0">Facturen</h3>
+            <h3 class="kt-card-title text-sm mb-0">{{ __('Facturen') }}</h3>
             <form method="GET" action="{{ route('admin.nexa-suite-bookings.invoices') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
                 @include('admin.partials.month-picker-input', ['name' => 'period', 'value' => request('period')])
                 <select class="kt-select w-full sm:w-48" name="company_id">
-                    <option value="">Alle tenants</option>
+                    <option value="">{{ __('Alle tenants') }}</option>
                     @foreach($companies as $company)
                         <option value="{{ $company->id }}" @selected((string) ($filterCompanyId ?? '') === (string) $company->id)>{{ $company->name }}</option>
                     @endforeach
                 </select>
                 <select class="kt-select w-full sm:w-40" name="status">
-                    <option value="">Alle statussen</option>
+                    <option value="">{{ __('Alle statussen') }}</option>
                     @foreach(\App\Models\NexaSuiteBookingInvoice::STATUS_LABELS as $value => $label)
-                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ __($label) }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="kt-btn kt-btn-outline">Filter</button>
+                <button type="submit" class="kt-btn kt-btn-outline">{{ __('Filter') }}</button>
             </form>
         </div>
         <div class="kt-card-content p-0 min-w-0">
             @if($invoices->isEmpty())
-                <p class="p-5 text-sm text-muted-foreground mb-0">Nog geen facturen.</p>
+                <p class="p-5 text-sm text-muted-foreground mb-0">{{ __('Nog geen facturen.') }}</p>
             @else
                 <div class="kt-scrollable-x-auto admin-table-scroll-wrap min-w-0">
                     <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                         <thead>
                             <tr>
-                                <th class="text-left">Nummer</th>
-                                <th class="text-left">Tenant</th>
-                                <th class="text-left">Periode</th>
-                                <th class="text-left">Ritten</th>
-                                <th class="text-left">Totaal</th>
-                                <th class="text-left">Status</th>
-                                <th class="text-left">Aanmaning</th>
+                                <th class="text-left">{{ __('Nummer') }}</th>
+                                <th class="text-left">{{ __('Tenant') }}</th>
+                                <th class="text-left">{{ __('Periode') }}</th>
+                                <th class="text-left">{{ __('Ritten') }}</th>
+                                <th class="text-left">{{ __('Totaal') }}</th>
+                                <th class="text-left">{{ __('Status') }}</th>
+                                <th class="text-left">{{ __('Aanmaning') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -77,8 +77,8 @@
                                     <td>{{ $invoice->billing_period }}</td>
                                     <td>{{ $invoice->ride_count }}</td>
                                     <td>€ {{ number_format((float) $invoice->total_amount, 2, ',', '.') }}</td>
-                                    <td><span class="kt-badge kt-badge-outline rounded-[30px] {{ $invoice->statusBadgeClass() }}">{{ $invoice->statusLabel() }}</span></td>
-                                    <td>{{ $invoice->reminderLabel() }}</td>
+                                    <td><span class="kt-badge kt-badge-outline rounded-[30px] {{ $invoice->statusBadgeClass() }}">{{ __($invoice->statusLabel()) }}</span></td>
+                                    <td>{{ __($invoice->reminderLabel()) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

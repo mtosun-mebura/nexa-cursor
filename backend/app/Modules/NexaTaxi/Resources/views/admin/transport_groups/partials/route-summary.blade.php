@@ -3,7 +3,7 @@
     $recurrenceDays = $routeTemplate->recurrence_days ?: \App\Modules\NexaTaxi\Models\TransportRouteTemplate::defaultRecurrenceDays();
     $weekdayText = collect($recurrenceDays)
         ->sort()
-        ->map(fn (int $day) => $weekdayLabels[$day] ?? $day)
+        ->map(fn (int $day) => isset($weekdayLabels[$day]) ? __($weekdayLabels[$day]) : $day)
         ->implode(', ');
     $driver = $routeDisplayDriver ?? null;
     $vehicle = $routeDisplayVehicle ?? null;
@@ -21,22 +21,22 @@
 <div class="px-3 sm:px-5 pb-3 min-w-0">
     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
         <tr>
-            <td class="min-w-56 text-secondary-foreground font-medium">Weekdagen</td>
+            <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Weekdagen') }}</td>
             <td>{{ $weekdayText }}</td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Passagiers op route</td>
-            <td>{{ $routePickupStops->count() }} ophaalstop(s)</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Passagiers op route') }}</td>
+            <td>{{ __(':count ophaalstop(s)', ['count' => $routePickupStops->count()]) }}</td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Vertrek</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Vertrek') }}</td>
             <td>
                 @if($departureTime)
                     {{ $departureTime }}
                     @if($routeTemplate->driver_start_mode === 'depot' && ($group->departure_address || $routeTemplate->driver_start_address))
                         <span class="text-muted-foreground">· {{ Str::limit($group->departure_address ?: $routeTemplate->driver_start_address, 55) }}</span>
                     @else
-                        <span class="text-muted-foreground">(bij eerste stop{{ $firstPickupTime ? ' '.$firstPickupTime : '' }})</span>
+                        <span class="text-muted-foreground">{{ $firstPickupTime ? __('(bij eerste stop :time)', ['time' => $firstPickupTime]) : __('(bij eerste stop)') }}</span>
                     @endif
                 @else
                     —
@@ -44,39 +44,39 @@
             </td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Aankomst bestemming</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Aankomst bestemming') }}</td>
             <td>
                 {{ $destinationTime }}
                 <span class="text-muted-foreground">· {{ Str::limit($group->destination_address, 60) }}</span>
             </td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Chauffeur</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Chauffeur') }}</td>
             <td>
                 @if($driver)
                     {{ trim($driver->first_name.' '.$driver->last_name) }}
                 @else
-                    <span class="text-muted-foreground">Geen vaste chauffeur</span>
+                    <span class="text-muted-foreground">{{ __('Geen vaste chauffeur') }}</span>
                 @endif
             </td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Voertuig</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Voertuig') }}</td>
             <td>
                 @if($vehicle)
                     {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
                 @else
-                    <span class="text-muted-foreground">Geen vast voertuig</span>
+                    <span class="text-muted-foreground">{{ __('Geen vast voertuig') }}</span>
                 @endif
             </td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Route-status</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Route-status') }}</td>
             <td>
                 @if($routeTemplate->route_locked)
-                    <span class="kt-badge kt-badge-warning kt-badge-sm">Vastgezet</span>
+                    <span class="kt-badge kt-badge-warning kt-badge-sm">{{ __('Vastgezet') }}</span>
                 @else
-                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Bewerkbaar</span>
+                    <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Bewerkbaar') }}</span>
                 @endif
             </td>
         </tr>
@@ -91,8 +91,8 @@
             aria-expanded="false"
             aria-controls="{{ $outboundCollapseId }}">
         <span class="route-stops-collapse__labels">
-            <span data-route-stops-label-closed>Stops tonen ({{ $outboundStopCount }})</span>
-            <span data-route-stops-label-open class="hidden">Stops verbergen</span>
+            <span data-route-stops-label-closed>{{ __('Stops tonen (:count)', ['count' => $outboundStopCount]) }}</span>
+            <span data-route-stops-label-open class="hidden">{{ __('Stops verbergen') }}</span>
         </span>
         <i class="ki-filled ki-down route-stops-collapse__chevron" aria-hidden="true"></i>
     </button>
@@ -102,17 +102,17 @@
                 <thead>
                     <tr>
                         <th class="w-12">#</th>
-                        <th>Type</th>
-                        <th>Passagier</th>
-                        <th>Adres</th>
-                        <th>Tijd</th>
+                        <th>{{ __('Type') }}</th>
+                        <th>{{ __('Passagier') }}</th>
+                        <th>{{ __('Adres') }}</th>
+                        <th>{{ __('Tijd') }}</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($routePickupStops as $index => $stop)
                     <tr>
                         <td class="text-muted-foreground">{{ $index + 1 }}</td>
-                        <td><span class="kt-badge kt-badge-light kt-badge-sm">Ophalen</span></td>
+                        <td><span class="kt-badge kt-badge-light kt-badge-sm">{{ __('Ophalen') }}</span></td>
                         <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
                         <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
                         <td class="font-medium">{{ substr($stop->planned_at_time, 0, 5) }}</td>
@@ -121,7 +121,7 @@
                     @if($routeDestinationStop)
                     <tr class="route-stop-destination-row">
                         <td class="text-muted-foreground">{{ $routePickupStops->count() + 1 }}</td>
-                        <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
+                        <td><span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Bestemming') }}</span></td>
                         <td class="text-muted-foreground">—</td>
                         <td class="text-muted-foreground">{{ Str::limit($routeDestinationStop->address, 55) }}</td>
                         <td class="font-medium">{{ substr($routeDestinationStop->planned_at_time, 0, 5) }}</td>

@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Rit #'.$ride->id)
+@section('title', __('Rit #:id', ['id' => $ride->id]))
 
 @section('content')
 <style>
@@ -47,7 +47,7 @@
             @if($ride->vehicle?->image_url)
                 <img
                     src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($ride->vehicle->image_url) }}"
-                    alt="{{ $ride->vehicle->name ?? 'Voertuig' }}"
+                    alt="{{ $ride->vehicle->name ?? __('Voertuig') }}"
                     class="w-full max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white"
                 >
             @elseif($ride->vehicle)
@@ -57,27 +57,27 @@
             @endif
 
             <div class="text-lg leading-5 font-semibold text-mono text-center">
-                Rit #{{ $ride->id }}
+                {{ __('Rit #:id', ['id' => $ride->id]) }}
             </div>
             @if($ride->isNexaSuiteBooking())
-                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] mt-1">Algemene boeking via NEXA Suite</span>
+                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] mt-1">{{ __('Algemene boeking via NEXA Suite') }}</span>
             @endif
 
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
                     <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
                     <span class="text-secondary-foreground font-medium">
-                        Eigenaar: {{ $ride->company?->name ?? $ride->vehicle?->company?->name ?? '—' }}
+                        {{ __('Eigenaar: :name', ['name' => $ride->company?->name ?? $ride->vehicle?->company?->name ?? '—']) }}
                     </span>
                 </div>
                 @if($ride->isNetworkFulfilled())
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-delivery text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        Uitgevoerd door: {{ $ride->fulfillingCompany?->name ?? '—' }}
+                        {{ __('Uitgevoerd door: :name', ['name' => $ride->fulfillingCompany?->name ?? '—']) }}
                     </span>
                 </div>
-                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px]">Network</span>
+                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px]">{{ __('Network') }}</span>
                 @endif
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-car text-muted-foreground text-sm"></i>
@@ -94,11 +94,11 @@
 
 <div class="kt-container-fixed min-w-0">
     <div class="admin-page-actions flex flex-wrap items-center gap-2.5 pb-7.5 w-full min-w-0">
-        <a href="{{ ($rideBackUrl ?? route('admin.taxi.ride_requests.index')) }}#ritten-overzicht" class="kt-btn kt-btn-outline shrink-0"><i class="ki-filled ki-arrow-left me-2"></i>Terug</a>
+        <a href="{{ ($rideBackUrl ?? route('admin.taxi.ride_requests.index')) }}#ritten-overzicht" class="kt-btn kt-btn-outline shrink-0"><i class="ki-filled ki-arrow-left me-2"></i>{{ __('Terug') }}</a>
         @can('rides.view')
             @if($notificationLogTableExists ?? false)
             <a href="{{ route('admin.taxi.ride_requests.notification_log', $ride) }}" class="kt-btn kt-btn-outline">
-                Notificatielog
+                {{ __('Notificatielog') }}
                 @if(($notificationLogCount ?? 0) > 0)
                     ({{ $notificationLogCount }})
                 @endif
@@ -106,16 +106,16 @@
             @endif
         @endcan
         @can('rides.update')
-        <a href="{{ route('admin.taxi.ride_requests.edit', $ride) }}" class="kt-btn kt-btn-outline">Bewerken</a>
+        <a href="{{ route('admin.taxi.ride_requests.edit', $ride) }}" class="kt-btn kt-btn-outline">{{ __('Bewerken') }}</a>
         @if(($dispatchTablesExist ?? false) && $ride->canRedispatchToDrivers())
         <form
             action="{{ route('admin.taxi.ride_requests.reoffer_dispatch', $ride) }}"
             method="POST"
             class="inline"
-            onsubmit="return confirm('Rit opnieuw aanbieden aan chauffeurs?\n\nDe huidige toewijzing (voertuig/chauffeur) wordt gewist en online chauffeurs ontvangen een nieuw aanbod.');"
+            onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Rit opnieuw aanbieden aan chauffeurs?')."\n\n".__('De huidige toewijzing (voertuig/chauffeur) wordt gewist en online chauffeurs ontvangen een nieuw aanbod.')) }});"
         >
             @csrf
-            <button type="submit" class="kt-btn kt-btn-outline">Opnieuw aanbieden</button>
+            <button type="submit" class="kt-btn kt-btn-outline">{{ __('Opnieuw aanbieden') }}</button>
         </form>
         @endif
         @endcan
@@ -134,11 +134,11 @@
     @if($hasRideMap)
     <div class="kt-card w-full min-w-0 mb-5 overflow-hidden">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-            <h3 class="kt-card-title mb-0">Afgelegde rit</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Afgelegde rit') }}</h3>
             @if($hasRecordedTrack)
-                <span class="text-sm text-muted-foreground">GPS-spoor van de chauffeur</span>
+                <span class="text-sm text-muted-foreground">{{ __('GPS-spoor van de chauffeur') }}</span>
             @else
-                <span class="text-sm text-muted-foreground">Geplande route (nog geen GPS-spoor)</span>
+                <span class="text-sm text-muted-foreground">{{ __('Geplande route (nog geen GPS-spoor)') }}</span>
             @endif
         </div>
         <div class="ride-track-map-wrap">
@@ -157,7 +157,7 @@
                 @endif
                 @if($plannedDistanceLabel || $plannedDurationLabel)
                     <div class="text-muted-foreground mt-1">
-                        Gepland: {{ $plannedDistanceLabel ?? '—' }}@if($plannedDurationLabel) · {{ $plannedDurationLabel }}@endif
+                        {{ __('Gepland: :distance', ['distance' => $plannedDistanceLabel ?? '—']) }}@if($plannedDurationLabel) · {{ $plannedDurationLabel }}@endif
                     </div>
                 @endif
             </div>
@@ -165,7 +165,7 @@
         </div>
         @if(trim((string) ($googleMapsApiKey ?? '')) === '')
             <div class="p-5">
-                <p class="text-sm text-muted-foreground mb-0">Er is geen Google Maps-sleutel ingesteld. Voeg die toe bij Algemene configuraties → Google Maps.</p>
+                <p class="text-sm text-muted-foreground mb-0">{{ __('Er is geen Google Maps-sleutel ingesteld. Voeg die toe bij Algemene configuraties → Google Maps.') }}</p>
             </div>
         @endif
     </div>
@@ -173,68 +173,68 @@
 
     <div class="grid grid-cols-1 gap-5 lg:gap-7.5">
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Route &amp; datum</h3></div>
+            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ __('Route & datum') }}</h3></div>
             <div class="kt-card-content p-5 space-y-3 text-sm admin-detail-field-list">
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Ophalen:</span><span class="flex-1">{{ $ride->pickup_address }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Ophalen:') }}</span><span class="flex-1">{{ $ride->pickup_address }}</span></p>
                 @foreach(($stopoverAddresses ?? $ride->stopover_addresses) as $stopIndex => $stopAddress)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Tussenstop {{ chr(66 + $stopIndex) }}:</span><span class="flex-1">{{ $stopAddress }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Tussenstop :stopindex:', ['stopindex' => chr(66 + $stopIndex)]) }}</span><span class="flex-1">{{ $stopAddress }}</span></p>
                 @endforeach
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Afzetten:</span><span class="flex-1">{{ $ride->dropoff_address }}</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Datum/tijd:</span><span class="flex-1">{{ $ride->pickup_at->format('d-m-Y H:i') }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Afzetten:') }}</span><span class="flex-1">{{ $ride->dropoff_address }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Datum/tijd:') }}</span><span class="flex-1">{{ $ride->pickup_at->format('d-m-Y H:i') }}</span></p>
                 @if($actualDistanceLabel)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Afstand:</span><span class="flex-1">{{ $actualDistanceLabel }}@if($hasRecordedTrack && $plannedDistanceLabel && $plannedDistanceLabel !== $actualDistanceLabel) <span class="text-muted-foreground">(gepland {{ $plannedDistanceLabel }})</span>@endif</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Afstand:') }}</span><span class="flex-1">{{ $actualDistanceLabel }}@if($hasRecordedTrack && $plannedDistanceLabel && $plannedDistanceLabel !== $actualDistanceLabel) <span class="text-muted-foreground">{{ __('(gepland :distance)', ['distance' => $plannedDistanceLabel]) }}</span>@endif</span></p>
                 @elseif($plannedDistanceLabel)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Afstand:</span><span class="flex-1">{{ $plannedDistanceLabel }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Afstand:') }}</span><span class="flex-1">{{ $plannedDistanceLabel }}</span></p>
                 @endif
                 @if($actualDurationLabel)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Rijtijd:</span><span class="flex-1">{{ $actualDurationLabel }}@if($hasRecordedTrack && $plannedDurationLabel && $plannedDurationLabel !== $actualDurationLabel) <span class="text-muted-foreground">(gepland {{ $plannedDurationLabel }})</span>@endif</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Rijtijd:') }}</span><span class="flex-1">{{ $actualDurationLabel }}@if($hasRecordedTrack && $plannedDurationLabel && $plannedDurationLabel !== $actualDurationLabel) <span class="text-muted-foreground">{{ __('(gepland :duration)', ['duration' => $plannedDurationLabel]) }}</span>@endif</span></p>
                 @elseif($plannedDurationLabel)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Rijtijd:</span><span class="flex-1">{{ $plannedDurationLabel }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Rijtijd:') }}</span><span class="flex-1">{{ $plannedDurationLabel }}</span></p>
                 @endif
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Passagiers:</span><span class="flex-1">{{ $ride->passengers }}</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Status:</span><span class="flex-1">{{ $ride->status_label }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Passagiers:') }}</span><span class="flex-1">{{ $ride->passengers }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Status:') }}</span><span class="flex-1">{{ __($ride->status_label) }}</span></p>
                 @if($ride->isNexaSuiteBooking())
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Bron:</span><span class="flex-1">Algemene boeking via NEXA Suite (niet via de eigen website)</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Bron:') }}</span><span class="flex-1">{{ __('Algemene boeking via NEXA Suite (niet via de eigen website)') }}</span></p>
                 @endif
                 @if($ride->quoted_price !== null)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Offerteprijs:</span><span class="flex-1">€ {{ number_format($ride->quoted_price, 2, ',', '.') }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Offerteprijs:') }}</span><span class="flex-1">€ {{ number_format($ride->quoted_price, 2, ',', '.') }}</span></p>
                 @endif
             </div>
         </div>
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Klant &amp; toewijzing</h3></div>
+            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ __('Klant & toewijzing') }}</h3></div>
             <div class="kt-card-content p-5 space-y-3 text-sm admin-detail-field-list">
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Naam:</span><span class="flex-1">{{ $ride->customer_name }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Naam:') }}</span><span class="flex-1">{{ $ride->customer_name }}</span></p>
                 @if($ride->customer_email)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">E-mail:</span><span class="flex-1"><a href="mailto:{{ $ride->customer_email }}">{{ $ride->customer_email }}</a></span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('E-mail:') }}</span><span class="flex-1"><a href="mailto:{{ $ride->customer_email }}">{{ $ride->customer_email }}</a></span></p>
                 @endif
                 @if($ride->customer_phone)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Telefoon:</span><span class="flex-1"><a href="tel:{{ $ride->customer_phone }}">{{ $ride->customer_phone }}</a></span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Telefoon:') }}</span><span class="flex-1"><a href="tel:{{ $ride->customer_phone }}">{{ $ride->customer_phone }}</a></span></p>
                 @endif
                 @if($ride->customer_note)
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Opmerking:</span><span class="flex-1">{{ $ride->customer_note }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Opmerking:') }}</span><span class="flex-1">{{ $ride->customer_note }}</span></p>
                 @endif
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Eigenaar:</span><span class="flex-1">{{ $ride->company?->name ?? '—' }}</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Uitvoerder:</span><span class="flex-1">{{ $ride->isNetworkFulfilled() ? ($ride->fulfillingCompany?->name ?? '—') : ($ride->company?->name ?? '—') }}@if($ride->isNetworkFulfilled()) <span class="text-xs text-muted-foreground">(network)</span>@endif</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Settlement:</span><span class="flex-1">{{ $ride->settlement_status_label }}@if($ride->settlement_hold_until) <span class="text-xs text-muted-foreground">(hold tot {{ $ride->settlement_hold_until->timezone(config('app.timezone'))->format('d-m-Y H:i') }})</span>@endif</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Eigenaar:') }}</span><span class="flex-1">{{ $ride->company?->name ?? '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Uitvoerder:') }}</span><span class="flex-1">{{ $ride->isNetworkFulfilled() ? ($ride->fulfillingCompany?->name ?? '—') : ($ride->company?->name ?? '—') }}@if($ride->isNetworkFulfilled()) <span class="text-xs text-muted-foreground">{{ __('(network)') }}</span>@endif</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Settlement:') }}</span><span class="flex-1">{{ __($ride->settlement_status_label) }}@if($ride->settlement_hold_until) <span class="text-xs text-muted-foreground">{{ __('(hold tot :datetime)', ['datetime' => $ride->settlement_hold_until->timezone(config('app.timezone'))->format('d-m-Y H:i')]) }}</span>@endif</span></p>
                 @if(is_array($ride->settlement_risk_flags) && $ride->settlement_risk_flags !== [])
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Risk flags:</span><span class="flex-1 font-mono text-xs">{{ implode(', ', $ride->settlement_risk_flags) }}</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Risk flags:') }}</span><span class="flex-1 font-mono text-xs">{{ implode(', ', $ride->settlement_risk_flags) }}</span></p>
                 @endif
                 @can('rides.update')
                     @if(in_array($ride->settlement_status, [\App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_HOLD, \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_REVIEW], true))
                         <form action="{{ route('admin.taxi.ride_requests.release_settlement', $ride) }}" method="POST" class="pt-1">
                             @csrf
                             <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline"
-                                    onclick="return confirm('Settlement vrijgeven? De rit wordt settlement-eligible (uitbetaling mogelijk).');">
-                                Settlement vrijgeven
+                                    onclick="return confirm({{ \Illuminate\Support\Js::from(__('Settlement vrijgeven? De rit wordt settlement-eligible (uitbetaling mogelijk).')) }});">
+                                {{ __('Settlement vrijgeven') }}
                             </button>
                         </form>
                     @endif
                 @endcan
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Voertuig:</span><span class="flex-1">{{ $ride->vehicle?->name ?? '—' }}</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Chauffeur:</span><span class="flex-1">{{ $ride->driver ? $ride->driver->first_name . ' ' . $ride->driver->last_name : '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Voertuig:') }}</span><span class="flex-1">{{ $ride->vehicle?->name ?? '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Chauffeur:') }}</span><span class="flex-1">{{ $ride->driver ? $ride->driver->first_name . ' ' . $ride->driver->last_name : '—' }}</span></p>
                 @if(!empty($rideRating['rated']) && !empty($rideRating['stars']))
-                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Beoordeling:</span><span class="flex-1">{{ str_repeat('★', (int) $rideRating['stars']) }}{{ str_repeat('☆', max(0, 5 - (int) $rideRating['stars'])) }}@if(!empty($rideRating['comment'])) — {{ $rideRating['comment'] }}@endif</span></p>
+                    <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Beoordeling:') }}</span><span class="flex-1">{{ str_repeat('★', (int) $rideRating['stars']) }}{{ str_repeat('☆', max(0, 5 - (int) $rideRating['stars'])) }}@if(!empty($rideRating['comment'])) — {{ $rideRating['comment'] }}@endif</span></p>
                 @endif
             </div>
         </div>
@@ -245,41 +245,41 @@
         $assignmentEditable = ! $ride->hasBeenDriven() && ($ride->vehicle_id || $ride->driver_id);
     @endphp
     <div class="kt-card w-full min-w-0 mt-5">
-        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ $assignmentEditable ? 'Toewijzen' : 'Toewijzing' }}</h3></div>
+        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ $assignmentEditable ? __('Toewijzen') : __('Toewijzing') }}</h3></div>
         <div class="kt-card-content p-5{{ $assignmentEditable ? '' : ' space-y-3 text-sm admin-detail-field-list' }}">
             @if(! $assignmentEditable)
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Voertuig:</span><span class="flex-1">{{ $ride->vehicle?->name ?: '—' }}</span></p>
-                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">Chauffeur:</span><span class="flex-1">{{ $ride->driver ? trim($ride->driver->first_name.' '.$ride->driver->last_name) : '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Voertuig:') }}</span><span class="flex-1">{{ $ride->vehicle?->name ?: '—' }}</span></p>
+                <p class="flex items-start gap-2"><span class="text-muted-foreground w-28 shrink-0">{{ __('Chauffeur:') }}</span><span class="flex-1">{{ $ride->driver ? trim($ride->driver->first_name.' '.$ride->driver->last_name) : '—' }}</span></p>
             @else
             <form action="{{ route('admin.taxi.ride_requests.assign', $ride) }}" method="POST" class="flex flex-col sm:flex-row flex-wrap gap-4 items-stretch sm:items-end w-full min-w-0">
                 @csrf
                 <div class="flex flex-col gap-2.5 flex-1 min-w-[12rem]">
-                    <label class="kt-form-label">Voertuig</label>
+                    <label class="kt-form-label">{{ __('Voertuig') }}</label>
                     <select name="vehicle_id" class="kt-input w-full max-w-md">
-                        <option value="">— Geen —</option>
+                        <option value="">{{ __('— Geen —') }}</option>
                         @foreach($vehicles as $v)
                             <option value="{{ $v->id }}" {{ $ride->vehicle_id == $v->id ? 'selected' : '' }}>{{ $v->name }}</option>
                         @endforeach
                     </select>
                 </div>
                 <div class="flex flex-col gap-2.5 flex-1 min-w-[12rem]">
-                    <label class="kt-form-label">Chauffeur</label>
+                    <label class="kt-form-label">{{ __('Chauffeur') }}</label>
                     <select name="driver_id" class="kt-input w-full max-w-md">
-                        <option value="">— Geen —</option>
+                        <option value="">{{ __('— Geen —') }}</option>
                         @foreach($drivers as $d)
                             <option value="{{ $d->id }}" {{ $ride->driver_id == $d->id ? 'selected' : '' }}>{{ $d->first_name }} {{ $d->last_name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto shrink-0">Toewijzing opslaan</button>
+                <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto shrink-0">{{ __('Toewijzing opslaan') }}</button>
             </form>
             @endif
         </div>
     </div>
     <div class="kt-card w-full min-w-0 mt-5">
-        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Communicatie</h3></div>
+        <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ __('Communicatie') }}</h3></div>
         <div class="kt-card-content p-5">
-            <p class="text-sm text-muted-foreground mb-2">Kopieer onderstaande tekst voor WhatsApp of e-mail naar de klant.</p>
+            <p class="text-sm text-muted-foreground mb-2">{{ __('Kopieer onderstaande tekst voor WhatsApp of e-mail naar de klant.') }}</p>
             <textarea readonly class="kt-input w-full font-mono text-sm resize-y pt-1" rows="8" id="whatsapp-text" style="min-height: 12rem !important; height: auto !important; box-sizing: border-box;">Rit {{ $ride->pickup_at->format('d-m-Y H:i') }}
 Ophalen: {{ $ride->pickup_address }}
 @foreach(($stopoverAddresses ?? $ride->stopover_addresses) as $stopIndex => $stopAddress)
@@ -289,7 +289,7 @@ Afzetten: {{ $ride->dropoff_address }}
 @if($ride->quoted_price)Geschatte prijs: € {{ number_format($ride->quoted_price, 2, ',', '.') }}
 @endif
 – Nexa Taxi</textarea>
-            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline mt-2" onclick="navigator.clipboard.writeText(document.getElementById('whatsapp-text').value); this.textContent='Gekopieerd!'; setTimeout(() => this.textContent='Kopieer WhatsApp-tekst', 2000);">Kopieer WhatsApp-tekst</button>
+            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline mt-2" onclick="navigator.clipboard.writeText(document.getElementById('whatsapp-text').value); this.textContent={{ \Illuminate\Support\Js::from(__('Gekopieerd!')) }}; setTimeout(() => this.textContent={{ \Illuminate\Support\Js::from(__('Kopieer WhatsApp-tekst')) }}, 2000);">{{ __('Kopieer WhatsApp-tekst') }}</button>
         </div>
     </div>
     @endcan
@@ -370,10 +370,10 @@ window.initRideTrackMap = function () {
         zoomControl: true
     });
     if (pickup) {
-        new google.maps.Marker({ position: pickup, map: map, label: 'A', title: track.pickup_address || 'Ophalen' });
+        new google.maps.Marker({ position: pickup, map: map, label: 'A', title: track.pickup_address || @json(__('Ophalen')) });
     }
     if (dropoff) {
-        new google.maps.Marker({ position: dropoff, map: map, label: 'B', title: track.dropoff_address || 'Afzetten' });
+        new google.maps.Marker({ position: dropoff, map: map, label: 'B', title: track.dropoff_address || @json(__('Afzetten')) });
     }
 
     var waypoints = [];

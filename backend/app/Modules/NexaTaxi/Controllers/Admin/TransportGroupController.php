@@ -117,7 +117,7 @@ class TransportGroupController extends Controller
         }
 
         return redirect($showUrl)
-            ->with('success', 'Groep aangemaakt. Voeg nu passagiers toe.');
+            ->with('success', __('Groep aangemaakt. Voeg nu passagiers toe.'));
     }
 
     public function show(Request $request, int $customerId, int $contractId, int $groupId)
@@ -254,7 +254,7 @@ class TransportGroupController extends Controller
             $showUrl = transport_admin_url_with_return($showUrl, $backUrl);
         }
 
-        $success = 'Groep opgeslagen.';
+        $success = __('Groep opgeslagen.');
         if ($routeMessage) {
             $success .= ' '.$routeMessage;
         }
@@ -277,7 +277,7 @@ class TransportGroupController extends Controller
         );
 
         return redirect($backUrl)
-            ->with('success', 'Groep gedeactiveerd.');
+            ->with('success', __('Groep gedeactiveerd.'));
     }
 
     public function memberStore(Request $request, int $customerId, int $contractId, int $groupId)
@@ -323,22 +323,22 @@ class TransportGroupController extends Controller
 
         if ($addedNames === [] && $skippedNames !== []) {
             throw ValidationException::withMessages([
-                'transport_passenger_id' => 'Geselecteerde passagiers zitten al in de groep.',
+                'transport_passenger_id' => __('Geselecteerde passagiers zitten al in de groep.'),
             ]);
         }
 
         if ($addedNames === []) {
             throw ValidationException::withMessages([
-                'transport_passenger_id' => 'Selecteer minimaal één geldige passagier.',
+                'transport_passenger_id' => __('Selecteer minimaal één geldige passagier.'),
             ]);
         }
 
         $success = count($addedNames) === 1
-            ? $addedNames[0].' toegevoegd aan de groep.'
-            : count($addedNames).' passagiers toegevoegd aan de groep.';
+            ? __(':name toegevoegd aan de groep.', ['name' => $addedNames[0]])
+            : __(':count passagiers toegevoegd aan de groep.', ['count' => count($addedNames)]);
 
         if ($skippedNames !== []) {
-            $success .= ' '.count($skippedNames).' overgeslagen (al lid).';
+            $success .= ' '.__(':count overgeslagen (al lid).', ['count' => count($skippedNames)]);
         }
 
         $routeMessage = $this->refreshRouteAfterMemberChange($conn, $group);
@@ -398,14 +398,14 @@ class TransportGroupController extends Controller
                 $customer,
                 $contract,
                 $group,
-                'Lidmaatschap was al beëindigd.'
+                __('Lidmaatschap was al beëindigd.')
             );
         }
 
         // valid_until is inclusief: einddatum = gisteren zodat lid direct uit actieve lijst verdwijnt.
         $member->update(['valid_until' => now()->subDay()->toDateString()]);
 
-        $success = 'Passagier uit groep gehaald. Historie blijft bewaard.';
+        $success = __('Passagier uit groep gehaald. Historie blijft bewaard.');
         $routeMessage = $this->refreshRouteAfterMemberChange($conn, $group);
         if ($routeMessage) {
             $success .= ' '.$routeMessage;
@@ -481,7 +481,7 @@ class TransportGroupController extends Controller
 
         if ($request->boolean('has_return_trip') && empty($data['return_pickup_time'])) {
             throw ValidationException::withMessages([
-                'return_pickup_time' => 'Vul de ophaaltijd voor de terugweg in.',
+                'return_pickup_time' => __('Vul de ophaaltijd voor de terugweg in.'),
             ]);
         }
 
@@ -722,7 +722,7 @@ class TransportGroupController extends Controller
             return null;
         }
 
-        $message = $result['message'] ?? 'Route automatisch herberekend.';
+        $message = $result['message'] ?? __('Route automatisch herberekend.');
         $warnings = $result['warnings'] ?? [];
         if ($warnings !== []) {
             $message .= ' '.implode(' ', $warnings);
@@ -737,7 +737,7 @@ class TransportGroupController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 }

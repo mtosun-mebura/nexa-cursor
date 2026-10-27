@@ -75,14 +75,14 @@
                 <a class="kt-dropdown-menu-link" href="{{ route('admin.dashboard') }}">
                     <i class="ki-filled ki-element-11">
                     </i>
-                    Dashboard
+                    {{ __('Dashboard') }}
                 </a>
             </li>
             <li>
                 <a class="kt-dropdown-menu-link" href="{{ route('admin.profile') }}">
                     <i class="ki-filled ki-profile-circle">
                     </i>
-                    Mijn Profiel
+                    {{ __('Mijn Profiel') }}
                 </a>
             </li>
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('view-agenda'))
@@ -90,7 +90,7 @@
                 <a class="kt-dropdown-menu-link" href="{{ route('admin.agenda.index') }}">
                     <i class="ki-filled ki-calendar">
                     </i>
-                    Agenda
+                    {{ __('Agenda') }}
                 </a>
             </li>
             @endif
@@ -99,7 +99,7 @@
                 <a class="kt-dropdown-menu-link" href="{{ route('admin.subscriptions.show') }}">
                     <i class="ki-filled ki-bill">
                     </i>
-                    Abonnement
+                    {{ __('Abonnement') }}
                 </a>
             </li>
             @endif
@@ -108,7 +108,7 @@
                 <a class="kt-dropdown-menu-link" href="{{ route('admin.companies.show', auth()->user()->company_id) }}">
                     <i class="ki-filled ki-abstract-26">
                     </i>
-                    Bedrijfsprofiel
+                    {{ __('Bedrijfsprofiel') }}
                 </a>
             </li>
             @endif
@@ -123,7 +123,7 @@
                     <i class="ki-filled ki-moon text-base text-muted-foreground">
                     </i>
                     <span class="text-2sm font-medium">
-                        Dark Mode
+                        {{ __('Dark Mode') }}
                     </span>
                 </span>
                 <input class="kt-switch" data-kt-theme-switch-state="dark" data-kt-theme-switch-toggle="true"
@@ -132,7 +132,7 @@
             <form method="POST" action="{{ route('admin.logout') }}">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline w-full justify-center">
-                    Uitloggen
+                    {{ __('Uitloggen') }}
                 </button>
             </form>
         </div>

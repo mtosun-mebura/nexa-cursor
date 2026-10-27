@@ -876,6 +876,86 @@ class NexaSuiteMarketplaceTest extends TestCase
     }
 
     #[Test]
+    public function super_admin_can_save_fee_minimum_settings_with_inline_validation(): void
+    {
+        $user = User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+        $base = [
+            'fee_percent' => 10,
+            'billing_day' => 2,
+            'billing_time' => '07:00',
+            'tax_rate_percent' => 21,
+            'payment_terms_days' => 14,
+            'dunning_first_interval_days' => 1,
+            'dunning_interval_days' => 14,
+            'invoice_number_prefix' => 'NSB',
+        ];
+
+        $this->actingAs($user)
+            ->get(route('admin.nexa-suite-bookings.settings'))
+            ->assertOk()
+            ->assertSee('Minimale fee (Mollie-kosten)', false)
+            ->assertSee('name="fee_methods[ideal][fixed]"', false);
+
+        $this->actingAs($user)
+            ->from(route('admin.nexa-suite-bookings.settings'))
+            ->put(route('admin.nexa-suite-bookings.settings.update'), $base + ['payout_fixed' => -1])
+            ->assertSessionHasErrors('payout_fixed');
+
+        $this->actingAs($user)
+            ->put(route('admin.nexa-suite-bookings.settings.update'), $base + [
+                'fee_minimum_enabled' => 1,
+                'payout_fixed' => '0.40',
+                'margin_fixed' => '0.05',
+                'margin_percent' => '0',
+                'fee_methods' => ['ideal' => ['fixed' => '0.35', 'percent' => '0']],
+            ])
+            ->assertRedirect(route('admin.nexa-suite-bookings.settings'));
+
+        $cfg = app(\App\Services\Payout\MarketplaceFeeCalculator::class)->config();
+        $this->assertSame(0.40, $cfg['payout_fixed']);
+        $this->assertSame(0.35, $cfg['methods']['ideal']['fixed']);
+        $this->assertSame(1.8, $cfg['methods']['creditcard']['percent']);
+        // iDEAL 0,35 + 0,40 + 0,05 = 0,80 > 10% van €5.
+        $this->assertSame(0.80, app(\App\Services\Payout\MarketplaceFeeCalculator::class)->calculate(5.0, 'ideal')['fee']);
+    }
+
+    #[Test]
+    public function settings_page_shows_live_fee_overview_with_default_settings(): void
+    {
+        $user = User::factory()->create(['company_id' => null]);
+        $user->assignRole('super-admin');
+        NexaSuiteMarketplaceSetting::current()->update(['fee_percent' => 10]);
+
+        $this->actingAs($user)
+            ->get(route('admin.nexa-suite-bookings.settings'))
+            ->assertOk()
+            ->assertSee('Overzicht fee en wat je overhoudt', false)
+            ->assertSee('Bedragen excl. btw', false)
+            // €15 iDEAL: fee 1,50 − (0,32 + 0,25) = 0,93 (6,2% van de rit).
+            ->assertSee('€0,93', false)
+            ->assertSee('6,2% van de rit', false)
+            // €15 kaart: 1,50 − (0,52 + 0,25) = 0,73.
+            ->assertSee('€0,73', false)
+            // €100 kaart: 10,00 − (2,05 + 0,25) = 7,70.
+            ->assertSee('€7,70', false)
+            ->assertDontSee('eigen bedrag', false);
+
+        // Eigen bedrag €3: minimum iDEAL 0,57 = kosten, dus houdt €0,00 over.
+        $this->actingAs($user)
+            ->get(route('admin.nexa-suite-bookings.settings', ['bedrag' => '3,00']))
+            ->assertOk()
+            ->assertSee('eigen bedrag', false)
+            ->assertSee('minimum', false)
+            ->assertSee('€0,57', false);
+
+        $this->actingAs($user)
+            ->get(route('admin.nexa-suite-bookings.settings', ['bedrag' => 'abc']))
+            ->assertOk()
+            ->assertSee('Vul een bedrag in tussen', false);
+    }
+
+    #[Test]
     public function period_filter_accepts_month_picker_display_format(): void
     {
         $user = User::factory()->create(['company_id' => null]);

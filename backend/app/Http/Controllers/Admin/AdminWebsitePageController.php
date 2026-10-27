@@ -117,7 +117,7 @@ class AdminWebsitePageController extends Controller
 
         return redirect()
             ->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))
-            ->with('success', 'Volgorde bijgewerkt.');
+            ->with('success', __('Volgorde bijgewerkt.'));
     }
 
     /**
@@ -144,8 +144,8 @@ class AdminWebsitePageController extends Controller
         return redirect()
             ->route('admin.website-pages.index', array_merge($this->websitePagesIndexQuery($request), ['saved' => 1]))
             ->with('success', $isActive
-                ? 'Pagina is nu actief en zichtbaar op de website.'
-                : 'Pagina is nu inactief (niet zichtbaar op de website).');
+                ? __('Pagina is nu actief en zichtbaar op de website.')
+                : __('Pagina is nu inactief (niet zichtbaar op de website).'));
     }
 
     /**
@@ -163,7 +163,7 @@ class AdminWebsitePageController extends Controller
         if ($pages->isEmpty()) {
             return redirect()
                 ->route('admin.website-pages.index', $indexQuery)
-                ->with('error', 'Geen pagina\'s om te wijzigen.');
+                ->with('error', __("Geen pagina's om te wijzigen."));
         }
 
         $isActive = $request->boolean('is_active');
@@ -181,16 +181,16 @@ class AdminWebsitePageController extends Controller
 
         if ($updated === 0) {
             $msg = $isActive
-                ? 'Alle pagina\'s op deze lijst waren al actief.'
-                : 'Alle pagina\'s op deze lijst waren al inactief.';
+                ? __("Alle pagina's op deze lijst waren al actief.")
+                : __("Alle pagina's op deze lijst waren al inactief.");
         } elseif ($isActive) {
             $msg = $updated === 1
-                ? '1 pagina is nu actief en zichtbaar op de website.'
-                : $updated." pagina's zijn nu actief en zichtbaar op de website.";
+                ? __('1 pagina is nu actief en zichtbaar op de website.')
+                : __(":count pagina's zijn nu actief en zichtbaar op de website.", ['count' => $updated]);
         } else {
             $msg = $updated === 1
-                ? '1 pagina is nu inactief (niet zichtbaar op de website).'
-                : $updated." pagina's zijn nu inactief (niet zichtbaar op de website).";
+                ? __('1 pagina is nu inactief (niet zichtbaar op de website).')
+                : __(":count pagina's zijn nu inactief (niet zichtbaar op de website).", ['count' => $updated]);
         }
 
         return redirect()
@@ -209,7 +209,7 @@ class AdminWebsitePageController extends Controller
         if ($tenantCompanyId === null || $tenantCompanyId <= 0) {
             return redirect()
                 ->route('admin.website-pages.index', $indexQuery)
-                ->with('error', 'Kies eerst een tenant om de logo-instellingen in te stellen.');
+                ->with('error', __('Kies eerst een tenant om de logo-instellingen in te stellen.'));
         }
 
         $allowedSizes = $this->websiteBuilder->websiteLogoSizeChoices();
@@ -218,12 +218,12 @@ class AdminWebsitePageController extends Controller
             'website_logo_size' => ['required', 'integer', Rule::in($allowedSizes)],
             'website_logo_padding_left' => ['required', 'integer', Rule::in($allowedPadding)],
         ], [
-            'website_logo_size.required' => 'Kies een logogrootte.',
-            'website_logo_size.integer' => 'Logo grootte moet een getal zijn.',
-            'website_logo_size.in' => 'Kies een geldige logogrootte.',
-            'website_logo_padding_left.required' => 'Kies een padding links.',
-            'website_logo_padding_left.integer' => 'Padding links moet een getal zijn.',
-            'website_logo_padding_left.in' => 'Kies een geldige padding links.',
+            'website_logo_size.required' => __('Kies een logogrootte.'),
+            'website_logo_size.integer' => __('Logo grootte moet een getal zijn.'),
+            'website_logo_size.in' => __('Kies een geldige logogrootte.'),
+            'website_logo_padding_left.required' => __('Kies een padding links.'),
+            'website_logo_padding_left.integer' => __('Padding links moet een getal zijn.'),
+            'website_logo_padding_left.in' => __('Kies een geldige padding links.'),
         ]);
 
         GeneralSetting::set(
@@ -239,7 +239,7 @@ class AdminWebsitePageController extends Controller
 
         return redirect()
             ->route('admin.website-pages.index', array_merge($indexQuery, ['saved' => 1]))
-            ->with('success', 'Logo-instellingen voor de website opgeslagen.');
+            ->with('success', __('Logo-instellingen voor de website opgeslagen.'));
     }
 
     private function persistWebsitePageActiveState(WebsitePage $page, bool $isActive): void
@@ -315,8 +315,8 @@ class AdminWebsitePageController extends Controller
             'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], $companyIdRules), [
-            'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
-            'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
+            'slug.unique' => __('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.'),
+            'company_id.required' => __('Kies een bedrijf waaraan deze pagina wordt gekoppeld.'),
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $table = (new WebsitePage)->getTable();
@@ -374,7 +374,7 @@ class AdminWebsitePageController extends Controller
             $page = WebsitePage::create($data);
         }
 
-        return $this->redirectToWebsitePageBuilderV2($request, $page)->with('success', 'Pagina aangemaakt. Bouw de pagina verder in de visuele editor.');
+        return $this->redirectToWebsitePageBuilderV2($request, $page)->with('success', __('Pagina aangemaakt. Bouw de pagina verder in de visuele editor.'));
     }
 
     private function redirectToWebsitePageBuilderV2(Request $request, WebsitePage $page): \Illuminate\Http\RedirectResponse
@@ -773,7 +773,7 @@ class AdminWebsitePageController extends Controller
         if ($url === null) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Afbeelding genereren mislukt. Controleer of er een OpenAI-sleutel is ingesteld.',
+                'message' => __('Afbeelding genereren mislukt. Controleer of er een OpenAI-sleutel is ingesteld.'),
             ], 422);
         }
 
@@ -796,7 +796,7 @@ class AdminWebsitePageController extends Controller
         if ($pages->isEmpty()) {
             return redirect()
                 ->route('admin.website-pages.index', $indexQuery)
-                ->with('error', 'Geen pagina\'s om SEO-teksten voor te genereren.');
+                ->with('error', __("Geen pagina's om SEO-teksten voor te genereren."));
         }
 
         $updated = 0;
@@ -821,10 +821,10 @@ class AdminWebsitePageController extends Controller
         }
 
         $msg = $updated === 1
-            ? 'SEO-teksten gegenereerd voor 1 pagina.'
-            : 'SEO-teksten gegenereerd voor '.$updated." pagina's.";
+            ? __('SEO-teksten gegenereerd voor 1 pagina.')
+            : __("SEO-teksten gegenereerd voor :count pagina's.", ['count' => $updated]);
         if ($failed !== []) {
-            $msg .= ' Mislukt: '.implode(', ', $failed).'.';
+            $msg .= ' '.__('Mislukt: :pages.', ['pages' => implode(', ', $failed)]);
         }
 
         return redirect()
@@ -1641,8 +1641,8 @@ class AdminWebsitePageController extends Controller
             'show_in_menu' => 'boolean',
             'sort_order' => 'nullable|integer|min:0',
         ], $companyIdRules), [
-            'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
-            'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
+            'slug.unique' => __('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.'),
+            'company_id.required' => __('Kies een bedrijf waaraan deze pagina wordt gekoppeld.'),
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $table = $website_page->getTable();
@@ -1789,7 +1789,7 @@ class AdminWebsitePageController extends Controller
 
             return redirect()->back()
                 ->withInput()
-                ->withErrors(['home_sections' => 'Opslaan mislukt: '.$e->getMessage()]);
+                ->withErrors(['home_sections' => __('Opslaan mislukt: :error', ['error' => $e->getMessage()])]);
         }
         $editUrl = route('admin.website-pages.edit', $website_page);
         $separator = '?';
@@ -1803,7 +1803,7 @@ class AdminWebsitePageController extends Controller
             $editUrl .= '&'.http_build_query($wizardQ);
         }
 
-        return redirect($editUrl)->with('success', 'Pagina bijgewerkt.');
+        return redirect($editUrl)->with('success', __('Pagina bijgewerkt.'));
     }
 
     /**
@@ -3501,9 +3501,9 @@ class AdminWebsitePageController extends Controller
         $request->validate([
             'logo' => 'required|file|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ], [
-            'logo.required' => 'Selecteer een logo bestand.',
-            'logo.mimes' => 'Alleen JPEG, PNG, JPG, GIF en SVG zijn toegestaan.',
-            'logo.max' => 'Het bestand mag maximaal 2MB groot zijn.',
+            'logo.required' => __('Selecteer een logo bestand.'),
+            'logo.mimes' => __('Alleen JPEG, PNG, JPG, GIF en SVG zijn toegestaan.'),
+            'logo.max' => __('Het bestand mag maximaal 2MB groot zijn.'),
         ]);
 
         $logoFile = $request->file('logo');
@@ -3533,8 +3533,8 @@ class AdminWebsitePageController extends Controller
         $file = $request->file('image') ?? $request->file('file');
         if (! $file) {
             return response()->json([
-                'message' => 'Geen bestand ontvangen. Selecteer een afbeelding (max. 5MB) of video (max. 15MB).',
-                'errors' => ['image' => ['Selecteer een afbeelding.']],
+                'message' => __('Geen bestand ontvangen. Selecteer een afbeelding (max. 5MB) of video (max. 15MB).'),
+                'errors' => ['image' => [__('Selecteer een afbeelding.')]],
             ], 422);
         }
         if (! $file->isValid()) {
@@ -3542,9 +3542,9 @@ class AdminWebsitePageController extends Controller
             if ($err === \UPLOAD_ERR_INI_SIZE || $err === \UPLOAD_ERR_FORM_SIZE) {
                 $uploadMax = ini_get('upload_max_filesize');
                 $postMax = ini_get('post_max_size');
-                $msg = 'Het bestand wordt door de server geweigerd (te groot). Serverlimiet: upload_max_filesize='.$uploadMax.', post_max_size='.$postMax.'. Stel in php.ini beide in op minimaal 6M en herstart de webserver.';
+                $msg = __('Het bestand wordt door de server geweigerd (te groot). Serverlimiet: upload_max_filesize=:upload, post_max_size=:post. Stel in php.ini beide in op minimaal 6M en herstart de webserver.', ['upload' => $uploadMax, 'post' => $postMax]);
             } else {
-                $msg = 'Upload mislukt. Probeer een kleiner bestand of controleer de serverinstellingen.';
+                $msg = __('Upload mislukt. Probeer een kleiner bestand of controleer de serverinstellingen.');
             }
 
             return response()->json([
@@ -3557,7 +3557,7 @@ class AdminWebsitePageController extends Controller
             ['previous_url' => 'nullable|string|max:500']
         );
         if ($validator->fails()) {
-            return response()->json(['message' => 'Validatie mislukt.', 'errors' => $validator->errors()], 422);
+            return response()->json(['message' => __('Validatie mislukt.'), 'errors' => $validator->errors()], 422);
         }
         $ext = strtolower($file->getClientOriginalExtension() ?: '');
         $allowedImageExt = ['jpeg', 'jpg', 'png', 'gif', 'webp'];
@@ -3565,8 +3565,8 @@ class AdminWebsitePageController extends Controller
         $isVideo = in_array($ext, $allowedVideoExt, true);
         if (! in_array($ext, $allowedImageExt, true) && ! $isVideo) {
             return response()->json([
-                'message' => 'Alleen JPEG, PNG, JPG, GIF, WebP, MP4, WebM en OGG zijn toegestaan.',
-                'errors' => ['image' => ['Alleen JPEG, PNG, JPG, GIF, WebP, MP4, WebM en OGG zijn toegestaan.']],
+                'message' => __('Alleen JPEG, PNG, JPG, GIF, WebP, MP4, WebM en OGG zijn toegestaan.'),
+                'errors' => ['image' => [__('Alleen JPEG, PNG, JPG, GIF, WebP, MP4, WebM en OGG zijn toegestaan.')]],
             ], 422);
         }
         $maxKb = $isVideo ? 15360 : 5120;
@@ -3574,8 +3574,8 @@ class AdminWebsitePageController extends Controller
             $limitLabel = $isVideo ? '15MB' : '5MB';
 
             return response()->json([
-                'message' => 'Het bestand mag maximaal '.$limitLabel.' groot zijn.',
-                'errors' => ['image' => ['Het bestand mag maximaal '.$limitLabel.' groot zijn.']],
+                'message' => __('Het bestand mag maximaal :limit groot zijn.', ['limit' => $limitLabel]),
+                'errors' => ['image' => [__('Het bestand mag maximaal :limit groot zijn.', ['limit' => $limitLabel])]],
             ], 422);
         }
 
@@ -3610,9 +3610,9 @@ class AdminWebsitePageController extends Controller
         $request->validate([
             'document' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv|max:10240',
         ], [
-            'document.required' => 'Selecteer een document.',
-            'document.mimes' => 'Toegestaan: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV.',
-            'document.max' => 'Maximaal 10MB.',
+            'document.required' => __('Selecteer een document.'),
+            'document.mimes' => __('Toegestaan: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV.'),
+            'document.max' => __('Maximaal 10MB.'),
         ]);
 
         $file = $request->file('document');
@@ -3637,7 +3637,7 @@ class AdminWebsitePageController extends Controller
         $this->ensureSuperAdmin();
         $website_page->delete();
 
-        return redirect()->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))->with('success', 'Pagina verwijderd.');
+        return redirect()->route('admin.website-pages.index', $this->websitePagesIndexQuery($request))->with('success', __('Pagina verwijderd.'));
     }
 
     /**
@@ -3672,7 +3672,7 @@ class AdminWebsitePageController extends Controller
                     $query->where('id', '!=', $ignoreId);
                 }
                 if ($query->exists()) {
-                    $fail('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.');
+                    $fail(__('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.'));
                 }
             };
         }
@@ -4059,7 +4059,7 @@ class AdminWebsitePageController extends Controller
         $bookingSetupNotice = null;
         if ($pageCompany && $taxiSetup->appliesTo($pageCompany) && ! $taxiSetup->isBookingModuleAllowed($pageCompany)) {
             $bookingSetupNotice = $taxiSetup->status($pageCompany, auth()->user())['booking_block_message']
-                ?? 'Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.';
+                ?? __('Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.');
             $catalogComponents = array_values(array_filter(
                 $catalogComponents,
                 fn (array $c) => ! $taxiSetup->isBookingComponentId((string) ($c['id'] ?? ''))
@@ -4127,7 +4127,12 @@ class AdminWebsitePageController extends Controller
             'homeSections' => $homeSections,
             'defaults' => $defaults,
             'catalog' => [
-                'sections' => WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug),
+                'sections' => array_map(
+                    static fn ($sectionType) => is_array($sectionType) && isset($sectionType['label']) && is_string($sectionType['label'])
+                        ? array_merge($sectionType, ['label' => __($sectionType['label'])])
+                        : $sectionType,
+                    WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlug)
+                ),
                 'components' => $catalogComponents,
                 'disabledComponents' => $disabledCatalogComponents,
             ],
@@ -4214,8 +4219,8 @@ class AdminWebsitePageController extends Controller
                 'show_in_menu' => 'boolean',
                 'sort_order' => 'nullable|integer|min:0',
             ], $companyIdRules), [
-                'slug.unique' => 'Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.',
-                'company_id.required' => 'Kies een bedrijf waaraan deze pagina wordt gekoppeld.',
+                'slug.unique' => __('Deze slug wordt al gebruikt voor dit bedrijf binnen deze module. Kies een andere slug.'),
+                'company_id.required' => __('Kies een bedrijf waaraan deze pagina wordt gekoppeld.'),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -4280,7 +4285,7 @@ class AdminWebsitePageController extends Controller
 
             return response()->json([
                 'ok' => false,
-                'message' => 'Opslaan mislukt: '.$e->getMessage(),
+                'message' => __('Opslaan mislukt: :error', ['error' => $e->getMessage()]),
             ], 422);
         }
 
@@ -4289,7 +4294,7 @@ class AdminWebsitePageController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => 'Pagina-informatie opgeslagen.',
+            'message' => __('Pagina-informatie opgeslagen.'),
             'pageMeta' => $this->buildPageMetaPayloadForBuilder($request, $fresh),
             'page' => [
                 'title' => (string) $fresh->title,
@@ -4440,7 +4445,7 @@ class AdminWebsitePageController extends Controller
                 return response()->json([
                     'ok' => false,
                     'message' => $taxiSetup->status($pageCompany, auth()->user())['booking_block_message']
-                        ?? 'Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.',
+                        ?? __('Voeg eerst een voertuig toe voordat je de boekingsmodule plaatst.'),
                 ], 422);
             }
 
@@ -4461,13 +4466,13 @@ class AdminWebsitePageController extends Controller
 
             return response()->json([
                 'ok' => false,
-                'message' => 'Opslaan mislukt: '.$e->getMessage(),
+                'message' => __('Opslaan mislukt: :error', ['error' => $e->getMessage()]),
             ], 422);
         }
 
         return response()->json([
             'ok' => true,
-            'message' => 'Pagina opgeslagen.',
+            'message' => __('Pagina opgeslagen.'),
             'homeSections' => $website_page->fresh()->getHomeSections(),
         ]);
     }

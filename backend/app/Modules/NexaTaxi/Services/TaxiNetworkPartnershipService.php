@@ -60,8 +60,7 @@ class TaxiNetworkPartnershipService
         }
 
         throw new InvalidArgumentException(
-            'Alleen tenants met een betaald maandabonnement (Start, Pro of Business) mogen network-partners koppelen. '
-            .'Marketplace (alleen fee) kan wel als uitvoerder gekoppeld worden; over die ritten geldt de NEXA-fee.'
+            __('Alleen tenants met een betaald maandabonnement (Start, Pro of Business) mogen network-partners koppelen. Marketplace (alleen fee) kan wel als uitvoerder gekoppeld worden; over die ritten geldt de NEXA-fee.')
         );
     }
 
@@ -71,7 +70,7 @@ class TaxiNetworkPartnershipService
     public function ensureActiveInviteCode(int $companyId, ?User $actor = null, bool $forceRotate = false): TaxiNetworkInviteCode
     {
         if ($companyId <= 0) {
-            throw new InvalidArgumentException('Ongeldig bedrijf.');
+            throw new InvalidArgumentException(__('Ongeldig bedrijf.'));
         }
 
         $existing = TaxiNetworkInviteCode::query()
@@ -121,7 +120,7 @@ class TaxiNetworkPartnershipService
     {
         $code = $this->normalizeCode($rawCode);
         if ($code === '') {
-            throw new InvalidArgumentException('Vul een invite-code in.');
+            throw new InvalidArgumentException(__('Vul een invite-code in.'));
         }
 
         $invite = TaxiNetworkInviteCode::query()
@@ -129,18 +128,18 @@ class TaxiNetworkPartnershipService
             ->first();
 
         if (! $invite || ! $invite->isUsable()) {
-            throw new InvalidArgumentException('Deze invite-code is ongeldig of verlopen.');
+            throw new InvalidArgumentException(__('Deze invite-code is ongeldig of verlopen.'));
         }
 
         $partnerCompanyId = (int) $invite->company_id;
         if ($partnerCompanyId === $ownerCompanyId) {
-            throw new InvalidArgumentException('Je kunt je eigen invite-code niet gebruiken.');
+            throw new InvalidArgumentException(__('Je kunt je eigen invite-code niet gebruiken.'));
         }
 
         $this->assertCompanyCanInitiateNetworkPartnerships($ownerCompanyId);
 
         if (! Company::query()->whereKey($partnerCompanyId)->where('is_active', true)->exists()) {
-            throw new InvalidArgumentException('Dit partnerbedrijf is niet beschikbaar.');
+            throw new InvalidArgumentException(__('Dit partnerbedrijf is niet beschikbaar.'));
         }
 
         // Marketplace↔marketplace of marketplace-as-owner is al geblokkeerd via assert hierboven.
@@ -154,7 +153,7 @@ class TaxiNetworkPartnershipService
                 ->first();
 
             if ($existing?->status === TaxiNetworkPartnership::STATUS_ACCEPTED) {
-                throw new InvalidArgumentException('Deze partner is al gekoppeld.');
+                throw new InvalidArgumentException(__('Deze partner is al gekoppeld.'));
             }
 
             $autoAccept = (bool) $invite->auto_accept;
@@ -204,11 +203,11 @@ class TaxiNetworkPartnershipService
     public function acceptPartnership(TaxiNetworkPartnership $partnership, int $actingCompanyId, ?User $actor = null): TaxiNetworkPartnership
     {
         if ((int) $partnership->partner_company_id !== $actingCompanyId) {
-            throw new RuntimeException('Alleen de uitgenodigde partner mag dit verzoek accepteren.');
+            throw new RuntimeException(__('Alleen de uitgenodigde partner mag dit verzoek accepteren.'));
         }
 
         if (! $partnership->isPending()) {
-            throw new InvalidArgumentException('Dit verzoek is niet meer openstaand.');
+            throw new InvalidArgumentException(__('Dit verzoek is niet meer openstaand.'));
         }
 
         $partnership->forceFill([
@@ -227,11 +226,11 @@ class TaxiNetworkPartnershipService
     public function declinePartnership(TaxiNetworkPartnership $partnership, int $actingCompanyId, ?User $actor = null): TaxiNetworkPartnership
     {
         if ((int) $partnership->partner_company_id !== $actingCompanyId) {
-            throw new RuntimeException('Alleen de uitgenodigde partner mag dit verzoek afwijzen.');
+            throw new RuntimeException(__('Alleen de uitgenodigde partner mag dit verzoek afwijzen.'));
         }
 
         if (! $partnership->isPending()) {
-            throw new InvalidArgumentException('Dit verzoek is niet meer openstaand.');
+            throw new InvalidArgumentException(__('Dit verzoek is niet meer openstaand.'));
         }
 
         $partnership->forceFill([
@@ -249,14 +248,14 @@ class TaxiNetworkPartnershipService
         $partnerId = (int) $partnership->partner_company_id;
 
         if ($actingCompanyId !== $ownerId && $actingCompanyId !== $partnerId) {
-            throw new RuntimeException('Geen toegang tot deze koppeling.');
+            throw new RuntimeException(__('Geen toegang tot deze koppeling.'));
         }
 
         if (! in_array($partnership->status, [
             TaxiNetworkPartnership::STATUS_ACCEPTED,
             TaxiNetworkPartnership::STATUS_PENDING,
         ], true)) {
-            throw new InvalidArgumentException('Deze koppeling kan niet meer worden ingetrokken.');
+            throw new InvalidArgumentException(__('Deze koppeling kan niet meer worden ingetrokken.'));
         }
 
         $partnership->forceFill([

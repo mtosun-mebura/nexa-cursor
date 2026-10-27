@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Pipeline Template Bewerken - ' . $pipelineTemplate->name)
+@section('title', __('Pipeline Template Bewerken').' - '.$pipelineTemplate->name)
 
 @section('content')
 
@@ -9,9 +9,9 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
-            <h1 class="text-2xl font-semibold text-mono">Pipeline Template Bewerken</h1>
+            <h1 class="text-2xl font-semibold text-mono">{{ __('Pipeline Template Bewerken') }}</h1>
         </div>
     </div>
 
@@ -21,16 +21,16 @@
 
         <div class="kt-card mb-5">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Template Informatie</h3>
+                <h3 class="kt-card-title">{{ __('Template Informatie') }}</h3>
             </div>
             <div class="kt-card-content">
                 <div class="flex flex-col gap-4">
                     <div>
-                        <label class="kt-label mb-2">Naam</label>
+                        <label class="kt-label mb-2">{{ __('Naam') }}</label>
                         <input type="text" name="name" value="{{ old('name', $pipelineTemplate->name) }}" class="kt-input" required>
                     </div>
                     <div>
-                        <label class="kt-label mb-2">Beschrijving</label>
+                        <label class="kt-label mb-2">{{ __('Beschrijving') }}</label>
                         <textarea name="description" class="kt-input pt-1" rows="4">{{ old('description', $pipelineTemplate->description) }}</textarea>
                     </div>
                 </div>
@@ -39,8 +39,8 @@
 
         <div class="kt-card">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Stappen Configureren</h3>
-                <p class="text-sm text-muted-foreground mt-1">Schakel stappen in/uit en pas de volgorde aan</p>
+                <h3 class="kt-card-title">{{ __('Stappen Configureren') }}</h3>
+                <p class="text-sm text-muted-foreground mt-1">{{ __('Schakel stappen in/uit en pas de volgorde aan') }}</p>
             </div>
             <div class="kt-card-content">
                 <div id="stages-container" class="space-y-3">
@@ -64,7 +64,7 @@
                                            class="stage-toggle kt-switch kt-switch-sm" 
                                            data-stage-type="{{ $stageType->key }}"
                                            {{ $isEnabled ? 'checked' : '' }}>
-                                    <span class="text-sm font-medium text-muted-foreground">Inschakelen</span>
+                                    <span class="text-sm font-medium text-muted-foreground">{{ __('Inschakelen') }}</span>
                                 </div>
                                 
                                 <div class="flex-1">
@@ -72,7 +72,7 @@
                                         <h4 class="font-semibold text-base">{{ $stageType->default_label }}</h4>
                                         <span class="kt-badge kt-badge-sm kt-badge-outline">{{ $stageType->category }}</span>
                                         @if($stageType->can_schedule)
-                                            <span class="kt-badge kt-badge-sm kt-badge-info">Planbaar</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-info">{{ __('Planbaar') }}</span>
                                         @endif
                                     </div>
                                     <p class="text-sm text-muted-foreground mb-2">{{ $stageType->key }}</p>
@@ -80,7 +80,7 @@
                                     <div class="stage-config {{ $isEnabled ? '' : 'hidden' }}">
                                         <div class="flex flex-col gap-2">
                                             <div>
-                                                <label class="kt-label mb-1 text-sm">Label</label>
+                                                <label class="kt-label mb-1 text-sm">{{ __('Label') }}</label>
                                                 <input type="text" 
                                                        name="stages[{{ $stageType->key }}][label]" 
                                                        value="{{ $stageLabel }}" 
@@ -89,7 +89,7 @@
                                             </div>
                                             <div class="flex items-center gap-4">
                                                 <div>
-                                                    <label class="kt-label mb-1 text-sm">Volgorde</label>
+                                                    <label class="kt-label mb-1 text-sm">{{ __('Volgorde') }}</label>
                                                     <input type="number" 
                                                            name="stages[{{ $stageType->key }}][sequence]" 
                                                            value="{{ $stageSequence }}" 
@@ -102,7 +102,7 @@
                                                            class="kt-switch kt-switch-sm"
                                                            {{ $isOptional ? 'checked' : '' }}
                                                            {{ $isEnabled ? '' : 'disabled' }}>
-                                                    <label class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Optioneel</label>
+                                                    <label class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">{{ __('Optioneel') }}</label>
                                                 </div>
                                             </div>
                                         </div>
@@ -126,13 +126,13 @@
 
                 <div class="mt-6 pt-6 border-t border-border">
                     <div>
-                        <label class="kt-label mb-2">Terminale stappen (gescheiden door komma)</label>
+                        <label class="kt-label mb-2">{{ __('Terminale stappen (gescheiden door komma)') }}</label>
                         <input type="text" 
                                name="terminal_stages" 
                                value="{{ old('terminal_stages', implode(', ', $pipelineTemplate->terminal_stages ?? ['REJECTION', 'WITHDRAWN'])) }}" 
                                class="kt-input"
-                               placeholder="REJECTION, WITHDRAWN">
-                        <p class="text-xs text-muted-foreground mt-1">Stappen die het proces beëindigen</p>
+                               placeholder="{{ __('REJECTION, WITHDRAWN') }}">
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('Stappen die het proces beëindigen') }}</p>
                     </div>
                 </div>
             </div>
@@ -140,11 +140,11 @@
 
         <div class="flex items-center justify-end gap-3 mt-5">
             <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
-                Annuleren
+                {{ __('Annuleren') }}
             </a>
             <button type="submit" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-check me-2"></i>
-                Opslaan
+                {{ __('Opslaan') }}
             </button>
         </div>
     </form>

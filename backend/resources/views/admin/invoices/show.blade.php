@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Factuur Details')
+@section('title', __('Factuur Details'))
 
 @section('content')
 <div class="kt-container-fixed">
@@ -8,20 +8,20 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Factuur Details <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}{{ $invoice->is_partial && $invoice->partial_number ? '-' . $invoice->partial_number : '' }}</span>
+                {{ __('Factuur Details') }} <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}{{ $invoice->is_partial && $invoice->partial_number ? '-' . $invoice->partial_number : '' }}</span>
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Factuurdetails en betalingsinformatie
+                {{ __('Factuurdetails en betalingsinformatie') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ $invoiceBackUrl ?? route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left text-base me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
             <button type="button" class="kt-btn kt-btn-primary" onclick="window.print()">
                 <i class="ki-filled ki-printer text-base me-2"></i>
-                Printen
+                {{ __('Printen') }}
             </button>
         </div>
     </div>
@@ -32,7 +32,7 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Factuurdetails
+                        {{ __('Factuurdetails') }}
                     </h3>
                 </div>
                 <div class="kt-card-content p-5 lg:p-7.5">
@@ -58,37 +58,37 @@
                             </div>
                             <div class="text-right ml-auto pl-8">
                                 <div class="mb-2">
-                                    <span class="text-sm text-secondary-foreground">Status</span>
+                                    <span class="text-sm text-secondary-foreground">{{ __('Status') }}</span>
                                     <div class="mt-1">
                                         @if($invoice->status === 'paid')
                                             <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]">
-                                                Betaald
+                                                {{ __('Betaald') }}
                                             </span>
                                         @elseif($invoice->status === 'sent')
                                             <span class="kt-badge kt-badge-warning kt-badge-outline rounded-[30px]">
-                                                Verzonden
+                                                {{ __('Verzonden') }}
                                             </span>
                                         @elseif($invoice->status === 'in_progress')
                                             <span class="kt-badge kt-badge-info kt-badge-outline rounded-[30px]">
-                                                In behandeling
+                                                {{ __('In behandeling') }}
                                             </span>
                                         @elseif($invoice->status === 'overdue')
                                             <span class="kt-badge kt-badge-destructive kt-badge-outline rounded-[30px]">
-                                                Achterstallig
+                                                {{ __('Achterstallig') }}
                                             </span>
                                         @elseif($invoice->status === 'cancelled')
                                             <span class="kt-badge kt-badge-secondary kt-badge-outline rounded-[30px]">
-                                                Geannuleerd
+                                                {{ __('Geannuleerd') }}
                                             </span>
                                         @else
                                             <span class="kt-badge kt-badge-outline rounded-[30px]">
-                                                Concept
+                                                {{ __('Concept') }}
                                             </span>
                                         @endif
                                     </div>
                                 </div>
                                 <div>
-                                    <span class="text-sm text-secondary-foreground">Factuurdatum</span>
+                                    <span class="text-sm text-secondary-foreground">{{ __('Factuurdatum') }}</span>
                                     <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_date->format('d M Y') }}</p>
                                 </div>
                             </div>
@@ -96,11 +96,11 @@
                         
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <span class="text-sm text-secondary-foreground">Factuurnummer</span>
+                                <span class="text-sm text-secondary-foreground">{{ __('Factuurnummer') }}</span>
                                 <p class="text-sm font-semibold text-mono">{{ $invoice->invoice_number }}{{ $invoice->is_partial && $invoice->partial_number ? '-' . $invoice->partial_number : '' }}</p>
                             </div>
                             <div>
-                                <span class="text-sm text-secondary-foreground">Vervaldatum</span>
+                                <span class="text-sm text-secondary-foreground">{{ __('Vervaldatum') }}</span>
                                 <p class="text-sm font-semibold text-mono">{{ $invoice->due_date->format('d M Y') }}</p>
                             </div>
                         </div>
@@ -108,13 +108,13 @@
                         @if($invoice->jobMatch && $invoice->jobMatch->candidate)
                         <div class="grid grid-cols-2 gap-4 mt-4">
                             <div>
-                                <span class="text-sm text-secondary-foreground">Kandidaat</span>
+                                <span class="text-sm text-secondary-foreground">{{ __('Kandidaat') }}</span>
                                 <p class="text-sm font-semibold text-mono">
                                     {{ trim(($invoice->jobMatch->candidate->first_name ?? '') . ' ' . ($invoice->jobMatch->candidate->last_name ?? '')) }}
                                 </p>
                             </div>
                             <div>
-                                <span class="text-sm text-secondary-foreground">Vacature</span>
+                                <span class="text-sm text-secondary-foreground">{{ __('Vacature') }}</span>
                                 <p class="text-sm font-semibold text-mono">
                                     @if($invoice->jobMatch->vacancy)
                                         {{ $invoice->jobMatch->vacancy->title }}
@@ -128,7 +128,7 @@
 
                         @if($invoice->customer_name || $invoice->customer_email || $defaultReminderEmail)
                         <div class="border-t border-input pt-4">
-                            <h4 class="text-sm font-semibold text-mono mb-3">Klant</h4>
+                            <h4 class="text-sm font-semibold text-mono mb-3">{{ __('Klant') }}</h4>
                             <div class="flex flex-col gap-1">
                                 @if($invoice->customer_name)
                                     <p class="text-sm font-semibold text-mono">{{ $invoice->customer_name }}</p>
@@ -141,7 +141,7 @@
                         @endif
                         
                         <div class="border-t border-input pt-4">
-                            <h4 class="text-sm font-semibold text-mono mb-3">Bedrijf (facturant)</h4>
+                            <h4 class="text-sm font-semibold text-mono mb-3">{{ __('Bedrijf (facturant)') }}</h4>
                             <div class="flex flex-col gap-1">
                                 <p class="text-sm text-secondary-foreground">{{ $invoice->company->name ?? 'N/A' }}</p>
                                 @if($invoice->company)
@@ -152,7 +152,7 @@
                         </div>
                         
                         <div class="border-t border-input pt-4">
-                            <h4 class="text-sm font-semibold text-mono mb-3">Omschrijving</h4>
+                            <h4 class="text-sm font-semibold text-mono mb-3">{{ __('Omschrijving') }}</h4>
                             @php
                                 $description = 'Match fee';
                                 if ($invoice->line_items && is_array($invoice->line_items) && count($invoice->line_items) > 0) {
@@ -167,17 +167,17 @@
                             <div class="flex justify-end">
                                 <div class="flex flex-col gap-2 w-64">
                                     <div class="flex justify-between">
-                                        <span class="text-sm text-secondary-foreground">Subtotaal:</span>
+                                        <span class="text-sm text-secondary-foreground">{{ __('Subtotaal:') }}</span>
                                         <span class="text-sm font-semibold text-mono">€{{ number_format($invoice->amount, 2, ',', '.') }}</span>
                                     </div>
                                     @if($invoice->tax_amount > 0)
                                     <div class="flex justify-between">
-                                        <span class="text-sm text-secondary-foreground">BTW:</span>
+                                        <span class="text-sm text-secondary-foreground">{{ __('BTW:') }}</span>
                                         <span class="text-sm font-semibold text-mono">€{{ number_format($invoice->tax_amount, 2, ',', '.') }}</span>
                                     </div>
                                     @endif
                                     <div class="flex justify-between border-t border-input pt-2">
-                                        <span class="text-sm font-semibold text-mono">Totaal:</span>
+                                        <span class="text-sm font-semibold text-mono">{{ __('Totaal:') }}</span>
                                         <span class="text-sm font-semibold text-mono">€{{ number_format($invoice->total_amount, 2, ',', '.') }}</span>
                                     </div>
                                 </div>
@@ -186,7 +186,7 @@
                         
                         @if($invoice->notes)
                         <div class="border-t border-input pt-4">
-                            <h4 class="text-sm font-semibold text-mono mb-2">Opmerkingen</h4>
+                            <h4 class="text-sm font-semibold text-mono mb-2">{{ __('Opmerkingen') }}</h4>
                             <p class="text-sm text-secondary-foreground">{{ $invoice->notes }}</p>
                         </div>
                         @endif
@@ -208,7 +208,7 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Acties
+                        {{ __('Acties') }}
                     </h3>
                 </div>
                 <div class="kt-card-content flex flex-col gap-2.5 p-5">
@@ -217,7 +217,7 @@
                        target="_blank"
                        rel="noopener noreferrer">
                         <i class="ki-filled ki-file-down text-base me-2"></i>
-                        PDF genereren
+                        {{ __('PDF genereren') }}
                     </a>
 
                     @if($invoice->status !== 'paid')
@@ -225,25 +225,25 @@
                             @csrf
                             <div>
                                 <label for="reminder-email" class="text-xs font-medium text-secondary-foreground mb-1 block">
-                                    E-mail klant
+                                    {{ __('E-mail klant') }}
                                 </label>
                                 <input type="email"
                                        id="reminder-email"
                                        name="email"
                                        class="kt-input w-full @error('email') border-destructive @enderror"
                                        value="{{ old('email', $invoice->customer_email ?: $defaultReminderEmail) }}"
-                                       placeholder="klant@voorbeeld.nl"
+                                       placeholder="{{ __('klant@voorbeeld.nl') }}"
                                        required>
                                 @error('email')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <p class="text-xs text-muted-foreground mt-1">
-                                    Wordt opgeslagen op de factuur en gebruikt voor de aanmaning (met PDF-bijlage).
+                                    {{ __('Wordt opgeslagen op de factuur en gebruikt voor de aanmaning (met PDF-bijlage).') }}
                                 </p>
                             </div>
                             <button type="submit" class="kt-btn kt-btn-outline w-full justify-center">
                                 <i class="ki-filled ki-send text-base me-2"></i>
-                                Verstuur Aanmaning
+                                {{ __('Verstuur Aanmaning') }}
                             </button>
                         </form>
                     @endif
@@ -253,7 +253,7 @@
                             class="kt-btn kt-btn-outline w-full justify-center"
                             onclick="generatePaymentLinks(this)">
                         <i class="ki-filled ki-link text-base me-2"></i>
-                        <span class="btn-payment-links-label">Betaallinks</span>
+                        <span class="btn-payment-links-label">{{ __('Betaallinks') }}</span>
                     </button>
 
                     <div id="payment-links-panel" class="hidden rounded-lg border border-input bg-muted/30 p-3 text-sm" role="region" aria-live="polite">
@@ -264,7 +264,7 @@
                     
                     <a href="{{ route('admin.invoices.edit', $invoice->id) }}" class="kt-btn kt-btn-outline w-full justify-center">
                         <i class="ki-filled ki-notepad-edit text-base me-2"></i>
-                        Bewerken
+                        {{ __('Bewerken') }}
                     </a>
                 </div>
             </div>
@@ -272,7 +272,7 @@
             @if($invoice->reminders && $invoice->reminders->count() > 0)
             <div class="kt-card min-w-full mt-5">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Aanmaningen</h3>
+                    <h3 class="kt-card-title">{{ __('Aanmaningen') }}</h3>
                 </div>
                 <div class="kt-card-content flex flex-col gap-2.5 p-5">
                     @foreach($invoice->reminders->sortByDesc('sent_at') as $reminder)
@@ -292,7 +292,7 @@
             <div class="kt-card min-w-full mt-5">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Betalingen
+                        {{ __('Betalingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-content flex flex-col gap-2.5 p-5">
@@ -303,7 +303,7 @@
                             <span class="text-xs text-secondary-foreground">{{ $payment->paid_at ? $payment->paid_at->format('d M Y') : 'N/A' }}</span>
                         </div>
                         <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]">
-                            Betaald
+                            {{ __('Betaald') }}
                         </span>
                     </div>
                     @endforeach
@@ -322,14 +322,14 @@
         const intro = document.getElementById('payment-links-intro');
         const errorEl = document.getElementById('payment-links-error');
         const label = button ? button.querySelector('.btn-payment-links-label') : null;
-        const originalLabel = label ? label.textContent : 'Betaallinks';
+        const originalLabel = label ? label.textContent : @js(__('Betaallinks'));
 
         if (!panel || !list) {
             return;
         }
 
         if (label) {
-            label.textContent = 'Laden…';
+            label.textContent = @js(__('Laden…'));
         }
         if (button) {
             button.disabled = true;
@@ -337,7 +337,7 @@
         errorEl.classList.add('hidden');
         errorEl.textContent = '';
         list.innerHTML = '';
-        intro.textContent = 'Betaallinks worden opgehaald…';
+        intro.textContent = @js(__('Betaallinks worden opgehaald…'));
         panel.classList.remove('hidden');
 
         fetch('{{ route('admin.invoices.payment-links', $invoice->id) }}', {
@@ -346,16 +346,16 @@
         })
             .then(function (response) {
                 if (!response.ok) {
-                    throw new Error('Kon betaallinks niet ophalen (HTTP ' + response.status + ').');
+                    throw new Error(@js(__('Kon betaallinks niet ophalen (HTTP :status).')).replace(':status', response.status));
                 }
                 return response.json();
             })
             .then(function (data) {
-                intro.textContent = 'Factuur ' + (data.invoice_number || '') + ' · ' + (data.amount_label || '')
-                    + (data.is_paid ? ' · reeds betaald' : '');
+                intro.textContent = @js(__('Factuur')) + ' ' + (data.invoice_number || '') + ' · ' + (data.amount_label || '')
+                    + (data.is_paid ? ' · ' + @js(__('reeds betaald')) : '');
 
                 if (!data.links || !data.links.length) {
-                    list.innerHTML = '<p class="text-secondary-foreground text-xs">Geen betaallinks beschikbaar.</p>';
+                    list.innerHTML = '<p class="text-secondary-foreground text-xs">' + @js(__('Geen betaallinks beschikbaar.')) + '</p>';
                     return;
                 }
 
@@ -365,7 +365,7 @@
 
                     const title = document.createElement('span');
                     title.className = 'font-medium text-mono text-xs';
-                    title.textContent = item.label || 'Link';
+                    title.textContent = item.label || @js(__('Link'));
 
                     const link = document.createElement('a');
                     link.href = item.url;
@@ -380,7 +380,7 @@
                     const copyBtn = document.createElement('button');
                     copyBtn.type = 'button';
                     copyBtn.className = 'kt-btn kt-btn-outline kt-btn-sm';
-                    copyBtn.textContent = 'Kopiëren';
+                    copyBtn.textContent = @js(__('Kopiëren'));
                     copyBtn.addEventListener('click', function () {
                         copyPaymentLink(item.url, copyBtn);
                     });
@@ -390,7 +390,7 @@
                     openBtn.target = '_blank';
                     openBtn.rel = 'noopener noreferrer';
                     openBtn.className = 'kt-btn kt-btn-outline kt-btn-sm';
-                    openBtn.textContent = 'Openen';
+                    openBtn.textContent = @js(__('Openen'));
 
                     actions.appendChild(copyBtn);
                     actions.appendChild(openBtn);
@@ -412,7 +412,7 @@
             .catch(function (error) {
                 console.error('Error:', error);
                 intro.textContent = '';
-                errorEl.textContent = error.message || 'Er is een fout opgetreden bij het ophalen van betaallinks.';
+                errorEl.textContent = error.message || @js(__('Er is een fout opgetreden bij het ophalen van betaallinks.'));
                 errorEl.classList.remove('hidden');
             })
             .finally(function () {
@@ -428,7 +428,7 @@
     function copyPaymentLink(url, button) {
         const done = function () {
             const prev = button.textContent;
-            button.textContent = 'Gekopieerd';
+            button.textContent = @js(__('Gekopieerd'));
             setTimeout(function () {
                 button.textContent = prev;
             }, 1500);
@@ -436,10 +436,10 @@
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url).then(done).catch(function () {
-                window.prompt('Kopieer deze link:', url);
+                window.prompt(@js(__('Kopieer deze link:')), url);
             });
         } else {
-            window.prompt('Kopieer deze link:', url);
+            window.prompt(@js(__('Kopieer deze link:')), url);
         }
     }
 </script>

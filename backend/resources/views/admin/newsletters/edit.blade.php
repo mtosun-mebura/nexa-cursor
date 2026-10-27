@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', $isNew ? 'Nieuwsbrief designer' : 'Nieuwsbrief bewerken')
+@section('title', $isNew ? __('Nieuwsbrief designer') : __('Nieuwsbrief bewerken'))
 
 @include('admin.partials.ajax-action-button-styles')
 
@@ -16,23 +16,23 @@
         $features[] = ['title' => '', 'text' => '', 'image' => ''];
     }
     $stockLabels = [
-        'hero' => 'Platform',
-        'booking' => 'Boeken',
-        'driver' => 'Chauffeur',
-        'contract' => 'Contract',
-        'website' => 'Website',
-        'planning' => 'Planning',
+        'hero' => __('Platform'),
+        'booking' => __('Boeken'),
+        'driver' => __('Chauffeur'),
+        'contract' => __('Contract'),
+        'website' => __('Website'),
+        'planning' => __('Planning'),
     ];
 @endphp
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-3 pb-7.5">
         <div class="min-w-0">
-            <h1 class="text-xl font-medium leading-none text-mono">{{ $isNew ? 'Nieuwsbrief designer' : 'Nieuwsbrief bewerken' }}</h1>
-            <p class="text-sm text-muted-foreground mt-2 mb-0">Compacte wervende mail met website-plaatjes en een knop naar de contactpagina.</p>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ $isNew ? __('Nieuwsbrief designer') : __('Nieuwsbrief bewerken') }}</h1>
+            <p class="text-sm text-muted-foreground mt-2 mb-0">{{ __('Compacte wervende mail met website-plaatjes en een knop naar de contactpagina.') }}</p>
         </div>
         <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Overzicht
+            {{ __('Overzicht') }}
         </a>
     </div>
 
@@ -48,16 +48,16 @@
 
     <div class="kt-card mb-5 w-full min-w-0">
         <div class="kt-card-header px-5 py-5">
-            <h5 class="kt-card-title mb-0">AI schrijft de nieuwsbrief</h5>
+            <h5 class="kt-card-title mb-0">{{ __('AI schrijft de nieuwsbrief') }}</h5>
         </div>
         <div class="kt-card-content p-5 min-w-0">
-            <label for="ai-brief" class="kt-label mb-1">Opdracht (optioneel)</label>
-            <textarea id="ai-brief" class="kt-textarea w-full" rows="3" placeholder="Bijvoorbeeld: nadruk op contractvervoer in Utrecht en geen commissie."></textarea>
+            <label for="ai-brief" class="kt-label mb-1">{{ __('Opdracht (optioneel)') }}</label>
+            <textarea id="ai-brief" class="kt-textarea w-full" rows="3" placeholder="{{ __('Bijvoorbeeld: nadruk op contractvervoer in Utrecht en geen commissie.') }}"></textarea>
             <div class="flex flex-wrap items-center gap-2 mt-3">
                 <button type="button" id="ai-generate-btn" class="kt-btn kt-btn-primary admin-ajax-action-btn">
                     @include('admin.partials.ajax-action-spinner')
                     <i class="ki-filled ki-click admin-ajax-action-idle-icon me-2"></i>
-                    <span class="admin-ajax-action-label">Laat AI schrijven</span>
+                    <span class="admin-ajax-action-label">{{ __('Laat AI schrijven') }}</span>
                 </button>
                 <span id="ai-generate-status" class="text-sm text-muted-foreground"></span>
             </div>
@@ -78,35 +78,35 @@
             <div class="grid gap-5 min-w-0">
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Kop en intro</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Kop en intro') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 space-y-4 min-w-0">
                         <div>
-                            <label class="kt-label mb-1" for="name">Interne naam *</label>
+                            <label class="kt-label mb-1" for="name">{{ __('Interne naam *') }}</label>
                             <input type="text" id="name" name="name" class="kt-input w-full" required value="{{ old('name', $campaign->name) }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="subject">Onderwerpregel *</label>
+                            <label class="kt-label mb-1" for="subject">{{ __('Onderwerpregel *') }}</label>
                             <input type="text" id="subject" name="subject" class="kt-input w-full" required value="{{ old('subject', $campaign->subject) }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="preview_text">Inbox-preview</label>
+                            <label class="kt-label mb-1" for="preview_text">{{ __('Inbox-preview') }}</label>
                             <input type="text" id="preview_text" name="preview_text" class="kt-input w-full" value="{{ old('preview_text', $campaign->preview_text) }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="eyebrow">Eyebrow</label>
+                            <label class="kt-label mb-1" for="eyebrow">{{ __('Eyebrow') }}</label>
                             <input type="text" id="eyebrow" name="eyebrow" class="kt-input w-full" value="{{ old('eyebrow', $b['eyebrow'] ?? '') }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="title">Kop *</label>
+                            <label class="kt-label mb-1" for="title">{{ __('Kop *') }}</label>
                             <input type="text" id="title" name="title" class="kt-input w-full" required value="{{ old('title', $b['title'] ?? '') }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="intro">Intro *</label>
+                            <label class="kt-label mb-1" for="intro">{{ __('Intro *') }}</label>
                             <textarea id="intro" name="intro" class="kt-textarea w-full" rows="5" required>{{ old('intro', $b['intro'] ?? '') }}</textarea>
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="highlight">Uitgelichte regel</label>
+                            <label class="kt-label mb-1" for="highlight">{{ __('Uitgelichte regel') }}</label>
                             <textarea id="highlight" name="highlight" class="kt-textarea w-full" rows="2">{{ old('highlight', $b['highlight'] ?? '') }}</textarea>
                         </div>
                     </div>
@@ -114,7 +114,7 @@
 
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Hero-plaatje</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Hero-plaatje') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 min-w-0">
                         <input type="hidden" id="hero_image" name="hero_image" class="nl-image-input" value="{{ old('hero_image', $b['hero_image'] ?? '') }}">
@@ -125,18 +125,18 @@
                                 </button>
                             @endforeach
                         </div>
-                        <p class="text-xs text-muted-foreground mt-2 mb-0">Klik een plaatje uit de website-bibliotheek.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Klik een plaatje uit de website-bibliotheek.') }}</p>
                     </div>
                 </div>
 
                 @foreach($features as $i => $feature)
                     <div class="kt-card w-full min-w-0">
                         <div class="kt-card-header px-5 py-5">
-                            <h5 class="kt-card-title mb-0">Voordeel {{ $i + 1 }}</h5>
+                            <h5 class="kt-card-title mb-0">{{ __('Voordeel :i', ['i' => $i + 1]) }}</h5>
                         </div>
                         <div class="kt-card-content p-5 space-y-3 min-w-0">
-                            <input type="text" name="features[{{ $i }}][title]" class="kt-input w-full" placeholder="Titel" value="{{ $feature['title'] ?? '' }}">
-                            <textarea name="features[{{ $i }}][text]" class="kt-textarea w-full" rows="3" placeholder="Korte overtuigende zin">{{ $feature['text'] ?? '' }}</textarea>
+                            <input type="text" name="features[{{ $i }}][title]" class="kt-input w-full" placeholder="{{ __('Titel') }}" value="{{ $feature['title'] ?? '' }}">
+                            <textarea name="features[{{ $i }}][text]" class="kt-textarea w-full" rows="3" placeholder="{{ __('Korte overtuigende zin') }}">{{ $feature['text'] ?? '' }}</textarea>
                             <input type="hidden" id="feature_image_{{ $i }}" name="features[{{ $i }}][image]" class="nl-image-input" value="{{ $feature['image'] ?? '' }}">
                             <div class="flex flex-wrap gap-2" data-image-target="feature_image_{{ $i }}">
                                 @foreach($stockImages as $key => $url)
@@ -151,17 +151,17 @@
 
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Aanmelden</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Aanmelden') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 space-y-3 min-w-0">
                         <div>
-                            <label class="kt-label mb-1" for="cta_label">Knoptekst *</label>
+                            <label class="kt-label mb-1" for="cta_label">{{ __('Knoptekst *') }}</label>
                             <input type="text" id="cta_label" name="cta_label" class="kt-input w-full" required value="{{ old('cta_label', $b['cta_label'] ?? 'Aanmelden via contact') }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="cta_url">Link</label>
+                            <label class="kt-label mb-1" for="cta_url">{{ __('Link') }}</label>
                             <input type="text" id="cta_url" name="cta_url" class="kt-input w-full" value="{{ old('cta_url', $b['cta_url'] ?? '/contact') }}">
-                            <p class="text-xs text-muted-foreground mt-1 mb-0">Standaard de contactpagina. Onderaan de mail staat altijd een afmeldlink.</p>
+                            <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Standaard de contactpagina. Onderaan de mail staat altijd een afmeldlink.') }}</p>
                         </div>
                     </div>
                 </div>
@@ -169,7 +169,7 @@
                 <div class="admin-form-actions flex flex-wrap items-center gap-2.5 w-full min-w-0">
                     <button type="submit" class="kt-btn kt-btn-primary">
                         <i class="ki-filled ki-check me-2"></i>
-                        Opslaan
+                        {{ __('Opslaan') }}
                     </button>
                 </div>
             </div>
@@ -177,12 +177,12 @@
             <div class="min-w-0">
                 <div class="kt-card w-full min-w-0 xl:sticky xl:top-24">
                     <div class="kt-card-header px-5 py-5 flex items-center justify-between gap-3">
-                        <h5 class="kt-card-title mb-0">Voorbeeld</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Voorbeeld') }}</h5>
                         <button type="button"
                                 id="newsletter-preview-expand"
                                 class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-primary shrink-0"
-                                title="Voorbeeld tonen"
-                                aria-label="Voorbeeld tonen"
+                                title="{{ __('Voorbeeld tonen') }}"
+                                aria-label="{{ __('Voorbeeld tonen') }}"
                                 aria-controls="newsletter-preview-modal"
                                 aria-expanded="false">
                             <i class="ki-filled ki-eye text-base" aria-hidden="true"></i>
@@ -190,7 +190,7 @@
                     </div>
                     <div class="kt-card-content p-3 sm:p-5 min-w-0">
                         <iframe id="newsletter-preview"
-                                title="Voorbeeld nieuwsbrief"
+                                title="{{ __('Voorbeeld nieuwsbrief') }}"
                                 class="newsletter-preview-frame w-full bg-white border border-border rounded-lg"
                                 style="color-scheme:light;"></iframe>
                     </div>
@@ -209,24 +209,24 @@
     <button type="button"
             class="newsletter-preview-modal__backdrop"
             data-newsletter-preview-dismiss
-            aria-label="Voorbeeld sluiten"></button>
+            aria-label="{{ __('Voorbeeld sluiten') }}"></button>
     <div class="newsletter-preview-modal__dialog">
         <header class="kt-card-header px-5 py-5 flex items-center justify-between gap-3 border-b border-border">
             <div class="min-w-0">
-                <p class="text-xs uppercase tracking-wide text-muted-foreground mb-0">Voorbeeld</p>
-                <h2 id="newsletter-preview-modal-title" class="text-base font-semibold text-foreground mb-0 mt-0.5">Nieuwsbrief</h2>
+                <p class="text-xs uppercase tracking-wide text-muted-foreground mb-0">{{ __('Voorbeeld') }}</p>
+                <h2 id="newsletter-preview-modal-title" class="text-base font-semibold text-foreground mb-0 mt-0.5">{{ __('Nieuwsbrief') }}</h2>
             </div>
             <button type="button"
                     class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                     data-newsletter-preview-dismiss
-                    title="Sluiten"
-                    aria-label="Sluiten">
+                    title="{{ __('Sluiten') }}"
+                    aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross text-base" aria-hidden="true"></i>
             </button>
         </header>
         <div class="newsletter-preview-modal__body">
             <iframe id="newsletter-preview-modal-frame"
-                    title="Voorbeeld nieuwsbrief groot"
+                    title="{{ __('Voorbeeld nieuwsbrief groot') }}"
                     class="newsletter-preview-modal__frame"></iframe>
         </div>
     </div>
@@ -384,7 +384,7 @@
     aiBtn.addEventListener('click', function () {
         aiBtn.classList.add('is-loading');
         aiBtn.disabled = true;
-        aiStatus.textContent = 'AI schrijft…';
+        aiStatus.textContent = @json(__('AI schrijft…'));
         const body = new FormData();
         body.append('brief', document.getElementById('ai-brief').value);
         fetch(generateUrl, {
@@ -412,12 +412,12 @@
                 if (image) image.value = feature.image || '';
             });
             if (json.preview_html) setPreview(json.preview_html);
-            aiStatus.textContent = 'Tekst ingevuld. Controleer en sla op.';
+            aiStatus.textContent = @json(__('Tekst ingevuld. Controleer en sla op.'));
             aiBtn.classList.remove('is-loading');
             aiBtn.classList.add('is-success');
             aiBtn.disabled = false;
         }).catch(function () {
-            aiStatus.textContent = 'AI niet bereikbaar. Standaardtekst blijft staan.';
+            aiStatus.textContent = @json(__('AI niet bereikbaar. Standaardtekst blijft staan.'));
             aiBtn.classList.remove('is-loading');
             aiBtn.classList.add('is-error');
             aiBtn.disabled = false;

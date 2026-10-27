@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Vestiging Bewerken')
+@section('title', __('Vestiging Bewerken'))
 
 @section('content')
 
@@ -8,13 +8,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Vestiging Bewerken
+                {{ __('Vestiging Bewerken') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -28,7 +28,7 @@
                 <div class="kt-alert kt-alert-danger mb-5">
                     <i class="ki-filled ki-information-5 me-2"></i>
                     <div>
-                        <strong>Er zijn fouten opgetreden:</strong>
+                        <strong>{{ __('Er zijn fouten opgetreden:') }}</strong>
                         <ul class="mb-0 mt-2 list-disc list-inside">
                             @foreach($errors->all() as $error)
                                 <li>{{ $error }}</li>
@@ -42,7 +42,7 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Vestiging Informatie
+                        {{ __('Vestiging Informatie') }}
                     </h3>
                     <div class="flex items-center gap-2">
                         <label class="kt-label">
@@ -51,7 +51,7 @@
                                    name="is_main" 
                                    value="1"
                                    {{ old('is_main', $location->is_main) ? 'checked' : '' }}/>
-                            Hoofdkantoor
+                            {{ __('Hoofdkantoor') }}
                         </label>
                         <span class="text-muted-foreground">|</span>
                         <label class="kt-label" for="is_active">
@@ -61,7 +61,7 @@
                                    name="is_active" 
                                    value="1"
                                    {{ old('is_active', $location->is_active) ? 'checked' : '' }}/>
-                            Actief
+                            {{ __('Actief') }}
                         </label>
                     </div>
                 </div>
@@ -69,7 +69,7 @@
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Naam *
+                                {{ __('Naam *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="text" 
@@ -84,7 +84,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Postcode *
+                                {{ __('Postcode *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -93,11 +93,11 @@
                                        name="postal_code" 
                                        value="{{ old('postal_code', $location->postal_code) }}"
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
-                                       placeholder="1234AB"
+                                       placeholder="{{ __('1234AB') }}"
                                        maxlength="8"
                                        style="text-transform: uppercase; width: calc(12ch + 2.75rem);"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlandse postcode (bijv. 1234AB)') }}</div>
                                 @error('postal_code')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -105,7 +105,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Huisnummer *
+                                {{ __('Huisnummer *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -122,13 +122,13 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Adres
+                                {{ __('Adres') }}
                             </td>
                             <td class="w-full">
                                 <div class="flex gap-5 items-start">
                                     <div class="flex-1 flex flex-col gap-3">
                                         <div>
-                                            <label class="text-xs text-muted-foreground mb-1 block">Straat</label>
+                                            <label class="text-xs text-muted-foreground mb-1 block">{{ __('Straat') }}</label>
                                             <input type="text" 
                                                    id="street"
                                                    class="kt-input @error('street') border-destructive @enderror" 
@@ -140,7 +140,7 @@
                                             @enderror
                                         </div>
                                         <div>
-                                            <label class="text-xs text-muted-foreground mb-1 block">Plaats</label>
+                                            <label class="text-xs text-muted-foreground mb-1 block">{{ __('Plaats') }}</label>
                                             <input type="text" 
                                                    id="city"
                                                    class="kt-input @error('city') border-destructive @enderror" 
@@ -152,7 +152,7 @@
                                             @enderror
                                         </div>
                                         <div>
-                                            <label class="text-xs text-muted-foreground mb-1 block">Land</label>
+                                            <label class="text-xs text-muted-foreground mb-1 block">{{ __('Land') }}</label>
                                             <input type="text" 
                                                    id="country"
                                                    class="kt-input @error('country') border-destructive @enderror" 
@@ -178,7 +178,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Telefoon
+                                {{ __('Telefoon') }}
                             </td>
                             <td>
                                 <input type="tel" 
@@ -186,21 +186,21 @@
                                        name="phone" 
                                        value="{{ old('phone', $location->phone) }}"
                                        pattern="(\+31|0)[1-9][0-9]{8}"
-                                       placeholder="0612345678 of +31612345678"
+                                       placeholder="{{ __('0612345678 of +31612345678') }}"
                                        maxlength="13"
                                        style="width: calc(15ch + 2.75rem);">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                                 @error('phone')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-green-600 mt-1 hidden location-phone-success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> Telefoonnummer is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('Telefoonnummer is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                E-mail
+                                {{ __('E-mail') }}
                             </td>
                             <td>
                                 <input type="email" 
@@ -212,7 +212,7 @@
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-green-600 mt-1 hidden location-email-success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> E-mailadres is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('E-mailadres is geldig') }}
                                 </div>
                             </td>
                         </tr>
@@ -224,11 +224,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.companies.locations.show', [$company, $location]) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Vestiging Opslaan
+                    {{ __('Vestiging Opslaan') }}
                 </button>
             </div>
         </div>
@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const streetAddress = @json(trim(($location->street ?? '') . ' ' . ($location->house_number ?? '') . ($location->house_number_extension ? '-' . $location->house_number_extension : '')));
                 const postalCity = @json(trim(($location->postal_code ?? '') . ' ' . ($location->city ?? '')));
                 const country = @json($location->country ?? '');
-                const titleText = locationName || companyName || streetAddress || 'Locatie';
+                const titleText = locationName || companyName || streetAddress || @json(__('Locatie'));
                 googleMarker = new google.maps.Marker({
                     position: { lat: lat, lng: lng },
                     map: googleMap,
@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             const streetAddress = [data.street, data.house_number].filter(Boolean).join(' ');
                             const postalCity = [data.postal_code, data.city].filter(Boolean).join(' ');
                             const country = data.country || 'Nederland';
-                            const titleText = locationName || companyName || streetAddress || 'Locatie';
+                            const titleText = locationName || companyName || streetAddress || @json(__('Locatie'));
                             googleMarker = new google.maps.Marker({
                                 position: { lat: lat, lng: lng },
                                 map: googleMap,

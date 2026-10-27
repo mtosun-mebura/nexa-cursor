@@ -7,10 +7,10 @@
             <i class="ki-filled ki-magnifier" aria-hidden="true"></i>
             <input type="search"
                    id="transport-group-passenger-search"
-                   placeholder="Zoek op naam of adres…"
+                   placeholder="{{ __('Zoek op naam of adres…') }}"
                    autocomplete="off"
                    data-transport-group-passenger-search
-                   aria-label="Zoek passagier">
+                   aria-label="{{ __('Zoek passagier') }}">
         </label>
         <div class="transport-group-passenger-picker__list" role="listbox" aria-multiselectable="true">
             @foreach($availablePassengers as $passenger)
@@ -31,14 +31,14 @@
             @endforeach
         </div>
         <p class="text-xs text-muted-foreground mt-2 mb-0" data-transport-group-passenger-count>
-            {{ $availablePassengers->count() }} beschikbare passagier{{ $availablePassengers->count() === 1 ? '' : 's' }} · selecteer één of meerdere
+            {{ $availablePassengers->count() === 1 ? __(':count beschikbare passagier · selecteer één of meerdere', ['count' => 1]) : __(':count beschikbare passagiers · selecteer één of meerdere', ['count' => $availablePassengers->count()]) }}
         </p>
         <p class="text-xs text-muted-foreground mt-2 mb-0 hidden" data-transport-group-passenger-empty>
-            Geen passagiers gevonden voor je zoekopdracht.
+            {{ __('Geen passagiers gevonden voor je zoekopdracht.') }}
         </p>
     @else
         <div class="transport-group-passenger-picker__empty text-sm text-muted-foreground text-center py-8 px-4 rounded-lg border border-dashed border-input">
-            Alle actieve passagiers zitten al in deze groep.
+            {{ __('Alle actieve passagiers zitten al in deze groep.') }}
         </div>
     @endif
 </div>

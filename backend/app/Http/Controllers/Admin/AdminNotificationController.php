@@ -173,8 +173,8 @@ class AdminNotificationController extends Controller
         }
 
         $message = auth()->user()->hasRole('super-admin')
-            ? 'Selecteer eerst een tenant (bedrijf) in de zijbalk om notificaties te beheren.'
-            : 'Geen bedrijf gekoppeld aan dit account.';
+            ? __('Selecteer eerst een tenant (bedrijf) in de zijbalk om notificaties te beheren.')
+            : __('Geen bedrijf gekoppeld aan dit account.');
 
         return redirect()->route('admin.notifications.index')->with('error', $message);
     }
@@ -205,7 +205,7 @@ class AdminNotificationController extends Controller
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te bekijken.');
+            abort(403, __('Je hebt geen rechten om notificaties te bekijken.'));
         }
         
         $query = Notification::with('user');
@@ -322,7 +322,7 @@ class AdminNotificationController extends Controller
     public function create()
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
+            abort(403, __('Je hebt geen rechten om notificaties aan te maken.'));
         }
 
         if ($redirect = $this->requireNotificationTenantOrRedirect()) {
@@ -530,7 +530,7 @@ class AdminNotificationController extends Controller
     public function store(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties aan te maken.');
+            abort(403, __('Je hebt geen rechten om notificaties aan te maken.'));
         }
 
         if ($redirect = $this->requireNotificationTenantOrRedirect()) {
@@ -556,7 +556,7 @@ class AdminNotificationController extends Controller
                 function ($attribute, $value, $fail) use ($request) {
                     // If scheduled_at is filled, scheduled_time is required
                     if ($request->filled('scheduled_at') && empty($value)) {
-                        $fail('Tijd is verplicht wanneer een datum is ingevuld.');
+                        $fail(__('Tijd is verplicht wanneer een datum is ingevuld.'));
                     }
                 },
             ],
@@ -566,12 +566,12 @@ class AdminNotificationController extends Controller
                 if ($value !== null && $value !== '' && $value !== '0' && $value !== 0 && $value !== 'company_main' && $value !== 'remote' && $value !== '-1' && $value !== -1) {
                     // Check if it's a valid numeric ID
                     if (!is_numeric($value)) {
-                        $fail('De locatie ID moet een nummer zijn.');
+                        $fail(__('De locatie ID moet een nummer zijn.'));
                         return;
                     }
                     $exists = \App\Models\CompanyLocation::where('id', $value)->exists();
                     if (!$exists) {
-                        $fail('De geselecteerde locatie bestaat niet.');
+                        $fail(__('De geselecteerde locatie bestaat niet.'));
                     }
                 }
             }],
@@ -583,7 +583,7 @@ class AdminNotificationController extends Controller
         $companyId = (int) $this->getTenantId();
         
         if (!$user) {
-            abort(404, 'Gebruiker niet gevonden.');
+            abort(404, __('Gebruiker niet gevonden.'));
         }
         
         // Allow if user is from same company OR is a candidate with matches to company vacancies
@@ -593,7 +593,7 @@ class AdminNotificationController extends Controller
         $isCandidateWithMatches = $user->hasRole('candidate') && $this->userHasCompanyMatches($user, $companyId);
         
         if (!$isCompanyUser && !$isCandidateWithMatches) {
-            abort(403, 'Je kunt alleen notificaties maken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.');
+            abort(403, __('Je kunt alleen notificaties maken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.'));
         }
 
         $data = $request->except(['file', '_token', 'scheduled_time']);
@@ -685,18 +685,18 @@ class AdminNotificationController extends Controller
             }
         }
         
-        return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol aangemaakt.');
+        return redirect()->route('admin.notifications.index')->with('success', __('Notificatie succesvol aangemaakt.'));
     }
 
     public function show(Notification $notification)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te bekijken.');
+            abort(403, __('Je hebt geen rechten om notificaties te bekijken.'));
         }
         
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
-            abort(403, 'Je hebt geen toegang tot deze notificatie.');
+            abort(403, __('Je hebt geen toegang tot deze notificatie.'));
         }
         
         // Get sender info from notification data
@@ -722,12 +722,12 @@ class AdminNotificationController extends Controller
     public function edit(Notification $notification)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te bewerken.');
+            abort(403, __('Je hebt geen rechten om notificaties te bewerken.'));
         }
         
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
-            abort(403, 'Je hebt geen toegang tot deze notificatie.');
+            abort(403, __('Je hebt geen toegang tot deze notificatie.'));
         }
 
         if ($redirect = $this->requireNotificationTenantOrRedirect()) {
@@ -935,12 +935,12 @@ class AdminNotificationController extends Controller
     public function update(Request $request, Notification $notification)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te bewerken.');
+            abort(403, __('Je hebt geen rechten om notificaties te bewerken.'));
         }
         
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
-            abort(403, 'Je hebt geen toegang tot deze notificatie.');
+            abort(403, __('Je hebt geen toegang tot deze notificatie.'));
         }
 
         if ($redirect = $this->requireNotificationTenantOrRedirect()) {
@@ -966,7 +966,7 @@ class AdminNotificationController extends Controller
                 function ($attribute, $value, $fail) use ($request) {
                     // If scheduled_at is filled, scheduled_time is required
                     if ($request->filled('scheduled_at') && empty($value)) {
-                        $fail('Tijd is verplicht wanneer een datum is ingevuld.');
+                        $fail(__('Tijd is verplicht wanneer een datum is ingevuld.'));
                     }
                 },
             ],
@@ -976,12 +976,12 @@ class AdminNotificationController extends Controller
                 if ($value !== null && $value !== '' && $value !== '0' && $value !== 0 && $value !== 'company_main' && $value !== 'remote' && $value !== '-1' && $value !== -1) {
                     // Check if it's a valid numeric ID
                     if (!is_numeric($value)) {
-                        $fail('De locatie ID moet een nummer zijn.');
+                        $fail(__('De locatie ID moet een nummer zijn.'));
                         return;
                     }
                     $exists = \App\Models\CompanyLocation::where('id', $value)->exists();
                     if (!$exists) {
-                        $fail('De geselecteerde locatie bestaat niet.');
+                        $fail(__('De geselecteerde locatie bestaat niet.'));
                     }
                 }
             }],
@@ -993,7 +993,7 @@ class AdminNotificationController extends Controller
         $companyId = (int) $this->getTenantId();
         
         if (!$user) {
-            abort(404, 'Gebruiker niet gevonden.');
+            abort(404, __('Gebruiker niet gevonden.'));
         }
         
         // Allow if user is from same company OR is a candidate with matches to company vacancies
@@ -1003,7 +1003,7 @@ class AdminNotificationController extends Controller
         $isCandidateWithMatches = $user->hasRole('candidate') && $this->userHasCompanyMatches($user, $companyId);
         
         if (!$isCompanyUser && !$isCandidateWithMatches) {
-            abort(403, 'Je kunt alleen notificaties bewerken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.');
+            abort(403, __('Je kunt alleen notificaties bewerken voor gebruikers in je eigen bedrijf of kandidaten die hebben gesolliciteerd op je vacatures.'));
         }
 
         $data = $request->except(['file', '_token', '_method', 'scheduled_time']);
@@ -1084,28 +1084,28 @@ class AdminNotificationController extends Controller
             }
         }
         
-        return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol bijgewerkt.');
+        return redirect()->route('admin.notifications.index')->with('success', __('Notificatie succesvol bijgewerkt.'));
     }
 
     public function destroy(Notification $notification)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te verwijderen.');
+            abort(403, __('Je hebt geen rechten om notificaties te verwijderen.'));
         }
         
         // Check if user can access this resource
         if (!$this->canAccessResource($notification)) {
-            abort(403, 'Je hebt geen toegang tot deze notificatie.');
+            abort(403, __('Je hebt geen toegang tot deze notificatie.'));
         }
         
         $notification->delete();
-        return redirect()->route('admin.notifications.index')->with('success', 'Notificatie succesvol verwijderd.');
+        return redirect()->route('admin.notifications.index')->with('success', __('Notificatie succesvol verwijderd.'));
     }
 
     public function bulkDestroy(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-notifications')) {
-            abort(403, 'Je hebt geen rechten om notificaties te verwijderen.');
+            abort(403, __('Je hebt geen rechten om notificaties te verwijderen.'));
         }
 
         $data = $request->validate([
@@ -1127,12 +1127,12 @@ class AdminNotificationController extends Controller
 
         if ($deleted === 0) {
             return redirect()->route('admin.notifications.index')
-                ->with('error', 'Geen notificaties verwijderd.');
+                ->with('error', __('Geen notificaties verwijderd.'));
         }
 
         $message = $deleted === 1
-            ? '1 notificatie succesvol verwijderd.'
-            : $deleted.' notificaties succesvol verwijderd.';
+            ? __('1 notificatie succesvol verwijderd.')
+            : __(':count notificaties succesvol verwijderd.', ['count' => $deleted]);
 
         return redirect()->route('admin.notifications.index')->with('success', $message);
     }

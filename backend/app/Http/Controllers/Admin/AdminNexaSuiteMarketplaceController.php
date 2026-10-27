@@ -42,10 +42,12 @@ class AdminNexaSuiteMarketplaceController extends Controller
                     'company_id' => $companyId,
                     'ride_count' => 0,
                     'rides_subtotal' => 0.0,
+                    'minimum_top_up' => 0.0,
                 ];
             }
             $byCompany[$companyId]['ride_count']++;
             $byCompany[$companyId]['rides_subtotal'] += $billing->rideBillableAmount($ride);
+            $byCompany[$companyId]['minimum_top_up'] += $billing->rideMinimumTopUp($ride, (float) $settings->fee_percent);
         }
 
         $companies = Company::query()
@@ -56,7 +58,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
 
         $rows = collect($byCompany)->map(function (array $row) use ($companies, $settings, $period) {
             $subtotal = round((float) $row['rides_subtotal'], 2);
-            $fee = round($subtotal * ((float) $settings->fee_percent / 100), 2);
+            $fee = round(round($subtotal * ((float) $settings->fee_percent / 100), 2) + $row['minimum_top_up'], 2);
 
             return [
                 'company' => $companies->get($row['company_id']),
@@ -185,14 +187,31 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
     }
 
-    public function settings(NexaSuiteMollieService $mollie): View
+    public function settings(Request $request, NexaSuiteMollieService $mollie): View
     {
         $this->ensureSuperAdmin();
         $settings = NexaSuiteMarketplaceSetting::current();
 
+        $customRaw = trim((string) $request->query('bedrag', ''));
+        $customAmount = null;
+        $customError = null;
+        if ($customRaw !== '') {
+            $normalized = str_replace(',', '.', $customRaw);
+            if (! is_numeric($normalized) || (float) $normalized < 0.01 || (float) $normalized > 5000) {
+                $customError = __('Vul een bedrag in tussen €0,01 en €5.000.');
+            } else {
+                $customAmount = round((float) $normalized, 2);
+            }
+        }
+
         return view('admin.nexa-suite-bookings.settings', [
             'settings' => $settings,
             'platformCollectEnabled' => (bool) config('nexa_payout.platform_collect_enabled', true),
+            'feePricesInfo' => $this->feePricesInfo($settings),
+            'feeOverview' => $this->feeOverview($customAmount),
+            'feeCustomRaw' => $customRaw,
+            'feeCustomError' => $customError,
+            'feeMinimum' => app(\App\Services\Payout\MarketplaceFeeCalculator::class)->config(),
             'mollieConfigured' => $mollie->isConfigured(),
             'mollieApiKeyMasked' => $settings->maskedMollieApiKey(),
             'mollieKeyMode' => $mollie->keyMode(),
@@ -202,11 +221,63 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
     }
 
+    private function feePricesInfo(NexaSuiteMarketplaceSetting $settings): string
+    {
+        $stored = (array) $settings->fee_minimum_settings;
+        $at = ! empty($stored['prices_fetched_at'])
+            ? \Illuminate\Support\Carbon::parse($stored['prices_fetched_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i')
+            : null;
+
+        return match ($stored['prices_source'] ?? null) {
+            'mollie_api' => __('bij Mollie opgehaald op :at', ['at' => $at]),
+            'manual' => __('handmatig aangepast').($at ? ' '.__('(laatst bij Mollie opgehaald op :at)', ['at' => $at]) : ''),
+            default => __('standaardwaarden (nog niet bij Mollie opgehaald)'),
+        };
+    }
+
+    /**
+     * Fee en wat NEXA overhoudt per voorbeeldrit (iDEAL en kaart), via de MarketplaceFeeCalculator.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function feeOverview(?float $customAmount): array
+    {
+        $calculator = app(\App\Services\Payout\MarketplaceFeeCalculator::class);
+        $amounts = [15.0, 25.0, 40.0, 60.0, 100.0];
+        if ($customAmount !== null) {
+            $amounts[] = $customAmount;
+        }
+
+        $rows = [];
+        foreach ($amounts as $index => $gross) {
+            $row = ['gross' => $gross, 'custom' => $customAmount !== null && $index === count($amounts) - 1];
+            foreach (['ideal' => 'ideal', 'card' => 'creditcard'] as $key => $method) {
+                $calc = $calculator->calculate($gross, $method);
+                $kept = round($calc['fee'] - $calc['mollie_cost'], 2);
+                $row[$key] = $calc + [
+                    'driver' => round($gross - $calc['fee'], 2),
+                    'kept' => $kept,
+                    'kept_percent' => $gross > 0 ? round($kept / $gross * 100, 1) : 0.0,
+                ];
+            }
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function updateSettings(Request $request): RedirectResponse
     {
         $this->ensureSuperAdmin();
         $validated = $request->validate([
             'fee_percent' => 'required|integer|min:0|max:100',
+            'fee_minimum_enabled' => 'sometimes|boolean',
+            'fee_methods' => 'sometimes|array',
+            'fee_methods.*.fixed' => 'required_with:fee_methods|numeric|min:0|max:10',
+            'fee_methods.*.percent' => 'required_with:fee_methods|numeric|min:0|max:20',
+            'payout_fixed' => 'sometimes|numeric|min:0|max:10',
+            'margin_fixed' => 'sometimes|numeric|min:0|max:10',
+            'margin_percent' => 'sometimes|numeric|min:0|max:20',
             'allow_marketplace_network_owner' => 'sometimes|boolean',
             'auto_generate' => 'sometimes|boolean',
             'auto_send' => 'sometimes|boolean',
@@ -227,6 +298,28 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
 
         $settings = NexaSuiteMarketplaceSetting::current();
+        $feeMinimum = array_filter([
+            'enabled' => $request->has('fee_minimum_enabled') ? $request->boolean('fee_minimum_enabled') : null,
+            'methods' => collect($validated['fee_methods'] ?? [])
+                ->only(['ideal', 'creditcard', 'applepay', 'bancontact', 'default'])
+                ->map(fn (array $r) => ['fixed' => round((float) $r['fixed'], 2), 'percent' => round((float) $r['percent'], 2)])
+                ->all() ?: null,
+            'payout_fixed' => isset($validated['payout_fixed']) ? round((float) $validated['payout_fixed'], 2) : null,
+            'margin_fixed' => isset($validated['margin_fixed']) ? round((float) $validated['margin_fixed'], 2) : null,
+            'margin_percent' => isset($validated['margin_percent']) ? round((float) $validated['margin_percent'], 2) : null,
+        ], fn ($v) => $v !== null);
+        unset($validated['fee_minimum_enabled'], $validated['fee_methods'], $validated['payout_fixed'], $validated['margin_fixed'], $validated['margin_percent']);
+        if ($feeMinimum !== [] && Schema::hasColumn('nexa_suite_marketplace_settings', 'fee_minimum_settings')) {
+            $calculator = app(\App\Services\Payout\MarketplaceFeeCalculator::class);
+            $before = $calculator->config()['methods'];
+            $validated['fee_minimum_settings'] = array_replace_recursive((array) $settings->fee_minimum_settings, $feeMinimum);
+            foreach ($feeMinimum['methods'] ?? [] as $key => $rates) {
+                if (($before[$key] ?? null) !== $rates) {
+                    $validated['fee_minimum_settings']['prices_source'] = 'manual';
+                    break;
+                }
+            }
+        }
         $plainMollieKey = trim((string) ($validated['mollie_api_key'] ?? ''));
         $clearMollieKey = $request->boolean('clear_mollie_api_key');
         unset($validated['mollie_api_key'], $validated['clear_mollie_api_key']);
@@ -239,7 +332,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
             if (! PaymentProviderService::isValidMollieApiKeyFormat($plainMollieKey)) {
                 return back()
                     ->withInput()
-                    ->withErrors(['mollie_api_key' => 'Ongeldige Mollie API-sleutel. Gebruik een test_… of live_… sleutel.']);
+                    ->withErrors(['mollie_api_key' => __('Ongeldige Mollie API-sleutel. Gebruik een test_… of live_… sleutel.')]);
             }
             if (Schema::hasColumn('nexa_suite_marketplace_settings', 'mollie_api_key')) {
                 $settings->setEncryptedMollieApiKey($plainMollieKey);
@@ -268,7 +361,58 @@ class AdminNexaSuiteMarketplaceController extends Controller
 
         return redirect()
             ->route('admin.nexa-suite-bookings.settings')
-            ->with('success', 'Instellingen opgeslagen.');
+            ->with('success', __('Instellingen opgeslagen.'));
+    }
+
+    public function refreshFeePrices(\App\Services\Payout\MollieMethodPricingFetcher $fetcher): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $back = redirect()->route('admin.nexa-suite-bookings.settings');
+
+        if (! Schema::hasColumn('nexa_suite_marketplace_settings', 'fee_minimum_settings')) {
+            return $back->with('error', __('De database-update voor de minimale fee is nog niet uitgevoerd. Er is niets gewijzigd.'));
+        }
+
+        try {
+            $fetched = $fetcher->fetch();
+        } catch (\RuntimeException $e) {
+            return $back->with('error', $e->getMessage());
+        }
+
+        $settings = NexaSuiteMarketplaceSetting::current();
+        $current = app(\App\Services\Payout\MarketplaceFeeCalculator::class)->config()['methods'];
+        $labels = [
+            'ideal' => 'iDEAL', 'creditcard' => 'Creditcard', 'applepay' => 'Apple Pay',
+            'bancontact' => 'Bancontact', 'default' => 'Overige/onbekend',
+        ];
+        $fmt = fn (array $r) => ($r['percent'] > 0 ? number_format($r['percent'], 2, ',', '.').'% + ' : '').'€'.number_format($r['fixed'], 2, ',', '.');
+
+        $changes = [];
+        foreach ($fetched['methods'] as $key => $rates) {
+            $old = $current[$key] ?? ['fixed' => 0.0, 'percent' => 0.0];
+            if (abs($old['fixed'] - $rates['fixed']) > 0.004 || abs($old['percent'] - $rates['percent']) > 0.004) {
+                $changes[] = __($labels[$key] ?? $key).': '.$fmt($old).' → '.$fmt($rates);
+            }
+        }
+
+        $stored = (array) $settings->fee_minimum_settings;
+        $stored['prices_fetched_at'] = now()->toIso8601String();
+        $stored['prices_source'] = 'mollie_api';
+        if ($changes !== []) {
+            $stored['methods'] = array_replace($stored['methods'] ?? [], $fetched['methods']);
+        }
+        $settings->update(['fee_minimum_settings' => $stored]);
+
+        if ($changes === []) {
+            return $back->with('success', __('Prijzen zijn al actueel (gecontroleerd bij Mollie). Uitbetalingskosten zijn niet via Mollie op te halen en blijven handmatig.'));
+        }
+
+        $message = __('Prijzen bij Mollie opgehaald en bijgewerkt: :changes. Uitbetalingskosten zijn niet via Mollie op te halen en blijven handmatig.', ['changes' => implode('; ', $changes)]);
+        if ($fetched['skipped'] !== []) {
+            $message .= ' '.__('Niet aangepast (geen bruikbaar tarief bij Mollie): :methods.', ['methods' => implode(', ', array_map(fn ($k) => isset($labels[$k]) ? __($labels[$k]) : $k, $fetched['skipped']))]);
+        }
+
+        return $back->with('success', $message);
     }
 
     public function generate(
@@ -282,7 +426,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         $stats = $billing->generateForPeriod($period, $send, $companyId);
 
         return back()->with('success', sprintf(
-            'Facturen periode %s: %d aangemaakt, %d verzonden, %d overgeslagen.',
+            __('Facturen periode %s: %d aangemaakt, %d verzonden, %d overgeslagen.'),
             $period,
             $stats['generated'],
             $stats['sent'],
@@ -294,13 +438,13 @@ class AdminNexaSuiteMarketplaceController extends Controller
     {
         $this->ensureSuperAdmin();
         if ($invoice->isPaid()) {
-            return back()->with('error', 'Deze factuur is al betaald.');
+            return back()->with('error', __('Deze factuur is al betaald.'));
         }
         if (! $billing->sendInvoice($invoice)) {
-            return back()->with('error', 'Verzenden mislukt: geen facturatie-e-mail voor deze tenant.');
+            return back()->with('error', __('Verzenden mislukt: geen facturatie-e-mail voor deze tenant.'));
         }
 
-        return back()->with('success', 'Factuur '.$invoice->invoice_number.' is naar de tenant verstuurd.');
+        return back()->with('success', __('Factuur :number is naar de tenant verstuurd.', ['number' => $invoice->invoice_number]));
     }
 
     public function markPaid(NexaSuiteBookingInvoice $invoice, NexaSuiteMarketplaceBillingService $billing): RedirectResponse
@@ -308,7 +452,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         $this->ensureSuperAdmin();
         $billing->markPaid($invoice);
 
-        return back()->with('success', 'Factuur gemarkeerd als betaald.');
+        return back()->with('success', __('Factuur gemarkeerd als betaald.'));
     }
 
     public function updateStatus(Request $request, NexaSuiteBookingInvoice $invoice, NexaSuiteMarketplaceBillingService $billing): RedirectResponse
@@ -319,24 +463,24 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
         $billing->updateStatus($invoice, $validated['status']);
 
-        return back()->with('success', 'Status bijgewerkt naar '.NexaSuiteBookingInvoice::statusLabelFor($validated['status']).'.');
+        return back()->with('success', __('Status bijgewerkt naar :status.', ['status' => __(NexaSuiteBookingInvoice::statusLabelFor($validated['status']))]));
     }
 
     public function sendReminder(NexaSuiteBookingInvoice $invoice, NexaSuiteMarketplaceDunningService $dunning): RedirectResponse
     {
         $this->ensureSuperAdmin();
         if (! $invoice->isOpen()) {
-            return back()->with('error', 'Alleen openstaande verzonden facturen kunnen een aanmaning krijgen.');
+            return back()->with('error', __('Alleen openstaande verzonden facturen kunnen een aanmaning krijgen.'));
         }
         $level = $invoice->first_reminder_sent_at ? 2 : 1;
         if ($invoice->second_reminder_sent_at) {
-            return back()->with('error', 'Er zijn al twee aanmaningen verstuurd.');
+            return back()->with('error', __('Er zijn al twee aanmaningen verstuurd.'));
         }
         if (! $dunning->sendReminder($invoice, $level)) {
-            return back()->with('error', 'Aanmaning niet verstuurd: geen facturatie-e-mail.');
+            return back()->with('error', __('Aanmaning niet verstuurd: geen facturatie-e-mail.'));
         }
 
-        return back()->with('success', $level === 2 ? 'Tweede aanmaning verstuurd.' : 'Eerste aanmaning verstuurd.');
+        return back()->with('success', $level === 2 ? __('Tweede aanmaning verstuurd.') : __('Eerste aanmaning verstuurd.'));
     }
 
     public function runNow(NexaSuiteMarketplaceBillingService $billing): RedirectResponse
@@ -345,7 +489,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         $stats = $billing->runMonthlyBilling(true);
 
         return back()->with('success', sprintf(
-            'Automatische facturatie gedraaid: %d aangemaakt, %d verzonden.',
+            __('Automatische facturatie gedraaid: %d aangemaakt, %d verzonden.'),
             $stats['generated'],
             $stats['sent']
         ));
@@ -357,7 +501,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         $stats = $dunning->run();
 
         return back()->with('success', sprintf(
-            'Aanmaningen gecontroleerd: %d openstaand, %d eerste, %d tweede.',
+            __('Aanmaningen gecontroleerd: %d openstaand, %d eerste, %d tweede.'),
             $stats['checked'],
             $stats['first'],
             $stats['second']

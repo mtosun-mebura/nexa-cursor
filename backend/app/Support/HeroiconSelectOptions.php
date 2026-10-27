@@ -28,7 +28,7 @@ final class HeroiconSelectOptions
             if (! is_array($data) || ! isset($data['label'], $data['svg'])) {
                 continue;
             }
-            $options[$id] = (string) $data['label'];
+            $options[$id] = __((string) $data['label']);
         }
 
         uasort($options, static fn (string $a, string $b): int => strcasecmp($a, $b));
@@ -66,7 +66,7 @@ final class HeroiconSelectOptions
             }
             $catalog[] = [
                 'id' => $id,
-                'label' => (string) ($data['label'] ?? $id),
+                'label' => __((string) ($data['label'] ?? $id)),
                 'svg' => (string) $data['svg'],
             ];
         }

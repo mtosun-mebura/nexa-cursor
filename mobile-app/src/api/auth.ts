@@ -28,7 +28,7 @@ export type Capabilities = {
 };
 
 export type BootstrapSession = {
-  user: { id: number; email: string; name: string };
+  user: { id: number; email: string; name: string; is_super_admin?: boolean };
   capabilities: Capabilities;
   tokens: {
     driver?: { token: string; token_type: string; expires_at?: string | null };

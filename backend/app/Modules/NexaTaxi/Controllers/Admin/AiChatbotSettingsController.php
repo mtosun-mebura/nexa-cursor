@@ -32,7 +32,7 @@ class AiChatbotSettingsController extends Controller
         if ($companyId === null) {
             return redirect()
                 ->route('admin.taxi.ai_chatbot.settings.edit')
-                ->with('error', 'Selecteer eerst een bedrijf om AI-chatbot instellingen op te slaan.');
+                ->with('error', __('Selecteer eerst een bedrijf om AI-chatbot instellingen op te slaan.'));
         }
 
         $validated = $request->validate([
@@ -48,7 +48,7 @@ class AiChatbotSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.ai_chatbot.settings.edit')
-            ->with('success', 'AI-chatbot instellingen opgeslagen.');
+            ->with('success', __('AI-chatbot instellingen opgeslagen.'));
     }
 
     private function authorizeOrPermissionAny(array $abilities): void
@@ -56,6 +56,6 @@ class AiChatbotSettingsController extends Controller
         if (auth()->user()->hasRole('super-admin')) {
             return;
         }
-        abort(403, 'Alleen een super-admin mag de AI-chatbot beheren.');
+        abort(403, __('Alleen een super-admin mag de AI-chatbot beheren.'));
     }
 }

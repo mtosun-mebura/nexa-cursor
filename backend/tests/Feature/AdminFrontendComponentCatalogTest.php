@@ -57,4 +57,37 @@ class AdminFrontendComponentCatalogTest extends TestCase
             ->assertSee('Google Reviews', false)
             ->assertDontSee('Kies links in de zijbalk een tenant', false);
     }
+
+    public function test_index_has_search_and_full_bleed_table_padding(): void
+    {
+        $admin = User::factory()->create(['company_id' => null]);
+        $admin->assignRole('super-admin');
+
+        $html = $this->actingAs($admin, 'web')
+            ->withSession(['selected_tenant' => null])
+            ->get(route('admin.frontend-components.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('id="frontend-components-search"', $html);
+        $this->assertStringContainsString('placeholder="Zoek component..."', $html);
+        $this->assertStringContainsString('aria-label="Zoek component..."', $html);
+        $this->assertStringContainsString('ki-outline ki-magnifier', $html);
+        $this->assertStringContainsString('w-full max-w-md', $html);
+        $this->assertStringContainsString('id="frontend-components-search-clear"', $html);
+        $this->assertMatchesRegularExpression(
+            '/id="frontend-components-count"[^>]*>\s*\d+ van \d+ componenten\s*</',
+            $html
+        );
+        $this->assertStringContainsString('Geen componenten gevonden voor &quot;:query&quot;.', $html);
+        $this->assertStringContainsString('class="kt-card-table"', $html);
+        $this->assertDoesNotMatchRegularExpression('/class="[^"]*kt-card-table[^"]*\bp-4\b/', $html);
+        $this->assertStringContainsString('admin-table-scroll-wrap', $html);
+        $this->assertStringContainsString('data-label="Component"', $html);
+        $this->assertStringContainsString('width:22%', $html);
+        $this->assertStringContainsString('width:42%', $html);
+        $this->assertMatchesRegularExpression('/<th[^>]*class="[^"]*\bpx-5/', $html);
+        $this->assertMatchesRegularExpression('/<td[^>]*class="[^"]*\bpx-5/', $html);
+        $this->assertStringContainsString('Escape', $html);
+    }
 }

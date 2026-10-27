@@ -87,7 +87,7 @@ class TransportGroupRouteController extends Controller
             if ($data['driver_start_mode'] === TransportRouteTemplate::DRIVER_START_DEPOT
                 && empty($data['driver_start_address'])) {
                 throw ValidationException::withMessages([
-                    'driver_start_address' => 'Vul een depotadres in of kies start bij eerste stop.',
+                    'driver_start_address' => __('Vul een depotadres in of kies start bij eerste stop.'),
                 ]);
             }
 
@@ -107,7 +107,7 @@ class TransportGroupRouteController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route-instellingen opgeslagen.'.$this->occurrenceSyncSuffix($stats));
+            ->with('success', __('Route-instellingen opgeslagen.').$this->occurrenceSyncSuffix($stats));
     }
 
     public function calculate(Request $request, int $customerId, int $contractId, int $groupId)
@@ -148,7 +148,7 @@ class TransportGroupRouteController extends Controller
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', trim('Route berekend en opgeslagen.'.$this->occurrenceSyncSuffix($stats).' '.($returnResult['message'] ?? '')));
+            ->with('success', trim(__('Route berekend en opgeslagen.').$this->occurrenceSyncSuffix($stats).' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -200,7 +200,7 @@ class TransportGroupRouteController extends Controller
 
         if ($orderedPickups === []) {
             throw ValidationException::withMessages([
-                'stop_order' => 'Geen geldige stops geselecteerd.',
+                'stop_order' => __('Geen geldige stops geselecteerd.'),
             ]);
         }
 
@@ -212,8 +212,8 @@ class TransportGroupRouteController extends Controller
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
             ->with('success', trim(($template->route_locked
-                ? 'Tijden herberekend.'
-                : 'Volgorde opgeslagen en tijden herberekend.').' '.($returnResult['message'] ?? '')));
+                ? __('Tijden herberekend.')
+                : __('Volgorde opgeslagen en tijden herberekend.')).' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -232,7 +232,7 @@ class TransportGroupRouteController extends Controller
 
         if (! $template->route_locked && $template->stops->where('stop_type', TransportRouteStop::STOP_TYPE_PICKUP)->isEmpty()) {
             throw ValidationException::withMessages([
-                'route' => 'Bereken eerst een route voordat u deze vastzet.',
+                'route' => __('Bereken eerst een route voordat u deze vastzet.'),
             ]);
         }
 
@@ -245,8 +245,8 @@ class TransportGroupRouteController extends Controller
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
             ->with('success', $template->route_locked
-                ? 'Route vastgezet. Planning voor de komende 14 dagen is bijgewerkt.'
-                : 'Route ontgrendeld.');
+                ? __('Route vastgezet. Planning voor de komende 14 dagen is bijgewerkt.')
+                : __('Route ontgrendeld.'));
     }
 
     public function updateAssignment(Request $request, int $customerId, int $contractId, int $groupId)
@@ -267,8 +267,8 @@ class TransportGroupRouteController extends Controller
             'driver_id' => ['nullable', 'integer', 'required_without:vehicle_id'],
             'vehicle_id' => ['nullable', 'integer', 'required_without:driver_id'],
         ], [
-            'driver_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
-            'vehicle_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
+            'driver_id.required_without' => __('Selecteer een chauffeur of een voertuig.'),
+            'vehicle_id.required_without' => __('Selecteer een chauffeur of een voertuig.'),
         ]);
 
         $driverId = isset($data['driver_id']) ? (int) $data['driver_id'] : null;
@@ -279,7 +279,7 @@ class TransportGroupRouteController extends Controller
                 ->where('users.id', $driverId)
                 ->exists();
             if (! $isDriver) {
-                throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur voor dit bedrijf.']);
+                throw ValidationException::withMessages(['driver_id' => __('Ongeldige chauffeur voor dit bedrijf.')]);
             }
             $this->driverEligibility->assertContractantForContractAssignment($driverId);
         }
@@ -290,7 +290,7 @@ class TransportGroupRouteController extends Controller
                 ->where('id', $vehicleId)
                 ->exists();
             if (! $vehicleExists) {
-                throw ValidationException::withMessages(['vehicle_id' => 'Ongeldig voertuig voor dit bedrijf.']);
+                throw ValidationException::withMessages(['vehicle_id' => __('Ongeldig voertuig voor dit bedrijf.')]);
             }
         }
 
@@ -316,7 +316,7 @@ class TransportGroupRouteController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Toewijzing opgeslagen.');
+            ->with('success', __('Toewijzing opgeslagen.'));
     }
 
     /**
@@ -453,10 +453,10 @@ class TransportGroupRouteController extends Controller
         $cancelled = (int) ($stats['cancelled'] ?? 0);
 
         if ($created > 0) {
-            $parts[] = $created.' rit(ten) ingepland in de contract-app.';
+            $parts[] = __(':count rit(ten) ingepland in de contract-app.', ['count' => $created]);
         }
         if ($cancelled > 0) {
-            $parts[] = $cancelled.' rit(ten) ingetrokken voor dagen die niet meer gelden.';
+            $parts[] = __(':count rit(ten) ingetrokken voor dagen die niet meer gelden.', ['count' => $cancelled]);
         }
 
         return $parts === [] ? '' : ' '.implode(' ', $parts);
@@ -468,7 +468,7 @@ class TransportGroupRouteController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 }

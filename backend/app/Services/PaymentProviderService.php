@@ -245,7 +245,7 @@ class PaymentProviderService
     ): PaymentProvider {
         if ($companyId <= 0) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'mollie_api_key' => 'Selecteer eerst een tenant (bedrijf).',
+                'mollie_api_key' => __('Selecteer eerst een tenant (bedrijf).'),
             ]);
         }
 
@@ -260,13 +260,13 @@ class PaymentProviderService
         if ($trimmedKey !== '') {
             if (! self::isValidMollieApiKeyFormat($trimmedKey)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'mollie_api_key' => 'Ongeldige Mollie API-sleutel. Gebruik een sleutel die begint met test_ of live_.',
+                    'mollie_api_key' => __('Ongeldige Mollie API-sleutel. Gebruik een sleutel die begint met test_ of live_.'),
                 ]);
             }
             $config['api_key'] = Crypt::encryptString($trimmedKey);
         } elseif ($provider === null || $this->getDecryptedApiKey($provider) === null) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'mollie_api_key' => 'Vul de Mollie API-sleutel van dit bedrijf in (uit het Mollie-dashboard van de tenant).',
+                'mollie_api_key' => __('Vul de Mollie API-sleutel van dit bedrijf in (uit het Mollie-dashboard van de tenant).'),
             ]);
         }
 
@@ -360,16 +360,16 @@ class PaymentProviderService
             $apiKey = $this->getDecryptedApiKey($provider);
             if ($provider->provider_type === 'mollie') {
                 if ($apiKey === null) {
-                    return ['success' => false, 'message' => 'Geen Mollie API-sleutel ingesteld.'];
+                    return ['success' => false, 'message' => __('Geen Mollie API-sleutel ingesteld.')];
                 }
                 if (! self::isValidMollieApiKeyFormat($apiKey)) {
                     return [
                         'success' => false,
-                        'message' => 'De Mollie API-sleutel heeft een ongeldig formaat. Gebruik een sleutel die begint met test_ of live_.',
+                        'message' => __('De Mollie API-sleutel heeft een ongeldig formaat. Gebruik een sleutel die begint met test_ of live_.'),
                     ];
                 }
             } elseif ($apiKey === null) {
-                return ['success' => false, 'message' => 'Geen API-sleutel ingesteld.'];
+                return ['success' => false, 'message' => __('Geen API-sleutel ingesteld.')];
             }
 
             switch ($provider->provider_type) {
@@ -382,7 +382,7 @@ class PaymentProviderService
                 case 'adyen':
                     return $this->testAdyenConnection($apiKey);
                 default:
-                    return ['success' => false, 'message' => 'Provider type niet ondersteund'];
+                    return ['success' => false, 'message' => __('Provider type niet ondersteund')];
             }
         } catch (\Exception $e) {
             Log::error('Payment provider connection test failed', [
@@ -391,7 +391,7 @@ class PaymentProviderService
                 'error' => $e->getMessage(),
             ]);
 
-            return ['success' => false, 'message' => 'Fout bij testen van verbinding: '.$e->getMessage()];
+            return ['success' => false, 'message' => __('Fout bij testen van verbinding:').' '.$e->getMessage()];
         }
     }
 
@@ -407,23 +407,23 @@ class PaymentProviderService
             ]);
 
             if ($response->getStatusCode() === 200) {
-                return ['success' => true, 'message' => 'Mollie verbinding succesvol getest'];
+                return ['success' => true, 'message' => __('Mollie verbinding succesvol getest')];
             }
 
-            return ['success' => false, 'message' => 'Mollie API reageerde met status: '.$response->getStatusCode()];
+            return ['success' => false, 'message' => __('Mollie API reageerde met status: :status', ['status' => $response->getStatusCode()])];
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $status = $e->getResponse()?->getStatusCode();
             $body = $e->getResponse() ? (string) $e->getResponse()->getBody() : '';
             if ($status === 401 || ($status === 400 && str_contains($body, 'Authorization'))) {
                 return [
                     'success' => false,
-                    'message' => 'Mollie API-sleutel is ongeldig. Controleer de sleutel in je Mollie-dashboard.',
+                    'message' => __('Mollie API-sleutel is ongeldig. Controleer de sleutel in je Mollie-dashboard.'),
                 ];
             }
 
-            return ['success' => false, 'message' => 'Mollie verbinding mislukt. Probeer het later opnieuw.'];
+            return ['success' => false, 'message' => __('Mollie verbinding mislukt. Probeer het later opnieuw.')];
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Mollie verbinding mislukt. Probeer het later opnieuw.'];
+            return ['success' => false, 'message' => __('Mollie verbinding mislukt. Probeer het later opnieuw.')];
         }
     }
 
@@ -439,12 +439,12 @@ class PaymentProviderService
             ]);
 
             if ($response->getStatusCode() === 200) {
-                return ['success' => true, 'message' => 'Stripe verbinding succesvol getest'];
+                return ['success' => true, 'message' => __('Stripe verbinding succesvol getest')];
             } else {
-                return ['success' => false, 'message' => 'Stripe API reageerde met status: '.$response->getStatusCode()];
+                return ['success' => false, 'message' => __('Stripe API reageerde met status: :status', ['status' => $response->getStatusCode()])];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Stripe verbinding mislukt: '.$e->getMessage()];
+            return ['success' => false, 'message' => __('Stripe verbinding mislukt: :error', ['error' => $e->getMessage()])];
         }
     }
 
@@ -463,12 +463,12 @@ class PaymentProviderService
             ]);
 
             if ($response->getStatusCode() === 200) {
-                return ['success' => true, 'message' => 'PayPal verbinding succesvol getest'];
+                return ['success' => true, 'message' => __('PayPal verbinding succesvol getest')];
             } else {
-                return ['success' => false, 'message' => 'PayPal API reageerde met status: '.$response->getStatusCode()];
+                return ['success' => false, 'message' => __('PayPal API reageerde met status: :status', ['status' => $response->getStatusCode()])];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'PayPal verbinding mislukt: '.$e->getMessage()];
+            return ['success' => false, 'message' => __('PayPal verbinding mislukt: :error', ['error' => $e->getMessage()])];
         }
     }
 
@@ -484,12 +484,12 @@ class PaymentProviderService
             ]);
 
             if ($response->getStatusCode() === 200) {
-                return ['success' => true, 'message' => 'Adyen verbinding succesvol getest'];
+                return ['success' => true, 'message' => __('Adyen verbinding succesvol getest')];
             } else {
-                return ['success' => false, 'message' => 'Adyen API reageerde met status: '.$response->getStatusCode()];
+                return ['success' => false, 'message' => __('Adyen API reageerde met status: :status', ['status' => $response->getStatusCode()])];
             }
         } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Adyen verbinding mislukt: '.$e->getMessage()];
+            return ['success' => false, 'message' => __('Adyen verbinding mislukt: :error', ['error' => $e->getMessage()])];
         }
     }
 

@@ -37,7 +37,7 @@ class TransportRideController extends Controller
                 'packageDeniedMessage' => $packageDeniedMessage,
                 'ridesIndexRoute' => 'admin.taxi.transport_rides.index',
                 'ridesBulkDestroyRoute' => 'admin.taxi.transport_rides.bulk-destroy',
-                'ridesPageTitle' => 'Contractritten',
+                'ridesPageTitle' => __('Contractritten'),
                 'ridesIsContractTransport' => true,
             ]);
         }
@@ -108,7 +108,7 @@ class TransportRideController extends Controller
             'monthlyStats' => $monthlyStats,
             'ridesIndexRoute' => 'admin.taxi.transport_rides.index',
             'ridesBulkDestroyRoute' => 'admin.taxi.transport_rides.bulk-destroy',
-            'ridesPageTitle' => 'Contractritten',
+            'ridesPageTitle' => __('Contractritten'),
             'ridesIsContractTransport' => true,
         ]);
     }
@@ -137,12 +137,12 @@ class TransportRideController extends Controller
 
         if ($deleted === 0) {
             return redirect()->route('admin.taxi.transport_rides.index')
-                ->with('error', 'Geen ritten verwijderd.');
+                ->with('error', __('Geen ritten verwijderd.'));
         }
 
         $message = $deleted === 1
-            ? '1 rit succesvol verwijderd.'
-            : $deleted.' ritten succesvol verwijderd.';
+            ? __('1 rit succesvol verwijderd.')
+            : __(':count ritten succesvol verwijderd.', ['count' => $deleted]);
 
         return redirect()->route('admin.taxi.transport_rides.index')->with('success', $message);
     }

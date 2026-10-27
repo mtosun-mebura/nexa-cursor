@@ -1,36 +1,36 @@
 @extends('admin.layouts.app')
 
-@section('title', 'NEXA-factuurregels')
+@section('title', __('NEXA-factuurregels'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono">NEXA-factuurregels</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('NEXA-factuurregels') }}</h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Generieke regels voor NEXA-facturen
+                {{ __('Generieke regels voor NEXA-facturen') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.platform-billing.line-items.create') }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>
-                Nieuwe regel
+                {{ __('Nieuwe regel') }}
             </a>
         </div>
     </div>
 
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header py-5 flex-wrap gap-3 justify-between items-center">
-            <h3 class="kt-card-title text-sm mb-0">Factuurregels</h3>
+            <h3 class="kt-card-title text-sm mb-0">{{ __('Factuurregels') }}</h3>
             <form method="GET" action="{{ route('admin.platform-billing.line-items.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
                 <label class="kt-input w-full sm:w-56 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoeken…" class="min-w-0" autocomplete="off">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Zoeken…') }}" class="min-w-0" autocomplete="off">
                 </label>
                 <select class="kt-select w-full sm:w-40" name="is_active">
-                    <option value="" @selected(request('is_active', '') === '')>Alle statussen</option>
-                    <option value="1" @selected(request('is_active') === '1')>Actief</option>
-                    <option value="0" @selected(request('is_active') === '0')>Inactief</option>
+                    <option value="" @selected(request('is_active', '') === '')>{{ __('Alle statussen') }}</option>
+                    <option value="1" @selected(request('is_active') === '1')>{{ __('Actief') }}</option>
+                    <option value="0" @selected(request('is_active') === '0')>{{ __('Inactief') }}</option>
                 </select>
             </form>
         </div>
@@ -46,14 +46,14 @@
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="text-secondary-foreground font-normal text-left">Naam</th>
-                            <th class="text-secondary-foreground font-normal text-left">Omschrijving</th>
+                            <th class="text-secondary-foreground font-normal text-left">{{ __('Naam') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left">{{ __('Omschrijving') }}</th>
                             <th class="platform-billing-line-items__price-col text-secondary-foreground font-normal text-left">
-                                <span class="block leading-tight">Prijs</span>
-                                <span class="block text-xs leading-tight">excl. BTW</span>
+                                <span class="block leading-tight">{{ __('Prijs') }}</span>
+                                <span class="block text-xs leading-tight">{{ __('excl. BTW') }}</span>
                             </th>
-                            <th class="text-secondary-foreground font-normal text-left">Actief</th>
-                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                            <th class="text-secondary-foreground font-normal text-left">{{ __('Actief') }}</th>
+                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,18 +64,18 @@
                                 {{ $lineItem->description ?: '—' }}
                             </td>
                             <td class="platform-billing-line-items__price whitespace-nowrap tabular-nums">€ {{ number_format((float) $lineItem->unit_price, 2, ',', '.') }}</td>
-                            <td class="platform-billing-line-items__active whitespace-nowrap">{{ $lineItem->is_active ? 'Ja' : 'Nee' }}</td>
+                            <td class="platform-billing-line-items__active whitespace-nowrap">{{ $lineItem->is_active ? __('Ja') : __('Nee') }}</td>
                             <td class="admin-table__actions-col" data-no-row-link>
                                 <div class="kt-menu flex justify-center" data-kt-menu="true">
                                     <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
                                         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
                                             <div class="kt-menu-item">
                                                 <a class="kt-menu-link" href="{{ route('admin.platform-billing.line-items.edit', $lineItem) }}">
                                                     <span class="kt-menu-icon"><i class="ki-filled ki-pencil"></i></span>
-                                                    <span class="kt-menu-title">Bewerken</span>
+                                                    <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-separator"></div>
@@ -83,11 +83,11 @@
                                                 <form action="{{ route('admin.platform-billing.line-items.toggle-status', $lineItem) }}"
                                                       method="POST"
                                                       class="block"
-                                                      onsubmit="return confirm('Weet je zeker dat je de status wilt wijzigen?')">
+                                                      onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Weet je zeker dat je de status wilt wijzigen?')) }})">
                                                     @csrf
                                                     <button type="submit" class="kt-menu-link w-full text-left">
                                                         <span class="kt-menu-icon"><i class="ki-filled {{ $lineItem->is_active ? 'ki-pause' : 'ki-play' }}"></i></span>
-                                                        <span class="kt-menu-title">{{ $lineItem->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                        <span class="kt-menu-title">{{ $lineItem->is_active ? __('Deactiveren') : __('Activeren') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -96,12 +96,12 @@
                                                 <form action="{{ route('admin.platform-billing.line-items.destroy', $lineItem) }}"
                                                       method="POST"
                                                       class="block"
-                                                      onsubmit="return confirm('Weet je zeker dat je deze factuurregel wilt verwijderen?')">
+                                                      onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Weet je zeker dat je deze factuurregel wilt verwijderen?')) }})">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                         <span class="kt-menu-icon"><i class="ki-filled ki-trash"></i></span>
-                                                        <span class="kt-menu-title">Verwijderen</span>
+                                                        <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -112,7 +112,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="p-5 text-secondary-foreground">Geen factuurregels gevonden.</td>
+                            <td colspan="5" class="p-5 text-secondary-foreground">{{ __('Geen factuurregels gevonden.') }}</td>
                         </tr>
                     @endforelse
                     </tbody>

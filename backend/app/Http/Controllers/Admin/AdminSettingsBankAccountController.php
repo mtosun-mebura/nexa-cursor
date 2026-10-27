@@ -50,7 +50,7 @@ class AdminSettingsBankAccountController extends Controller
             'password' => ['nullable', 'string'],
             'confirmation_code' => ['nullable', 'string', 'max:12'],
         ], [
-            'iban.required' => 'Vul je IBAN in voor uitbetaling van ritten.',
+            'iban.required' => __('Vul je IBAN in voor uitbetaling van ritten.'),
         ]);
 
         try {
@@ -66,8 +66,8 @@ class AdminSettingsBankAccountController extends Controller
         }
 
         $msg = $identity->hasPendingDestinationChange()
-            ? 'Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over '.$this->coolingOffHoursLabel().' gebruikt voor uitbetalingen. We bewaren alleen *** + laatste 4 cijfers.'
-            : 'Bankrekening opgeslagen. Uitbetalingen (na fee) gaan naar dit rekeningnummer.';
+            ? __('Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over :hours gebruikt voor uitbetalingen. We bewaren alleen *** + laatste 4 cijfers.', ['hours' => $this->coolingOffHoursLabel()])
+            : __('Bankrekening opgeslagen. Uitbetalingen (na fee) gaan naar dit rekeningnummer.');
 
         return redirect()
             ->route('admin.settings.bank-account', ['saved' => 1])
@@ -97,7 +97,7 @@ class AdminSettingsBankAccountController extends Controller
     {
         $user = $request->user();
         if (! $user || (! $user->isSuperAdmin() && ! $user->isTenantAdmin())) {
-            abort(403, 'Geen rechten om de bankrekening te beheren.');
+            abort(403, __('Geen rechten om de bankrekening te beheren.'));
         }
 
         $companyId = $this->getTenantId();
@@ -106,12 +106,12 @@ class AdminSettingsBankAccountController extends Controller
         }
         $company = $companyId ? Company::query()->find($companyId) : null;
         if (! $company) {
-            abort(404, 'Geen bedrijf gevonden. Selecteer een tenant.');
+            abort(404, __('Geen bedrijf gevonden. Selecteer een tenant.'));
         }
 
         if (strcasecmp((string) ($company->package_key ?? ''), MarketplaceCompanyRegistrationService::PACKAGE_KEY) !== 0
             && ! $user->isSuperAdmin()) {
-            abort(403, 'Deze pagina is voor Marketplace-taxibedrijven.');
+            abort(403, __('Deze pagina is voor Marketplace-taxibedrijven.'));
         }
 
         return $company;
@@ -121,6 +121,6 @@ class AdminSettingsBankAccountController extends Controller
     {
         $hours = max(1, (int) config('nexa_payout.destination_change_cooling_off_hours', 48));
 
-        return $hours.' uur';
+        return __(':hours uur', ['hours' => $hours]);
     }
 }

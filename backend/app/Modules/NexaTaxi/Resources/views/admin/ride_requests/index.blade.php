@@ -6,8 +6,12 @@
 @php
     $ridesIndexRoute = $ridesIndexRoute ?? 'admin.taxi.ride_requests.index';
     $ridesBulkDestroyRoute = $ridesBulkDestroyRoute ?? 'admin.taxi.ride_requests.bulk-destroy';
-    $ridesPageTitle = $ridesPageTitle ?? 'Ritten';
+    $ridesPageTitle = $ridesPageTitle ?? __('Ritten');
     $ridesIsContractTransport = (bool) ($ridesIsContractTransport ?? false);
+    $monthlyStatsJs = $monthlyStats ?? [];
+    if (! empty($monthlyStatsJs['status_chart'])) {
+        $monthlyStatsJs['status_chart'] = array_map(fn ($row) => ['label' => __($row['label'])] + $row, $monthlyStatsJs['status_chart']);
+    }
 @endphp
 
 @section('title', $ridesPageTitle)
@@ -38,25 +42,25 @@
                     id="rides-bulk-delete"
                     class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                     hidden
-                    aria-label="Geselecteerde ritten verwijderen"
-                    title="Verwijderen">
+                    aria-label="{{ __('Geselecteerde ritten verwijderen') }}"
+                    title="{{ __('Verwijderen') }}">
                 <i class="ki-filled ki-trash" aria-hidden="true"></i>
                 <span class="admin-bulk-delete__count">(<span data-rides-selected-count>0</span>)</span>
             </button>
             @endif
-            <h3 class="kt-card-title text-sm pb-3 w-full mb-0">Overzicht ritten</h3>
+            <h3 class="kt-card-title text-sm pb-3 w-full mb-0">{{ __('Overzicht ritten') }}</h3>
             <div class="flex flex-col sm:flex-row flex-wrap gap-2 gap-2.5 w-full justify-end items-stretch sm:items-center min-w-0">
                 <form method="GET" action="{{ route($ridesIndexRoute) }}" id="ride-filters-form" class="flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
                     @if(request('per_page'))<input type="hidden" name="per_page" value="{{ request('per_page') }}">@endif
                     @if(!empty($monthlyStats['month']))<input type="hidden" name="stats_month" value="{{ $monthlyStats['month'] }}">@endif
                     <select name="status" id="ride-status-filter" class="kt-select w-full sm:w-40">
-                        <option value="">Alle statussen</option>
+                        <option value="">{{ __('Alle statussen') }}</option>
                         @foreach($statusLabels as $value => $label)
-                            <option value="{{ $value }}" {{ request('status') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            <option value="{{ $value }}" {{ request('status') === $value ? 'selected' : '' }}>{{ __($label) }}</option>
                         @endforeach
                     </select>
                     <select name="vehicle_id" id="ride-vehicle-filter" class="kt-select w-full sm:w-44">
-                        <option value="">Alle voertuigen</option>
+                        <option value="">{{ __('Alle voertuigen') }}</option>
                         @foreach($vehicles as $v)
                             <option value="{{ $v->id }}" {{ request('vehicle_id') == $v->id ? 'selected' : '' }}>{{ $v->name }}</option>
                         @endforeach
@@ -65,7 +69,7 @@
                            name="from"
                            value="{{ admin_date_picker_display(request('from')) }}"
                            class="kt-input w-full sm:w-40 text-sm"
-                           placeholder="Van"
+                           placeholder="{{ __('Van') }}"
                            data-kt-date-picker="true"
                            data-kt-date-picker-input-mode="true"
                            data-kt-date-picker-position-to-input="left"
@@ -74,15 +78,15 @@
                            name="to"
                            value="{{ admin_date_picker_display(request('to')) }}"
                            class="kt-input w-full sm:w-40 text-sm"
-                           placeholder="Tot"
+                           placeholder="{{ __('Tot') }}"
                            data-kt-date-picker="true"
                            data-kt-date-picker-input-mode="true"
                            data-kt-date-picker-position-to-input="left"
                            data-kt-date-picker-date-format="DD-MM-YYYY">
-                    <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full sm:w-auto shrink-0">Filter</button>
+                    <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm w-full sm:w-auto shrink-0">{{ __('Filter') }}</button>
                 </form>
                 @if(request('status') !== null && request('status') !== '' || request('vehicle_id') !== null && request('vehicle_id') !== '' || request('from') || request('to'))
-                <a href="{{ route($ridesIndexRoute, array_filter(['stats_month' => $monthlyStats['month'] ?? null])) }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="Filters resetten">
+                <a href="{{ route($ridesIndexRoute, array_filter(['stats_month' => $monthlyStats['month'] ?? null])) }}" class="kt-btn kt-btn-outline kt-btn-icon rides-filter-reset-btn shrink-0 w-full sm:w-auto" title="{{ __('Filters resetten') }}">
                     <i class="ki-filled ki-arrows-circle text-base"></i>
                 </a>
                 @endif
@@ -98,16 +102,16 @@
                         @if($canDeleteRides)
                         <th class="admin-table__check-col text-center" data-no-row-link data-label="">
                             <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
-                                <input type="checkbox" class="kt-checkbox" id="rides-select-all" aria-label="Alles selecteren">
+                                <input type="checkbox" class="kt-checkbox" id="rides-select-all" aria-label="{{ __('Alles selecteren') }}">
                             </label>
                         </th>
                         @endif
-                        <th class="rides-list-table__datetime text-secondary-foreground font-normal text-left" data-label="Datum/tijd">Datum/tijd</th>
-                        <th class="rides-list-table__customer text-secondary-foreground font-normal text-left" data-label="Klant">Klant</th>
-                        <th class="rides-list-table__route text-secondary-foreground font-normal text-left" data-label="Route">Route</th>
-                        <th class="rides-list-table__status text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
-                        <th class="rides-list-table__price text-secondary-foreground font-normal text-left" data-label="Prijs">Prijs</th>
-                        <th class="rides-list-table__actions-col text-secondary-foreground font-normal" data-label="Acties">Acties</th>
+                        <th class="rides-list-table__datetime text-secondary-foreground font-normal text-left" data-label="{{ __('Datum/tijd') }}">{{ __('Datum/tijd') }}</th>
+                        <th class="rides-list-table__customer text-secondary-foreground font-normal text-left" data-label="{{ __('Klant') }}">{{ __('Klant') }}</th>
+                        <th class="rides-list-table__route text-secondary-foreground font-normal text-left" data-label="{{ __('Route') }}">{{ __('Route') }}</th>
+                        <th class="rides-list-table__status text-secondary-foreground font-normal text-left" data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                        <th class="rides-list-table__price text-secondary-foreground font-normal text-left" data-label="{{ __('Prijs') }}">{{ __('Prijs') }}</th>
+                        <th class="rides-list-table__actions-col text-secondary-foreground font-normal" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -148,7 +152,7 @@
                             class="cursor-pointer hover:bg-muted/40"
                             tabindex="0"
                             role="link"
-                            aria-label="Bekijk rit #{{ $r->id }}"
+                            aria-label="{{ __('Bekijk rit #:id', ['id' => $r->id]) }}"
                         @endif
                     >
                         @if($canDeleteRides)
@@ -157,7 +161,7 @@
                                 <input type="checkbox"
                                        class="kt-checkbox ride-row-checkbox"
                                        value="{{ $r->id }}"
-                                       aria-label="Selecteer rit #{{ $r->id }}">
+                                       aria-label="{{ __('Selecteer rit #:id', ['id' => $r->id]) }}">
                             </label>
                         </td>
                         @endif
@@ -171,9 +175,9 @@
                                 <span class="text-muted-foreground text-xs block truncate">{{ $r->customer_phone }}</span>
                             @endif
                             @if($r->isNexaSuiteBooking())
-                                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] text-[11px] mt-1">NEXA Marktplaats</span>
+                                <span class="kt-badge kt-badge-outline kt-badge-warning rounded-[30px] text-[11px] mt-1">{{ __('NEXA Marktplaats') }}</span>
                             @elseif($r->isNetworkFulfilled())
-                                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px] text-[11px] mt-1">Network</span>
+                                <span class="kt-badge kt-badge-outline kt-badge-primary rounded-[30px] text-[11px] mt-1">{{ __('Network') }}</span>
                             @endif
                         </td>
                         <td class="rides-list-table__route" title="{{ $r->pickup_address }} → {{ $r->dropoff_address }}">
@@ -188,14 +192,14 @@
                             </div>
                         </td>
                         <td class="rides-list-table__status">
-                            <span class="block truncate">{{ $r->status_label }}</span>
+                            <span class="block truncate">{{ __($r->status_label) }}</span>
                             @if($r->settlement_status)
                                 <span class="kt-badge kt-badge-outline rounded-[30px] text-[11px] mt-1
                                     @if($r->settlement_status === \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_REVIEW) kt-badge-warning
                                     @elseif($r->settlement_status === \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_HOLD) kt-badge-warning
                                     @elseif(in_array($r->settlement_status, [\App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_ELIGIBLE, \App\Modules\NexaTaxi\Models\RideRequest::SETTLEMENT_SETTLED], true)) kt-badge-primary
                                     @endif
-                                ">{{ $r->settlement_status_label }}</span>
+                                ">{{ __($r->settlement_status_label) }}</span>
                             @endif
                         </td>
                         <td class="rides-list-table__price whitespace-nowrap tabular-nums admin-currency-cell">@if($r->quoted_price !== null)€&nbsp;{{ number_format((float) $r->quoted_price, 2, ',', '.') }}@else—@endif</td>
@@ -208,7 +212,7 @@
                                          data-kt-menu-item-placement-rtl="bottom-start"
                                          data-kt-menu-item-toggle="dropdown"
                                          data-kt-menu-item-trigger="click">
-                                        <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                        <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}">
                                             <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
                                             </svg>
@@ -220,7 +224,7 @@
                                                     <span class="kt-menu-icon">
                                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                                                     </span>
-                                                    <span class="kt-menu-title">Details</span>
+                                                    <span class="kt-menu-title">{{ __('Details') }}</span>
                                                 </a>
                                             </div>
                                             @endif
@@ -231,7 +235,7 @@
                                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
                                                     </span>
                                                     <span class="kt-menu-title">
-                                                        Notificatielog
+                                                        {{ __('Notificatielog') }}
                                                         @if(($r->notification_logs_count ?? 0) > 0)
                                                             <span class="text-muted-foreground">({{ $r->notification_logs_count }})</span>
                                                         @endif
@@ -245,7 +249,7 @@
                                                     <span class="kt-menu-icon">
                                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                                                     </span>
-                                                    <span class="kt-menu-title">Status aanpassen</span>
+                                                    <span class="kt-menu-title">{{ __('Status aanpassen') }}</span>
                                                 </a>
                                             </div>
                                             @endif
@@ -265,14 +269,14 @@
             @else
             <div class="flex flex-col items-center justify-center py-16 px-3">
                 <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                <p class="text-sm text-muted-foreground mb-0">Geen ritten gevonden.</p>
+                <p class="text-sm text-muted-foreground mb-0">{{ __('Geen ritten gevonden.') }}</p>
             </div>
             @endif
         </div>
         @if($rideRequests->count() > 0)
         <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
             <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                Toon
+                {{ __('Toon') }}
                 <form method="GET" action="{{ route($ridesIndexRoute) }}" class="inline-flex" id="ride-perpage-form">
                     @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
                     @if(request('vehicle_id'))<input type="hidden" name="vehicle_id" value="{{ request('vehicle_id') }}">@endif
@@ -285,12 +289,12 @@
                         @endforeach
                     </select>
                 </form>
-                per pagina
+                {{ __('per pagina') }}
             </div>
             <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                 {{ $rideRequests->links('vendor.pagination.admin-datatable') }}
             </div>
-            <span class="admin-datatable-footer__info">{{ $rideRequests->firstItem() ?? 0 }}-{{ $rideRequests->lastItem() ?? 0 }} van {{ $rideRequests->total() }}</span>
+            <span class="admin-datatable-footer__info">{{ __(':firstitem-:lastitem van :total', ['firstitem' => $rideRequests->firstItem() ?? 0, 'lastitem' => $rideRequests->lastItem() ?? 0, 'total' => $rideRequests->total()]) }}</span>
         </div>
         @endif
     </div>
@@ -299,9 +303,9 @@
       action="{{ route($ridesBulkDestroyRoute) }}"
       id="rides-bulk-delete-form"
       class="hidden"
-      data-admin-confirm="Weet je zeker dat je de geselecteerde ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
-      data-admin-confirm-title="Ritten verwijderen"
-      data-admin-confirm-label="Verwijderen">
+      data-admin-confirm="{{ __('Weet je zeker dat je de geselecteerde ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}"
+      data-admin-confirm-title="{{ __('Ritten verwijderen') }}"
+      data-admin-confirm-label="{{ __('Verwijderen') }}">
     @csrf
     @method('DELETE')
     <div id="rides-bulk-delete-ids"></div>
@@ -569,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    var stats = @json($monthlyStats ?? []);
+    var stats = @json($monthlyStatsJs);
     var primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#3b82f6';
     var success = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#22c55e';
     var warning = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#f59e0b';
@@ -610,7 +614,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels.total = {
                 show: true,
                 showAlways: true,
-                label: 'Totaal',
+                label: @json(__('Totaal')),
                 fontSize: '11px',
                 fontWeight: 500,
                 color: theme.label,
@@ -654,8 +658,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (trendEl) {
             var trendChart = new ApexCharts(trendEl, {
                 series: [
-                    { name: 'Voltooid', type: 'column', data: daily.map(function (d) { return d.completed; }) },
-                    { name: 'Omzet', type: 'line', data: daily.map(function (d) { return d.revenue; }) }
+                    { name: @json(__('Voltooid')), type: 'column', data: daily.map(function (d) { return d.completed; }) },
+                    { name: @json(__('Omzet')), type: 'line', data: daily.map(function (d) { return d.revenue; }) }
                 ],
                 chart: { height: 168, type: 'line', toolbar: { show: false }, fontFamily: 'inherit', foreColor: theme.label, zoom: { enabled: false }, parentHeightOffset: 0 },
                 stroke: { width: [0, 2], curve: 'smooth' },
@@ -678,7 +682,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     shared: true,
                     theme: theme.tooltip,
                     y: [
-                        { formatter: function (val) { return val + ' ritten'; } },
+                        { formatter: function (val) { return val + ' ' + @json(__('ritten')); } },
                         { formatter: euro }
                     ]
                 }
@@ -693,7 +697,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var mollie = Number(stats.revenue_mollie || 0);
             var paymentChart = new ApexCharts(paymentEl, {
                 series: (cash === 0 && mollie === 0) ? [1] : [cash, mollie],
-                labels: (cash === 0 && mollie === 0) ? ['Geen omzet'] : ['Cash', 'Mollie'],
+                labels: (cash === 0 && mollie === 0) ? [@json(__('Geen omzet'))] : ['Cash', 'Mollie'],
                 chart: { type: 'donut', height: 140, fontFamily: 'inherit', foreColor: theme.label, parentHeightOffset: 0 },
                 colors: (cash === 0 && mollie === 0) ? ['#94a3b8'] : [warning, primary],
                 legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: theme.label } },
@@ -721,7 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var statusRows = stats.status_chart || [];
             var statusChart = new ApexCharts(statusEl, {
                 series: statusRows.length ? statusRows.map(function (row) { return row.value; }) : [1],
-                labels: statusRows.length ? statusRows.map(function (row) { return row.label; }) : ['Geen ritten'],
+                labels: statusRows.length ? statusRows.map(function (row) { return row.label; }) : [@json(__('Geen ritten'))],
                 chart: { type: 'donut', height: 140, fontFamily: 'inherit', foreColor: theme.label, parentHeightOffset: 0 },
                 legend: { position: 'bottom', fontSize: '11px', itemMargin: { horizontal: 6, vertical: 0 }, labels: { colors: theme.label } },
                 dataLabels: { enabled: false },
@@ -848,14 +852,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 bulkForm.setAttribute(
                     'data-admin-confirm',
                     count === 1
-                        ? 'Weet je zeker dat je deze rit wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-                        : 'Weet je zeker dat je ' + count + ' ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                        ? @json(__('Weet je zeker dat je deze rit wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+                        : @json(__('Weet je zeker dat je :count ritten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')).replace(':count', count)
                 );
                 bulkForm.setAttribute(
                     'data-admin-confirm-title',
-                    count === 1 ? 'Rit verwijderen' : 'Ritten verwijderen'
+                    count === 1 ? @json(__('Rit verwijderen')) : @json(__('Ritten verwijderen'))
                 );
-                bulkForm.setAttribute('data-admin-confirm-label', 'Verwijderen');
+                bulkForm.setAttribute('data-admin-confirm-label', @json(__('Verwijderen')));
             }
         }
 

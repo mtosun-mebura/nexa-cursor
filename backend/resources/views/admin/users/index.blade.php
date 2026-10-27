@@ -1,18 +1,18 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Gebruikers Beheer')
+@section('title', __('Gebruikers Beheer'))
 
 @section('content')
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Gebruikers Beheer
+            {{ __('Gebruikers Beheer') }}
         </h1>
         @can('create-users')
         <a href="{{ route('admin.users.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Nieuwe Gebruiker
+            {{ __('Nieuwe Gebruiker') }}
         </a>
         @endcan
     </div>
@@ -26,7 +26,7 @@
                         {{ $stats['total_companies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Bedrijven
+                        {{ __('Bedrijven') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -35,7 +35,7 @@
                         {{ $stats['active_companies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Actief
+                        {{ __('Actief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -44,7 +44,7 @@
                         {{ $stats['total_users'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Gebruikers
+                        {{ __('Gebruikers') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -53,7 +53,7 @@
                         {{ $stats['total_vacancies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Vacatures
+                        {{ __('Vacatures') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -62,7 +62,7 @@
                         {{ $stats['intermediaries'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Tussenpartijen / Recruiters
+                        {{ __('Tussenpartijen / Recruiters') }}
                     </span>
                 </div>
             </div>
@@ -78,8 +78,8 @@
                         id="users-bulk-delete"
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                         hidden
-                        aria-label="Geselecteerde gebruikers verwijderen"
-                        title="Verwijderen">
+                        aria-label="{{ __('Geselecteerde gebruikers verwijderen') }}"
+                        title="{{ __('Verwijderen') }}">
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count">(<span data-users-selected-count>0</span>)</span>
                 </button>
@@ -109,7 +109,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek gebruikers..." 
+                                <input placeholder="{{ __('Zoek gebruikers...') }}" 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
@@ -128,20 +128,20 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="status" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter">
-                                <option value="">Alle statussen</option>
-                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                             </select>
                             
                             @if($roles->count() > 0)
                             <select class="kt-select w-full sm:w-36" 
                                     name="role" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Rol"
+                                    data-kt-select-placeholder="{{ __('Rol') }}"
                                     id="role-filter">
-                                <option value="">Alle rollen</option>
+                                <option value="">{{ __('Alle rollen') }}</option>
                                 @foreach($roles as $role)
                                     <option value="{{ $role }}" {{ request('role') == $role ? 'selected' : '' }}>
                                         {{ ucfirst(str_replace('-', ' ', $role)) }}
@@ -154,9 +154,9 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="company" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Bedrijf"
+                                    data-kt-select-placeholder="{{ __('Bedrijf') }}"
                                     id="company-filter">
-                                <option value="">Alle bedrijven</option>
+                                <option value="">{{ __('Alle bedrijven') }}</option>
                                 @foreach($companies as $company)
                                     <option value="{{ $company->id }}" {{ request('company') == $company->id ? 'selected' : '' }}>
                                         {{ $company->name }}
@@ -168,19 +168,19 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="sort" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
-                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
-                                <option value="first_name" {{ request('sort') == 'first_name' ? 'selected' : '' }}>Voornaam</option>
-                                <option value="last_name" {{ request('sort') == 'last_name' ? 'selected' : '' }}>Achternaam</option>
-                                <option value="email" {{ request('sort') == 'email' ? 'selected' : '' }}>E-mail</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>{{ __('Geen sortering') }}</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
+                                <option value="first_name" {{ request('sort') == 'first_name' ? 'selected' : '' }}>{{ __('Voornaam') }}</option>
+                                <option value="last_name" {{ request('sort') == 'last_name' ? 'selected' : '' }}>{{ __('Achternaam') }}</option>
+                                <option value="email" {{ request('sort') == 'email' ? 'selected' : '' }}>{{ __('E-mail') }}</option>
                             </select>
                         </form>
                         @if(request('status') || request('role') || request('company') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
                         <a href="{{ route('admin.users.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -192,7 +192,7 @@
             
             <div class="kt-card-content">
                 @if($users->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="gebruikers" data-admin-datatable-on-page="syncUsersBulkSelection">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="users_table" data-admin-datatable-label="{{ __('gebruikers') }}" data-admin-datatable-on-page="syncUsersBulkSelection">
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap users-table-wrap">
                             <table class="kt-table kt-table-border admin-fluid-table w-full @can('delete-users') has-user-check @endcan">
                             <thead>
@@ -200,13 +200,13 @@
                                     @can('delete-users')
                                     <th class="admin-table__check-col text-center" data-no-row-link data-label="">
                                         <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
-                                            <input type="checkbox" class="kt-checkbox" id="users-select-all" aria-label="Alles selecteren">
+                                            <input type="checkbox" class="kt-checkbox" id="users-select-all" aria-label="{{ __('Alles selecteren') }}">
                                         </label>
                                     </th>
                                     @endcan
-                                    <th data-label="Gebruiker">
+                                    <th data-label="{{ __('Gebruiker') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Gebruiker</span>
+                                            <span class="kt-table-col-label">{{ __('Gebruiker') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -225,21 +225,21 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th data-label="Rol">
+                                    <th data-label="{{ __('Rol') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Rol</span>
+                                            <span class="kt-table-col-label">{{ __('Rol') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th data-label="Bedrijf">
+                                    <th data-label="{{ __('Bedrijf') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Bedrijf</span>
+                                            <span class="kt-table-col-label">{{ __('Bedrijf') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th data-label="Status">
+                                    <th data-label="{{ __('Status') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -256,9 +256,9 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th data-label="Aangemaakt">
+                                    <th data-label="{{ __('Aangemaakt') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-label">{{ __('Aangemaakt') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -279,7 +279,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="text-center" data-label="Acties">Acties</th>
+                                    <th class="text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -292,7 +292,7 @@
                                                 <input type="checkbox"
                                                        class="kt-checkbox user-row-checkbox"
                                                        value="{{ $user->id }}"
-                                                       aria-label="Selecteer {{ $user->first_name }} {{ $user->last_name }}">
+                                                       aria-label="{{ __('Selecteer :firstname :lastname', ['firstname' => $user->first_name, 'lastname' => $user->last_name]) }}">
                                             </label>
                                             @endif
                                         </td>
@@ -314,7 +314,7 @@
                                                             {{ $user->first_name }} {{ $user->last_name }}
                                                         </a>
                                                         @if($user->id === auth()->id())
-                                                            <span class="kt-badge kt-badge-sm kt-badge-secondary shrink-0">Jij</span>
+                                                            <span class="kt-badge kt-badge-sm kt-badge-secondary shrink-0">{{ __('Jij') }}</span>
                                                         @endif
                                                     </div>
                                                     <div class="flex items-center gap-1 min-w-0">
@@ -322,8 +322,8 @@
                                                         <button type="button"
                                                                 class="user-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                                                                 data-copy-text="{{ $user->email }}"
-                                                                title="E-mailadres kopiëren"
-                                                                aria-label="E-mailadres kopiëren">
+                                                                title="{{ __('E-mailadres kopiëren') }}"
+                                                                aria-label="{{ __('E-mailadres kopiëren') }}">
                                                             <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
                                                         </button>
                                                     </div>
@@ -346,14 +346,14 @@
                                                     @endforeach
                                                 </div>
                                             @else
-                                                <span class="text-sm text-muted-foreground">Geen rol</span>
+                                                <span class="text-sm text-muted-foreground">{{ __('Geen rol') }}</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
                                             @if($user->company)
                                                 <span class="text-sm">{{ $user->company->name }}</span>
                                             @else
-                                                <span class="text-sm text-muted-foreground">Geen bedrijf</span>
+                                                <span class="text-sm text-muted-foreground">{{ __('Geen bedrijf') }}</span>
                                             @endif
                                         </td>
                                         <td class="user-status-cell">
@@ -364,14 +364,14 @@
                                             <div class="flex flex-col items-start gap-1">
                                                 <span class="user-account-status">
                                                     @if($isActive)
-                                                        <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                        <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                                     @else
-                                                        <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                        <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                                     @endif
                                                 </span>
                                                 @if(!empty($presence['chauffeur']['applicable']))
-                                                    <span class="kt-badge kt-badge-sm {{ !empty($presence['chauffeur']['online']) ? 'kt-badge-success' : 'kt-badge-secondary' }}" title="Status in de chauffeur-app">
-                                                        Chauffeur · {{ !empty($presence['chauffeur']['online']) ? 'Online' : 'Offline' }}
+                                                    <span class="kt-badge kt-badge-sm {{ !empty($presence['chauffeur']['online']) ? 'kt-badge-success' : 'kt-badge-secondary' }}" title="{{ __('Status in de chauffeur-app') }}">
+                                                        {{ __('Chauffeur · :presence', ['presence' => !empty($presence['chauffeur']['online']) ? __('Online') : __('Offline')]) }}
                                                     </span>
                                                 @endif
                                             </div>
@@ -392,7 +392,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -402,7 +402,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -415,15 +415,15 @@
                                                             <form action="{{ route('admin.users.force-logout', $user) }}"
                                                                   method="POST"
                                                                   style="display: inline;"
-                                                                  data-admin-confirm="Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app."
-                                                                  data-admin-confirm-title="Op afstand uitloggen"
-                                                                  data-admin-confirm-label="Uitloggen">
+                                                                  data-admin-confirm="{{ __('Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app.') }}"
+                                                                  data-admin-confirm-title="{{ __('Op afstand uitloggen') }}"
+                                                                  data-admin-confirm-label="{{ __('Uitloggen') }}">
                                                                 @csrf
                                                                 <button type="submit" class="kt-menu-link w-full text-left">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-exit-right-corner"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Uitloggen</span>
+                                                                    <span class="kt-menu-title">{{ __('Uitloggen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -441,7 +441,7 @@
                                                                         @endphp
                                                                         <i class="ki-filled toggle-status-icon {{ $isActive ? 'ki-cross-circle' : 'ki-check-circle' }}"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title toggle-status-text">{{ $isActive ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                    <span class="kt-menu-title toggle-status-text">{{ $isActive ? __('Deactiveren') : __('Activeren') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -454,16 +454,16 @@
                                                             <form action="{{ route('admin.users.destroy', $user) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  data-admin-confirm="Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
-                                                                  data-admin-confirm-title="Gebruiker verwijderen"
-                                                                  data-admin-confirm-label="Verwijderen">
+                                                                  data-admin-confirm="{{ __('Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}"
+                                                                  data-admin-confirm-title="{{ __('Gebruiker verwijderen') }}"
+                                                                  data-admin-confirm-label="{{ __('Verwijderen') }}">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -482,10 +482,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -496,7 +496,7 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen gebruikers gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen gebruikers gevonden') }}</h4>
                     </div>
                 @endif
             </div>
@@ -509,9 +509,9 @@
       action="{{ route('admin.users.bulk-destroy') }}"
       id="users-bulk-delete-form"
       class="hidden"
-      data-admin-confirm="Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt."
-      data-admin-confirm-title="Gebruikers verwijderen"
-      data-admin-confirm-label="Verwijderen">
+      data-admin-confirm="{{ __('Weet je zeker dat je de geselecteerde gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}"
+      data-admin-confirm-title="{{ __('Gebruikers verwijderen') }}"
+      data-admin-confirm-label="{{ __('Verwijderen') }}">
     @csrf
     @method('DELETE')
     <div id="users-bulk-delete-ids"></div>
@@ -564,15 +564,15 @@
 
     function markEmailCopied(button) {
         var icon = button.querySelector('i');
-        button.setAttribute('title', 'Gekopieerd');
-        button.setAttribute('aria-label', 'Gekopieerd');
+        button.setAttribute('title', @json(__('Gekopieerd')));
+        button.setAttribute('aria-label', @json(__('Gekopieerd')));
         if (icon) {
             icon.classList.remove('ki-copy');
             icon.classList.add('ki-check');
         }
         window.setTimeout(function () {
-            button.setAttribute('title', 'E-mailadres kopiëren');
-            button.setAttribute('aria-label', 'E-mailadres kopiëren');
+            button.setAttribute('title', @json(__('E-mailadres kopiëren')));
+            button.setAttribute('aria-label', @json(__('E-mailadres kopiëren')));
             if (icon) {
                 icon.classList.remove('ki-check');
                 icon.classList.add('ki-copy');
@@ -613,11 +613,11 @@
                 markEmailCopied(button);
             }).catch(function () {
                 if (!copiedNow) {
-                    window.prompt('Kopieer dit e-mailadres:', text);
+                    window.prompt(@json(__('Kopieer dit e-mailadres:')), text);
                 }
             });
         } else if (!copiedNow) {
-            window.prompt('Kopieer dit e-mailadres:', text);
+            window.prompt(@json(__('Kopieer dit e-mailadres:')), text);
         }
     }, true);
 })();
@@ -685,14 +685,14 @@
             bulkForm.setAttribute(
                 'data-admin-confirm',
                 count === 1
-                    ? 'Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-                    : 'Weet je zeker dat je ' + count + ' gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+                    ? @json(__('Weet je zeker dat je deze gebruiker wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+                    : @json(__('Weet je zeker dat je :count gebruikers wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')).replace(':count', count)
             );
             bulkForm.setAttribute(
                 'data-admin-confirm-title',
-                count === 1 ? 'Gebruiker verwijderen' : 'Gebruikers verwijderen'
+                count === 1 ? @json(__('Gebruiker verwijderen')) : @json(__('Gebruikers verwijderen'))
             );
-            bulkForm.setAttribute('data-admin-confirm-label', 'Verwijderen');
+            bulkForm.setAttribute('data-admin-confirm-label', @json(__('Verwijderen')));
         }
     }
 
@@ -738,6 +738,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
         function replaceOfWithVan() {
+            if (@json(app()->getLocale() !== 'nl')) {
+                return;
+            }
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
@@ -845,7 +848,7 @@
             // Disable button
             button.disabled = true;
             if (titleElement) {
-                titleElement.textContent = 'Bezig...';
+                titleElement.textContent = @json(__('Bezig...'));
             }
             
             // Make AJAX request
@@ -886,8 +889,8 @@
                     const accountStatus = userRow.querySelector('.user-account-status');
                     if (accountStatus) {
                         accountStatus.innerHTML = data.is_active
-                            ? '<span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>'
-                            : '<span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>';
+                            ? '<span class="kt-badge kt-badge-sm kt-badge-success">' + @json(__('Actief')) + '</span>'
+                            : '<span class="kt-badge kt-badge-sm kt-badge-danger">' + @json(__('Inactief')) + '</span>';
                     }
                     
                     // Update all toggle buttons for this user
@@ -903,7 +906,7 @@
                         }
                         
                         if (text) {
-                            text.textContent = data.is_active ? 'Deactiveren' : 'Activeren';
+                            text.textContent = data.is_active ? @json(__('Deactiveren')) : @json(__('Activeren'));
                         }
                     });
                     
@@ -929,7 +932,7 @@
             })
             .catch(error => {
                 console.error('Toggle status error:', error);
-                alert('Fout: ' + error.message);
+                alert(@json(__('Fout:')) + ' ' + error.message);
                 button.disabled = false;
                 if (titleElement) {
                     titleElement.textContent = originalButtonText;
@@ -1118,7 +1121,7 @@
     }
     
     /* Reset button visibility */
-    a[title="Filters resetten"] {
+    #reset-filter-btn {
         display: inline-flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -1130,11 +1133,11 @@
         background-color: var(--background) !important;
         color: var(--secondary-foreground) !important;
     }
-    a[title="Filters resetten"]:hover {
+    #reset-filter-btn:hover {
         background-color: var(--accent) !important;
         color: var(--accent-foreground) !important;
     }
-    a[title="Filters resetten"] i {
+    #reset-filter-btn i {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;

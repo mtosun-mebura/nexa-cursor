@@ -16,20 +16,29 @@
         return;
     }
 
+    /** Vertaling via window.NEXA_I18N (gevuld door admin layout); valt terug op de Nederlandse tekst. */
+    const tr = function(text, params) {
+        let out = (window.NEXA_I18N && window.NEXA_I18N[text]) || text;
+        if (params) {
+            Object.keys(params).forEach(function(k) { out = out.split(':' + k).join(params[k]); });
+        }
+        return out;
+    };
+
     /**
      * Validatie configuratie per veldtype
      */
     const validationRules = {
         email: {
             pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-            message: 'Voer een geldig e-mailadres in.',
-            successMessage: 'E-mailadres is geldig',
+            message: tr('Voer een geldig e-mailadres in.'),
+            successMessage: tr('E-mailadres is geldig'),
             minLength: 5,
         },
         phone: {
             pattern: /^(\+31|0)[1-9][0-9]{8}$/,
-            message: 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',
-            successMessage: 'Telefoonnummer is geldig',
+            message: tr('Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).'),
+            successMessage: tr('Telefoonnummer is geldig'),
             format: function(value) {
                 let formatted = String(value || '').trim().replace(/\s/g, '').replace(/-/g, '').replace(/\./g, '');
                 if (formatted.startsWith('0031') && /^0031[1-9]\d{8}$/.test(formatted)) {
@@ -46,8 +55,8 @@
         },
         postal_code: {
             pattern: /^[1-9][0-9]{3}\s?[A-Z]{2}$/i,
-            message: 'Postcode moet een geldige Nederlandse postcode zijn (bijv. 1234AB).',
-            successMessage: 'Postcode is geldig',
+            message: tr('Postcode moet een geldige Nederlandse postcode zijn (bijv. 1234AB).'),
+            successMessage: tr('Postcode is geldig'),
             format: function(value) {
                 // Auto-format: add space after 4 digits
                 let formatted = value.replace(/\s/g, '').toUpperCase();
@@ -59,22 +68,22 @@
         },
         kvk_number: {
             pattern: /^[0-9]{8}$/,
-            message: 'KVK nummer moet 8 cijfers bevatten.',
-            successMessage: 'KVK nummer is geldig',
+            message: tr('KVK nummer moet 8 cijfers bevatten.'),
+            successMessage: tr('KVK nummer is geldig'),
             format: function(value) {
                 return value.replace(/\D/g, ''); // Remove non-digits
             }
         },
         password: {
             pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-            message: 'Wachtwoord moet minimaal 1 kleine letter, 1 hoofdletter en 1 cijfer bevatten.',
-            successMessage: 'Wachtwoord is geldig',
+            message: tr('Wachtwoord moet minimaal 1 kleine letter, 1 hoofdletter en 1 cijfer bevatten.'),
+            successMessage: tr('Wachtwoord is geldig'),
             minLength: 8,
         },
         url: {
             pattern: /^https?:\/\/.+/,
-            message: 'URL moet beginnen met http:// of https://',
-            successMessage: 'URL is geldig',
+            message: tr('URL moet beginnen met http:// of https://'),
+            successMessage: tr('URL is geldig'),
         },
         text: {
             minLength: 2,
@@ -82,13 +91,13 @@
         /** Zelfde regel als StoreUserRequest / UpdateUserRequest (voornaam, achternaam, contactnamen) */
         person_name: {
             pattern: /^[\p{L}\s\-'\.]+$/u,
-            message: 'Alleen letters, spaties, streepjes (-), apostrofs (\') en punten zijn toegestaan (geen cijfers).',
+            message: tr('Alleen letters, spaties, streepjes (-), apostrofs (\') en punten zijn toegestaan (geen cijfers).'),
             minLength: 2,
         },
         /** Kenteken (Nexa Taxi voertuigen): verplicht, max 20 op server; geen strikt NL-patroon i.v.m. import/varianten */
         license_plate: {
             minLength: 1,
-            message: 'Voer een kenteken in.',
+            message: tr('Voer een kenteken in.'),
         },
         /** Nederlands huisnummer: 1 teken is geldig (bijv. 1 of 5). */
         house_number: {
@@ -96,8 +105,8 @@
         },
         /** IBAN (ISO 13616 mod-97), zelfde regel als PHP is_valid_iban(). */
         iban: {
-            message: 'Voer een geldig IBAN in.',
-            successMessage: 'IBAN is geldig',
+            message: tr('Voer een geldig IBAN in.'),
+            successMessage: tr('IBAN is geldig'),
             validate: function(value) {
                 const iban = String(value || '').replace(/\s+/g, '').toUpperCase();
                 if (iban.length < 15 || iban.length > 34) {
@@ -456,7 +465,7 @@
                 }
                 // For select fields, only validate if required
                 if (isRequired && (!value || value === '')) {
-                    const selectRequiredMessage = input.getAttribute('data-required-message') || 'Selecteer een optie.';
+                    const selectRequiredMessage = input.getAttribute('data-required-message') || tr('Selecteer een optie.');
                     this.setInvalid(input, feedbackElement, selectRequiredMessage, forceShow);
                     return false;
                 }
@@ -472,7 +481,7 @@
             if (isCheckboxOrRadio) {
                 // For required checkbox/radio: must be checked
                 if (isRequired && !input.checked) {
-                    this.setInvalid(input, feedbackElement, 'Dit veld is verplicht.', forceShow);
+                    this.setInvalid(input, feedbackElement, tr('Dit veld is verplicht.'), forceShow);
                     return false;
                 }
 
@@ -485,7 +494,7 @@
             if (!value) {
                 if (isRequired) {
                     const requiredMessage = input.getAttribute('data-required-message')
-                        || (fieldType === 'password' ? 'Wachtwoord is verplicht.' : 'Dit veld is verplicht.');
+                        || (fieldType === 'password' ? tr('Wachtwoord is verplicht.') : tr('Dit veld is verplicht.'));
                     this.setInvalid(input, feedbackElement, requiredMessage, forceShow);
                     return false;
                 }
@@ -498,8 +507,8 @@
                 const minLength = this.getMinLength(input, fieldType);
                 if (minLength && value.length < minLength) {
                     const minMessage = fieldType === 'password'
-                        ? `Wachtwoord moet minimaal ${minLength} karakters lang zijn.`
-                        : `Dit veld moet minimaal ${minLength} karakters bevatten.`;
+                        ? tr('Wachtwoord moet minimaal :min karakters lang zijn.', { min: minLength })
+                        : tr('Dit veld moet minimaal :min karakters bevatten.', { min: minLength });
                     this.setInvalid(input, feedbackElement, minMessage, forceShow);
                     return false;
                 }
@@ -525,7 +534,7 @@
                 }
 
                 if (pattern && !pattern.test(patternValue)) {
-                    const message = validationRules[fieldType]?.message || 'Deze invoer is ongeldig.';
+                    const message = validationRules[fieldType]?.message || tr('Deze invoer is ongeldig.');
                     this.setInvalid(input, feedbackElement, message, forceShow);
                     return false;
                 }
@@ -540,7 +549,7 @@
 
                 if (typeof validationRules[fieldType]?.validate === 'function') {
                     if (!validationRules[fieldType].validate(patternValue)) {
-                        const message = validationRules[fieldType]?.message || 'Deze invoer is ongeldig.';
+                        const message = validationRules[fieldType]?.message || tr('Deze invoer is ongeldig.');
                         this.setInvalid(input, feedbackElement, message, forceShow);
                         return false;
                     }
@@ -550,7 +559,7 @@
             if (this.isPasswordConfirmationField(input)) {
                 const passwordInput = this.findPairedPasswordInput(input);
                 if (passwordInput && passwordInput.value !== input.value) {
-                    this.setInvalid(input, feedbackElement, 'De wachtwoorden komen niet overeen.', forceShow);
+                    this.setInvalid(input, feedbackElement, tr('De wachtwoorden komen niet overeen.'), forceShow);
                     return false;
                 }
             }
@@ -1183,7 +1192,7 @@
                         if (validationWrapper) {
                             let feedbackElement = validationWrapper.querySelector('.field-feedback[data-field="actions[]"]');
                             if (feedbackElement) {
-                            feedbackElement.textContent = 'Selecteer minimaal één optie.';
+                            feedbackElement.textContent = tr('Selecteer minimaal één optie.');
                                 // Remove hidden class and ensure it's visible
                                 validationWrapper.classList.remove('hidden');
                                 validationWrapper.style.display = 'block';
@@ -1199,7 +1208,7 @@
                         if (moduleValidationWrapper) {
                             const feedbackElement = moduleValidationWrapper.querySelector('.field-feedback[data-field="module_ids[]"]');
                             if (feedbackElement) {
-                                feedbackElement.textContent = 'Selecteer minimaal één module.';
+                                feedbackElement.textContent = tr('Selecteer minimaal één module.');
                             }
                             moduleValidationWrapper.classList.remove('hidden');
                             moduleValidationWrapper.style.display = 'block';
@@ -1219,7 +1228,7 @@
                                 groupContainer.insertBefore(feedbackElement, groupContainer.firstChild);
                             }
                         }
-                        feedbackElement.textContent = 'Selecteer minimaal één optie.';
+                        feedbackElement.textContent = tr('Selecteer minimaal één optie.');
                         feedbackElement.classList.remove('hidden');
                         feedbackElement.style.display = 'block';
                     }
@@ -1291,7 +1300,7 @@
                 if (!moduleFeedback) return checkedCount > 0;
 
                 if (checkedCount === 0) {
-                    moduleFeedback.textContent = 'Selecteer minimaal één module.';
+                    moduleFeedback.textContent = tr('Selecteer minimaal één module.');
                     moduleValidationWrapper.classList.remove('hidden');
                     moduleValidationWrapper.style.display = 'block';
                     return false;
@@ -1316,7 +1325,7 @@
             }
             
             if (checkedCount === 0) {
-                feedbackElement.textContent = 'Selecteer minimaal één optie.';
+                feedbackElement.textContent = tr('Selecteer minimaal één optie.');
                 feedbackElement.classList.remove('hidden');
                 feedbackElement.style.display = 'block';
                 return false;

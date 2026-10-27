@@ -17,7 +17,7 @@
     $highlightedId = 'package-highlighted-'.$i;
     $packageTitle = trim((string) ($package['name'] ?? ''));
     if ($packageTitle === '') {
-        $packageTitle = 'Pakket';
+        $packageTitle = __('Pakket');
     }
     $bodyId = 'nexa-pricing-package-body-'.$i;
     $startCollapsed = ! collect($errors->keys())->contains(
@@ -37,13 +37,13 @@
                     class="nexa-pricing-package-toggle nexa-pricing-package-chevron-btn kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
                     aria-expanded="{{ $startCollapsed ? 'false' : 'true' }}"
                     aria-controls="{{ $bodyId }}"
-                    aria-label="Pakket in- of uitklappen">
+                    aria-label="{{ __('Pakket in- of uitklappen') }}">
                 <span class="nexa-pricing-package-chevron" aria-hidden="true">
                     <i class="ki-filled ki-down nexa-pricing-package-icon-down text-base"></i>
                     <i class="ki-filled ki-up nexa-pricing-package-icon-up text-base"></i>
                 </span>
             </button>
-            <button type="button" class="nexa-pricing-package-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Pakket verwijderen" aria-label="Pakket verwijderen">
+            <button type="button" class="nexa-pricing-package-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="{{ __('Pakket verwijderen') }}" aria-label="{{ __('Pakket verwijderen') }}">
                 <i class="ki-filled ki-trash"></i>
             </button>
         </div>
@@ -52,19 +52,19 @@
         <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Naam <span class="text-destructive">*</span></td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Naam') }} <span class="text-destructive">*</span></td>
                     <td class="min-w-48 w-full">
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][name]" value="{{ $package['name'] ?? '' }}" required data-package-name>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Voor wie</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Voor wie') }}</td>
                     <td>
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][audience]" value="{{ $package['audience'] ?? '' }}">
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Maandprijs <span class="text-destructive">*</span></td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Maandprijs') }} <span class="text-destructive">*</span></td>
                     <td>
                         <div class="inline-flex items-stretch">
                             <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
@@ -73,57 +73,57 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal align-top">Aanbiedingsprijs</td>
+                    <td class="text-secondary-foreground font-normal align-top">{{ __('Aanbiedingsprijs') }}</td>
                     <td>
-                        <input class="kt-input w-40" type="text" name="packages[{{ $i }}][offer]" value="{{ $package['offer'] ?? '' }}" placeholder="bijv. 30">
-                        <p class="text-xs text-muted-foreground mt-1">Optionele lagere prijs. Leeg = de normale maandprijs. Een getal wordt als € …,- getoond.</p>
+                        <input class="kt-input w-40" type="text" name="packages[{{ $i }}][offer]" value="{{ $package['offer'] ?? '' }}" placeholder="{{ __('bijv. 30') }}">
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('Optionele lagere prijs. Leeg = de normale maandprijs. Een getal wordt als € …,- getoond.') }}</p>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Gratis maanden</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Gratis maanden') }}</td>
                     <td>
                         <input class="kt-input w-28 tabular-nums" type="number" name="packages[{{ $i }}][free_months]" value="{{ (int) ($package['free_months'] ?? 0) }}" min="0" max="24" step="1" inputmode="numeric">
-                        <p class="text-xs text-muted-foreground mt-1">0 = geen. 1 = “1 maand gratis, daarna € …,-”. Facturatie start ná deze maanden; de contracttermijn telt vanaf de start van de proef.</p>
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('0 = geen. 1 = “1 maand gratis, daarna € …,-”. Facturatie start ná deze maanden; de contracttermijn telt vanaf de start van de proef.') }}</p>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Periode</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Periode') }}</td>
                     <td>
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][period]" value="{{ $package['period'] ?? 'per maand' }}" data-package-period>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Badge</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Badge') }}</td>
                     <td>
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][badge]" value="{{ $package['badge'] ?? '' }}" data-package-badge>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Knoptekst</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Knoptekst') }}</td>
                     <td>
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][cta_text]" value="{{ $package['cta_text'] ?? 'Aanvragen' }}">
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Knop-URL</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Knop-URL') }}</td>
                     <td>
                         <input class="kt-input w-full" type="text" name="packages[{{ $i }}][cta_url]" value="{{ $package['cta_url'] ?? '/contact' }}">
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal">Aanbevolen</td>
+                    <td class="text-secondary-foreground font-normal">{{ __('Aanbevolen') }}</td>
                     <td>
                         <input type="hidden" name="packages[{{ $i }}][highlighted]" value="0">
                         <label class="kt-label flex items-center gap-2 mb-0" for="{{ $highlightedId }}">
                             <input type="checkbox" name="packages[{{ $i }}][highlighted]" id="{{ $highlightedId }}" value="1" class="kt-switch kt-switch-sm shrink-0" @checked(! empty($package['highlighted'])) data-package-highlighted>
-                            <span class="text-sm text-muted-foreground">Uitgelicht in de vergelijkingstabel</span>
+                            <span class="text-sm text-muted-foreground">{{ __('Uitgelicht in de vergelijkingstabel') }}</span>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-secondary-foreground font-normal align-top">Kenmerken</td>
+                    <td class="text-secondary-foreground font-normal align-top">{{ __('Kenmerken') }}</td>
                     <td>
-                        <p class="text-xs text-muted-foreground mb-2">Alle kenmerken staan in elk pakket. Alleen aangevinkte regels horen bij dit pakket en krijgen een vinkje op de website.</p>
+                        <p class="text-xs text-muted-foreground mb-2">{{ __('Alle kenmerken staan in elk pakket. Alleen aangevinkte regels horen bij dit pakket en krijgen een vinkje op de website.') }}</p>
                         <div class="nexa-pricing-feature-list space-y-2" data-feature-prefix="packages[{{ $i }}][features]">
                             @foreach($catalog as $feature)
                                 @include('admin.nexa-pricing.partials.feature-row', [
@@ -133,7 +133,7 @@
                                 ])
                             @endforeach
                         </div>
-                        <button type="button" class="nexa-pricing-feature-add kt-btn kt-btn-sm kt-btn-outline mt-2">+ Kenmerk toevoegen</button>
+                        <button type="button" class="nexa-pricing-feature-add kt-btn kt-btn-sm kt-btn-outline mt-2">{{ __('+ Kenmerk toevoegen') }}</button>
                     </td>
                 </tr>
                 @include('admin.nexa-pricing.partials.package-entitlements', ['i' => $i, 'package' => $package])

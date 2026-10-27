@@ -126,10 +126,10 @@ class AdminPlatformInvoiceController extends Controller
         } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
-            return back()->with('error', 'Factuur versturen mislukt: '.$e->getMessage());
+            return back()->with('error', __('Factuur versturen mislukt: :message', ['message' => $e->getMessage()]));
         }
 
-        return back()->with('success', 'Factuur '.$invoice->invoice_number.' is naar de tenant verstuurd.');
+        return back()->with('success', __('Factuur :number is naar de tenant verstuurd.', ['number' => $invoice->invoice_number]));
     }
 
     public function downloadPdf(PlatformInvoice $invoice, PlatformInvoicePdfService $pdfService): Response
@@ -140,7 +140,7 @@ class AdminPlatformInvoiceController extends Controller
             $result = $pdfService->generateAndStore($invoice->fresh());
             $bytes = $result['bytes'];
         } catch (\Throwable $e) {
-            abort(500, 'PDF kon niet worden gemaakt: '.$e->getMessage());
+            abort(500, __('PDF kon niet worden gemaakt: :message', ['message' => $e->getMessage()]));
         }
 
         $filename = 'saas-factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
@@ -171,7 +171,7 @@ class AdminPlatformInvoiceController extends Controller
 
         return redirect()
             ->route('admin.platform-billing.invoices.show', $invoice)
-            ->with('success', 'Factuur bijgewerkt.');
+            ->with('success', __('Factuur bijgewerkt.'));
     }
 
     public function runNow(PlatformBillingService $billing): RedirectResponse
@@ -181,8 +181,8 @@ class AdminPlatformInvoiceController extends Controller
 
         return redirect()->route('admin.platform-billing.invoices.index')
             ->with('success', $count > 0
-                ? "Facturatie uitgevoerd ({$count} factuur/facturen)."
-                : 'Geen nieuwe facturen aangemaakt (controleer tenant-abonnementen of bestaande facturen voor deze periode).');
+                ? __('Facturatie uitgevoerd (:count factuur/facturen).', ['count' => $count])
+                : __('Geen nieuwe facturen aangemaakt (controleer tenant-abonnementen of bestaande facturen voor deze periode).'));
     }
 
     public function runDunningNow(PlatformDunningService $dunning): RedirectResponse
@@ -192,21 +192,21 @@ class AdminPlatformInvoiceController extends Controller
 
         $parts = [];
         if ($stats['paid'] > 0) {
-            $parts[] = $stats['paid'].' via Mollie als betaald gemarkeerd';
+            $parts[] = __(':count via Mollie als betaald gemarkeerd', ['count' => $stats['paid']]);
         }
         if ($stats['first'] > 0) {
-            $parts[] = $stats['first'].' eerste aanmaning(en)';
+            $parts[] = __(':count eerste aanmaning(en)', ['count' => $stats['first']]);
         }
         if ($stats['second'] > 0) {
-            $parts[] = $stats['second'].' tweede aanmaning(en)';
+            $parts[] = __(':count tweede aanmaning(en)', ['count' => $stats['second']]);
         }
         if ($stats['blocked'] > 0) {
-            $parts[] = $stats['blocked'].' tenant(s) geblokkeerd';
+            $parts[] = __(':count tenant(s) geblokkeerd', ['count' => $stats['blocked']]);
         }
 
         $message = $parts === []
-            ? 'Betalingscontrole uitgevoerd. Geen aanmaningen of blokkades nodig.'
-            : 'Betalingscontrole uitgevoerd: '.implode(', ', $parts).'.';
+            ? __('Betalingscontrole uitgevoerd. Geen aanmaningen of blokkades nodig.')
+            : __('Betalingscontrole uitgevoerd: :parts.', ['parts' => implode(', ', $parts)]);
 
         return redirect()->route('admin.platform-billing.invoices.index')->with('success', $message);
     }

@@ -1,21 +1,21 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nieuwe tenant — stap ' . ($currentStep ?? 1))
+@section('title', __('Nieuwe tenant — stap :step', ['step' => $currentStep ?? 1]))
 
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-col gap-4 pb-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Tenant onboarding
+                {{ __('Tenant onboarding') }}
             </h1>
             <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Naar bedrijvenlijst
+                {{ __('Naar bedrijvenlijst') }}
             </a>
         </div>
         <p class="text-sm text-secondary-foreground max-w-3xl">
-            Doorloop alle stappen om de tenant in te richten, inclusief mailserver, Google SEO en integraties.
+            {{ __('Doorloop alle stappen om de tenant in te richten, inclusief mailserver, Google SEO en integraties.') }}
         </p>
     </div>
 

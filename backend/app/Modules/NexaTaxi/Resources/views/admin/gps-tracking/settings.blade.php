@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'GPS-configuratie')
+@section('title', __('GPS-configuratie'))
 
 @section('content')
 <style>
@@ -53,17 +53,17 @@
 
 <div class="kt-container-fixed min-w-0">
     <div class="pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">GPS-configuratie</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('GPS-configuratie') }}</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
-            Kies hoe auto’s en kentekens op de live kaart worden getoond, en hoe vaak posities worden ververst.
+            {{ __('Kies hoe auto’s en kentekens op de live kaart worden getoond, en hoe vaak posities worden ververst.') }}
             @if($canManage && empty($noTenantSelected))
-                Wijzigingen worden automatisch opgeslagen.
+                {{ __('Wijzigingen worden automatisch opgeslagen.') }}
             @endif
         </p>
         <p id="gps-save-status" class="text-xs text-muted-foreground mt-1 mb-0 min-h-4" aria-live="polite"></p>
         <a href="{{ $mapUrl }}" class="kt-btn kt-btn-outline mt-3">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug naar kaart
+            {{ __('Terug naar kaart') }}
         </a>
     </div>
 
@@ -72,7 +72,7 @@
     @endif
     @if(!empty($noTenantSelected))
         <div class="kt-alert kt-alert-warning mb-5">
-            Selecteer eerst een tenant (bedrijf) in de zijbalk. GPS-configuratie wordt per bedrijf opgeslagen.
+            {{ __('Selecteer eerst een tenant (bedrijf) in de zijbalk. GPS-configuratie wordt per bedrijf opgeslagen.') }}
         </div>
     @endif
 
@@ -84,31 +84,31 @@
             <div class="lg:col-span-3 grid gap-5">
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Autoplaatje</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Autoplaatje') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 lg:p-6 space-y-5">
                         <div>
-                            <p class="text-sm font-medium text-foreground mb-3">Type</p>
+                            <p class="text-sm font-medium text-foreground mb-3">{{ __('Type') }}</p>
                             <div class="grid grid-cols-3 gap-3">
                                 @foreach($carStyles as $styleKey => $styleLabel)
                                     <div class="nexa-gps-style-card">
                                         <span class="nexa-gps-style-preview" data-style="{{ $styleKey }}"></span>
-                                        <span class="text-sm font-medium text-foreground">{{ $styleLabel }}</span>
+                                        <span class="text-sm font-medium text-foreground">{{ __($styleLabel) }}</span>
                                     </div>
                                 @endforeach
                             </div>
                         </div>
 
                         <div>
-                            <p class="text-sm font-medium text-foreground mb-2">Kleur</p>
+                            <p class="text-sm font-medium text-foreground mb-2">{{ __('Kleur') }}</p>
                             <div class="flex flex-wrap items-center gap-4 mb-3">
                                 <label class="inline-flex items-center gap-2 text-sm">
                                     <input type="radio" name="car_color_mode" value="single" data-gps-preview @checked(old('car_color_mode', $appearance['car_color_mode']) === 'single')>
-                                    Eén kleur per type auto
+                                    {{ __('Eén kleur per type auto') }}
                                 </label>
                                 <label class="inline-flex items-center gap-2 text-sm">
                                     <input type="radio" name="car_color_mode" value="per_vehicle" data-gps-preview @checked(old('car_color_mode', $appearance['car_color_mode']) === 'per_vehicle')>
-                                    Eigen kleur per voertuig
+                                    {{ __('Eigen kleur per voertuig') }}
                                 </label>
                             </div>
 
@@ -119,15 +119,15 @@
                                     @endphp
                                     <div class="rounded-xl border border-border p-4 {{ $loop->first ? '' : 'mt-3' }}" data-gps-type-row="{{ $styleKey }}">
                                         <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
-                                            <p class="font-medium text-foreground mb-0">{{ $styleLabel }}</p>
+                                            <p class="font-medium text-foreground mb-0">{{ __($styleLabel) }}</p>
                                             <div class="flex items-center gap-2">
-                                                <input type="color" id="gps-type-color-picker-{{ $styleKey }}" class="h-10 w-14 cursor-pointer rounded border border-input p-1" value="{{ $typeColor }}" aria-label="Kleur {{ $styleLabel }}">
+                                                <input type="color" id="gps-type-color-picker-{{ $styleKey }}" class="h-10 w-14 cursor-pointer rounded border border-input p-1" value="{{ $typeColor }}" aria-label="{{ __('Kleur :style', ['style' => __($styleLabel)]) }}">
                                                 <input type="text" name="type_colors[{{ $styleKey }}]" id="gps-type-color-{{ $styleKey }}" data-gps-preview class="kt-input font-mono text-sm w-28" maxlength="7" value="{{ $typeColor }}">
                                             </div>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             @foreach($carColorPresets as $preset)
-                                                <button type="button" class="nexa-gps-color-swatch" data-gps-type-color="{{ $styleKey }}" data-gps-color="{{ $preset['hex'] }}" style="background: {{ $preset['hex'] }}" title="{{ $preset['label'] }}"></button>
+                                                <button type="button" class="nexa-gps-color-swatch" data-gps-type-color="{{ $styleKey }}" data-gps-color="{{ $preset['hex'] }}" style="background: {{ $preset['hex'] }}" title="{{ __($preset['label']) }}"></button>
                                             @endforeach
                                         </div>
                                     </div>
@@ -139,7 +139,7 @@
 
                             <div id="gps-per-vehicle-controls" class="{{ old('car_color_mode', $appearance['car_color_mode']) === 'per_vehicle' ? '' : 'hidden' }}">
                                 @if(($fleet ?? []) === [])
-                                    <p class="text-sm text-muted-foreground mb-0">Er zijn nog geen voertuigen. Voeg eerst voertuigen toe om per auto een kleur in te stellen.</p>
+                                    <p class="text-sm text-muted-foreground mb-0">{{ __('Er zijn nog geen voertuigen. Voeg eerst voertuigen toe om per auto een kleur in te stellen.') }}</p>
                                 @else
                                     @foreach($fleet as $vehicle)
                                     @php
@@ -149,16 +149,16 @@
                                         <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
                                             <div class="min-w-0">
                                                 <p class="font-mono font-semibold tracking-wide text-foreground mb-0">{{ $vehicle['license_plate'] }}</p>
-                                                <p class="text-sm text-muted-foreground mb-0">{{ $vehicle['driver_name'] }}{{ $vehicle['active'] ? '' : ' · Inactief' }}</p>
+                                                <p class="text-sm text-muted-foreground mb-0">{{ $vehicle['driver_name'] }}{{ $vehicle['active'] ? '' : ' · '.__('Inactief') }}</p>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <input type="color" id="gps-vehicle-color-picker-{{ $vehicle['id'] }}" class="h-10 w-14 cursor-pointer rounded border border-input p-1" value="{{ $vehicleColor }}" aria-label="Kleur {{ $vehicle['license_plate'] }}">
+                                                <input type="color" id="gps-vehicle-color-picker-{{ $vehicle['id'] }}" class="h-10 w-14 cursor-pointer rounded border border-input p-1" value="{{ $vehicleColor }}" aria-label="{{ __('Kleur :vehicle', ['vehicle' => $vehicle['license_plate']]) }}">
                                                 <input type="text" name="vehicle_colors[{{ $vehicle['id'] }}]" id="gps-vehicle-color-{{ $vehicle['id'] }}" data-gps-preview class="kt-input font-mono text-sm w-28" maxlength="7" value="{{ $vehicleColor }}">
                                             </div>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
                                             @foreach($carColorPresets as $preset)
-                                                <button type="button" class="nexa-gps-color-swatch" data-gps-vehicle-color="{{ $vehicle['id'] }}" data-gps-color="{{ $preset['hex'] }}" style="background: {{ $preset['hex'] }}" title="{{ $preset['label'] }}"></button>
+                                                <button type="button" class="nexa-gps-color-swatch" data-gps-vehicle-color="{{ $vehicle['id'] }}" data-gps-color="{{ $preset['hex'] }}" style="background: {{ $preset['hex'] }}" title="{{ __($preset['label']) }}"></button>
                                             @endforeach
                                         </div>
                                     </div>
@@ -171,12 +171,12 @@
 
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Kenteken</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Kenteken') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 lg:p-6">
                         <div class="grid gap-4 sm:grid-cols-3">
                             <div>
-                                <label class="kt-label mb-1" for="gps-plate-bg">Achtergrond kader</label>
+                                <label class="kt-label mb-1" for="gps-plate-bg">{{ __('Achtergrond kader') }}</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" class="h-10 w-14 cursor-pointer rounded border border-input p-1" id="gps-plate-bg-picker" value="{{ old('plate_background', $appearance['plate_background']) }}">
                                     <input type="text" name="plate_background" id="gps-plate-bg" data-gps-preview class="kt-input font-mono text-sm" maxlength="7" value="{{ old('plate_background', $appearance['plate_background']) }}">
@@ -186,7 +186,7 @@
                                 @enderror
                             </div>
                             <div>
-                                <label class="kt-label mb-1" for="gps-plate-text">Tekst</label>
+                                <label class="kt-label mb-1" for="gps-plate-text">{{ __('Tekst') }}</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" class="h-10 w-14 cursor-pointer rounded border border-input p-1" id="gps-plate-text-picker" value="{{ old('plate_text_color', $appearance['plate_text_color']) }}">
                                     <input type="text" name="plate_text_color" id="gps-plate-text" data-gps-preview class="kt-input font-mono text-sm" maxlength="7" value="{{ old('plate_text_color', $appearance['plate_text_color']) }}">
@@ -196,7 +196,7 @@
                                 @enderror
                             </div>
                             <div>
-                                <label class="kt-label mb-1" for="gps-plate-border">Rand</label>
+                                <label class="kt-label mb-1" for="gps-plate-border">{{ __('Rand') }}</label>
                                 <div class="flex items-center gap-2">
                                     <input type="color" class="h-10 w-14 cursor-pointer rounded border border-input p-1" id="gps-plate-border-picker" value="{{ old('plate_border_color', $appearance['plate_border_color']) }}">
                                     <input type="text" name="plate_border_color" id="gps-plate-border" data-gps-preview class="kt-input font-mono text-sm" maxlength="7" value="{{ old('plate_border_color', $appearance['plate_border_color']) }}">
@@ -211,12 +211,12 @@
 
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Vernieuwen</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Vernieuwen') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 lg:p-6">
-                        <label class="kt-label mb-1" for="gps-refresh-seconds">Aantal seconden tussen positie-updates</label>
+                        <label class="kt-label mb-1" for="gps-refresh-seconds">{{ __('Aantal seconden tussen positie-updates') }}</label>
                         <input type="number" name="refresh_seconds" id="gps-refresh-seconds" class="kt-input w-20 tabular-nums @error('refresh_seconds') border-destructive @enderror" min="{{ $minRefresh }}" max="{{ $maxRefresh }}" step="1" inputmode="numeric" maxlength="4" required value="{{ old('refresh_seconds', $appearance['refresh_seconds']) }}">
-                        <p class="text-xs text-muted-foreground mt-1">Tussen {{ $minRefresh }} en {{ $maxRefresh }} seconden. 1 seconde geeft de soepelste beweging op de kaart.</p>
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('Tussen :min en :max seconden. 1 seconde geeft de soepelste beweging op de kaart.', ['min' => $minRefresh, 'max' => $maxRefresh]) }}</p>
                         @error('refresh_seconds')
                             <p class="text-xs text-destructive mt-1">{{ $message }}</p>
                         @enderror
@@ -227,11 +227,11 @@
             <div class="lg:col-span-2">
                 <div class="kt-card w-full min-w-0 lg:sticky lg:top-24">
                     <div class="kt-card-header px-5 py-5">
-                        <h5 class="kt-card-title mb-0">Voorbeeld</h5>
+                        <h5 class="kt-card-title mb-0">{{ __('Voorbeeld') }}</h5>
                     </div>
                     <div class="kt-card-content p-5 lg:p-6">
                         <div class="nexa-gps-preview-stage" id="gps-live-preview"></div>
-                        <p class="text-xs text-muted-foreground mt-3 mb-0">Het kenteken staat boven de auto, met een eigen kader zodat de tekst leesbaar blijft.</p>
+                        <p class="text-xs text-muted-foreground mt-3 mb-0">{{ __('Het kenteken staat boven de auto, met een eigen kader zodat de tekst leesbaar blijft.') }}</p>
                     </div>
                 </div>
             </div>
@@ -317,7 +317,7 @@ window.NexaGpsFleet = @json($fleet ?? []);
         if (payload === lastSaved) return;
         if (saveRequest) saveRequest.abort();
         lastSaved = payload;
-        setSaveStatus('Opslaan…');
+        setSaveStatus(@json(__('Opslaan…')));
         saveRequest = new AbortController();
         fetch(form.action, {
             method: 'POST',
@@ -330,11 +330,11 @@ window.NexaGpsFleet = @json($fleet ?? []);
             credentials: 'same-origin'
         }).then(function (res) {
             if (!res.ok) throw res;
-            setSaveStatus('Opgeslagen');
+            setSaveStatus(@json(__('Opgeslagen')));
         }).catch(function (err) {
             if (err && err.name === 'AbortError') return;
             lastSaved = '';
-            setSaveStatus('Opslaan mislukt. Probeer het opnieuw.');
+            setSaveStatus(@json(__('Opslaan mislukt. Probeer het opnieuw.')));
         });
     }
     function scheduleSave(delay) {
@@ -393,7 +393,7 @@ window.NexaGpsFleet = @json($fleet ?? []);
             });
         }
         return ['sedan', 'van', 'bus'].map(function (style) {
-            var labels = { sedan: 'Auto', van: 'Busje', bus: 'Bus' };
+            var labels = { sedan: @json(__('Auto')), van: @json(__('Busje')), bus: @json(__('Bus')) };
             return {
                 license_plate: '12-GPS-1',
                 driver_name: labels[style],

@@ -65,7 +65,7 @@ class KnowledgeDocumentController extends Controller
 
         return redirect()
             ->route('admin.taxi.knowledge_documents.index')
-            ->with('success', 'Kennisdocument is toegevoegd.');
+            ->with('success', __('Kennisdocument is toegevoegd.'));
     }
 
     public function edit(KnowledgeDocument $knowledge_document)
@@ -89,7 +89,7 @@ class KnowledgeDocumentController extends Controller
 
         return redirect()
             ->route('admin.taxi.knowledge_documents.show', $knowledge_document)
-            ->with('success', 'Kennisdocument is bijgewerkt.');
+            ->with('success', __('Kennisdocument is bijgewerkt.'));
     }
 
     public function destroy(KnowledgeDocument $knowledge_document)
@@ -100,7 +100,7 @@ class KnowledgeDocumentController extends Controller
 
         return redirect()
             ->route('admin.taxi.knowledge_documents.index')
-            ->with('success', 'Kennisdocument is verwijderd.');
+            ->with('success', __('Kennisdocument is verwijderd.'));
     }
 
     public function formatContent(Request $request, TaxiKnowledgeContentFormatterService $formatter)
@@ -142,19 +142,18 @@ class KnowledgeDocumentController extends Controller
         if ($companyId === null) {
             return redirect()
                 ->route('admin.taxi.knowledge_documents.index')
-                ->with('error', 'Selecteer eerst een tenant in de tenant-kiezer bovenaan.');
+                ->with('error', __('Selecteer eerst een tenant in de tenant-kiezer bovenaan.'));
         }
 
         $stats = $importService->importForCompany($companyId, $conn);
 
         return redirect()
             ->route('admin.taxi.knowledge_documents.index')
-            ->with('success', sprintf(
-                'Website-inhoud geïmporteerd (diensten, contact, boekingsformulier en algemene vragen): %d toegevoegd, %d bijgewerkt, %d overgeslagen.',
-                $stats['created'],
-                $stats['updated'],
-                $stats['skipped']
-            ));
+            ->with('success', __('Website-inhoud geïmporteerd (diensten, contact, boekingsformulier en algemene vragen): :created toegevoegd, :updated bijgewerkt, :skipped overgeslagen.', [
+                'created' => $stats['created'],
+                'updated' => $stats['updated'],
+                'skipped' => $stats['skipped'],
+            ]));
     }
 
     /**
@@ -173,15 +172,15 @@ class KnowledgeDocumentController extends Controller
             'category' => ['required', 'string', Rule::in($categories)],
             'content' => 'required|string|max:16000',
         ], [
-            'title.required' => 'Vul een titel in.',
-            'category.required' => 'Kies een categorie.',
-            'content.required' => 'Vul de inhoud in.',
-            'content.max' => 'De inhoud is te lang.',
+            'title.required' => __('Vul een titel in.'),
+            'category.required' => __('Kies een categorie.'),
+            'content.required' => __('Vul de inhoud in.'),
+            'content.max' => __('De inhoud is te lang.'),
         ]);
 
         if ($this->plainContentLength($validated['content']) < 20) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'content' => 'De inhoud moet minimaal 20 tekens bevatten.',
+                'content' => __('De inhoud moet minimaal 20 tekens bevatten.'),
             ]);
         }
 
@@ -211,7 +210,7 @@ class KnowledgeDocumentController extends Controller
     private function ensureKnowledgeTableExists(string $connection): void
     {
         if (! Schema::connection($connection)->hasTable('knowledge_documents')) {
-            abort(503, 'AI-kennistabellen ontbreken. Voer uit: php artisan modules:migrate taxi');
+            abort(503, __('AI-kennistabellen ontbreken. Voer uit: php artisan modules:migrate taxi'));
         }
     }
 
@@ -229,7 +228,7 @@ class KnowledgeDocumentController extends Controller
             }
         }
 
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 
     private function authorizeOrPermission(string $ability): void
@@ -238,6 +237,6 @@ class KnowledgeDocumentController extends Controller
             return;
         }
 
-        abort(403, 'Alleen een super-admin mag de AI-chatbot beheren.');
+        abort(403, __('Alleen een super-admin mag de AI-chatbot beheren.'));
     }
 }

@@ -59,10 +59,10 @@ class TransportGroupRouteSyncService
             return [
                 'recalculated' => true,
                 'warnings' => array_values(array_unique(array_merge(
-                    ['Geen actieve leden meer; route-stops zijn geleegd.'],
+                    [__('Geen actieve leden meer; route-stops zijn geleegd.')],
                     $return['warnings']
                 ))),
-                'message' => trim('Route geleegd (geen leden meer). '.($return['message'] ?? '')),
+                'message' => trim(__('Route geleegd (geen leden meer).').' '.($return['message'] ?? '')),
             ];
         }
 
@@ -127,7 +127,7 @@ class TransportGroupRouteSyncService
         $return = $this->syncReturnRoute($conn, $group);
         $warnings = array_values(array_unique(array_merge($result['warnings'], $return['warnings'])));
         $outboundMessage = ($forceFullPlan || $hadStops || $result['stops'] !== [])
-            ? 'Route automatisch herberekend.'
+            ? __('Route automatisch herberekend.')
             : null;
         $messages = array_values(array_filter([$outboundMessage, $return['message']]));
 
@@ -192,7 +192,7 @@ class TransportGroupRouteSyncService
                 return [
                     'recalculated' => true,
                     'warnings' => [],
-                    'message' => 'Terugweg uitgeschakeld.',
+                    'message' => __('Terugweg uitgeschakeld.'),
                 ];
             }
 
@@ -207,7 +207,7 @@ class TransportGroupRouteSyncService
         if ($pickupTime === '') {
             return [
                 'recalculated' => false,
-                'warnings' => ['Terugweg aan, maar geen ophaaltijd ingesteld.'],
+                'warnings' => [__('Terugweg aan, maar geen ophaaltijd ingesteld.')],
                 'message' => null,
             ];
         }
@@ -246,7 +246,7 @@ class TransportGroupRouteSyncService
         return [
             'recalculated' => true,
             'warnings' => $result['warnings'],
-            'message' => $result['stops'] !== [] ? 'Terugweg automatisch berekend.' : 'Terugweg kon niet worden berekend (geen leden).',
+            'message' => $result['stops'] !== [] ? __('Terugweg automatisch berekend.') : __('Terugweg kon niet worden berekend (geen leden).'),
         ];
     }
 

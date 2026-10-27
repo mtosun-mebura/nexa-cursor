@@ -1,19 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Bankrekening')
+@section('title', __('Bankrekening'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div>
-            <h1 class="text-xl font-medium leading-none text-mono mb-1">Bankrekening</h1>
+            <h1 class="text-xl font-medium leading-none text-mono mb-1">{{ __('Bankrekening') }}</h1>
             <p class="text-sm text-muted-foreground mb-0">
-                Rekeningnummer voor uitbetaling van Nexa Suite-ritten (na aftrek van de marketplace-fee).
+                {{ __('Rekeningnummer voor uitbetaling van Nexa Suite-ritten (na aftrek van de marketplace-fee).') }}
             </p>
         </div>
         <a href="{{ route('admin.dashboard') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     </div>
 
@@ -28,9 +28,9 @@
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Huidige rekening</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Huidige rekening') }}</td>
                                 <td class="min-w-48 w-full font-medium text-foreground">
-                                    {{ $payload['masked_destination'] ?: 'Nog niet ingevuld' }}
+                                    {{ $payload['masked_destination'] ?: __('Nog niet ingevuld') }}
                                 </td>
                             </tr>
                             <tr>
@@ -48,7 +48,7 @@
                                            @error('iban') aria-invalid="true" @enderror
                                            required>
                                     <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                        Verplicht voor uitbetaling. We bewaren alleen *** + laatste 4 cijfers (bijv. ***4300).
+                                        {{ __('Verplicht voor uitbetaling. We bewaren alleen *** + laatste 4 cijfers (bijv. ***4300).') }}
                                     </p>
                                     <div class="field-feedback text-sm mt-1" data-field="iban" aria-live="polite"></div>
                                     @error('iban')
@@ -59,7 +59,7 @@
                             @if(filled($identity?->masked_destination))
                             @unless($authViaCode ?? false)
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Huidig wachtwoord</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Huidig wachtwoord') }}</td>
                                 <td class="min-w-48 w-full">
                                     <input type="password"
                                            name="password"
@@ -68,7 +68,7 @@
                                            autocomplete="current-password"
                                            @error('password') aria-invalid="true" @enderror>
                                     <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                        Optioneel als je een wachtwoord hebt. Anders: e-mailcode hieronder.
+                                        {{ __('Optioneel als je een wachtwoord hebt. Anders: e-mailcode hieronder.') }}
                                     </p>
                                     <div class="field-feedback text-sm mt-1" data-field="password" aria-live="polite"></div>
                                     @error('password')
@@ -79,7 +79,7 @@
                             @endunless
                             <tr>
                                 <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">
-                                    {{ ($authViaCode ?? false) ? 'Bevestigingscode' : 'Of e-mailcode' }}
+                                    {{ ($authViaCode ?? false) ? __('Bevestigingscode') : __('Of e-mailcode') }}
                                 </td>
                                 <td class="min-w-48 w-full">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -98,15 +98,15 @@
                                                 id="bank-send-code-btn"
                                                 class="kt-btn kt-btn-outline shrink-0"
                                                 data-url="{{ route('admin.settings.bank-account.send-code') }}">
-                                            Code sturen
+                                            {{ __('Code sturen') }}
                                         </button>
                                     </div>
                                     <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                        Verplicht bij wijziging. Het nieuwe rekeningnummer wordt pas na {{ $coolingOffHours }} uur gebruikt voor uitbetalingen.
+                                        {{ __('Verplicht bij wijziging. Het nieuwe rekeningnummer wordt pas na :hours uur gebruikt voor uitbetalingen.', ['hours' => $coolingOffHours]) }}
                                         @if($authViaCode ?? false)
-                                            Je bent ingelogd met een e-mailcode — bevestig de wijziging met een nieuwe code.
+                                            {{ __('Je bent ingelogd met een e-mailcode — bevestig de wijziging met een nieuwe code.') }}
                                         @else
-                                            Geen wachtwoord (alleen e-mailcode gebruikt)? Stuur dan een bevestigingscode.
+                                            {{ __('Geen wachtwoord (alleen e-mailcode gebruikt)? Stuur dan een bevestigingscode.') }}
                                         @endif
                                     </p>
                                     <p id="bank-send-code-status" class="text-xs mt-1 mb-0 hidden" aria-live="polite"></p>
@@ -125,19 +125,19 @@
             @if(!empty($payload['pending_destination_change']))
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-content p-5 text-sm text-amber-600 dark:text-amber-400">
-                        Rekeningwijziging in afwachting
+                        {{ __('Rekeningwijziging in afwachting') }}
                         @if(!empty($identity->pending_masked_destination))
-                            (nieuw: {{ $identity->pending_masked_destination }})
+                            ({{ __('nieuw: :account', ['account' => $identity->pending_masked_destination]) }})
                         @endif
                         @if(!empty($payload['destination_change_eligible_at']))
-                            — het nieuwe nummer wordt gebruikt vanaf {{ \Illuminate\Support\Carbon::parse($payload['destination_change_eligible_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i') }}.
+                            {{ __('— het nieuwe nummer wordt gebruikt vanaf :date.', ['date' => \Illuminate\Support\Carbon::parse($payload['destination_change_eligible_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i')]) }}
                         @endif
                     </div>
                 </div>
             @endif
 
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-0 w-full min-w-0">
-                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
             </div>
         </div>
     </form>
@@ -160,7 +160,7 @@
         btn.disabled = true;
         statusEl.classList.remove('hidden', 'text-destructive');
         statusEl.classList.add('text-muted-foreground');
-        statusEl.textContent = 'Code versturen…';
+        statusEl.textContent = @json(__('Code versturen…'));
 
         try {
             const res = await fetch(btn.dataset.url, {
@@ -175,7 +175,7 @@
                 body: JSON.stringify({}),
             });
             const data = await res.json().catch(() => ({}));
-            const msg = data.message || (res.ok ? 'Code verstuurd.' : 'Versturen mislukt.');
+            const msg = data.message || (res.ok ? @json(__('Code verstuurd.')) : @json(__('Versturen mislukt.')));
             statusEl.textContent = msg;
             if (!res.ok) {
                 statusEl.classList.remove('text-muted-foreground');
@@ -190,7 +190,7 @@
                 btn.disabled = false;
             }
         } catch (e) {
-            statusEl.textContent = 'Versturen mislukt. Probeer het opnieuw.';
+            statusEl.textContent = @json(__('Versturen mislukt. Probeer het opnieuw.'));
             statusEl.classList.remove('text-muted-foreground');
             statusEl.classList.add('text-destructive');
             btn.disabled = false;

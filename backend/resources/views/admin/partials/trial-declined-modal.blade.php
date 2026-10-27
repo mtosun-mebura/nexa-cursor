@@ -26,31 +26,28 @@
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-trial-declined-dismiss></div>
     <div class="admin-modal-panel relative z-10 w-full max-w-lg rounded-2xl border border-border shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="admin-trial-declined-title" class="text-lg font-semibold text-foreground mb-1">Proefperiode beëindigd</h2>
+            <h2 id="admin-trial-declined-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Proefperiode beëindigd') }}</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                Het abonnement is niet ingegaan. Er volgt geen incasso.
+                {{ __('Het abonnement is niet ingegaan. Er volgt geen incasso.') }}
             </p>
         </div>
         <div class="px-6 py-5">
             <p class="text-sm text-foreground mb-0">
-                Je kunt het pakket blijven gebruiken tot
-                <strong class="text-foreground">{{ $trialEndsLabel }}</strong>.
-                Daarna wordt het account op inactief gezet.
+                {!! __('Je kunt het pakket blijven gebruiken tot :date. Daarna wordt het account op inactief gezet.', ['date' => '<strong class="text-foreground">'.e($trialEndsLabel).'</strong>']) !!}
             </p>
             <p class="text-sm text-foreground mt-6 mb-6">
-                Je kunt het abonnement altijd weer activeren.<br>
-                De ingangsdatum blijft
-                <strong class="text-foreground">{{ $startLabel }}</strong>.
+                {{ __('Je kunt het abonnement altijd weer activeren.') }}<br>
+                {!! __('De ingangsdatum blijft :date.', ['date' => '<strong class="text-foreground">'.e($startLabel).'</strong>']) !!}
             </p>
             <p class="text-sm text-foreground mb-0">
-                Vragen? Mail <a href="mailto:info@nexasuite.nl" class="text-primary hover:underline">info@nexasuite.nl</a>.
+                {!! __('Vragen? Mail :email.', ['email' => '<a href="mailto:info@nexasuite.nl" class="text-primary hover:underline">info@nexasuite.nl</a>']) !!}
             </p>
         </div>
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline" data-trial-declined-dismiss onclick="window.adminDismissTrialDeclined && window.adminDismissTrialDeclined()">Sluiten</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-trial-declined-dismiss onclick="window.adminDismissTrialDeclined && window.adminDismissTrialDeclined()">{{ __('Sluiten') }}</button>
             <form action="{{ route('admin.subscriptions.withdraw') }}" method="POST" class="m-0">
                 @csrf
-                <button type="submit" class="kt-btn kt-btn-primary">Abonnement activeren</button>
+                <button type="submit" class="kt-btn kt-btn-primary">{{ __('Abonnement activeren') }}</button>
             </form>
         </div>
     </div>

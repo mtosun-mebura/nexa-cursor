@@ -195,7 +195,7 @@ class AdminFrontendThemeController extends Controller
             $theme = FrontendTheme::find((int) $requestedThemeId);
             if (! $theme && (int) $requestedThemeId > 0) {
                 return redirect()->route('admin.frontend-themes.index')
-                    ->with('error', 'Thema met id '.(int) $requestedThemeId.' niet gevonden.');
+                    ->with('error', __('Thema met id :id niet gevonden.', ['id' => (int) $requestedThemeId]));
             }
         }
         if (! $theme) {
@@ -203,7 +203,7 @@ class AdminFrontendThemeController extends Controller
         }
         if (! $theme) {
             return redirect()->route('admin.frontend-themes.index')
-                ->with('error', 'Geen thema gekozen.');
+                ->with('error', __('Geen thema gekozen.'));
         }
 
         if ($module === null || $module === '') {
@@ -359,7 +359,7 @@ class AdminFrontendThemeController extends Controller
         $theme->update(['is_active' => false]);
 
         return redirect()->route('admin.frontend-themes.index')
-            ->with('success', "Thema \"{$theme->name}\" is gedeactiveerd. Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.");
+            ->with('success', __('Thema ":name" is gedeactiveerd. Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.', ['name' => $theme->name]));
     }
 
     /**
@@ -389,9 +389,9 @@ class AdminFrontendThemeController extends Controller
             }
         }
 
-        $message = "Thema \"{$theme->name}\" is gepubliceerd en beschikbaar voor tenants.";
+        $message = __('Thema ":name" is gepubliceerd en beschikbaar voor tenants.', ['name' => $theme->name]);
         if ($updated > 0) {
-            $message .= " In {$updated} pagina('s) zijn staging-URL's omgezet naar de daadwerkelijke URL's.";
+            $message .= ' '.__("In :count pagina('s) zijn staging-URL's omgezet naar de daadwerkelijke URL's.", ['count' => $updated]);
         }
 
         return redirect()->route('admin.frontend-themes.index')->with('success', $message);
@@ -450,11 +450,11 @@ class AdminFrontendThemeController extends Controller
         $company->update(['frontend_theme_id' => $themeId]);
 
         $themeName = $themeId
-            ? (FrontendTheme::query()->whereKey($themeId)->value('name') ?: 'thema')
-            : 'geen thema';
+            ? (FrontendTheme::query()->whereKey($themeId)->value('name') ?: __('thema'))
+            : __('geen thema');
 
         return redirect()->route('admin.frontend-themes.index')
-            ->with('success', "Website-thema voor \"{$company->name}\" is bijgewerkt ({$themeName}).");
+            ->with('success', __('Website-thema voor ":company" is bijgewerkt (:theme).', ['company' => $company->name, 'theme' => $themeName]));
     }
 
     /**
@@ -489,7 +489,7 @@ class AdminFrontendThemeController extends Controller
         }
 
         return redirect()->route('admin.frontend-themes.index')
-            ->with('success', "Thema voor module \"{$module->display_name}\" bijgewerkt. Pagina's van het vorige thema staan op inactief; pagina's van het gekozen thema zijn actief.");
+            ->with('success', __("Thema voor module \":module\" bijgewerkt. Pagina's van het vorige thema staan op inactief; pagina's van het gekozen thema zijn actief.", ['module' => $module->display_name]));
     }
 
     /**
@@ -500,7 +500,7 @@ class AdminFrontendThemeController extends Controller
         $this->ensureSuperAdmin();
         $frontend_theme->update(['is_active' => true]);
 
-        return redirect()->route('admin.frontend-themes.index')->with('success', "Thema \"{$frontend_theme->name}\" is nu beschikbaar. Koppel het aan een bedrijf onder Bedrijven bewerken.");
+        return redirect()->route('admin.frontend-themes.index')->with('success', __('Thema ":name" is nu beschikbaar. Koppel het aan een bedrijf onder Bedrijven bewerken.', ['name' => $frontend_theme->name]));
     }
 
     public function edit(FrontendTheme $frontend_theme)
@@ -522,13 +522,13 @@ class AdminFrontendThemeController extends Controller
         $settings['dark_mode_available'] = $request->boolean('dark_mode_available');
         $frontend_theme->update(['settings' => $settings]);
 
-        return redirect()->route('admin.frontend-themes.index')->with('success', 'Thema-instellingen opgeslagen.');
+        return redirect()->route('admin.frontend-themes.index')->with('success', __('Thema-instellingen opgeslagen.'));
     }
 
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins hebben toegang tot frontend-thema\'s.');
+            abort(403, __("Alleen super-admins hebben toegang tot frontend-thema's."));
         }
     }
 }

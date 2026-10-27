@@ -14,11 +14,11 @@
 <div class="px-3 sm:px-5 pb-3 min-w-0">
     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
         <tr>
-            <td class="min-w-56 text-secondary-foreground font-medium">Passagiers op route</td>
-            <td>{{ $pickupCount }} ophaalstop(s) bij school</td>
+            <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Passagiers op route') }}</td>
+            <td>{{ __(':count ophaalstop(s) bij school', ['count' => $pickupCount]) }}</td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Ophalen school</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Ophalen school') }}</td>
             <td>
                 @if($firstPickup)
                     {{ substr((string) $firstPickup->planned_at_time, 0, 5) }}
@@ -29,7 +29,7 @@
             </td>
         </tr>
         <tr>
-            <td class="text-secondary-foreground font-medium">Laatste afzet</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Laatste afzet') }}</td>
             <td>
                 @if($lastStop)
                     {{ substr((string) $lastStop->planned_at_time, 0, 5) }}
@@ -41,8 +41,8 @@
         </tr>
         @if($group->return_pickup_time)
         <tr>
-            <td class="text-secondary-foreground font-medium">Instaptijd</td>
-            <td>+{{ (int) ($group->return_boarding_delay_minutes ?? 15) }} min na ophalen</td>
+            <td class="text-secondary-foreground font-medium">{{ __('Instaptijd') }}</td>
+            <td>{{ __('+:minutes min na ophalen', ['minutes' => (int) ($group->return_boarding_delay_minutes ?? 15)]) }}</td>
         </tr>
         @endif
     </table>
@@ -56,8 +56,8 @@
             aria-expanded="false"
             aria-controls="{{ $returnCollapseId }}">
         <span>
-            <span data-route-stops-label-closed>Stops tonen ({{ $returnStopCount }})</span>
-            <span data-route-stops-label-open class="hidden">Stops verbergen</span>
+            <span data-route-stops-label-closed>{{ __('Stops tonen (:count)', ['count' => $returnStopCount]) }}</span>
+            <span data-route-stops-label-open class="hidden">{{ __('Stops verbergen') }}</span>
         </span>
         <i class="ki-filled ki-down route-stops-collapse__chevron" aria-hidden="true"></i>
     </button>
@@ -67,10 +67,10 @@
                 <thead>
                     <tr>
                         <th class="w-12">#</th>
-                        <th>Type</th>
-                        <th>Passagier</th>
-                        <th>Adres</th>
-                        <th>Tijd</th>
+                        <th>{{ __('Type') }}</th>
+                        <th>{{ __('Passagier') }}</th>
+                        <th>{{ __('Adres') }}</th>
+                        <th>{{ __('Tijd') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -80,7 +80,7 @@
                         @endphp
                         <tr @class(['route-stop-destination-row' => $stop->stop_type === \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_DESTINATION])>
                             <td class="text-muted-foreground">{{ $index + 1 }}</td>
-                            <td><span class="kt-badge {{ $typeMeta[1] }} kt-badge-sm">{{ $typeMeta[0] }}</span></td>
+                            <td><span class="kt-badge {{ $typeMeta[1] }} kt-badge-sm">{{ __($typeMeta[0]) }}</span></td>
                             <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
                             <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
                             <td class="font-medium">{{ substr((string) $stop->planned_at_time, 0, 5) }}</td>

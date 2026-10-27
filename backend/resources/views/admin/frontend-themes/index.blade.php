@@ -65,27 +65,27 @@
 </style>
 @endpush
 
-@section('title', "Frontend Thema's")
+@section('title', __("Frontend Thema's"))
 
 @section('content')
 @php $themeStagingUrls = $themeStagingUrls ?? []; @endphp
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Frontend Thema's</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{!! __("Frontend Thema's") !!}</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if(!empty($stagingUrlTop))
-            <a href="{{ $stagingUrlTop }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-outline" title="Staging: gekozen thema met pagina's en functionaliteit">
+            <a href="{{ $stagingUrlTop }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-outline" title="{!! __("Staging: gekozen thema met pagina's en functionaliteit") !!}">
                 <i class="ki-filled ki-eye me-2"></i>
-                Website tonen
+                {{ __('Website tonen') }}
             </a>
             @endif
             <a href="{{ route('admin.frontend-themes.setup') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-information-2 me-2"></i>
-                Setup tonen
+                {{ __('Setup tonen') }}
             </a>
         </div>
     </div>
-    <p class="text-sm text-muted-foreground mb-5">De onderstaande thema's zijn gratis te gebruiken. Klik op <strong>Activeren</strong> om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per <strong>tenant</strong> kies je hieronder welk thema op die website komt. Via <strong>Instellingen</strong> pas je kleur, lettertypen en footertekst aan.</p>
+    <p class="text-sm text-muted-foreground mb-5">{!! __("De onderstaande thema's zijn gratis te gebruiken. Klik op") !!} <strong>{{ __('Activeren') }}</strong> {!! __("om een thema beschikbaar te maken — meerdere thema's kunnen tegelijk actief zijn. Per") !!} <strong>{{ __('tenant') }}</strong> {{ __('kies je hieronder welk thema op die website komt. Via') }} <strong>{{ __('Instellingen') }}</strong> {{ __('pas je kleur, lettertypen en footertekst aan.') }}</p>
 
     <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         @foreach($themes as $theme)
@@ -102,19 +102,19 @@
                                 : asset($theme->preview_path);
                         @endphp
                         <img src="{{ $previewSrc }}"
-                             alt="Voorbeeld {{ $theme->name }}"
+                             alt="{{ __('Voorbeeld :name', ['name' => $theme->name]) }}"
                              class="w-full h-full object-cover object-top">
                     @else
                         <div class="text-muted-foreground text-sm p-4 text-center">
                             <i class="ki-filled ki-picture text-4xl block mb-2 opacity-50"></i>
-                            Geen screenshot
+                            {{ __('Geen screenshot') }}
                         </div>
                     @endif
                 </div>
                 <div class="kt-card-header flex items-center justify-between px-5 py-5">
                     <h3 class="kt-card-title mb-0">{{ $theme->name }}</h3>
                     @if($isThemeActive)
-                        <span class="kt-badge kt-badge-success">Actief</span>
+                        <span class="kt-badge kt-badge-success">{{ __('Actief') }}</span>
                     @endif
                 </div>
                 <div class="kt-card-content p-5 flex flex-1 flex-col">
@@ -123,22 +123,22 @@
                         @if(!$isThemeActive)
                             <form action="{{ route('admin.frontend-themes.set-active', $theme) }}" method="POST" class="inline-flex">
                                 @csrf
-                                <button type="submit" class="theme-card-icon theme-card-icon--activate" data-tooltip="Activeren" aria-label="Thema activeren">
+                                <button type="submit" class="theme-card-icon theme-card-icon--activate" data-tooltip="{{ __('Activeren') }}" aria-label="{{ __('Thema activeren') }}">
                                     <i class="ki-filled ki-check-circle" aria-hidden="true"></i>
                                 </button>
                             </form>
                         @else
-                            <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="theme-card-icon theme-card-icon--preview" data-tooltip="Website tonen" aria-label="Website van dit thema tonen">
+                            <a href="{{ $themeStagingUrls[$theme->id] ?? route('admin.frontend-themes.staging', ['theme_id' => $theme->id]) }}" target="_blank" rel="noopener noreferrer" class="theme-card-icon theme-card-icon--preview" data-tooltip="{{ __('Website tonen') }}" aria-label="{{ __('Website van dit thema tonen') }}">
                                 <i class="ki-filled ki-eye" aria-hidden="true"></i>
                             </a>
-                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline-flex" onsubmit="return confirm('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.');">
+                            <form action="{{ route('admin.frontend-themes.unpublish') }}" method="POST" class="inline-flex" onsubmit="return confirm(@js(__('Thema de-publiceren? Tenants met dit thema tonen Coming soon tot een ander thema is gekozen.')));">
                                 @csrf
                                 <input type="hidden" name="theme_id" value="{{ $theme->id }}">
-                                <button type="submit" class="theme-card-icon theme-card-icon--unpublish" data-tooltip="De-publiceren" aria-label="Thema de-publiceren">
+                                <button type="submit" class="theme-card-icon theme-card-icon--unpublish" data-tooltip="{{ __('De-publiceren') }}" aria-label="{{ __('Thema de-publiceren') }}">
                                     <i class="ki-filled ki-cross-circle" aria-hidden="true"></i>
                                 </button>
                             </form>
-                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="theme-card-icon" data-tooltip="Instellingen" aria-label="Thema-instellingen">
+                            <a href="{{ route('admin.frontend-themes.edit', $theme) }}" class="theme-card-icon" data-tooltip="{{ __('Instellingen') }}" aria-label="{{ __('Thema-instellingen') }}">
                                 <i class="ki-filled ki-setting-2" aria-hidden="true"></i>
                             </a>
                         @endif
@@ -149,15 +149,15 @@
     </div>
 
     <div class="mt-8">
-            <h2 class="text-lg font-medium mb-3">Thema per tenant</h2>
-            <p class="text-sm text-muted-foreground mb-4">Elke tenant kan een eigen website-thema hebben. Alleen geactiveerde thema's zijn kiesbaar. Je kunt dit ook wijzigen bij Bedrijf bewerken.</p>
+            <h2 class="text-lg font-medium mb-3">{{ __('Thema per tenant') }}</h2>
+            <p class="text-sm text-muted-foreground mb-4">{!! __("Elke tenant kan een eigen website-thema hebben. Alleen geactiveerde thema's zijn kiesbaar. Je kunt dit ook wijzigen bij Bedrijf bewerken.") !!}</p>
             <div class="kt-card">
                 <div class="kt-card-table kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm">
                         <thead>
                             <tr>
-                                <th class="text-secondary-foreground font-normal text-left">Tenant</th>
-                                <th class="text-secondary-foreground font-normal text-left">Website-thema</th>
+                                <th class="text-secondary-foreground font-normal text-left">{{ __('Tenant') }}</th>
+                                <th class="text-secondary-foreground font-normal text-left">{{ __('Website-thema') }}</th>
                                 <th class="text-secondary-foreground font-normal text-left w-40"></th>
                             </tr>
                         </thead>
@@ -170,7 +170,7 @@
                                     <td class="font-medium">
                                         {{ $company->name }}
                                         @if(! $company->is_active)
-                                            <span class="kt-badge kt-badge-outline text-muted-foreground ms-1">Inactief</span>
+                                            <span class="kt-badge kt-badge-outline text-muted-foreground ms-1">{{ __('Inactief') }}</span>
                                         @endif
                                     </td>
                                     <td>
@@ -178,25 +178,25 @@
                                             @csrf
                                             <input type="hidden" name="company_id" value="{{ $company->id }}">
                                             <select name="frontend_theme_id" class="kt-input text-sm w-56">
-                                                <option value="" {{ ! $currentThemeId ? 'selected' : '' }}>— Geen thema —</option>
+                                                <option value="" {{ ! $currentThemeId ? 'selected' : '' }}>{{ __('— Geen thema —') }}</option>
                                                 @foreach($themes as $theme)
                                                     @if($theme->is_active || (string) $currentThemeId === (string) $theme->id)
                                                         <option value="{{ $theme->id }}" {{ (string) $currentThemeId === (string) $theme->id ? 'selected' : '' }}>
-                                                            {{ $theme->name }}{{ $theme->is_active ? '' : ' (niet actief)' }}
+                                                            {{ $theme->name }}{{ $theme->is_active ? '' : ' '.__('(niet actief)') }}
                                                         </option>
                                                     @endif
                                                 @endforeach
                                             </select>
-                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Opslaan</button>
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Opslaan') }}</button>
                                         </form>
                                     </td>
                                     <td>
-                                        <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-sm kt-btn-ghost">Bedrijf bewerken</a>
+                                        <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-sm kt-btn-ghost">{{ __('Bedrijf bewerken') }}</a>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-muted-foreground">Nog geen tenants. Maak eerst een bedrijf aan.</td>
+                                    <td colspan="3" class="text-muted-foreground">{{ __('Nog geen tenants. Maak eerst een bedrijf aan.') }}</td>
                                 </tr>
                             @endforelse
                         </tbody>

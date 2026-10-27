@@ -14,9 +14,9 @@
     $groupWorkspaceMemberCount = $activeMembers->count();
     $workspaceTitle = $group->name;
     $workspaceSubtitle = match ($groupWorkspaceTab) {
-        'leden' => 'Passagiers in deze groep',
-        'route' => 'Geplande stops en tijden',
-        default => 'Adres, aankomsttijd en terugweg',
+        'leden' => __('Passagiers in deze groep'),
+        'route' => __('Geplande stops en tijden'),
+        default => __('Adres, aankomsttijd en terugweg'),
     };
 @endphp
 
@@ -38,10 +38,10 @@
         @if($groupWorkspaceTab === 'gegevens')
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Groepsgegevens</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Groepsgegevens') }}</h3>
                     @can('rides.update')
                     <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.edit', [$customer->id, $contract->id, $group->id]), url()->full()) }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
-                        Bewerken
+                        {{ __('Bewerken') }}
                     </a>
                     @endcan
                 </div>
@@ -49,50 +49,50 @@
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-medium">Vertrekadres</td>
+                                <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Vertrekadres') }}</td>
                                 <td>
                                     @if($group->departure_address)
                                         {{ $group->departure_address }}
                                     @else
-                                        <span class="text-muted-foreground">Eerste ophaalstop</span>
+                                        <span class="text-muted-foreground">{{ __('Eerste ophaalstop') }}</span>
                                     @endif
                                 </td>
                             </tr>
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-medium">Eindlocatie</td>
+                                <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Eindlocatie') }}</td>
                                 <td>{{ $group->destination_address }}</td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Aankomsttijd heenweg</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Aankomsttijd heenweg') }}</td>
                                 <td>{{ substr($group->destination_arrival_time, 0, 5) }}</td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Terugweg</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Terugweg') }}</td>
                                 <td>
                                     @if($group->has_return_trip)
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Aan</span>
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Aan') }}</span>
                                         @if($group->return_pickup_time)
-                                            <span class="ms-2">ophalen {{ substr($group->return_pickup_time, 0, 5) }}</span>
+                                            <span class="ms-2">{{ __('ophalen :time', ['time' => substr($group->return_pickup_time, 0, 5)]) }}</span>
                                         @endif
-                                        <span class="text-muted-foreground ms-1">(+{{ (int) ($group->return_boarding_delay_minutes ?? 15) }} min instaptijd)</span>
+                                        <span class="text-muted-foreground ms-1">{{ __('(+:minutes min instaptijd)', ['minutes' => (int) ($group->return_boarding_delay_minutes ?? 15)]) }}</span>
                                     @else
-                                        <span class="text-muted-foreground">Uit</span>
+                                        <span class="text-muted-foreground">{{ __('Uit') }}</span>
                                     @endif
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Status</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Status') }}</td>
                                 <td>
                                     @if($group->active)
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                     @endif
                                 </td>
                             </tr>
                             @if($group->notes)
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Notities</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Notities') }}</td>
                                 <td class="whitespace-pre-wrap">{{ $group->notes }}</td>
                             </tr>
                             @endif
@@ -103,7 +103,7 @@
         @elseif($groupWorkspaceTab === 'leden')
             <div class="kt-card kt-card-grid w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-2 px-5 py-5">
-                    <h3 class="kt-card-title mb-0" id="transport-group-members-title">Leden ({{ $activeMembers->count() }})</h3>
+                    <h3 class="kt-card-title mb-0" id="transport-group-members-title">{{ __('Leden (:count)', ['count' => $activeMembers->count()]) }}</h3>
                     @can('rides.update')
                     <button type="button"
                             class="kt-btn kt-btn-primary kt-btn-sm shrink-0"
@@ -111,7 +111,7 @@
                             aria-controls="transport-group-add-members-modal"
                             aria-expanded="false">
                         <i class="ki-filled ki-plus-squared me-1"></i>
-                        Leden toevoegen
+                        {{ __('Leden toevoegen') }}
                     </button>
                     @endcan
                 </div>
@@ -123,13 +123,13 @@
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-2 px-5 py-5">
                     <div class="min-w-0">
-                        <h3 class="kt-card-title mb-0">Route</h3>
-                        <p class="text-sm text-muted-foreground mt-1.5 mb-0">Overzicht van heenweg en terugweg. Open de routeplanner om te herberekenen of vast te zetten.</p>
+                        <h3 class="kt-card-title mb-0">{{ __('Route') }}</h3>
+                        <p class="text-sm text-muted-foreground mt-1.5 mb-0">{{ __('Overzicht van heenweg en terugweg. Open de routeplanner om te herberekenen of vast te zetten.') }}</p>
                     </div>
                     @can('rides.view')
                     <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.route.edit', [$customer->id, $contract->id, $group->id]), url()->full()) }}" class="kt-btn kt-btn-primary kt-btn-sm shrink-0">
                         <i class="ki-filled ki-route me-1"></i>
-                        Routeplanner
+                        {{ __('Routeplanner') }}
                     </a>
                     @endcan
                 </div>
@@ -151,12 +151,12 @@
     <div class="w-full max-w-3xl max-h-[min(90vh,44rem)] flex flex-col rounded-xl border border-input bg-background shadow-xl overflow-hidden">
         <div class="flex items-center justify-between gap-3 border-b border-input px-6 py-4 shrink-0">
             <h3 id="transport-group-add-members-modal-title" class="text-lg font-semibold text-foreground mb-0">
-                Leden toevoegen
+                {{ __('Leden toevoegen') }}
             </h3>
             <button type="button"
                     class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
                     data-transport-group-add-members-close
-                    aria-label="Sluiten">
+                    aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
@@ -582,7 +582,7 @@
         }
         refreshMemberModal(data);
         if (membersTitle && typeof data.members_count === 'number') {
-            membersTitle.textContent = 'Leden (' + data.members_count + ')';
+            membersTitle.textContent = @json(__('Leden (:count)')).replace(':count', data.members_count);
             var countBadge = document.querySelector('.contract-workspace-nav__tab[aria-current="page"] .contract-workspace-nav__count');
             if (countBadge) countBadge.textContent = String(data.members_count);
         }
@@ -596,7 +596,7 @@
             return Object.values(payload.errors).flat().join(' ');
         }
 
-        return (payload && payload.message) ? payload.message : 'Opslaan mislukt.';
+        return (payload && payload.message) ? payload.message : @json(__('Opslaan mislukt.'));
     }
 
     function submitMemberForm(form) {
@@ -646,9 +646,9 @@
             event.preventDefault();
             if (typeof window.showAdminConfirm === 'function') {
                 window.showAdminConfirm({
-                    title: 'Passagier verwijderen',
-                    message: 'Passagier uit deze groep halen?',
-                    confirmLabel: 'Verwijderen'
+                    title: @json(__('Passagier verwijderen')),
+                    message: @json(__('Passagier uit deze groep halen?')),
+                    confirmLabel: @json(__('Verwijderen'))
                 }).then(function (ok) {
                     if (!ok) {
                         return;
@@ -663,7 +663,7 @@
                 });
                 return;
             }
-            if (!window.confirm('Passagier uit deze groep halen?')) {
+            if (!window.confirm(@json(__('Passagier uit deze groep halen?')))) {
                 return;
             }
         }
@@ -672,7 +672,7 @@
             var checkedPassengers = form.querySelectorAll('input[name="transport_passenger_id[]"]:checked');
             if (!checkedPassengers.length) {
                 event.preventDefault();
-                showLiveFlash('Selecteer minimaal één passagier.', 'danger');
+                showLiveFlash(@json(__('Selecteer minimaal één passagier.')), 'danger');
                 return;
             }
         }

@@ -1,22 +1,22 @@
 @extends('admin.layouts.app')
 
-@section('title', 'SaaS-pakketten')
+@section('title', __('SaaS-pakketten'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                SaaS-pakketten
+                {{ __('SaaS-pakketten') }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Vaste abonnementspakketten voor tenants
+                {{ __('Vaste abonnementspakketten voor tenants') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.platform-billing.packages.create') }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>
-                Nieuw pakket
+                {{ __('Nieuw pakket') }}
             </a>
         </div>
     </div>
@@ -30,24 +30,24 @@
                         id="packages-bulk-delete"
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
                         hidden
-                        aria-label="Geselecteerde pakketten verwijderen"
-                        title="Verwijderen">
+                        aria-label="{{ __('Geselecteerde pakketten verwijderen') }}"
+                        title="{{ __('Verwijderen') }}">
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count">(<span data-packages-selected-count>0</span>)</span>
                 </button>
                 <h3 class="kt-card-title text-sm mb-0">
-                    Pakketten
+                    {{ __('Pakketten') }}
                 </h3>
             </div>
             <form method="GET" action="{{ route('admin.platform-billing.packages.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
                 <label class="kt-input w-full sm:w-56 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoeken…" class="min-w-0" autocomplete="off">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Zoeken…') }}" class="min-w-0" autocomplete="off">
                 </label>
                 <select class="kt-select w-full sm:w-40" name="is_active">
-                    <option value="" @selected(request('is_active', '') === '')>Alle statussen</option>
-                    <option value="1" @selected(request('is_active') === '1')>Actief</option>
-                    <option value="0" @selected(request('is_active') === '0')>Inactief</option>
+                    <option value="" @selected(request('is_active', '') === '')>{{ __('Alle statussen') }}</option>
+                    <option value="1" @selected(request('is_active') === '1')>{{ __('Actief') }}</option>
+                    <option value="0" @selected(request('is_active') === '0')>{{ __('Inactief') }}</option>
                 </select>
             </form>
         </div>
@@ -64,16 +64,16 @@
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="platform-billing-packages-col-check text-center" data-label="Selecteer" data-no-row-link>
+                            <th class="platform-billing-packages-col-check text-center" data-label="{{ __('Selecteer') }}" data-no-row-link>
                                 <label class="kt-label inline-flex items-center justify-center cursor-pointer mb-0">
-                                    <input type="checkbox" class="kt-checkbox" id="packages-select-all" aria-label="Alles selecteren">
+                                    <input type="checkbox" class="kt-checkbox" id="packages-select-all" aria-label="{{ __('Alles selecteren') }}">
                                 </label>
                             </th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Naam">Naam</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Omschrijving">Omschrijving</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Maandprijs">Maandprijs</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Actief">Actief</th>
-                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Naam') }}">{{ __('Naam') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Omschrijving') }}">{{ __('Omschrijving') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Maandprijs') }}">{{ __('Maandprijs') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Actief') }}">{{ __('Actief') }}</th>
+                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,7 +84,7 @@
                                     <input type="checkbox"
                                            class="kt-checkbox package-row-checkbox"
                                            value="{{ $package->id }}"
-                                           aria-label="Selecteer {{ $package->name }}">
+                                           aria-label="{{ __('Selecteer :name', ['name' => $package->name]) }}">
                                 </label>
                             </td>
                             <td class="platform-billing-packages__name font-medium text-mono">{{ $package->name }}</td>
@@ -92,11 +92,11 @@
                                 {{ $package->description ?: '—' }}
                             </td>
                             <td class="platform-billing-packages__price whitespace-nowrap tabular-nums">€ {{ number_format((float) $package->monthly_amount, 2, ',', '.') }}</td>
-                            <td class="platform-billing-packages__active whitespace-nowrap">{{ $package->is_active ? 'Ja' : 'Nee' }}</td>
+                            <td class="platform-billing-packages__active whitespace-nowrap">{{ $package->is_active ? __('Ja') : __('Nee') }}</td>
                             <td class="admin-table__actions-col" data-no-row-link>
                                 <div class="kt-menu flex justify-center" data-kt-menu="true">
                                     <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
                                         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -105,7 +105,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-eye"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Bekijken</span>
+                                                    <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-item">
@@ -113,7 +113,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Bewerken</span>
+                                                    <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-separator"></div>
@@ -121,13 +121,13 @@
                                                 <form action="{{ route('admin.platform-billing.packages.toggle-status', $package) }}"
                                                       method="POST"
                                                       class="block"
-                                                      onsubmit="return confirm('Weet je zeker dat je de status wilt wijzigen?')">
+                                                      onsubmit="return confirm('{{ addslashes(__('Weet je zeker dat je de status wilt wijzigen?')) }}')">
                                                     @csrf
                                                     <button type="submit" class="kt-menu-link w-full text-left">
                                                         <span class="kt-menu-icon">
                                                             <i class="ki-filled {{ $package->is_active ? 'ki-pause' : 'ki-play' }}"></i>
                                                         </span>
-                                                        <span class="kt-menu-title">{{ $package->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                        <span class="kt-menu-title">{{ $package->is_active ? __('Deactiveren') : __('Activeren') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -137,15 +137,15 @@
                                                       method="POST"
                                                       class="block package-delete-form"
                                                       data-package-name="{{ $package->name }}"
-                                                      data-confirm-title="Pakket verwijderen"
-                                                      data-confirm-message="Weet je zeker dat je het pakket “{{ $package->name }}” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.">
+                                                      data-confirm-title="{{ __('Pakket verwijderen') }}"
+                                                      data-confirm-message="{{ __('Weet je zeker dat je het pakket “:name” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.', ['name' => $package->name]) }}">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                         <span class="kt-menu-icon">
                                                             <i class="ki-filled ki-trash"></i>
                                                         </span>
-                                                        <span class="kt-menu-title">Verwijderen</span>
+                                                        <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -156,7 +156,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="p-5 text-secondary-foreground">Nog geen pakketten.</td>
+                            <td colspan="6" class="p-5 text-secondary-foreground">{{ __('Nog geen pakketten.') }}</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -185,16 +185,16 @@
     <div class="absolute inset-0 bg-zinc-950/70 backdrop-blur-md" data-package-delete-dismiss></div>
     <div class="relative w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl">
         <div class="px-5 py-5 border-b border-border">
-            <h3 id="package-delete-modal-title" class="text-lg font-semibold text-foreground mb-0">Pakket verwijderen</h3>
+            <h3 id="package-delete-modal-title" class="text-lg font-semibold text-foreground mb-0">{{ __('Pakket verwijderen') }}</h3>
         </div>
         <div class="px-5 py-5">
             <p class="text-sm text-muted-foreground mb-0" data-package-delete-message>
-                Weet je zeker dat je dit pakket wilt verwijderen?
+                {{ __('Weet je zeker dat je dit pakket wilt verwijderen?') }}
             </p>
         </div>
         <div class="px-5 py-5 border-t border-border flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline" data-package-delete-dismiss>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-destructive" data-package-delete-confirm>Verwijderen</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-package-delete-dismiss>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-destructive" data-package-delete-confirm>{{ __('Verwijderen') }}</button>
         </div>
     </div>
 </div>
@@ -399,8 +399,8 @@
         }
         e.preventDefault();
         openModal(
-            form.getAttribute('data-confirm-title') || 'Pakket verwijderen',
-            form.getAttribute('data-confirm-message') || 'Weet je zeker dat je dit pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+            form.getAttribute('data-confirm-title') || @json(__('Pakket verwijderen')),
+            form.getAttribute('data-confirm-message') || @json(__('Weet je zeker dat je dit pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')),
             form
         );
     });
@@ -416,12 +416,12 @@
             return;
         }
         fillBulkForm();
-        const title = count === 1 ? 'Pakket verwijderen' : 'Pakketten verwijderen';
+        const title = count === 1 ? @json(__('Pakket verwijderen')) : @json(__('Pakketten verwijderen'));
         const message = count === 1
-            ? 'Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-            : 'Weet je zeker dat je de ' + count + ' geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+            ? @json(__('Weet je zeker dat je het geselecteerde pakket wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+            : @json(__('Weet je zeker dat je de :count geselecteerde pakketten wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')).replace(':count', count);
         if (typeof window.showAdminConfirm === 'function') {
-            window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
+            window.showAdminConfirm({ title: title, message: message, confirmLabel: @json(__('Verwijderen')) }).then(function (ok) {
                 if (ok) {
                     form.adminConfirmAccepted = true;
                     form.submit();

@@ -22,29 +22,29 @@
     $tabs = [
         [
             'key' => 'gegevens',
-            'label' => 'Groepsgegevens',
-            'hint' => 'Adres, tijden, terugweg',
+            'label' => __('Groepsgegevens'),
+            'hint' => __('Adres, tijden, terugweg'),
             'url' => $gegevensUrl,
             'count' => null,
         ],
         [
             'key' => 'leden',
-            'label' => 'Leden',
-            'hint' => 'Passagiers in deze groep',
+            'label' => __('Leden'),
+            'hint' => __('Passagiers in deze groep'),
             'url' => $ledenUrl,
             'count' => $memberCount,
         ],
         [
             'key' => 'route',
-            'label' => 'Route',
-            'hint' => 'Stops, tijden & chauffeur',
+            'label' => __('Route'),
+            'hint' => __('Stops, tijden & chauffeur'),
             'url' => $routeUrl,
             'count' => null,
         ],
     ];
 @endphp
 
-<nav class="contract-workspace-nav" aria-label="Groepsonderdelen">
+<nav class="contract-workspace-nav" aria-label="{{ __('Groepsonderdelen') }}">
     <div class="contract-workspace-nav__scroll">
         @foreach($tabs as $tab)
             <a href="{{ $tab['url'] }}"

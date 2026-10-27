@@ -43,12 +43,12 @@ class AdminFinancialOverviewController extends Controller
         $this->ensureAccess();
         $company = $this->resolveCompany();
         if ($company === null) {
-            return response()->json(['message' => 'Selecteer eerst een tenant.'], 422);
+            return response()->json(['message' => __('Selecteer eerst een tenant.')], 422);
         }
 
         $period = $this->periodFromRequest($request, false);
         if ($period === null) {
-            return response()->json(['message' => 'Ongeldige periode.'], 422);
+            return response()->json(['message' => __('Ongeldige periode.')], 422);
         }
 
         $counts = $this->overviews->previewCounts($company, $period);
@@ -71,7 +71,7 @@ class AdminFinancialOverviewController extends Controller
         if ($company === null) {
             return redirect()
                 ->route('admin.payments.overzichten')
-                ->withErrors(['tenant' => 'Selecteer eerst een tenant om een overzicht te downloaden.']);
+                ->withErrors(['tenant' => __('Selecteer eerst een tenant om een overzicht te downloaden.')]);
         }
 
         $validated = $request->validate([
@@ -88,7 +88,7 @@ class AdminFinancialOverviewController extends Controller
         try {
             $period = FinancialOverviewPeriod::fromInput($validated);
         } catch (InvalidArgumentException $e) {
-            return back()->withInput()->withErrors(['period' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['period' => __($e->getMessage())]);
         }
 
         $type = $validated['report_type'];
@@ -99,12 +99,12 @@ class AdminFinancialOverviewController extends Controller
                 TenantFinancialOverviewService::REPORT_INCOME => $this->overviews->incomePdf($company, $period),
                 TenantFinancialOverviewService::REPORT_VAT => $this->overviews->vatPdf($company, $period),
                 TenantFinancialOverviewService::REPORT_AUDIT => $this->overviews->auditPdf($company, $period),
-                default => back()->withErrors(['report_type' => 'Onbekend overzicht.']),
+                default => back()->withErrors(['report_type' => __('Onbekend overzicht.')]),
             };
         } catch (InvalidArgumentException $e) {
-            return back()->withInput()->withErrors(['period' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['period' => __($e->getMessage())]);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            return back()->withInput()->withErrors(['period' => $e->getMessage() ?: 'Download mislukt.']);
+            return back()->withInput()->withErrors(['period' => __($e->getMessage() ?: 'Download mislukt.')]);
         }
     }
 
@@ -112,7 +112,7 @@ class AdminFinancialOverviewController extends Controller
     {
         $user = auth()->user();
         if (! $user || (! $user->hasRole('super-admin') && ! $user->isTenantAdmin())) {
-            abort(403, 'Geen toegang tot financiële overzichten.');
+            abort(403, __('Geen toegang tot financiële overzichten.'));
         }
     }
 

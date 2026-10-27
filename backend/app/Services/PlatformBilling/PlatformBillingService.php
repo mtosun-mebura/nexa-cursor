@@ -1002,7 +1002,7 @@ class PlatformBillingService
 
         $email = $profile->billingEmailForCompany();
         if (! $email) {
-            throw new \InvalidArgumentException('Geen facturatie-e-mailadres voor deze tenant.');
+            throw new \InvalidArgumentException(__('Geen facturatie-e-mailadres voor deze tenant.'));
         }
 
         $checkoutUrl = null;
@@ -1110,7 +1110,7 @@ class PlatformBillingService
 
         $email = trim((string) ($recipientEmail ?: $profile->billingEmailForCompany()));
         if ($email === '') {
-            throw new \InvalidArgumentException('Geen facturatie-e-mailadres voor deze tenant.');
+            throw new \InvalidArgumentException(__('Geen facturatie-e-mailadres voor deze tenant.'));
         }
 
         $mandate = PlatformPaymentMandate::query()->firstOrCreate(
@@ -1394,7 +1394,7 @@ class PlatformBillingService
     ): PlatformInvoice {
         $email = $profile->billingEmailForCompany();
         if (! $email) {
-            throw new \InvalidArgumentException('Geen facturatie-e-mailadres voor deze tenant.');
+            throw new \InvalidArgumentException(__('Geen facturatie-e-mailadres voor deze tenant.'));
         }
 
         $mandate ??= PlatformPaymentMandate::query()->firstOrCreate(

@@ -1,6 +1,6 @@
 @extends('admin.companies.wizard.layout')
 
-@section('title', 'Stap 1 — Bedrijf & logo')
+@section('title', __('Stap 1 — Bedrijf & logo'))
 
 @section('wizard_content')
 @include('admin.settings.partials.collapsible-section-assets')
@@ -11,12 +11,12 @@
 
     <div class="kt-card min-w-full mb-6">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Bedrijfsgegevens & logo</h3>
+            <h3 class="kt-card-title">{{ __('Bedrijfsgegevens & logo') }}</h3>
         </div>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Bedrijfsnaam *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Bedrijfsnaam *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" class="kt-input @error('name') border-destructive @enderror" name="name" value="{{ old('name', $company->name ?? '') }}" required minlength="2" maxlength="255" @error('name') data-server-error="1" @enderror>
                         @error('name')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="name">{{ $message }}</div>@enderror
@@ -33,7 +33,7 @@
                         : $wizLightUrl;
                 @endphp
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Logo') }}</td>
                     <td class="min-w-48 w-full align-top">
                         <input type="hidden" name="company_logo_mode" id="company-wizard-logo-mode-input" value="{{ $wizardLogoMode }}">
 
@@ -43,9 +43,9 @@
                                 <button type="button" class="settings-collapsible-toggle flex w-full items-center justify-between gap-3 border-0 bg-transparent p-0 text-start cursor-pointer min-h-[2.25rem]" aria-expanded="false">
                                     <span class="flex items-center gap-3 flex-1 min-w-0">
                                         @if($wizLightUrl)
-                                            <img alt="Logo" class="w-auto max-w-[130px] object-contain" style="height: 28px;" src="{{ $wizLightUrl }}">
+                                            <img alt="{{ __('Logo') }}" class="w-auto max-w-[130px] object-contain" style="height: 28px;" src="{{ $wizLightUrl }}">
                                         @else
-                                            <span class="text-sm text-muted-foreground">Geen logo geüpload</span>
+                                            <span class="text-sm text-muted-foreground">{{ __('Geen logo geüpload') }}</span>
                                         @endif
                                     </span>
                                     <span class="settings-collapsible-chevron shrink-0 self-center text-muted-foreground" aria-hidden="true">
@@ -55,24 +55,24 @@
                                 </button>
                             </div>
                             <div class="settings-collapsible-body pt-3">
-                                <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                <p class="text-sm text-muted-foreground mb-3">{{ __('Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).') }}</p>
                                 <div class="flex flex-col gap-2 mb-4">
-                                    <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                    <span class="text-sm text-muted-foreground">{{ __('Eén logo voor beide modi') }}</span>
                                     <div class="flex flex-wrap items-center gap-3">
-                                        <input type="checkbox" id="company-wizard-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $wizardLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                        <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
+                                        <input type="checkbox" id="company-wizard-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $wizardLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="{{ __('Apart logo voor light en dark mode') }}">
+                                        <span class="text-sm text-muted-foreground">{{ __('Apart logo voor light en dark mode') }}</span>
                                     </div>
                                 </div>
 
                                 @if($wizLightUrl)
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)') }}</p>
                                     <div class="flex items-center gap-3 mb-4 p-3">
-                                        <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $wizLightUrl }}" id="company-wizard-settings-live-preview-light" />
-                                        <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $wizDarkUrl }}" id="company-wizard-settings-live-preview-dark" />
+                                        <img alt="{{ __('Logo light') }}" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: 35px;" src="{{ $wizLightUrl }}" id="company-wizard-settings-live-preview-light" />
+                                        <img alt="{{ __('Logo dark') }}" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: 35px;" src="{{ $wizDarkUrl }}" id="company-wizard-settings-live-preview-dark" />
                                     </div>
                                 @endif
 
-                                <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Light mode (standaard)') }}</p>
                                 <div class="max-w-96 w-full">
                                     @include('admin.partials.image-upload-dropzone-inline', [
                                         'name' => 'logo',
@@ -90,12 +90,12 @@
                                     ])
                                 </div>
                                 <div id="company-wizard-logo-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
-                                <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+                                <p class="text-xs text-muted-foreground mt-1 mb-4">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)') }}</p>
                                 @error('logo')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="logo">{{ $message }}</div>@enderror
 
                                 <div id="company-wizard-logo-dark-block" class="{{ $wizardLogoMode === 'light_dark' ? '' : 'hidden' }}">
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
-                                    <p class="text-xs text-muted-foreground mb-2 max-w-xl">Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Dark mode') }}</p>
+                                    <p class="text-xs text-muted-foreground mb-2 max-w-xl">{{ __('Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.') }}</p>
                                     <div class="max-w-96 w-full">
                                         @include('admin.partials.image-upload-dropzone-inline', [
                                             'name' => 'logo_dark',
@@ -111,7 +111,7 @@
                                         ])
                                     </div>
                                     <div id="company-wizard-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
-                                    <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)</p>
+                                    <p class="text-xs text-muted-foreground mt-1">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 2MB)') }}</p>
                                     @error('logo_dark')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="logo_dark">{{ $message }}</div>@enderror
                                 </div>
                             </div>
@@ -120,20 +120,20 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Plaatje gebouw</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Plaatje gebouw') }}</td>
                     <td class="min-w-48 w-full">
                         @include('admin.partials.building-image-select', ['company' => $company ?? null])
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">KVK *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('KVK *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" class="kt-input @error('kvk_number') border-destructive @enderror" name="kvk_number" value="{{ old('kvk_number', $company->kvk_number ?? '') }}" maxlength="8" pattern="[0-9]{8}" inputmode="numeric" required @error('kvk_number') data-server-error="1" @enderror>
                         @error('kvk_number')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="kvk_number">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Branche *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Branche *') }}</td>
                     <td class="min-w-48 w-full">
                         @php
                             $currentIndustry = old('industry', $company->industry ?? '');
@@ -141,40 +141,40 @@
                             $isOther = $currentIndustry && !$selectedBranch;
                         @endphp
                         <select class="kt-input" name="branch_select" id="branch_select" required>
-                            <option value="">-- Selecteer --</option>
+                            <option value="">{{ __('-- Selecteer --') }}</option>
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->name }}" {{ $currentIndustry === $branch->name ? 'selected' : '' }}>{{ $branch->name }}</option>
                             @endforeach
-                            <option value="other" {{ $isOther ? 'selected' : '' }}>Anders</option>
+                            <option value="other" {{ $isOther ? 'selected' : '' }}>{{ __('Anders') }}</option>
                         </select>
-                        <input type="text" class="kt-input mt-2 {{ $isOther ? '' : 'hidden' }}" name="industry" id="industry_custom" value="{{ $isOther ? $currentIndustry : '' }}" placeholder="Branche">
+                        <input type="text" class="kt-input mt-2 {{ $isOther ? '' : 'hidden' }}" name="industry" id="industry_custom" value="{{ $isOther ? $currentIndustry : '' }}" placeholder="{{ __('Branche') }}">
                         @error('industry')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="industry">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Bedrijfstype</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Bedrijfstype') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="kt-label flex items-center gap-2">
                             <input type="checkbox" class="kt-checkbox" name="is_intermediary" value="1" {{ old('is_intermediary', $company->is_intermediary ?? false) ? 'checked' : '' }}>
-                            Tussenpartij / Recruiter
+                            {{ __('Tussenpartij / Recruiter') }}
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Website</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Website') }}</td>
                     <td class="min-w-48 w-full">
-                        <input type="url" class="kt-input @error('website') border-destructive @enderror" name="website" value="{{ old('website', $company->website ?? '') }}" placeholder="https://" @error('website') data-server-error="1" @enderror>
+                        <input type="url" class="kt-input @error('website') border-destructive @enderror" name="website" value="{{ old('website', $company->website ?? '') }}" placeholder="{{ __('https://') }}" @error('website') data-server-error="1" @enderror>
                         @error('website')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="website">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Beschrijving</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Beschrijving') }}</td>
                     <td class="min-w-48 w-full">
                         <textarea class="kt-input" name="description" rows="3">{{ old('description', $company->description ?? '') }}</textarea>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Postcode *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Postcode *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text"
                             id="wizard_postal_code"
@@ -182,17 +182,17 @@
                             name="postal_code"
                             value="{{ old('postal_code', $company->postal_code ?? '') }}"
                             pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
-                            placeholder="1234AB"
+                            placeholder="{{ __('1234AB') }}"
                             maxlength="7"
                             style="text-transform: uppercase;"
                             required
                             @error('postal_code') data-server-error="1" @enderror>
-                        <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.') }}</div>
                         @error('postal_code')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="postal_code">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Huisnummer *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Huisnummer *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text"
                             id="wizard_house_number"
@@ -203,13 +203,13 @@
                             maxlength="20"
                             minlength="1"
                             @error('house_number') data-server-error="1" @enderror>
-                        <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld worden straat en plaats automatisch ingevuld.</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Bij verlaten van het veld worden straat en plaats automatisch ingevuld.') }}</div>
                         @include('admin.partials.postcode-lookup-status', ['id' => 'wizard_house_number_lookup_loading'])
                         @error('house_number')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="house_number">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Straat *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Straat *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text"
                             id="wizard_street"
@@ -221,12 +221,12 @@
                             minlength="2"
                             maxlength="255"
                             @error('street') data-server-error="1" @enderror>
-                        <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.') }}</div>
                         @error('street')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="street">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Plaats *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Plaats *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text"
                             id="wizard_city"
@@ -242,7 +242,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Land</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Land') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text"
                             id="wizard_country"
@@ -255,25 +255,25 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Hoofdvestiging</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Hoofdvestiging') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="kt-label flex items-center gap-2">
                             <input type="checkbox" class="kt-switch kt-switch-sm" name="is_main" value="1" {{ old('is_main', $company->is_main ?? true) ? 'checked' : '' }}>
-                            Dit is de hoofdvestiging
+                            {{ __('Dit is de hoofdvestiging') }}
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Actief</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Actief') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="kt-label flex items-center gap-2">
                             <input type="checkbox" class="kt-switch kt-switch-sm" name="is_active" value="1" {{ old('is_active', $company->is_active ?? true) ? 'checked' : '' }}>
-                            Bedrijf is actief
+                            {{ __('Bedrijf is actief') }}
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Nexa Suite-boekingen accepteren</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Nexa Suite-boekingen accepteren') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="hidden" name="accepts_nexa_suite_bookings" value="0">
                         <label class="kt-label flex items-center gap-2 mb-0" for="wizard_accepts_nexa_suite_bookings">
@@ -283,7 +283,7 @@
                                    name="accepts_nexa_suite_bookings"
                                    value="1"
                                    {{ old('accepts_nexa_suite_bookings', $company->accepts_nexa_suite_bookings ?? true) ? 'checked' : '' }}>
-                            <span class="text-sm text-muted-foreground">Ontvang ritten vanaf nexasuite.nl / de marktplaats</span>
+                            <span class="text-sm text-muted-foreground">{{ __('Ontvang ritten vanaf nexasuite.nl / de marktplaats') }}</span>
                         </label>
                     </td>
                 </tr>
@@ -293,29 +293,29 @@
 
     <div class="kt-card min-w-full mb-6">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Contactpersoon</h3>
+            <h3 class="kt-card-title">{{ __('Contactpersoon') }}</h3>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Deze persoon wordt de company-admin. Het e-mailadres is de gebruikersnaam. Bij afronden van de wizard ontvangt deze persoon de welkomstmail. De eerste login gaat via een eenmalige code, daarna kiest hij of zij zelf een wachtwoord.
+            {{ __('Deze persoon wordt de company-admin. Het e-mailadres is de gebruikersnaam. Bij afronden van de wizard ontvangt deze persoon de welkomstmail. De eerste login gaat via een eenmalige code, daarna kiest hij of zij zelf een wachtwoord.') }}
         </p>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Voornaam *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Voornaam *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" class="kt-input @error('contact_first_name') border-destructive @enderror" name="contact_first_name" value="{{ old('contact_first_name', $company->contact_first_name ?? '') }}" maxlength="255" autocomplete="given-name" required @error('contact_first_name') data-server-error="1" @enderror>
                         @error('contact_first_name')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="contact_first_name">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Achternaam *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Achternaam *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" class="kt-input @error('contact_last_name') border-destructive @enderror" name="contact_last_name" value="{{ old('contact_last_name', $company->contact_last_name ?? '') }}" maxlength="255" autocomplete="family-name" required @error('contact_last_name') data-server-error="1" @enderror>
                         @error('contact_last_name')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="contact_last_name">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">E-mail *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('E-mail *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="email"
                             class="kt-input @error('email') border-destructive @enderror"
@@ -328,18 +328,18 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Telefoon *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Telefoon *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="tel"
                             class="kt-input @error('phone') border-destructive @enderror"
                             name="phone"
                             value="{{ old('phone', $company->phone ?? '') }}"
                             pattern="(\+31|0)[1-9][0-9]{8}"
-                            placeholder="0612345678 of +31612345678"
+                            placeholder="{{ __('0612345678 of +31612345678') }}"
                             maxlength="13"
                             required
                             @error('phone') data-server-error="1" @enderror>
-                        <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                         @error('phone')<div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="phone">{{ $message }}</div>@enderror
                     </td>
                 </tr>
@@ -349,18 +349,18 @@
 
     <div class="kt-card min-w-full mb-6">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Abonnement *</h3>
+            <h3 class="kt-card-title">{{ __('Abonnement *') }}</h3>
         </div>
         <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0">
-            Kies het pakket en de aanvullende modules die deze klant afneemt. Die zijn leidend voor Tenant-abonnementen en de maandfactuur.
+            {{ __('Kies het pakket en de aanvullende modules die deze klant afneemt. Die zijn leidend voor Tenant-abonnementen en de maandfactuur.') }}
         </p>
         <div class="kt-card-table kt-scrollable-x-auto pb-3">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Pakket *') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="package_key" class="kt-input @error('package_key') border-destructive @enderror" required>
-                            <option value="">— Kies een pakket —</option>
+                            <option value="">{{ __('— Kies een pakket —') }}</option>
                             @foreach($nexaPackages ?? [] as $packageKey => $packageName)
                                 <option value="{{ $packageKey }}" {{ (string) old('package_key', $company->package_key ?? '') === (string) $packageKey ? 'selected' : '' }}>
                                     {{ $packageName }}
@@ -378,7 +378,7 @@
 
     <div class="flex flex-wrap gap-3 justify-end">
         <button type="submit" class="kt-btn kt-btn-primary">
-            Volgende
+            {{ __('Volgende') }}
             <i class="ki-filled ki-arrow-right ms-2"></i>
         </button>
     </div>

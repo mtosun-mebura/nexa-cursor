@@ -46,7 +46,7 @@ class AdminTenantCustomerInvoiceController extends Controller
         $this->ensureTenantBillingAccess();
         $companyId = (int) ($this->getTenantId() ?: auth()->user()?->company_id);
         if ($companyId <= 0) {
-            abort(403, 'Geen tenant gekoppeld.');
+            abort(403, __('Geen tenant gekoppeld.'));
         }
 
         $validated = $request->validate([
@@ -87,7 +87,7 @@ class AdminTenantCustomerInvoiceController extends Controller
         ]);
 
         return redirect()->route('admin.tenant-customer-invoices.show', $invoice)
-            ->with('success', 'Factuur aangemaakt.');
+            ->with('success', __('Factuur aangemaakt.'));
     }
 
     public function show(Invoice $invoice): View
@@ -105,7 +105,7 @@ class AdminTenantCustomerInvoiceController extends Controller
             $result = $pdfService->generateAndStore($invoice->fresh());
             $bytes = $result['bytes'];
         } catch (\Throwable $e) {
-            abort(500, 'PDF kon niet worden gemaakt: '.$e->getMessage());
+            abort(500, __('PDF kon niet worden gemaakt: :message', ['message' => $e->getMessage()]));
         }
 
         $filename = 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
@@ -129,7 +129,7 @@ class AdminTenantCustomerInvoiceController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Factuur met Mollie-betaallink verstuurd.');
+        return back()->with('success', __('Factuur met Mollie-betaallink verstuurd.'));
     }
 
     private function ensureTenantBillingAccess(): void
@@ -141,7 +141,7 @@ class AdminTenantCustomerInvoiceController extends Controller
         if ($user->hasRole('super-admin') || $user->isTenantAdmin()) {
             return;
         }
-        abort(403, 'Geen toegang tot klantfacturen.');
+        abort(403, __('Geen toegang tot klantfacturen.'));
     }
 
     private function authorizeInvoice(Invoice $invoice): void

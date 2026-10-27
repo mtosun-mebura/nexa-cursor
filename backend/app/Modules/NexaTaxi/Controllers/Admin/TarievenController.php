@@ -95,7 +95,7 @@ class TarievenController extends Controller
             $normalized[$normalizedRange] = $payload;
         }
         if (empty($normalized)) {
-            return back()->withErrors(['rates' => 'Voeg minimaal 1 geldig personenbereik toe.'])->withInput();
+            return back()->withErrors(['rates' => __('Voeg minimaal 1 geldig personenbereik toe.')])->withInput();
         }
 
         $existing = DefaultRate::queryForCompany($conn, $scopeCompanyId)->get()->keyBy('person_range');
@@ -116,7 +116,7 @@ class TarievenController extends Controller
             \App\Support\TenantPublicCache::bump($scopeCompanyId);
         }
 
-        return redirect()->route('admin.taxi.tarieven.edit')->with('success', 'Tarieven zijn bijgewerkt.');
+        return redirect()->route('admin.taxi.tarieven.edit')->with('success', __('Tarieven zijn bijgewerkt.'));
     }
 
     private function scopeCompanyName(?int $scopeCompanyId): ?string
@@ -138,7 +138,7 @@ class TarievenController extends Controller
         $company = $companyId ? Company::query()->find($companyId) : null;
         $package = strcasecmp((string) ($company->package_key ?? ''), \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
         if ($package || ($user && $user->hasRole('marketplace'))) {
-            abort(403, 'Tarieven zijn niet beschikbaar voor marketplace-bedrijven.');
+            abort(403, __('Tarieven zijn niet beschikbaar voor marketplace-bedrijven.'));
         }
     }
 
@@ -152,6 +152,6 @@ class TarievenController extends Controller
                 return;
             }
         }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 }

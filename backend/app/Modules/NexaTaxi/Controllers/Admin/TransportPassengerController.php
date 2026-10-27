@@ -102,7 +102,7 @@ class TransportPassengerController extends Controller
         );
 
         return redirect($backUrl)
-            ->with('success', 'Passagier aangemaakt.');
+            ->with('success', __('Passagier aangemaakt.'));
     }
 
     public function edit(Request $request, int $customerId, int $contractId, int $passengerId)
@@ -144,7 +144,7 @@ class TransportPassengerController extends Controller
             'active' => $request->boolean('active'),
         ]));
 
-        $messages = ['Passagier opgeslagen.'];
+        $messages = [__('Passagier opgeslagen.')];
         if ($addressChanged) {
             $routeMessages = $this->recalculateRoutesForPassengerGroups($conn, (int) $passenger->id);
             if ($routeMessages !== []) {
@@ -155,8 +155,8 @@ class TransportPassengerController extends Controller
         $bookingSyncCount = $this->syncPlannedIndividualBookingsForPassenger($conn, $passenger->fresh());
         if ($bookingSyncCount > 0) {
             $messages[] = $bookingSyncCount === 1
-                ? '1 geplande individuele rit gesynchroniseerd.'
-                : $bookingSyncCount.' geplande individuele ritten gesynchroniseerd.';
+                ? __('1 geplande individuele rit gesynchroniseerd.')
+                : __(':count geplande individuele ritten gesynchroniseerd.', ['count' => $bookingSyncCount]);
         }
 
         $backUrl = transport_admin_back_url(
@@ -182,7 +182,7 @@ class TransportPassengerController extends Controller
         );
 
         return redirect($backUrl)
-            ->with('success', 'Passagier gedeactiveerd.');
+            ->with('success', __('Passagier gedeactiveerd.'));
     }
 
     /** @return array{0: string, 1: TransportCustomer, 2: TransportContract} */
@@ -270,7 +270,7 @@ class TransportPassengerController extends Controller
         foreach (TransportGroup::on($conn)->whereIn('id', $groupIds)->where('active', true)->get() as $group) {
             $result = $this->routeSync->recalculateForGroup($conn, $group);
             if (($result['recalculated'] ?? false) && ($result['message'] ?? null)) {
-                $messages[] = 'Groep '.$group->name.': '.$result['message'];
+                $messages[] = __('Groep :name: :message', ['name' => $group->name, 'message' => $result['message']]);
             }
         }
 
@@ -300,7 +300,7 @@ class TransportPassengerController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 }

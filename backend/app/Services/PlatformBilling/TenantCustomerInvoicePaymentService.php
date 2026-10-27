@@ -23,22 +23,22 @@ class TenantCustomerInvoicePaymentService
     {
         $email = trim($recipientEmail);
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException('Voer een geldig e-mailadres in.');
+            throw new \InvalidArgumentException(__('Voer een geldig e-mailadres in.'));
         }
 
         if ((float) $invoice->total_amount <= 0) {
-            throw new \InvalidArgumentException('Factuurbedrag moet groter zijn dan nul.');
+            throw new \InvalidArgumentException(__('Factuurbedrag moet groter zijn dan nul.'));
         }
 
         $companyId = (int) $invoice->company_id;
         $provider = $this->paymentProviders->getMollieForCompany($companyId);
         if (! $provider) {
-            throw new RuntimeException('Geen actieve Mollie-betalingsprovider voor deze tenant. Stel er één in onder Betalingsproviders.');
+            throw new RuntimeException(__('Geen actieve Mollie-betalingsprovider voor deze tenant. Stel er één in onder Betalingsproviders.'));
         }
 
         $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
         if (! $apiKey) {
-            throw new RuntimeException('De actieve Mollie-betalingsprovider heeft geen geldige API-sleutel.');
+            throw new RuntimeException(__('De actieve Mollie-betalingsprovider heeft geen geldige API-sleutel.'));
         }
         $redirectUrl = route('admin.tenant-customer-invoices.show', $invoice);
         $webhookUrl = $this->paymentProviders->mollieWebhookUrlForTenantInvoices($companyId);

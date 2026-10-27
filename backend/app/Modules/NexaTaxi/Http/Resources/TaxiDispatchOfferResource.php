@@ -362,8 +362,10 @@ class TaxiDispatchOfferResource
         }
 
         $gross = (float) ($ride->final_price ?? $ride->quoted_price ?? 0);
-        $percent = \App\Support\NexaMarketplaceFeeCopy::percent();
-        $fee = round(max(0, $gross) * ($percent / 100), 2);
+        $calc = app(\App\Services\Payout\MarketplaceFeeCalculator::class)
+            ->calculate(max(0, $gross), $ride->paidMollieMethod());
+        $percent = $calc['percent'];
+        $fee = $calc['fee'];
 
         $ownerName = self::companyDisplayName($ownerId);
         if ($ownerName === '—' && $isMarketplace) {

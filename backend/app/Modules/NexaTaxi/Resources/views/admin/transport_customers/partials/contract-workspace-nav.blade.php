@@ -12,43 +12,43 @@
     $tabs = [
         [
             'key' => 'overzicht',
-            'label' => 'Overzicht',
-            'hint' => 'Abonnement & SEPA',
+            'label' => __('Overzicht'),
+            'hint' => __('Abonnement & SEPA'),
             'url' => $overzichtUrl,
             'count' => null,
         ],
         [
             'key' => 'passagiers',
-            'label' => 'Passagiers',
-            'hint' => 'Personen die meereizen',
+            'label' => __('Passagiers'),
+            'hint' => __('Personen die meereizen'),
             'url' => route('admin.taxi.transport_passengers.index', [$customer->id, $contract->id]),
             'count' => $counts['passengers'] ?? null,
         ],
         [
             'key' => 'groepen',
-            'label' => 'Groepen',
-            'hint' => 'Vaste routes heen/terug',
+            'label' => __('Groepen'),
+            'hint' => __('Vaste routes heen/terug'),
             'url' => route('admin.taxi.transport_groups.index', [$customer->id, $contract->id]),
             'count' => $counts['groups'] ?? null,
         ],
         [
             'key' => 'ritten',
-            'label' => 'Individuele ritten',
-            'hint' => 'Eenmalige contractritten',
+            'label' => __('Individuele ritten'),
+            'hint' => __('Eenmalige contractritten'),
             'url' => route('admin.taxi.transport_individual_bookings.index', [$customer->id, $contract->id]),
             'count' => $counts['bookings'] ?? null,
         ],
         [
             'key' => 'facturen',
-            'label' => 'Facturen',
-            'hint' => 'Maandfacturen',
+            'label' => __('Facturen'),
+            'hint' => __('Maandfacturen'),
             'url' => $facturenUrl,
             'count' => $counts['invoices'] ?? null,
         ],
     ];
 @endphp
 
-<nav class="contract-workspace-nav" aria-label="Abonnement-onderdelen">
+<nav class="contract-workspace-nav" aria-label="{{ __('Abonnement-onderdelen') }}">
     <div class="contract-workspace-nav__scroll">
         @foreach($tabs as $tab)
             <a href="{{ $tab['url'] }}"

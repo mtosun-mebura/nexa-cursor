@@ -101,8 +101,8 @@
                         <button type="button"
                                 class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                                 data-copy-text="{{ $company->email }}"
-                                title="E-mailadres kopiëren"
-                                aria-label="E-mailadres kopiëren">
+                                title="{{ __('E-mailadres kopiëren') }}"
+                                aria-label="{{ __('E-mailadres kopiëren') }}">
                             <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -120,7 +120,7 @@
                 @if($showSkillmatching)
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $totalVacancies }}</span>
-                    <span class="text-secondary-foreground text-sm">Vacatures</span>
+                    <span class="text-secondary-foreground text-sm">{{ __('Vacatures') }}</span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
@@ -132,7 +132,7 @@
                 @if($showTaxi)
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ $taxiStats['total_rides'] ?? 0 }}</span>
-                    <span class="text-secondary-foreground text-sm">Ritten</span>
+                    <span class="text-secondary-foreground text-sm">{{ __('Ritten') }}</span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
@@ -143,7 +143,7 @@
                 @endif
                 <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center min-w-[5rem]">
                     <span class="text-mono text-2xl lg:text-2xl leading-none font-semibold">{{ number_format($totalUsers, 0, ',', '.') }}</span>
-                    <span class="text-secondary-foreground text-sm">Gebruikers</span>
+                    <span class="text-secondary-foreground text-sm">{{ __('Gebruikers') }}</span>
                 </div>
             </div>
         </div>
@@ -159,7 +159,7 @@
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">
-                            Bedrijfsinformatie
+                            {{ __('Bedrijfsinformatie') }}
                         </h3>
                     </div>
                     <div class="kt-card-content pt-3.5 pb-3.5">
@@ -167,7 +167,7 @@
                             <tbody>
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Vestigingen:
+                                        {{ __('Vestigingen:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $locationsCount + 1 }}
@@ -175,7 +175,7 @@
                                 </tr>
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Opgericht:
+                                        {{ __('Opgericht:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $company->created_at->format('Y') }}
@@ -194,7 +194,7 @@
                                 @if($company->country)
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Land:
+                                        {{ __('Land:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $company->country }}
@@ -220,7 +220,7 @@
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">
-                            Abonnement
+                            {{ __('Abonnement') }}
                         </h3>
                     </div>
                     <div class="kt-card-content pt-3.5 pb-3.5">
@@ -228,7 +228,7 @@
                             <tbody>
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Pakket:
+                                        {{ __('Pakket:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $subscriptionSnapshot['current_name'] }}
@@ -236,7 +236,7 @@
                                 </tr>
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Ingangsdatum:
+                                        {{ __('Ingangsdatum:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $subscriptionSnapshot['start_date']->translatedFormat('j F Y') }}
@@ -245,7 +245,7 @@
                                 @if(! empty($subscriptionSnapshot['free_months']))
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Gratis periode:
+                                        {{ __('Gratis periode:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ (int) $subscriptionSnapshot['free_months'] }} {{ (int) $subscriptionSnapshot['free_months'] === 1 ? 'maand' : 'maanden' }}
@@ -255,7 +255,7 @@
                                 @if(! empty($subscriptionSnapshot['trial_declined']) && ! empty($subscriptionSnapshot['trial_ends_at']))
                                 <tr>
                                     <td class="text-sm text-red-500 pb-4 pe-4 lg:pe-10 align-top font-medium" style="min-width: 120px;">
-                                        Stopt per:
+                                        {{ __('Stopt per:') }}
                                     </td>
                                     <td class="text-sm text-red-500 pb-4 align-top font-medium">
                                         {{ $subscriptionSnapshot['trial_ends_at']->translatedFormat('j F Y') }}
@@ -264,7 +264,7 @@
                                 @elseif(! empty($subscriptionSnapshot['free_months']))
                                 <tr>
                                     <td class="text-sm text-secondary-foreground pb-4 pe-4 lg:pe-10 align-top" style="min-width: 120px;">
-                                        Incasso ingangsdatum:
+                                        {{ __('Incasso ingangsdatum:') }}
                                     </td>
                                     <td class="text-sm text-mono pb-4 align-top">
                                         {{ $subscriptionSnapshot['billing_start_date']->translatedFormat('j F Y') }}
@@ -280,9 +280,9 @@
                 @if($showTaxi && $recent_rides->isNotEmpty())
                 <div class="kt-card">
                     <div class="kt-card-header flex items-center justify-between gap-2">
-                        <h3 class="kt-card-title">Recente ritten</h3>
+                        <h3 class="kt-card-title">{{ __('Recente ritten') }}</h3>
                         @if(Route::has('admin.taxi.ride_requests.index'))
-                            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Alle ritten</a>
+                            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Alle ritten') }}</a>
                         @endif
                     </div>
                     <div class="kt-card-content">
@@ -306,7 +306,7 @@
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">
-                            Openstaande Vacatures
+                            {{ __('Openstaande Vacatures') }}
                         </h3>
                     </div>
                     <div class="kt-card-content">
@@ -342,7 +342,7 @@
                     @if($activeVacancies->count() > 10)
                     <div class="kt-card-footer justify-center">
                         <a class="kt-link kt-link-underlined kt-link-dashed" href="{{ Route::has('admin.skillmatching.vacancies.index') ? route('admin.skillmatching.vacancies.index', ['company_id' => $company->id]) : route('admin.dashboard') }}">
-                            Bekijk alle vacatures
+                            {{ __('Bekijk alle vacatures') }}
                         </a>
                     </div>
                     @endif
@@ -354,7 +354,7 @@
                 <div class="kt-card">
                     <div class="kt-card-header gap-2 px-5 py-5">
                         <h3 class="kt-card-title">
-                            Gebruikers
+                            {{ __('Gebruikers') }}
                         </h3>
                     </div>
                     <div class="kt-card-content p-5">
@@ -387,7 +387,7 @@
                     @if($company->users()->count() > 8)
                     <div class="kt-card-footer justify-center">
                         <a class="kt-link kt-link-underlined kt-link-dashed" href="{{ route('admin.users.index', ['company_id' => $company->id]) }}">
-                            Bekijk alle gebruikers
+                            {{ __('Bekijk alle gebruikers') }}
                         </a>
                     </div>
                     @endif
@@ -402,22 +402,22 @@
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">
-                            Bedrijfsprofiel
+                            {{ __('Bedrijfsprofiel') }}
                         </h3>
                         @can('edit-companies')
-                        <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
+                        <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bewerken') }}">
                             <i class="ki-filled ki-pencil"></i>
                         </a>
                         @endcan
                     </div>
                     <div class="kt-card-content">
                         <h3 class="text-base font-semibold text-mono leading-none mb-5">
-                            Hoofdkantoor
+                            {{ __('Hoofdkantoor') }}
                         </h3>
                         <div class="admin-company-profile-hq">
                             {{-- Expliciete px-hoogte: Google Maps vult anders een 0px canvas in grid/flex layouts. --}}
                             <div class="w-full min-w-0 min-h-[220px] self-stretch">
-                                <div id="company_profile_map" class="w-full rounded-xl overflow-hidden bg-muted/20 shadow-sm" style="height: 220px; min-height: 220px; position: relative;" aria-label="Kaart hoofdkantoor"></div>
+                                <div id="company_profile_map" class="w-full rounded-xl overflow-hidden bg-muted/20 shadow-sm" style="height: 220px; min-height: 220px; position: relative;" aria-label="{{ __('Kaart hoofdkantoor') }}"></div>
                             </div>
                             <div class="flex flex-col gap-3.5 min-w-0">
                                 @if($company->website)
@@ -467,7 +467,7 @@
                         @if($company->description)
                         <div class="grid gap-2.5 mb-7">
                             <div class="text-base font-semibold text-mono">
-                                Over
+                                {{ __('Over') }}
                             </div>
                             <p class="text-sm text-foreground leading-5.5">
                                 {{ $company->description }}
@@ -481,7 +481,7 @@
                 <div class="kt-card">
                     <div class="kt-card-header">
                         <h3 class="kt-card-title">
-                            Vestigingen
+                            {{ __('Vestigingen') }}
                         </h3>
                     </div>
                     <div class="kt-card-content p-5 lg:p-7.5 lg:pb-7">
@@ -502,7 +502,7 @@
                                     @endif
                                     <div class="kt-card-border kt-card-rounded-b px-3.5 h-full pt-3 pb-3.5">
                                         <a class="font-medium block text-mono hover:text-primary text-base mb-2" href="{{ route('admin.companies.edit', $company) }}">
-                                            Hoofdkantoor
+                                            {{ __('Hoofdkantoor') }}
                                         </a>
                                         <p class="text-sm text-secondary-foreground">
                                             {{ $company->street }} {{ $company->house_number }}{{ $company->house_number_extension ? '-' . $company->house_number_extension : '' }} <br>
@@ -528,10 +528,10 @@
                                 @endforeach
                             @elseif(!$showHoofdkantoorCard)
                                 <p class="text-sm text-secondary-foreground">
-                                    Nog geen vestigingen. Voeg vestigingen toe via
-                                    <a class="link font-medium" href="{{ route('admin.companies.locations.create', $company) }}">nieuwe vestiging</a>
-                                    of vul het bedrijfsadres in bij
-                                    <a class="link font-medium" href="{{ route('admin.companies.edit', $company) }}">bedrijfsgegevens</a>.
+                                    {{ __('Nog geen vestigingen. Voeg vestigingen toe via') }}
+                                    <a class="link font-medium" href="{{ route('admin.companies.locations.create', $company) }}">{{ __('nieuwe vestiging') }}</a>
+                                    {{ __('of vul het bedrijfsadres in bij') }}
+                                    <a class="link font-medium" href="{{ route('admin.companies.edit', $company) }}">{{ __('bedrijfsgegevens') }}</a>.
                                 </p>
                             @endif
                         </div>

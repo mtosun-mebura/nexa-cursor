@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Routeplanner — '.$group->name)
+@section('title', __('Routeplanner — :name', ['name' => $group->name]))
 
 @section('content')
 @php
@@ -11,13 +11,13 @@
     $routeWarnings = (array) session('route_warnings', []);
     $groupWorkspaceTab = 'route';
     $groupWorkspaceMemberCount = isset($activeMembers) ? $activeMembers->count() : null;
-    $workspaceTitle = 'Routeplanner';
-    $workspaceSubtitle = $group->name.' · stops, weekdagen en toewijzing';
+    $workspaceTitle = __('Routeplanner');
+    $workspaceSubtitle = __(':name · stops, weekdagen en toewijzing', ['name' => $group->name]);
     $workspaceHeaderActions = '';
     if ($template->route_locked) {
-        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-warning kt-badge-sm">Route vastgezet</span>';
+        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-warning kt-badge-sm">'.e(__('Route vastgezet')).'</span>';
     } else {
-        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-secondary kt-badge-sm">Route bewerkbaar</span>';
+        $workspaceHeaderActions .= '<span class="kt-badge kt-badge-secondary kt-badge-sm">'.e(__('Route bewerkbaar')).'</span>';
     }
 @endphp
 <div class="kt-container-fixed min-w-0">
@@ -50,7 +50,7 @@
         @can('rides.update')
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Route-instellingen</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Route-instellingen') }}</h3>
             </div>
             <div class="kt-card-content p-0">
                 <form method="POST" action="{{ route('admin.taxi.transport_groups.route.settings', [$customer->id, $contract->id, $group->id]) }}" class="px-3 sm:px-5 pb-5">
@@ -59,13 +59,13 @@
                     <fieldset class="min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-medium">Label</td>
+                                <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Label') }}</td>
                                 <td>
                                     <input type="text" name="label" class="kt-input w-full max-w-md" value="{{ old('label', $template->label) }}" required @disabled($template->route_locked)>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium align-top pt-3">Weekdagen</td>
+                                <td class="text-secondary-foreground font-medium align-top pt-3">{{ __('Weekdagen') }}</td>
                                 <td class="pt-3">
                                     <div class="flex flex-wrap gap-3">
                                         @foreach($weekdayLabels as $dayNum => $dayLabel)
@@ -73,24 +73,24 @@
                                                 <input type="checkbox" name="recurrence_days[]" value="{{ $dayNum }}"
                                                     class="kt-checkbox"
                                                     @checked(in_array($dayNum, array_map('intval', (array) $selectedDays), true))>
-                                                <span>{{ $dayLabel }}</span>
+                                                <span>{{ __($dayLabel) }}</span>
                                             </label>
                                         @endforeach
                                     </div>
-                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Bij opslaan worden ritten in de contract-app meteen aangepast aan deze dagen.</p>
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Bij opslaan worden ritten in de contract-app meteen aangepast aan deze dagen.') }}</p>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Startpunt chauffeur</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Startpunt chauffeur') }}</td>
                                 <td>
                                     <select name="driver_start_mode" id="driver_start_mode" class="kt-select w-full max-w-xs" @disabled($template->route_locked)>
-                                        <option value="depot" @selected(old('driver_start_mode', $template->driver_start_mode) === 'depot')>Depot</option>
-                                        <option value="first_stop" @selected(old('driver_start_mode', $template->driver_start_mode) === 'first_stop')>Eerste stop</option>
+                                        <option value="depot" @selected(old('driver_start_mode', $template->driver_start_mode) === 'depot')>{{ __('Depot') }}</option>
+                                        <option value="first_stop" @selected(old('driver_start_mode', $template->driver_start_mode) === 'first_stop')>{{ __('Eerste stop') }}</option>
                                     </select>
                                 </td>
                             </tr>
                             <tr id="depot-address-row">
-                                <td class="text-secondary-foreground font-medium">Depotadres</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Depotadres') }}</td>
                                 <td>
                                     @include('admin.partials.google-address-input', [
                                         'name' => 'driver_start_address',
@@ -99,33 +99,33 @@
                                         'lngName' => 'driver_start_lng',
                                         'latValue' => old('driver_start_lat', $template->driver_start_lat ?: $group->departure_lat),
                                         'lngValue' => old('driver_start_lng', $template->driver_start_lng ?: $group->departure_lng),
-                                        'placeholder' => 'Zoek depotadres...',
-                                        'hint' => 'Je kunt het vertrekadres ook instellen via Groep bewerken.',
+                                        'placeholder' => __('Zoek depotadres...'),
+                                        'hint' => __('Je kunt het vertrekadres ook instellen via Groep bewerken.'),
                                         'disabled' => $template->route_locked,
                                     ])
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Buffer per stop</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Buffer per stop') }}</td>
                                 <td>
                                     <div class="flex items-center gap-2 max-w-xs">
                                         <input type="number" name="buffer_seconds" class="kt-input w-24" min="0" max="900" step="30"
                                             value="{{ old('buffer_seconds', $template->buffer_seconds ?? 120) }}" required @disabled($template->route_locked)>
-                                        <span class="text-sm">seconden</span>
+                                        <span class="text-sm">{{ __('seconden') }}</span>
                                     </div>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Eindlocatie</td>
-                                <td>{{ $group->destination_address }} <span class="text-muted-foreground">(aankomst {{ substr($group->destination_arrival_time, 0, 5) }})</span></td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Eindlocatie') }}</td>
+                                <td>{{ $group->destination_address }} <span class="text-muted-foreground">{{ __('(aankomst :time)', ['time' => substr($group->destination_arrival_time, 0, 5)]) }}</span></td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-medium">Actieve leden</td>
-                                <td>{{ $activeMembers->count() }} passagier(s)</td>
+                                <td class="text-secondary-foreground font-medium">{{ __('Actieve leden') }}</td>
+                                <td>{{ __(':count passagier(s)', ['count' => $activeMembers->count()]) }}</td>
                             </tr>
                         </table>
                         <div class="flex justify-end mt-4">
-                            <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Instellingen opslaan</button>
+                            <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">{{ __('Instellingen opslaan') }}</button>
                         </div>
                     </fieldset>
                 </form>
@@ -136,21 +136,21 @@
         {{-- Stops --}}
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-2">
-                <h3 class="kt-card-title mb-0">Stops ({{ $pickupStops->count() }} ophalen + bestemming)</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Stops (:count ophalen + bestemming)', ['count' => $pickupStops->count()]) }}</h3>
                 @can('rides.update')
                 <div class="flex flex-wrap gap-2">
                     <form method="POST" action="{{ route('admin.taxi.transport_groups.route.calculate', [$customer->id, $contract->id, $group->id]) }}" class="inline">
                         @csrf
                         <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">
                             <i class="ki-filled ki-route me-1"></i>
-                            {{ $template->route_locked ? 'Tijden herberekenen' : 'Route berekenen' }}
+                            {{ $template->route_locked ? __('Tijden herberekenen') : __('Route berekenen') }}
                         </button>
                     </form>
                     @if($pickupStops->isNotEmpty())
                     <form method="POST" action="{{ route('admin.taxi.transport_groups.route.lock', [$customer->id, $contract->id, $group->id]) }}" class="inline">
                         @csrf
                         <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">
-                            {{ $template->route_locked ? 'Ontgrendelen' : 'Route vastzetten' }}
+                            {{ $template->route_locked ? __('Ontgrendelen') : __('Route vastzetten') }}
                         </button>
                     </form>
                     @endif
@@ -161,9 +161,9 @@
                 @if($pickupStops->isEmpty())
                     <div class="px-3 sm:px-5 py-8 text-center text-muted-foreground text-sm">
                         @if($activeMembers->isEmpty())
-                            Voeg eerst leden toe aan de groep en druk op <strong>Route berekenen</strong>.
+                            {!! __('Voeg eerst leden toe aan de groep en druk op <strong>Route berekenen</strong>.') !!}
                         @else
-                            Druk op <strong>Route berekenen</strong> om stops en tijden te genereren.
+                            {!! __('Druk op <strong>Route berekenen</strong> om stops en tijden te genereren.') !!}
                         @endif
                     </div>
                 @else
@@ -178,12 +178,12 @@
                             <thead>
                                 <tr>
                                     <th class="w-12">#</th>
-                                    <th>Type</th>
-                                    <th>Passagier</th>
-                                    <th>Adres</th>
-                                    <th>Tijd</th>
+                                    <th>{{ __('Type') }}</th>
+                                    <th>{{ __('Passagier') }}</th>
+                                    <th>{{ __('Adres') }}</th>
+                                    <th>{{ __('Tijd') }}</th>
                                     @if($canReorderStops)
-                                    <th class="w-24 text-center">Volgorde</th>
+                                    <th class="w-24 text-center">{{ __('Volgorde') }}</th>
                                     @endif
                                 </tr>
                             </thead>
@@ -191,17 +191,17 @@
                                 @foreach($pickupStops as $index => $stop)
                                 <tr data-stop-id="{{ $stop->id }}">
                                     <td class="text-muted-foreground">{{ $index + 1 }}</td>
-                                    <td><span class="kt-badge kt-badge-light kt-badge-sm">Ophalen</span></td>
+                                    <td><span class="kt-badge kt-badge-light kt-badge-sm">{{ __('Ophalen') }}</span></td>
                                     <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
                                     <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
                                     <td class="font-medium">{{ substr($stop->planned_at_time, 0, 5) }}</td>
                                     @if($canReorderStops)
                                     <td class="text-center whitespace-nowrap">
                                         <input type="hidden" name="stop_order[]" value="{{ $stop->id }}">
-                                        <button type="button" class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost route-stop-up" title="Omhoog" aria-label="Omhoog" @disabled($index === 0)>
+                                        <button type="button" class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost route-stop-up" title="{{ __('Omhoog') }}" aria-label="{{ __('Omhoog') }}" @disabled($index === 0)>
                                             <i class="ki-filled ki-up"></i>
                                         </button>
-                                        <button type="button" class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost route-stop-down" title="Omlaag" aria-label="Omlaag" @disabled($index === $pickupStops->count() - 1)>
+                                        <button type="button" class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost route-stop-down" title="{{ __('Omlaag') }}" aria-label="{{ __('Omlaag') }}" @disabled($index === $pickupStops->count() - 1)>
                                             <i class="ki-filled ki-down"></i>
                                         </button>
                                     </td>
@@ -211,7 +211,7 @@
                                 @if($destinationStop)
                                 <tr class="route-stop-destination-row">
                                     <td class="text-muted-foreground">{{ $pickupStops->count() + 1 }}</td>
-                                    <td><span class="kt-badge kt-badge-success kt-badge-sm">Bestemming</span></td>
+                                    <td><span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Bestemming') }}</span></td>
                                     <td class="text-muted-foreground">—</td>
                                     <td class="text-muted-foreground">{{ Str::limit($destinationStop->address, 55) }}</td>
                                     <td class="font-medium">{{ substr($destinationStop->planned_at_time, 0, 5) }}</td>
@@ -225,7 +225,7 @@
                     </div>
                     @if($canReorderStops)
                     <div class="px-3 sm:px-5 py-4 border-t border-input flex justify-end">
-                        <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">Volgorde opslaan</button>
+                        <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">{{ __('Volgorde opslaan') }}</button>
                     </div>
                     </form>
                     @endif
@@ -236,18 +236,18 @@
         {{-- Chauffeur + voertuig --}}
         @can('rides.update')
         <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">Vaste chauffeur & voertuig</h3></div>
+            <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ __('Vaste chauffeur & voertuig') }}</h3></div>
             <div class="kt-card-content p-0">
                 <form method="POST" action="{{ route('admin.taxi.transport_groups.route.assignment', [$customer->id, $contract->id, $group->id]) }}" class="px-3 sm:px-5 pb-5" data-validate="true" novalidate data-assignment-either="1">
                     @csrf
                     @method('PUT')
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full transport-route-assignment-table">
                         <tr>
-                            <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">Chauffeur</td>
+                            <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">{{ __('Chauffeur') }}</td>
                             <td>
                                 <select name="driver_id"
                                         class="kt-select w-full max-w-md @error('driver_id') border-destructive @enderror">
-                                    <option value="">— Selecteer chauffeur —</option>
+                                    <option value="">{{ __('— Selecteer chauffeur —') }}</option>
                                     @foreach($drivers as $driver)
                                         <option value="{{ $driver->id }}" @selected(old('driver_id', $assignment?->driver_id) == $driver->id)>
                                             {{ $driver->first_name }} {{ $driver->last_name }}
@@ -260,11 +260,11 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">Voertuig</td>
+                            <td class="transport-route-assignment-table__label text-secondary-foreground font-medium">{{ __('Voertuig') }}</td>
                             <td>
                                 <select name="vehicle_id"
                                         class="kt-select w-full max-w-md @error('vehicle_id') border-destructive @enderror">
-                                    <option value="">— Selecteer voertuig —</option>
+                                    <option value="">{{ __('— Selecteer voertuig —') }}</option>
                                     @foreach($vehicles as $vehicle)
                                         <option value="{{ $vehicle->id }}" @selected(old('vehicle_id', $assignment?->vehicle_id) == $vehicle->id)>
                                             {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
@@ -278,7 +278,7 @@
                         </tr>
                     </table>
                     <div class="flex justify-end mt-4">
-                        <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Toewijzing opslaan</button>
+                        <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">{{ __('Toewijzing opslaan') }}</button>
                     </div>
                 </form>
             </div>
@@ -313,7 +313,7 @@
 (function () {
     var assignmentForm = document.querySelector('form[data-assignment-either="1"]');
     if (assignmentForm) {
-        var eitherMessage = 'Selecteer een chauffeur of een voertuig.';
+        var eitherMessage = @json(__('Selecteer een chauffeur of een voertuig.'));
         var driverSelect = assignmentForm.querySelector('[name="driver_id"]');
         var vehicleSelect = assignmentForm.querySelector('[name="vehicle_id"]');
 

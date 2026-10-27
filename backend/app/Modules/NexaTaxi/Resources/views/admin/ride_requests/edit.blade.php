@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Rit bewerken')
+@section('title', __('Rit bewerken'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Rit bewerken #{{ $ride->id }}</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Rit bewerken #:id', ['id' => $ride->id]) }}</h1>
         <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline shrink-0">
-            <i class="ki-filled ki-arrow-left me-2"></i>Terug
+            <i class="ki-filled ki-arrow-left me-2"></i>{{ __('Terug') }}
         </a>
     </div>
 
@@ -24,18 +24,18 @@
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Status *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Status *') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="status" class="kt-input w-full @error('status') border-destructive @enderror" required>
                             @foreach($statusLabels as $value => $label)
-                                <option value="{{ $value }}" {{ old('status', $ride->status) === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                <option value="{{ $value }}" {{ old('status', $ride->status) === $value ? 'selected' : '' }}>{{ __($label) }}</option>
                             @endforeach
                         </select>
                         @error('status')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Ophaaladres *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Ophaaladres *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" name="pickup_address" class="kt-input w-full @error('pickup_address') border-destructive @enderror" value="{{ old('pickup_address', $ride->pickup_address) }}" required readonly>
                         @error('pickup_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -43,35 +43,35 @@
                 </tr>
                 @foreach($ride->stopover_addresses as $stopIndex => $stopAddress)
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Tussenstop {{ chr(66 + $stopIndex) }}</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Tussenstop :stopindex', ['stopindex' => chr(66 + $stopIndex)]) }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" class="kt-input w-full" value="{{ $stopAddress }}" readonly>
                     </td>
                 </tr>
                 @endforeach
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Afzetadres *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Afzetadres *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" name="dropoff_address" class="kt-input w-full @error('dropoff_address') border-destructive @enderror" value="{{ old('dropoff_address', $ride->dropoff_address) }}" required readonly>
                         @error('dropoff_address')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Datum en tijd ophalen *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Datum en tijd ophalen *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="datetime-local" name="pickup_at" class="kt-input w-full @error('pickup_at') border-destructive @enderror" value="{{ old('pickup_at', $ride->pickup_at->format('Y-m-d\TH:i')) }}" required readonly>
                         @error('pickup_at')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Passagiers *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Passagiers *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="number" name="passengers" class="kt-input w-full @error('passengers') border-destructive @enderror" value="{{ old('passengers', $ride->passengers) }}" min="1" max="99" required readonly>
                         @error('passengers')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Offerteprijs (€)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Offerteprijs (€)') }}</td>
                     <td class="min-w-48 w-full">
                         <div class="flex items-center gap-2 w-full max-w-md">
                             <span class="shrink-0 text-sm font-medium text-foreground" aria-hidden="true">€</span>
@@ -82,10 +82,10 @@
                 </tr>
                 @if(auth()->user()->hasRole('super-admin') && isset($customers) && $customers->count())
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Koppel klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Koppel klant') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="customer_user_id" class="kt-input w-full @error('customer_user_id') border-destructive @enderror">
-                            <option value="">— Niet gekoppeld —</option>
+                            <option value="">{{ __('— Niet gekoppeld —') }}</option>
                             @foreach($customers as $c)
                                 <option value="{{ $c->id }}" {{ (string) old('customer_user_id', $ride->customer_user_id ?? '') === (string) $c->id ? 'selected' : '' }}>
                                     {{ trim($c->first_name.' '.$c->last_name) }}@if($c->email) — {{ $c->email }}@endif
@@ -93,43 +93,43 @@
                             @endforeach
                         </select>
                         @error('customer_user_id')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
-                        <div class="text-xs text-muted-foreground mt-1">Selecteer een bestaande klant van deze tenant om de rit te koppelen.</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Selecteer een bestaande klant van deze tenant om de rit te koppelen.') }}</div>
                     </td>
                 </tr>
                 @endif
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Klantnaam *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Klantnaam *') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" name="customer_name" class="kt-input w-full @error('customer_name') border-destructive @enderror" value="{{ old('customer_name', $ride->customer_name) }}" required readonly>
                         @error('customer_name')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('E-mail klant') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="email" name="customer_email" class="kt-input w-full @error('customer_email') border-destructive @enderror" value="{{ old('customer_email', $ride->customer_email) }}" readonly>
                         @error('customer_email')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Telefoon klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Telefoon klant') }}</td>
                     <td class="min-w-48 w-full">
                         <input type="text" name="customer_phone" class="kt-input w-full @error('customer_phone') border-destructive @enderror" value="{{ old('customer_phone', $ride->customer_phone) }}" readonly>
                         @error('customer_phone')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Opmerking</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Opmerking') }}</td>
                     <td class="min-w-48 w-full">
                         <textarea name="customer_note" class="kt-input w-full @error('customer_note') border-destructive @enderror" rows="2" readonly>{{ old('customer_note', $ride->customer_note) }}</textarea>
                         @error('customer_note')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Voertuig</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Voertuig') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="vehicle_id" class="kt-input w-full @error('vehicle_id') border-destructive @enderror">
-                            <option value="">— Geen —</option>
+                            <option value="">{{ __('— Geen —') }}</option>
                             @foreach($vehicles as $v)
                                 <option value="{{ $v->id }}" {{ old('vehicle_id', $ride->vehicle_id) == $v->id ? 'selected' : '' }}>{{ $v->name }}</option>
                             @endforeach
@@ -138,10 +138,10 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Chauffeur</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Chauffeur') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="driver_id" class="kt-input w-full @error('driver_id') border-destructive @enderror">
-                            <option value="">— Geen —</option>
+                            <option value="">{{ __('— Geen —') }}</option>
                             @foreach($drivers as $d)
                                 <option value="{{ $d->id }}" {{ old('driver_id', $ride->driver_id) == $d->id ? 'selected' : '' }}>{{ $d->first_name }} {{ $d->last_name }}</option>
                             @endforeach
@@ -153,8 +153,8 @@
             </div>
         </div>
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 px-3 sm:px-5 pb-5 w-full min-w-0">
-            <a href="{{ route('admin.taxi.ride_requests.show', $ride) }}" class="kt-btn kt-btn-outline">Annuleren</a>
-            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+            <a href="{{ route('admin.taxi.ride_requests.show', $ride) }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
         </div>
     </form>
 </div>

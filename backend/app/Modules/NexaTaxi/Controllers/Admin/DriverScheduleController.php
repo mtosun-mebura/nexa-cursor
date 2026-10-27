@@ -107,7 +107,7 @@ class DriverScheduleController extends Controller
         $companyId = (int) ($this->getTenantId() ?? 0);
         if ($companyId <= 0) {
             return redirect()->back()->withInput()->withErrors([
-                'company_id' => 'Selecteer eerst een tenant om een chauffeur in te plannen.',
+                'company_id' => __('Selecteer eerst een tenant om een chauffeur in te plannen.'),
             ]);
         }
 
@@ -131,8 +131,8 @@ class DriverScheduleController extends Controller
         );
 
         $message = $until
-            ? 'Dienst is ingepland en herhaalt wekelijks tot de einddatum.'
-            : 'Dienst is ingepland en herhaalt wekelijks tot je deze verwijdert of een einddatum zet.';
+            ? __('Dienst is ingepland en herhaalt wekelijks tot de einddatum.')
+            : __('Dienst is ingepland en herhaalt wekelijks tot je deze verwijdert of een einddatum zet.');
 
         return redirect()
             ->route('admin.taxi.driver_schedules.index', ['week' => $data['date']])
@@ -202,7 +202,7 @@ class DriverScheduleController extends Controller
 
         return redirect()
             ->route('admin.taxi.driver_schedules.index', ['week' => $data['date']])
-            ->with('success', 'Dienst is bijgewerkt.');
+            ->with('success', __('Dienst is bijgewerkt.'));
     }
 
     public function destroy(int $id)
@@ -215,7 +215,7 @@ class DriverScheduleController extends Controller
 
         return redirect()
             ->route('admin.taxi.driver_schedules.index', array_filter(['week' => $week]))
-            ->with('success', 'Dienst is verwijderd.');
+            ->with('success', __('Dienst is verwijderd.'));
     }
 
     protected function findSchedule(int $id): DriverSchedule

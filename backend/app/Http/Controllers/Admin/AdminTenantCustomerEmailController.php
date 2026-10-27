@@ -75,7 +75,7 @@ class AdminTenantCustomerEmailController extends Controller
         }
 
         if ($copy->status !== TenantCustomerEmail::STATUS_SENT) {
-            $raw = $copy->error_message ?: 'De e-mail kon niet opnieuw worden verstuurd.';
+            $raw = $copy->error_message ?: __('De e-mail kon niet opnieuw worden verstuurd.');
             $explained = $env->explainMailSendException(new RuntimeException($raw));
 
             return $this->resendResult($request, $copy, false, $explained);
@@ -85,7 +85,7 @@ class AdminTenantCustomerEmailController extends Controller
             $request,
             $copy,
             true,
-            'E-mail opnieuw verstuurd naar '.$copy->recipient_email.'.'
+            __('E-mail opnieuw verstuurd naar :email.', ['email' => $copy->recipient_email])
         );
     }
 
@@ -115,7 +115,7 @@ class AdminTenantCustomerEmailController extends Controller
         if ($user->hasRole('super-admin') || $user->isTenantAdmin()) {
             return;
         }
-        abort(403, 'Alleen de bedrijfsbeheerder kan e-mailcommunicatie inzien.');
+        abort(403, __('Alleen de bedrijfsbeheerder kan e-mailcommunicatie inzien.'));
     }
 
     private function authorizeEmail(TenantCustomerEmail $email): void

@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'E-mail Template Details - ' . $emailTemplate->name)
+@section('title', __('E-mail Template Details - :name', ['name' => $emailTemplate->name]))
 
 @section('content')
 
@@ -41,7 +41,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -53,7 +53,7 @@
                            class="kt-switch kt-switch-sm"
                            id="toggle-status-checkbox"
                            {{ $emailTemplate->is_active ? 'checked' : '' }}/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             </form>
             @else
@@ -62,7 +62,7 @@
                        class="kt-switch kt-switch-sm"
                        {{ $emailTemplate->is_active ? 'checked' : '' }}
                        disabled/>
-                <span class="ms-2">Actief</span>
+                <span class="ms-2">{{ __('Actief') }}</span>
             </label>
             @endcan
             @can('create-email-templates')
@@ -70,7 +70,7 @@
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-copy me-2"></i>
-                    Dupliceren
+                    {{ __('Dupliceren') }}
                 </button>
             </form>
             @endcan
@@ -78,7 +78,7 @@
             <span class="text-muted-foreground">|</span>
             <a href="{{ route('admin.email-templates.edit', $emailTemplate) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endcan
         </div>
@@ -90,17 +90,17 @@
         <!-- Template Info Card -->
         <div class="kt-card">
             <div class="kt-card-header">
-                <h5 class="kt-card-title">Template Informatie</h5>
+                <h5 class="kt-card-title">{{ __('Template Informatie') }}</h5>
             </div>
             <div class="kt-card-content">
                 <table class="kt-table kt-table-border align-middle text-sm w-full">
                     <tbody>
                         <tr>
-                            <td class="text-secondary-foreground font-normal min-w-[200px]">Naam</td>
+                            <td class="text-secondary-foreground font-normal min-w-[200px]">{{ __('Naam') }}</td>
                             <td class="text-foreground font-medium">{{ $emailTemplate->name }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Type</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Type') }}</td>
                             <td class="text-foreground font-normal">
                                 <span class="kt-badge kt-badge-sm kt-badge-info">
                                     {{ ucfirst(str_replace('_', ' ', $emailTemplate->type)) }}
@@ -108,37 +108,37 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Onderwerp</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Onderwerp') }}</td>
                             <td class="text-foreground font-normal">{{ $emailTemplate->subject }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Status</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Status') }}</td>
                             <td>
                                 @if($emailTemplate->is_active)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                 @endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Bedrijf</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Bedrijf') }}</td>
                             <td class="text-foreground font-normal">
-                                {{ $emailTemplate->company->name ?? 'Algemeen' }}
+                                {{ $emailTemplate->company->name ?? __('Algemeen') }}
                             </td>
                         </tr>
                         @if($emailTemplate->description)
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Beschrijving</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Beschrijving') }}</td>
                             <td class="text-foreground font-normal">{{ $emailTemplate->description }}</td>
                         </tr>
                         @endif
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Aangemaakt op</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Aangemaakt op') }}</td>
                             <td class="text-foreground font-normal">{{ $emailTemplate->created_at->format('d-m-Y H:i') }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Laatst bijgewerkt</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Laatst bijgewerkt') }}</td>
                             <td class="text-foreground font-normal">{{ $emailTemplate->updated_at->format('d-m-Y H:i') }}</td>
                         </tr>
                     </tbody>
@@ -149,35 +149,33 @@
         <!-- Email Content Preview -->
         <div class="kt-card">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3">
-                <h5 class="kt-card-title mb-0">E-mail Preview</h5>
+                <h5 class="kt-card-title mb-0">{{ __('E-mail Preview') }}</h5>
                 @can('edit-email-templates')
                 <a href="{{ route('admin.email-templates.edit', $emailTemplate) }}#html_content" class="kt-btn kt-btn-sm kt-btn-outline">
                     <i class="ki-filled ki-notepad-edit me-1"></i>
-                    Template bewerken
+                    {{ __('Template bewerken') }}
                 </a>
                 @endcan
             </div>
             <div class="kt-card-content">
                 <div class="mb-4">
-                    <h6 class="text-sm font-semibold text-foreground mb-2">Onderwerp:</h6>
+                    <h6 class="text-sm font-semibold text-foreground mb-2">{{ __('Onderwerp:') }}</h6>
                     <p class="text-sm text-muted-foreground">{{ $previewSubject ?? $emailTemplate->subject }}</p>
                 </div>
                 
                 @if($emailTemplate->html_content)
                 <div class="mb-4">
                     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <h6 class="text-sm font-semibold text-foreground mb-0">HTML Inhoud:</h6>
-                        <p class="text-xs text-muted-foreground mb-0">Preview toont light mode — zoals in de meeste e-mailclients.</p>
+                        <h6 class="text-sm font-semibold text-foreground mb-0">{{ __('HTML Inhoud:') }}</h6>
+                        <p class="text-xs text-muted-foreground mb-0">{{ __('Preview toont light mode — zoals in de meeste e-mailclients.') }}</p>
                     </div>
                     @if($emailTemplate->type === \App\Services\TenantWelcomeEmailTemplateService::TYPE)
                     <p class="text-xs text-muted-foreground mb-3">
-                        De preview vult de variabelen met voorbeeldgegevens: beheerder <strong>Lisa Vermeer</strong> en standaard het <strong>Business</strong>-pakket, zodat u de pakketinhoud ziet.
+                        {!! __('De preview vult de variabelen met voorbeeldgegevens: beheerder <strong>Lisa Vermeer</strong> en standaard het <strong>Business</strong>-pakket, zodat u de pakketinhoud ziet.') !!}
                     </p>
                     @elseif(!$emailTemplate->company_id)
                     <p class="text-xs text-muted-foreground mb-3">
-                        Dit is een <strong>algemeen</strong> template. In de preview en bij verzenden wordt het logo (en bedrijfsnaam) van de
-                        <strong>ontvangende tenant</strong> gebruikt — bij een boeking of rit het bedrijf van die rit, in de admin-preview het geselecteerde of huidige tenant-domein.
-                        Zie je alleen tekst i.p.v. een logo? Upload dan een logo bij dat bedrijf (Algemene instellingen of bedrijfsprofiel).
+                        {!! __('Dit is een <strong>algemeen</strong> template. In de preview en bij verzenden wordt het logo (en bedrijfsnaam) van de <strong>ontvangende tenant</strong> gebruikt — bij een boeking of rit het bedrijf van die rit, in de admin-preview het geselecteerde of huidige tenant-domein. Zie je alleen tekst i.p.v. een logo? Upload dan een logo bij dat bedrijf (Algemene instellingen of bedrijfsprofiel).') !!}
                     </p>
                     @endif
                     <div class="border border-border rounded-xl p-4 bg-muted/30 email-preview-content">
@@ -191,7 +189,7 @@
                 @if(!$emailTemplate->html_content)
                 <div class="text-center py-8 text-muted-foreground">
                     <i class="ki-filled ki-information-2 text-4xl mb-2"></i>
-                    <p>Geen inhoud beschikbaar</p>
+                    <p>{{ __('Geen inhoud beschikbaar') }}</p>
                 </div>
                 @endif
             </div>
@@ -246,7 +244,7 @@
                 .catch(function(error) {
                     console.error('Error:', error);
                     checkbox.checked = !originalChecked;
-                    alert('Fout: ' + (error.message || 'Er is een fout opgetreden bij het wijzigen van de status.'));
+                    alert(@json(__('Fout:')) + ' ' + (error.message || @json(__('Er is een fout opgetreden bij het wijzigen van de status.'))));
                 });
             });
         }

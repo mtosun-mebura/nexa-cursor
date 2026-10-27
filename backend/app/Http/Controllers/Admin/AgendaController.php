@@ -156,11 +156,11 @@ class AgendaController extends Controller
             }
 
             $candidate = $interview->match->candidate ?? null;
-            $candidateName = 'Onbekend';
+            $candidateName = __('Onbekend');
             if ($candidate) {
                 $candidateName = trim(($candidate->first_name ?? '').' '.($candidate->last_name ?? ''));
                 if ($candidateName === '') {
-                    $candidateName = 'Onbekend';
+                    $candidateName = __('Onbekend');
                 }
             }
 
@@ -200,17 +200,17 @@ class AgendaController extends Controller
                         'candidate_name' => $candidateName,
                         'user_id' => $candidateUser ? $candidateUser->id : null,
                         'user_photo_token' => $userPhotoToken,
-                        'location' => $interview->location ?? 'Locatie niet opgegeven',
+                        'location' => $interview->location ?? __('Locatie niet opgegeven'),
                         'type' => $interview->type ?? 'interview',
                         'status' => $interview->status ?? 'scheduled',
-                        'interviewer_name' => $interview->interviewer_name ?? 'Onbekend',
+                        'interviewer_name' => $interview->interviewer_name ?? __('Onbekend'),
                         'interviewer_email' => $interview->interviewer_email ?? '',
                         'interviewer_user_id' => $interview->interviewer_user_id,
                         'agenda_color' => $eventColor,
-                        'company_name' => $interview->company->name ?? 'Onbekend bedrijf',
+                        'company_name' => $interview->company->name ?? __('Onbekend bedrijf'),
                         'company_address' => $this->getCompanyAddress($interview->company),
                         'company_phone' => $interview->company->phone ?? '',
-                        'vacancy_title' => $interview->match->vacancy->title ?? 'Onbekende functie',
+                        'vacancy_title' => $interview->match->vacancy->title ?? __('Onbekende functie'),
                         'notes' => $interview->notes ?? '',
                         'feedback' => $interview->feedback ?? '',
                         'scheduled_at' => $interview->scheduled_at->format('d-m-Y H:i'),
@@ -297,9 +297,9 @@ class AgendaController extends Controller
             $driver = $ride->driver_id ? $driversById->get((int) $ride->driver_id) : null;
             $driverName = $driver
                 ? trim(($driver->first_name ?? '').' '.($driver->last_name ?? ''))
-                : 'Geen chauffeur';
+                : __('Geen chauffeur');
             if ($driverName === '') {
-                $driverName = 'Geen chauffeur';
+                $driverName = __('Geen chauffeur');
             }
 
             $rideColor = UserAgendaColor::forRide($driver, (string) $ride->status);
@@ -310,14 +310,14 @@ class AgendaController extends Controller
             }
 
             $company = $ride->company_id ? $companiesById->get((int) $ride->company_id) : null;
-            $customerName = trim((string) ($ride->customer_name ?? '')) ?: 'Klant';
-            $pickup = trim((string) ($ride->pickup_address ?? '')) ?: 'Ophalen onbekend';
-            $dropoff = trim((string) ($ride->dropoff_address ?? '')) ?: 'Afzetten onbekend';
-            $statusLabel = RideRequest::statusLabels()[$ride->status] ?? $ride->status;
+            $customerName = trim((string) ($ride->customer_name ?? '')) ?: __('Klant');
+            $pickup = trim((string) ($ride->pickup_address ?? '')) ?: __('Ophalen onbekend');
+            $dropoff = trim((string) ($ride->dropoff_address ?? '')) ?: __('Afzetten onbekend');
+            $statusLabel = __(RideRequest::statusLabels()[$ride->status] ?? $ride->status);
 
             $events[] = [
                 'id' => 'ride-'.$ride->id,
-                'title' => 'Rit: '.$customerName.' ('.$driverName.')',
+                'title' => __('Rit: :customer (:driver)', ['customer' => $customerName, 'driver' => $driverName]),
                 'start' => $ride->pickup_at->format('Y-m-d\TH:i:s'),
                 'end' => $ride->pickup_at->copy()->addMinutes($durationMinutes)->format('Y-m-d\TH:i:s'),
                 'color' => $color,
@@ -334,7 +334,7 @@ class AgendaController extends Controller
                     'pickup_address' => $pickup,
                     'dropoff_address' => $dropoff,
                     'status' => $statusLabel,
-                    'company_name' => $company->name ?? 'Onbekend bedrijf',
+                    'company_name' => $company->name ?? __('Onbekend bedrijf'),
                     'company_phone' => $company->phone ?? '',
                     'company_address' => $this->getCompanyAddress($company),
                     'passengers' => (int) ($ride->passengers ?? 1),
@@ -409,29 +409,29 @@ class AgendaController extends Controller
             if ($candidate) {
                 $candidateName = trim(($candidate->first_name ?? '').' '.($candidate->last_name ?? ''));
                 if ($candidateName === '') {
-                    $candidateName = 'Onbekend';
+                    $candidateName = __('Onbekend');
                 }
             } else {
-                $candidateName = 'Onbekend';
+                $candidateName = __('Onbekend');
             }
         }
 
         $typeLabels = [
-            'interview' => 'Interview',
-            'meeting' => 'Meeting',
-            'call' => 'Telefoongesprek',
-            'assessment' => 'Assessment',
+            'interview' => __('Interview'),
+            'meeting' => __('Meeting'),
+            'call' => __('Telefoongesprek'),
+            'assessment' => __('Assessment'),
         ];
 
-        $typeLabel = $typeLabels[$type] ?? 'Interview';
+        $typeLabel = $typeLabels[$type] ?? __('Interview');
 
-        return "{$typeLabel} met {$candidateName}";
+        return __(':type met :name', ['type' => $typeLabel, 'name' => $candidateName]);
     }
 
     private function getCompanyAddress($company)
     {
         if (! $company) {
-            return 'Adres niet beschikbaar';
+            return __('Adres niet beschikbaar');
         }
 
         $streetLine = trim(
@@ -446,7 +446,7 @@ class AgendaController extends Controller
             $company->city ?? null,
         ]);
 
-        return implode(', ', $address) ?: 'Adres niet beschikbaar';
+        return implode(', ', $address) ?: __('Adres niet beschikbaar');
     }
 
     private function getEventColor($type)

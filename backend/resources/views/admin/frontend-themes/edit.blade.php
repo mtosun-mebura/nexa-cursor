@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Thema bewerken')
+@section('title', __('Thema bewerken'))
 
 @push('styles')
 <style>
@@ -25,13 +25,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Thema: {{ $frontend_theme->name }}
+                {{ __('Thema:') }} {{ $frontend_theme->name }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.frontend-themes.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -51,31 +51,31 @@
             @if($isNewTheme)
                 <div class="kt-alert kt-alert-info mb-5">
                     <i class="ki-filled ki-information me-2"></i>
-                    Dit thema komt uit de thema-map. De onderstaande instellingen (primaire kleur, lettertypen, footertekst) worden toegepast waar dit thema wordt gebruikt. Bij keuze van dit thema voor een module worden de thema-bestanden naar die module gekopieerd zodat de module zelfstandig werkt.
+                    {{ __('Dit thema komt uit de thema-map. De onderstaande instellingen (primaire kleur, lettertypen, footertekst) worden toegepast waar dit thema wordt gebruikt. Bij keuze van dit thema voor een module worden de thema-bestanden naar die module gekopieerd zodat de module zelfstandig werkt.') }}
                 </div>
             @endif
 
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Thema-instellingen
+                        {{ __('Thema-instellingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Primaire kleur
+                                {{ __('Primaire kleur') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex flex-wrap items-center gap-3">
-                                    <label class="flex flex-col items-center gap-1.5 cursor-pointer" for="primary_color_picker" title="Klik om kleur te kiezen">
+                                    <label class="flex flex-col items-center gap-1.5 cursor-pointer" for="primary_color_picker" title="{{ __('Klik om kleur te kiezen') }}">
                                         <input type="color"
                                                id="primary_color_picker"
                                                class="w-14 h-14 rounded-lg border-2 border-input cursor-pointer bg-transparent"
                                                value="{{ old('primary_color', $s['primary_color'] ?? '#2563eb') }}"
-                                               aria-label="Kies primaire kleur">
-                                        <span class="text-xs text-muted-foreground">Klik om te kiezen</span>
+                                               aria-label="{{ __('Kies primaire kleur') }}">
+                                        <span class="text-xs text-muted-foreground">{{ __('Klik om te kiezen') }}</span>
                                     </label>
                                     <div class="flex flex-col gap-1">
                                         <input type="text"
@@ -86,7 +86,7 @@
                                                placeholder="#2563eb"
                                                maxlength="7"
                                                pattern="^#[0-9A-Fa-f]{6}$">
-                                        <span class="text-xs text-muted-foreground">Hex (bijv. #2563eb)</span>
+                                        <span class="text-xs text-muted-foreground">{{ __('Hex (bijv. #2563eb)') }}</span>
                                     </div>
                                 </div>
                                 @error('primary_color')
@@ -96,17 +96,17 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Secundaire kleur
+                                {{ __('Secundaire kleur') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex flex-wrap items-center gap-3">
-                                    <label class="flex flex-col items-center gap-1.5 cursor-pointer" for="secondary_color_picker" title="Klik om kleur te kiezen">
+                                    <label class="flex flex-col items-center gap-1.5 cursor-pointer" for="secondary_color_picker" title="{{ __('Klik om kleur te kiezen') }}">
                                         <input type="color"
                                                id="secondary_color_picker"
                                                class="w-14 h-14 rounded-lg border-2 border-input cursor-pointer bg-transparent"
                                                value="{{ old('secondary_color', $s['secondary_color'] ?? '#0f172a') }}"
-                                               aria-label="Kies secundaire kleur">
-                                        <span class="text-xs text-muted-foreground">Klik om te kiezen</span>
+                                               aria-label="{{ __('Kies secundaire kleur') }}">
+                                        <span class="text-xs text-muted-foreground">{{ __('Klik om te kiezen') }}</span>
                                     </label>
                                     <div class="flex flex-col gap-1">
                                         <input type="text"
@@ -117,7 +117,7 @@
                                                placeholder="#0f172a"
                                                maxlength="7"
                                                pattern="^#[0-9A-Fa-f]{6}$">
-                                        <span class="text-xs text-muted-foreground">Hex (bijv. #0f172a)</span>
+                                        <span class="text-xs text-muted-foreground">{{ __('Hex (bijv. #0f172a)') }}</span>
                                     </div>
                                 </div>
                                 @error('secondary_color')
@@ -127,7 +127,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Lettertype koppen
+                                {{ __('Lettertype koppen') }}
                             </td>
                             <td>
                                 <input type="text"
@@ -143,7 +143,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Lettertype body
+                                {{ __('Lettertype body') }}
                             </td>
                             <td>
                                 <input type="text"
@@ -159,7 +159,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Dark mode in header
+                                {{ __('Dark mode in header') }}
                             </td>
                             <td>
                                 <label class="flex items-center gap-2 cursor-pointer">
@@ -169,21 +169,21 @@
                                            value="1"
                                            class="kt-checkbox"
                                            {{ old('dark_mode_available', $s['dark_mode_available'] ?? true) ? 'checked' : '' }}>
-                                    <span class="text-sm">Toon licht/donker-knoppen in de website-header</span>
+                                    <span class="text-sm">{{ __('Toon licht/donker-knoppen in de website-header') }}</span>
                                 </label>
-                                <div class="text-xs text-muted-foreground mt-1">Indien uitgeschakeld worden de thema-knoppen (licht/donker) niet getoond.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Indien uitgeschakeld worden de thema-knoppen (licht/donker) niet getoond.') }}</div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Footertekst
+                                {{ __('Footertekst') }}
                             </td>
                             <td>
                                 <textarea name="footer_text"
                                           id="footer_text"
                                           class="kt-input w-full @error('footer_text') border-destructive @enderror"
                                           rows="3">{{ old('footer_text', $s['footer_text'] ?? '') }}</textarea>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt onderaan de website getoond (leeg = standaard © jaar sitenaam)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Wordt onderaan de website getoond (leeg = standaard © jaar sitenaam)') }}</div>
                                 @error('footer_text')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -196,11 +196,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.frontend-themes.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>

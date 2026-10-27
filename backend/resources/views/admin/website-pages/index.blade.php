@@ -1,20 +1,20 @@
 @extends('admin.layouts.app')
 
-@section('title', "Website Pagina's")
+@section('title', __("Website Pagina's"))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col gap-4 pb-7.5">
         <div class="w-full min-w-0">
-            <h1 class="text-xl font-medium leading-none text-mono">Website Pagina's</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{!! __("Website Pagina's") !!}</h1>
             @if($activeTheme || !empty($activeModuleName))
                 <p class="text-sm text-muted-foreground mt-1">
-                    Pagina's worden op de website getoond in het actieve thema
+                    {!! __("Pagina's worden op de website getoond in het actieve thema") !!}
                     @if($activeTheme)
                         <strong>{{ $activeTheme->name }}</strong>
                     @endif
                     @if(!empty($activeModuleName))
-                        · Module <strong>{{ $activeModuleName }}</strong>
+                        {{ __('· Module') }} <strong>{{ $activeModuleName }}</strong>
                     @endif
                 </p>
             @endif
@@ -22,14 +22,14 @@
                 <div class="mt-2">
                     <a href="{{ $wizardBackUrl }}" class="kt-btn kt-btn-outline">
                         <i class="ki-filled ki-arrow-left me-2"></i>
-                        Terug naar tenant-wizard
+                        {{ __('Terug naar tenant-wizard') }}
                     </a>
                 </div>
             @endif
             @if(!empty($websitePagesManagingCentralSite))
                 <p class="text-sm text-muted-foreground mt-2 mb-0">
-                    Pagina&rsquo;s van de <span class="text-foreground font-medium">hoofdwebsite van NEXA Suite</span> (geen tenant).
-                    Kies een tenant in de zijbalk om de website van een klantbedrijf te beheren.
+                    {!! __('Pagina&rsquo;s van de') !!} <span class="text-foreground font-medium">{{ __('hoofdwebsite van NEXA Suite') }}</span> {{ __('(geen tenant).') }}
+                    {{ __('Kies een tenant in de zijbalk om de website van een klantbedrijf te beheren.') }}
                 </p>
             @endif
             @php
@@ -37,9 +37,9 @@
             @endphp
             @if(!empty($wtc['visible']) && !empty($wtc['effective_company']))
                 <p class="text-sm text-muted-foreground mt-2 mb-0">
-                    <span class="text-foreground font-medium">Actieve tenant:</span> {{ $wtc['effective_company']->name }}
+                    <span class="text-foreground font-medium">{{ __('Actieve tenant:') }}</span> {{ $wtc['effective_company']->name }}
                     @if(strcasecmp((string) $wtc['effective_company']->name, 'Nexa Taxi') === 0)
-                        <span class="text-muted-foreground">· publiek op nexataxi.nl (marktplaatsboeking)</span>
+                        <span class="text-muted-foreground">{{ __('· publiek op nexataxi.nl (marktplaatsboeking)') }}</span>
                     @endif
                 </p>
             @endif
@@ -60,21 +60,21 @@
                     <input type="hidden" name="{{ $wizKey }}" value="{{ $wizVal }}">
                 @endforeach
                 <input type="hidden" name="is_active" value="0">
-                <label class="website-pages-live-switch__label inline-flex items-center gap-2 mb-0 {{ $websitePagesSeoCount < 1 ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer' }}" title="Alleen actieve pagina's zijn zichtbaar op de website, ook in Website voorbeeld.">
+                <label class="website-pages-live-switch__label inline-flex items-center gap-2 mb-0 {{ $websitePagesSeoCount < 1 ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer' }}" title="{!! __("Alleen actieve pagina's zijn zichtbaar op de website, ook in Website voorbeeld.") !!}">
                     <input type="checkbox"
                            name="is_active"
                            value="1"
                            class="kt-switch kt-switch-sm shrink-0"
                            {{ $allListedPagesActive ? 'checked' : '' }}
                            @disabled($websitePagesSeoCount < 1)
-                           aria-label="Pagina's actief (zichtbaar op de website)"
+                           aria-label="{!! __("Pagina's actief (zichtbaar op de website)") !!}"
                            onchange="this.form.submit()">
-                    <span class="text-sm font-medium text-secondary-foreground whitespace-nowrap">Pagina's actief</span>
+                    <span class="text-sm font-medium text-secondary-foreground whitespace-nowrap">{!! __("Pagina's actief") !!}</span>
                 </label>
             </form>
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn website-pages-btn-preview">
                 <i class="ki-filled ki-eye me-2"></i>
-                Website voorbeeld
+                {{ __('Website voorbeeld') }}
             </a>
             <form method="POST" action="{{ route('admin.website-pages.generate-seo-all', $wizardIndexQuery ?? []) }}" id="website-pages-generate-seo-all-form" class="m-0">
                 @csrf
@@ -85,13 +85,13 @@
                         id="website-pages-generate-seo-all-btn"
                         class="kt-btn website-pages-btn-seo"
                         @disabled($websitePagesSeoCount < 1)
-                        title="Genereer SEO-titels, meta-omschrijvingen en hero-teksten voor alle pagina's op deze lijst">
+                        title="{!! __("Genereer SEO-titels, meta-omschrijvingen en hero-teksten voor alle pagina's op deze lijst") !!}">
                     <i class="ki-filled ki-search-list me-2"></i>
-                    SEO teksten
+                    {{ __('SEO teksten') }}
                 </button>
             </form>
             <a href="{{ route('admin.website-pages.create', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-primary">
-                <i class="ki-filled ki-plus me-2"></i> Nieuwe pagina
+                <i class="ki-filled ki-plus me-2"></i> {{ __('Nieuwe pagina') }}
             </a>
         </div>
     </div>
@@ -106,17 +106,17 @@
             <table id="website-pages-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full website-pages-table">
                 <thead>
                     <tr>
-                        <th class="website-pages-col-order" data-label="Volgorde">Volgorde</th>
-                        <th class="website-pages-col-menu" data-label="Menuitem">Menuitem</th>
+                        <th class="website-pages-col-order" data-label="{{ __('Volgorde') }}">{{ __('Volgorde') }}</th>
+                        <th class="website-pages-col-menu" data-label="{{ __('Menuitem') }}">{{ __('Menuitem') }}</th>
                         <th class="website-pages-col-slug" data-label="Slug">Slug</th>
                         <th class="website-pages-col-type" data-label="Type">Type</th>
                         <th class="website-pages-col-module" data-label="Module">Module</th>
                         @if(!empty($websiteTenantContext['visible'] ?? false) && empty($websitePagesManagingCentralSite))
-                            <th class="website-pages-col-company" data-label="Bedrijf">Bedrijf</th>
+                            <th class="website-pages-col-company" data-label="{{ __('Bedrijf') }}">{{ __('Bedrijf') }}</th>
                         @endif
-                        <th class="website-pages-col-theme" data-label="Thema">Thema</th>
+                        <th class="website-pages-col-theme" data-label="{{ __('Thema') }}">{{ __('Thema') }}</th>
                         <th class="website-pages-col-status text-center" data-label="Status">Status</th>
-                        <th class="website-pages-col-actions text-center" data-label="Acties">Acties</th>
+                        <th class="website-pages-col-actions text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -144,7 +144,7 @@
                                 <div class="flex items-center gap-1.5">
                                     <div class="flex flex-col">
                                         @if($loop->first)
-                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="Omhoog" title="Staat al bovenaan">
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="{{ __('Omhoog') }}" title="{{ __('Staat al bovenaan') }}">
                                                 <i class="ki-filled ki-arrow-up"></i>
                                             </button>
                                         @else
@@ -154,13 +154,13 @@
                                                     <input type="hidden" name="module_name" value="{{ $page->module_name }}">
                                                 @endif
                                                 <input type="hidden" name="direction" value="up">
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Omhoog" title="Omhoog">
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Omhoog') }}" title="{{ __('Omhoog') }}">
                                                     <i class="ki-filled ki-arrow-up"></i>
                                                 </button>
                                             </form>
                                         @endif
                                         @if($loop->last)
-                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="Omlaag" title="Staat al onderaan">
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost opacity-30 cursor-not-allowed" disabled aria-label="{{ __('Omlaag') }}" title="{{ __('Staat al onderaan') }}">
                                                 <i class="ki-filled ki-arrow-down"></i>
                                             </button>
                                         @else
@@ -170,7 +170,7 @@
                                                     <input type="hidden" name="module_name" value="{{ $page->module_name }}">
                                                 @endif
                                                 <input type="hidden" name="direction" value="down">
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Omlaag" title="Omlaag">
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Omlaag') }}" title="{{ __('Omlaag') }}">
                                                     <i class="ki-filled ki-arrow-down"></i>
                                                 </button>
                                             </form>
@@ -191,7 +191,7 @@
                                 @endphp
                                 <td class="text-sm">
                                     @if($rowCompanyId !== null)
-                                        <span class="font-medium text-foreground">{{ $rowCompanyName ?? ('Bedrijf #'.$rowCompanyId) }}</span>
+                                        <span class="font-medium text-foreground">{{ $rowCompanyName ?? __('Bedrijf #:id', ['id' => $rowCompanyId]) }}</span>
                                     @else
                                         <span class="text-muted-foreground">NEXA Suite</span>
                                     @endif
@@ -219,22 +219,22 @@
                                         <input type="hidden" name="module_name" value="{{ $page->module_name }}">
                                     @endif
                                     <input type="hidden" name="is_active" value="0">
-                                    <label class="inline-flex items-center gap-2 mb-0 cursor-pointer" title="{{ $page->is_active ? 'Zichtbaar op de website' : 'Concept: niet zichtbaar op de website' }}">
+                                    <label class="inline-flex items-center gap-2 mb-0 cursor-pointer" title="{{ $page->is_active ? __('Zichtbaar op de website') : __('Concept: niet zichtbaar op de website') }}">
                                         <input type="checkbox"
                                                name="is_active"
                                                value="1"
                                                class="kt-switch kt-switch-sm shrink-0"
                                                {{ $page->is_active ? 'checked' : '' }}
-                                               aria-label="Actief (zichtbaar op de website)"
+                                               aria-label="{{ __('Actief (zichtbaar op de website)') }}"
                                                onchange="this.form.submit()">
-                                        <span class="sr-only">{{ $page->is_active ? 'Actief' : 'Inactief' }}</span>
+                                        <span class="sr-only">{{ $page->is_active ? __('Actief') : __('Inactief') }}</span>
                                     </label>
                                 </form>
                             </td>
                             <td class="text-center relative website-page-actions-cell" onclick="event.stopPropagation()">
                                 <div class="website-pages-actions-menu flex justify-center">
                                     <div class="relative">
-                                        <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties" aria-expanded="false" aria-haspopup="true">
+                                        <button type="button" class="website-pages-actions-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}" aria-expanded="false" aria-haspopup="true">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
                                         <div class="website-pages-actions-dropdown kt-menu-dropdown kt-menu-default hidden absolute end-0 top-full z-[100] mt-1 min-w-[175px] rounded-lg border border-border bg-background py-1 shadow-lg" role="menu">
@@ -243,7 +243,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-eye"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Voorbeeld</span>
+                                                    <span class="kt-menu-title">{{ __('Voorbeeld') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-item">
@@ -261,7 +261,7 @@
                                                         <span class="kt-menu-icon">
                                                             <i class="ki-filled {{ $page->is_active ? 'ki-cross-circle' : 'ki-check-circle' }}"></i>
                                                         </span>
-                                                        <span class="kt-menu-title">{{ $page->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                        <span class="kt-menu-title">{{ $page->is_active ? __('Deactiveren') : __('Activeren') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -271,7 +271,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Bewerken</span>
+                                                    <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-item">
@@ -279,7 +279,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-notepad-edit"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Klassieke editor</span>
+                                                    <span class="kt-menu-title">{{ __('Klassieke editor') }}</span>
                                                 </a>
                                             </div>
                                             <div class="kt-menu-separator"></div>
@@ -287,15 +287,15 @@
                                                 <form action="{{ route('admin.website-pages.destroy', $page) }}{{ $pageModule }}{{ $wizSuffix }}"
                                                       method="POST"
                                                       class="website-page-delete-form block"
-                                                      data-confirm-title="Pagina verwijderen"
-                                                      data-confirm-message="Weet je zeker dat je de pagina “{{ $page->publicNavLabel() }}” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.">
+                                                      data-confirm-title="{{ __('Pagina verwijderen') }}"
+                                                      data-confirm-message="{{ __('Weet je zeker dat je de pagina “:name” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.', ['name' => $page->publicNavLabel()]) }}">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-destructive">
                                                         <span class="kt-menu-icon">
                                                             <i class="ki-filled ki-trash"></i>
                                                         </span>
-                                                        <span class="kt-menu-title">Verwijderen</span>
+                                                        <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -306,7 +306,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ !empty($websiteTenantContext['visible'] ?? false) ? 9 : 8 }}" class="text-center text-muted-foreground py-8">Nog geen website-pagina's. Maak er een aan.</td>
+                            <td colspan="{{ !empty($websiteTenantContext['visible'] ?? false) ? 9 : 8 }}" class="text-center text-muted-foreground py-8">{!! __("Nog geen website-pagina's. Maak er een aan.") !!}</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -326,22 +326,22 @@
         <button type="button"
                 class="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 data-website-page-delete-dismiss
-                aria-label="Sluiten">
+                aria-label="{{ __('Sluiten') }}">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
         </button>
         <div class="website-page-delete-panel__header px-5 py-5 pr-12">
-            <h3 id="website-page-delete-modal-title" class="text-lg font-semibold text-foreground mb-0">Pagina verwijderen</h3>
+            <h3 id="website-page-delete-modal-title" class="text-lg font-semibold text-foreground mb-0">{{ __('Pagina verwijderen') }}</h3>
         </div>
         <div class="px-5 py-5">
             <p class="text-sm text-muted-foreground mb-0" data-website-page-delete-message>
-                Weet je zeker dat je deze pagina wilt verwijderen?
+                {{ __('Weet je zeker dat je deze pagina wilt verwijderen?') }}
             </p>
         </div>
         <div class="px-5 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn website-page-delete-cancel" data-website-page-delete-dismiss>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-destructive" data-website-page-delete-confirm>Verwijderen</button>
+            <button type="button" class="kt-btn website-page-delete-cancel" data-website-page-delete-dismiss>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-destructive" data-website-page-delete-confirm>{{ __('Verwijderen') }}</button>
         </div>
     </div>
 </div>
@@ -475,14 +475,14 @@ document.addEventListener('DOMContentLoaded', function() {
         seoAllForm.addEventListener('submit', function(e) {
             var count = {{ (int) ($pages ?? collect())->count() }};
             var msg = count === 1
-                ? 'SEO-titel, meta-omschrijving en hero-tekst van deze pagina overschrijven?'
-                : 'SEO-titels, meta-omschrijvingen en hero-teksten van alle ' + count + " pagina's op deze lijst overschrijven?";
+                ? {{ \Illuminate\Support\Js::from(__('SEO-titel, meta-omschrijving en hero-tekst van deze pagina overschrijven?')) }}
+                : {{ \Illuminate\Support\Js::from(__("SEO-titels, meta-omschrijvingen en hero-teksten van alle :count pagina's op deze lijst overschrijven?")) }}.replace(':count', count);
             if (!window.confirm(msg)) {
                 e.preventDefault();
                 return;
             }
             seoAllBtn.setAttribute('aria-busy', 'true');
-            seoAllBtn.innerHTML = '<i class="ki-filled ki-arrows-circle me-2 animate-spin"></i> Bezig…';
+            seoAllBtn.innerHTML = '<i class="ki-filled ki-arrows-circle me-2 animate-spin"></i> ' + @json(__('Bezig…'));
         });
     }
 
@@ -580,11 +580,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function openDeleteModal(form) {
         pendingDeleteForm = form;
         if (deleteTitleEl) {
-            deleteTitleEl.textContent = form.getAttribute('data-confirm-title') || 'Pagina verwijderen';
+            deleteTitleEl.textContent = form.getAttribute('data-confirm-title') || @json(__('Pagina verwijderen'));
         }
         if (deleteMessageEl) {
             deleteMessageEl.textContent = form.getAttribute('data-confirm-message')
-                || 'Weet je zeker dat je deze pagina wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+                || @json(__('Weet je zeker dat je deze pagina wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'));
         }
         closeAll();
         if (deleteModal.parentElement !== document.body) {

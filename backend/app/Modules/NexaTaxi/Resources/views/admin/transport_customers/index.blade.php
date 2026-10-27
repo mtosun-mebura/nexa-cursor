@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Contractklanten')
+@section('title', __('Contractklanten'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div class="min-w-0">
-            <h1 class="text-xl font-medium leading-none text-mono">Klanten &amp; abonnementen</h1>
-            <p class="text-sm text-muted-foreground pt-2 mb-0">Opdrachtgevers, abonnementen, passagiers en groepsritten.</p>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Klanten & abonnementen') }}</h1>
+            <p class="text-sm text-muted-foreground pt-2 mb-0">{{ __('Opdrachtgevers, abonnementen, passagiers en groepsritten.') }}</p>
         </div>
         @if(empty($packageDeniedMessage))
             @can('rides.create')
@@ -15,7 +15,7 @@
                 <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                 </svg>
-                Nieuwe klant
+                {{ __('Nieuwe klant') }}
             </a>
             @endcan
         @endif
@@ -36,20 +36,20 @@
         <div class="kt-card kt-card-grid w-full min-w-0" id="transport-customers-card" data-customers-view="contracts" data-has-active="{{ $hasActiveCustomers ? '1' : '0' }}" data-has-archived="{{ $hasArchivedCustomers ? '1' : '0' }}">
             <div class="kt-card-header px-5 py-5 flex-wrap gap-2 min-w-0">
                 <h3 class="kt-card-title text-sm pb-0 mb-0">
-                    <span data-admin-datatable-info="true">Toon 1 tot {{ $customers->count() }} van {{ $customers->count() }} klant{{ $customers->count() !== 1 ? 'en' : '' }}</span>
+                    <span data-admin-datatable-info="true">{{ $customers->count() !== 1 ? __('Toon 1 tot :count van :count klanten', ['count' => $customers->count()]) : __('Toon 1 tot :count van :count klant', ['count' => $customers->count()]) }}</span>
                 </h3>
                 <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center sm:ms-auto">
-                    <div class="transport-customers-view-toggle inline-flex items-center rounded-lg border border-border p-0.5 shrink-0" role="tablist" aria-label="Weergave">
-                        <button type="button" class="transport-customers-view-btn" data-customers-view="table" role="tab" aria-selected="false">Lijst</button>
-                        <button type="button" class="transport-customers-view-btn is-active" data-customers-view="contracts" role="tab" aria-selected="true">Contracten</button>
-                        <button type="button" class="transport-customers-view-btn" data-customers-view="archive" role="tab" aria-selected="false">Archief</button>
+                    <div class="transport-customers-view-toggle inline-flex items-center rounded-lg border border-border p-0.5 shrink-0" role="tablist" aria-label="{{ __('Weergave') }}">
+                        <button type="button" class="transport-customers-view-btn" data-customers-view="table" role="tab" aria-selected="false">{{ __('Lijst') }}</button>
+                        <button type="button" class="transport-customers-view-btn is-active" data-customers-view="contracts" role="tab" aria-selected="true">{{ __('Contracten') }}</button>
+                        <button type="button" class="transport-customers-view-btn" data-customers-view="archive" role="tab" aria-selected="false">{{ __('Archief') }}</button>
                     </div>
                     <div class="transport-customers-active-filters flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center" data-customers-active-filters>
                     <label class="kt-input w-full sm:w-64 min-w-0">
                         <i class="ki-filled ki-magnifier"></i>
                         <input type="text"
                                name="search"
-                               placeholder="Zoek op naam, contact, type..."
+                               placeholder="{{ __('Zoek op naam, contact, type...') }}"
                                autocomplete="off"
                                data-admin-datatable-search="#transport_customers_table">
                     </label>
@@ -57,14 +57,14 @@
                             name="active"
                             data-admin-datatable-filter="active"
                             data-kt-select="true">
-                        <option value="">Alle statussen</option>
-                        <option value="1">Actief</option>
-                        <option value="0">Inactief</option>
+                        <option value="">{{ __('Alle statussen') }}</option>
+                        <option value="1">{{ __('Actief') }}</option>
+                        <option value="0">{{ __('Inactief') }}</option>
                     </select>
                     <button type="button"
                             class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
                             data-admin-datatable-reset
-                            title="Filters resetten">
+                            title="{{ __('Filters resetten') }}">
                         <i class="ki-filled ki-arrows-circle text-base"></i>
                     </button>
                     </div>
@@ -76,7 +76,7 @@
                      data-admin-datatable="true"
                      data-admin-datatable-page-size="10"
                      id="transport_customers_table"
-                     data-admin-datatable-label="klanten"
+                     data-admin-datatable-label="{{ __('klanten') }}"
                      data-admin-datatable-on-page="initTransportCustomerTablePage">
                     <div class="transport-customers-table-wrap min-w-0" data-customers-pane="table" @if(! $hasActiveCustomers) hidden @endif>
                         @if($hasActiveCustomers)
@@ -84,11 +84,11 @@
                             <table id="transport-customers-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                                 <thead>
                                     <tr>
-                                        <th data-label="Naam">Naam</th>
-                                        <th data-label="Contact">Contact</th>
-                                        <th data-label="Debiteurnr.">Debiteurnr.</th>
-                                        <th class="transport-customers-table__status-col" data-label="Status">Status</th>
-                                        <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                                        <th data-label="{{ __('Naam') }}">{{ __('Naam') }}</th>
+                                        <th data-label="{{ __('Contact') }}">{{ __('Contact') }}</th>
+                                        <th data-label="{{ __('Debiteurnr.') }}">{{ __('Debiteurnr.') }}</th>
+                                        <th class="transport-customers-table__status-col" data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                        <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -114,11 +114,11 @@
                                         class="transport-customers-table__row cursor-pointer hover:bg-muted/40"
                                         tabindex="0"
                                         role="link"
-                                        aria-label="Bekijk {{ $customer->name }}"
+                                        aria-label="{{ __('Bekijk :name', ['name' => $customer->name]) }}"
                                     >
                                         <td>
                                             <span class="font-medium text-foreground">{{ $customer->name }}</span>
-                                            <span class="block text-xs text-muted-foreground mt-0.5">{{ $typeLabel }}</span>
+                                            <span class="block text-xs text-muted-foreground mt-0.5">{{ __($typeLabel) }}</span>
                                         </td>
                                         <td class="text-muted-foreground">
                                             @if($customer->contact_name)
@@ -129,9 +129,9 @@
                                         <td class="text-muted-foreground">{{ $customer->debtor_number ?? '—' }}</td>
                                         <td class="transport-customers-table__status-col">
                                             @if($customer->active)
-                                                <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                                <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                                <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                             @endif
                                         </td>
                                         <td class="transport-customers-table__actions-col" data-no-row-link onclick="event.stopPropagation();">
@@ -142,7 +142,7 @@
                                                      data-kt-menu-item-placement-rtl="bottom-start"
                                                      data-kt-menu-item-toggle="dropdown"
                                                      data-kt-menu-item-trigger="click">
-                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}">
                                                         <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/>
                                                         </svg>
@@ -153,7 +153,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @can('rides.update')
@@ -162,7 +162,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/></svg>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -177,7 +177,7 @@
                                                                 <span class="kt-menu-icon text-destructive">
                                                                     <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
                                                                 </span>
-                                                                <span class="kt-menu-title text-destructive">Naar archief</span>
+                                                                <span class="kt-menu-title text-destructive">{{ __('Naar archief') }}</span>
                                                             </button>
                                                         </div>
                                                         @endcan
@@ -193,7 +193,7 @@
                         @else
                         <div class="px-5 py-5">
                             <p class="py-8 text-center text-muted-foreground text-sm mb-0" data-customers-table-none>
-                                Geen contracten.
+                                {{ __('Geen contracten.') }}
                             </p>
                         </div>
                         @endif
@@ -215,24 +215,24 @@
                             @endforeach
                         </div>
                         <p id="transport-customers-contracts-empty" class="py-8 text-center text-muted-foreground text-sm" hidden>
-                            Geen contracten voor deze filters.
+                            {{ __('Geen contracten voor deze filters.') }}
                         </p>
                         @else
                         <p class="py-8 text-center text-muted-foreground text-sm mb-0" data-customers-contracts-none>
-                            Geen contracten.
+                            {{ __('Geen contracten.') }}
                         </p>
                         @endif
                     </div>
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0 px-5 pb-5" data-customers-active-footer>
                         <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                                 <option value="10" selected>10</option>
                                 <option value="25">25</option>
                                 <option value="50">50</option>
                                 <option value="100">100</option>
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -243,7 +243,7 @@
                 <div class="transport-customers-archive px-5 py-5" data-customers-pane="archive" hidden>
                     @if($hasArchivedCustomers)
                         <p class="text-sm text-muted-foreground mb-4">
-                            Gearchiveerde contracten blijven bewaard voor facturatiehistorie. Definitief verwijderen wist alle gekoppelde gegevens, inclusief abonnementen en passagiers.
+                            {{ __('Gearchiveerde contracten blijven bewaard voor facturatiehistorie. Definitief verwijderen wist alle gekoppelde gegevens, inclusief abonnementen en passagiers.') }}
                         </p>
                         <div class="transport-customers-contracts__grid" id="transport-customers-archive">
                             @foreach($archivedCustomers as $customer)
@@ -261,24 +261,24 @@
                         </div>
                     @else
                         <p class="py-8 text-center text-muted-foreground text-sm mb-0">
-                            Geen gearchiveerde contracten.
+                            {{ __('Geen gearchiveerde contracten.') }}
                         </p>
                     @endif
                 </div>
                 @else
                 <div class="transport-customers-table-wrap min-w-0 px-5 py-5" data-customers-pane="table" hidden>
                     <p class="py-8 text-center text-muted-foreground text-sm mb-0">
-                        Geen contracten.
+                        {{ __('Geen contracten.') }}
                     </p>
                 </div>
                 <div class="transport-customers-contracts px-5 py-5" data-customers-pane="contracts">
                     <p class="py-8 text-center text-muted-foreground text-sm mb-0">
-                        Geen contracten.
+                        {{ __('Geen contracten.') }}
                     </p>
                 </div>
                 <div class="transport-customers-archive px-5 py-5" data-customers-pane="archive" hidden>
                     <p class="py-8 text-center text-muted-foreground text-sm mb-0">
-                        Geen gearchiveerde contracten.
+                        {{ __('Geen gearchiveerde contracten.') }}
                     </p>
                 </div>
                 @endif
@@ -861,22 +861,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             event.preventDefault();
             event.stopPropagation();
-            var label = btn.getAttribute('data-label') || 'dit contract';
+            var label = btn.getAttribute('data-label') || @json(__('dit contract'));
             var action = btn.getAttribute('data-action') || '';
             var mode = btn.getAttribute('data-delete-mode') || 'archive';
             var isForce = mode === 'force';
-            var title = isForce ? 'Contract definitief verwijderen' : 'Contract naar archief';
-            var confirmLabel = isForce ? 'Definitief verwijderen' : 'Naar archief';
+            var title = isForce ? @json(__('Contract definitief verwijderen')) : @json(__('Contract naar archief'));
+            var confirmLabel = isForce ? @json(__('Definitief verwijderen')) : @json(__('Naar archief'));
             var message = isForce
-                ? ('Weet je zeker dat je het contract van ' + label + ' definitief wilt verwijderen?\n\n'
-                    + 'Alles onder dit contract wordt permanent gewist, inclusief abonnementen, passagiers en ritten in planning/agenda. Facturatiehistorie en gekoppelde gegevens gaan verloren. Dit kan niet ongedaan worden gemaakt.')
-                : ('Weet je zeker dat je het contract van ' + label + ' naar het archief wilt verplaatsen?\n\n'
-                    + 'Het contract verdwijnt uit de actieve lijst. Ritten verdwijnen uit planning en agenda, tenzij je hieronder kiest om verleden ritten te bewaren.');
+                ? (@json(__('Weet je zeker dat je het contract van :label definitief wilt verwijderen?')).replace(':label', label) + '\n\n'
+                    + @json(__('Alles onder dit contract wordt permanent gewist, inclusief abonnementen, passagiers en ritten in planning/agenda. Facturatiehistorie en gekoppelde gegevens gaan verloren. Dit kan niet ongedaan worden gemaakt.')))
+                : (@json(__('Weet je zeker dat je het contract van :label naar het archief wilt verplaatsen?')).replace(':label', label) + '\n\n'
+                    + @json(__('Het contract verdwijnt uit de actieve lijst. Ritten verdwijnen uit planning en agenda, tenzij je hieronder kiest om verleden ritten te bewaren.')));
             var extraHtml = isForce ? '' : (
                 '<label class="kt-label flex items-start gap-2 cursor-pointer mb-0">'
                 + '<input type="checkbox" class="kt-checkbox mt-0.5" id="admin-confirm-keep-past-rides" value="1">'
-                + '<span class="text-sm text-foreground">Verleden ritten zichtbaar houden in planning en agenda '
-                + '<span class="text-muted-foreground font-normal">(geen ritten vanaf vandaag)</span></span>'
+                + '<span class="text-sm text-foreground">' + @json(__('Verleden ritten zichtbaar houden in planning en agenda')) + ' '
+                + '<span class="text-muted-foreground font-normal">' + @json(__('(geen ritten vanaf vandaag)')) + '</span></span>'
                 + '</label>'
             );
             var runDelete = function (keepPast) {

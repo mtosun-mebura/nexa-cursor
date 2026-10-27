@@ -1,24 +1,24 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Klantenlijst nieuwsbrief')
+@section('title', __('Klantenlijst nieuwsbrief'))
 
 @include('admin.partials.ajax-action-button-styles')
 
 @section('content')
 <div class="kt-container-fixed min-w-0 w-full">
     <div class="pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Klantenlijst</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Klantenlijst') }}</h1>
         <p class="text-sm text-muted-foreground mt-2 mb-0">
-            Zoek bedrijven op Google Places (branche + regio) of via de landelijke Partner Finder (KNV-leden + CSV). We bewaren bedrijfsnaam, contactpersoon (voor de aanhef), adres, e-mail, telefoon en website. Afmelden is definitief. Gevonden bedrijven worden niet automatisch Nexa-partner.
+            {{ __('Zoek bedrijven op Google Places (branche + regio) of via de landelijke Partner Finder (KNV-leden + CSV). We bewaren bedrijfsnaam, contactpersoon (voor de aanhef), adres, e-mail, telefoon en website. Afmelden is definitief. Gevonden bedrijven worden niet automatisch Nexa-partner.') }}
         </p>
         <div class="pt-3 flex w-full flex-wrap items-center justify-between gap-3">
             <a href="{{ route('admin.newsletters.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
             <div class="flex flex-wrap gap-2 ms-auto">
-                <a href="{{ route('admin.taxi-partner-finder.index') }}" class="kt-btn kt-btn-outline">Partner Finder</a>
-                <a href="{{ route('admin.newsletters.send') }}" class="kt-btn kt-btn-primary">Naar versturen</a>
+                <a href="{{ route('admin.taxi-partner-finder.index') }}" class="kt-btn kt-btn-outline">{{ __('Partner Finder') }}</a>
+                <a href="{{ route('admin.newsletters.send') }}" class="kt-btn kt-btn-primary">{{ __('Naar versturen') }}</a>
             </div>
         </div>
     </div>
@@ -37,20 +37,19 @@
     <div class="kt-card mb-5 w-full min-w-0">
         <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h5 class="kt-card-title mb-0">Landelijke Partner Finder</h5>
+                <h5 class="kt-card-title mb-0">{{ __('Landelijke Partner Finder') }}</h5>
                 <p class="text-xs text-muted-foreground mt-1 mb-0">
-                    KNV-ledenlijst, CSV-import, deduplicatie en CRM-statussen voor directe nieuwsbriefbenadering.
-                    Werkt naast Google Places hieronder; maakt geen actieve taxipartners aan.
+                    {{ __('KNV-ledenlijst, CSV-import, deduplicatie en CRM-statussen voor directe nieuwsbriefbenadering. Werkt naast Google Places hieronder; maakt geen actieve taxipartners aan.') }}
                 </p>
             </div>
             <a href="{{ route('admin.taxi-partner-finder.index') }}" class="kt-btn kt-btn-primary shrink-0">
-                Open Partner Finder
+                {{ __('Open Partner Finder') }}
             </a>
         </div>
         <div class="kt-card-content p-5">
             @if(!empty($taxiFinderStats))
                 <p class="text-xs text-muted-foreground mb-3">
-                    {{ $taxiFinderStats['total'] ?? 0 }} prospects · {{ $taxiFinderStats['knv_members'] ?? 0 }} KNV · {{ $taxiFinderStats['with_email'] ?? 0 }} met e-mail
+                    {{ __(':total prospects · :knv KNV · :with_email met e-mail', ['total' => $taxiFinderStats['total'] ?? 0, 'knv' => $taxiFinderStats['knv_members'] ?? 0, 'with_email' => $taxiFinderStats['with_email'] ?? 0]) }}
                 </p>
             @endif
             <div class="flex flex-wrap gap-2">
@@ -59,11 +58,11 @@
                     <input type="hidden" name="push_newsletter" value="1">
                     <button type="submit" class="kt-btn kt-btn-outline" @disabled(isset($knvEnabled) && ! $knvEnabled)>
                         <i class="ki-filled ki-arrows-circle me-2"></i>
-                        KNV sync → klantenlijst
+                        {{ __('KNV sync → klantenlijst') }}
                     </button>
                 </form>
                 <a href="{{ route('admin.taxi-partner-finder.index') }}#csv" class="kt-btn kt-btn-outline">
-                    KNV CSV importeren
+                    {{ __('KNV CSV importeren') }}
                 </a>
             </div>
         </div>
@@ -72,33 +71,33 @@
     <div class="grid gap-5 lg:grid-cols-2 mb-5">
         <div class="kt-card">
             <div class="kt-card-header px-5 py-5">
-                <h5 class="kt-card-title mb-0">Zoeken op internet</h5>
+                <h5 class="kt-card-title mb-0">{{ __('Zoeken op internet') }}</h5>
             </div>
             <div class="kt-card-content p-5">
                 <form method="POST" action="{{ route('admin.newsletters.discover') }}" id="discover-form">
                     @csrf
-                    <label class="kt-label mb-1" for="branch">Branche</label>
+                    <label class="kt-label mb-1" for="branch">{{ __('Branche') }}</label>
                     <input type="text" id="branch" name="branch" class="kt-input w-full mb-3" value="{{ old('branch', 'taxi') }}" required>
-                    <label class="kt-label mb-1" for="discover-query">Zoekterm (optioneel)</label>
-                    <input type="text" id="discover-query" name="query" class="kt-input w-full mb-3" value="{{ old('query') }}" placeholder="bijv. loodgieter">
-                    <label class="kt-label mb-1" for="discover-city">Plaats</label>
-                    <input type="text" id="discover-city" name="city" class="kt-input w-full mb-1" value="{{ old('city') }}" placeholder="bijv. Enschede">
-                    <p class="text-xs text-muted-foreground mb-3">Vul een plaats in <em>of</em> kies hieronder provincies. Met een plaats zoeken we binnen de opgegeven straal.</p>
+                    <label class="kt-label mb-1" for="discover-query">{{ __('Zoekterm (optioneel)') }}</label>
+                    <input type="text" id="discover-query" name="query" class="kt-input w-full mb-3" value="{{ old('query') }}" placeholder="{{ __('bijv. loodgieter') }}">
+                    <label class="kt-label mb-1" for="discover-city">{{ __('Plaats') }}</label>
+                    <input type="text" id="discover-city" name="city" class="kt-input w-full mb-1" value="{{ old('city') }}" placeholder="{{ __('bijv. Enschede') }}">
+                    <p class="text-xs text-muted-foreground mb-3">{!! __('Vul een plaats in <em>of</em> kies hieronder provincies. Met een plaats zoeken we binnen de opgegeven straal.') !!}</p>
                     <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                            <label class="kt-label mb-1" for="radius_km">Straal (km)</label>
+                            <label class="kt-label mb-1" for="radius_km">{{ __('Straal (km)') }}</label>
                             <input type="number" id="radius_km" name="radius_km" class="kt-input w-full" min="5" max="100" value="{{ old('radius_km', 50) }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="max_results">Max. bedrijven</label>
+                            <label class="kt-label mb-1" for="max_results">{{ __('Max. bedrijven') }}</label>
                             <input type="number" id="max_results" name="max_results" class="kt-input w-full" min="1" max="500" value="{{ old('max_results', 300) }}">
                         </div>
                     </div>
-                    <p class="kt-label mb-1">Provincies</p>
-                    <p class="text-xs text-muted-foreground mb-2">Optioneel als je hierboven een plaats hebt ingevuld.</p>
+                    <p class="kt-label mb-1">{{ __('Provincies') }}</p>
+                    <p class="text-xs text-muted-foreground mb-2">{{ __('Optioneel als je hierboven een plaats hebt ingevuld.') }}</p>
                     <label class="flex items-center gap-2 text-sm font-medium mb-2">
                         <input type="checkbox" id="discover-provinces-all" class="kt-checkbox">
-                        Selecteer alle
+                        {{ __('Selecteer alle') }}
                     </label>
                     <div class="grid grid-cols-2 gap-2 mb-4">
                         @foreach($provinces as $province)
@@ -108,7 +107,7 @@
                             </label>
                         @endforeach
                     </div>
-                    <p class="text-xs text-muted-foreground mb-3">Google Places zoekt bedrijven in de gekozen provincies, of binnen de straal vanaf de plaats. E-mail komt van de bedrijfswebsite (Hunter alleen als fallback). Contactnaam (voornaam, tussenvoegsel, achternaam) halen we uit de website of Hunter, voor de aanhef. Alleen rijen mét e-mail worden opgeslagen. Grote zoekopdrachten kunnen tot twee minuten duren.</p>
+                    <p class="text-xs text-muted-foreground mb-3">{{ __('Google Places zoekt bedrijven in de gekozen provincies, of binnen de straal vanaf de plaats. E-mail komt van de bedrijfswebsite (Hunter alleen als fallback). Contactnaam (voornaam, tussenvoegsel, achternaam) halen we uit de website of Hunter, voor de aanhef. Alleen rijen mét e-mail worden opgeslagen. Grote zoekopdrachten kunnen tot twee minuten duren.') }}</p>
                     <div id="discover-progress"
                          class="mb-4 rounded-lg border border-input bg-muted/30 px-4 py-3"
                          data-list-count="{{ $prospects->count() }}"
@@ -116,12 +115,12 @@
                          aria-live="polite">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="text-xs text-muted-foreground mb-1" id="discover-progress-label">Bedrijven op de lijst</p>
+                                <p class="text-xs text-muted-foreground mb-1" id="discover-progress-label">{{ __('Bedrijven op de lijst') }}</p>
                                 <p class="text-3xl font-semibold text-mono tabular-nums leading-none mb-0" id="discover-found-count">{{ $prospects->count() }}</p>
                             </div>
                             <div id="discover-elapsed" class="hidden shrink-0 text-right" aria-live="polite">
-                                <p class="text-xs text-muted-foreground mb-1">Bezig</p>
-                                <p class="text-lg font-semibold text-mono tabular-nums leading-none mb-0" id="discover-elapsed-time">0 min 0 sec</p>
+                                <p class="text-xs text-muted-foreground mb-1">{{ __('Bezig') }}</p>
+                                <p class="text-lg font-semibold text-mono tabular-nums leading-none mb-0" id="discover-elapsed-time">{{ __(':minutes min :seconds sec', ['minutes' => 0, 'seconds' => 0]) }}</p>
                             </div>
                         </div>
                         <p class="text-xs text-muted-foreground mt-2 mb-0 hidden" id="discover-progress-detail"></p>
@@ -133,7 +132,7 @@
                     <button type="submit" id="discover-btn" class="kt-btn kt-btn-primary admin-ajax-action-btn">
                         @include('admin.partials.ajax-action-spinner')
                         <i class="ki-filled ki-magnifier admin-ajax-action-idle-icon me-2"></i>
-                        <span>Zoek bedrijven</span>
+                        <span>{{ __('Zoek bedrijven') }}</span>
                     </button>
                 </form>
             </div>
@@ -141,45 +140,45 @@
 
         <div class="kt-card">
             <div class="kt-card-header px-5 py-5">
-                <h5 class="kt-card-title mb-0">Handmatig toevoegen</h5>
+                <h5 class="kt-card-title mb-0">{{ __('Handmatig toevoegen') }}</h5>
             </div>
             <div class="kt-card-content p-5">
                 <form method="POST" action="{{ route('admin.newsletters.prospects.store') }}">
                     @csrf
-                    <label class="kt-label mb-1" for="company_name">Bedrijfsnaam *</label>
+                    <label class="kt-label mb-1" for="company_name">{{ __('Bedrijfsnaam *') }}</label>
                     <input type="text" id="company_name" name="company_name" class="kt-input w-full mb-3" required value="{{ old('company_name') }}">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                         <div>
-                            <label class="kt-label mb-1" for="first_name">Voornaam</label>
+                            <label class="kt-label mb-1" for="first_name">{{ __('Voornaam') }}</label>
                             <input type="text" id="first_name" name="first_name" class="kt-input w-full" value="{{ old('first_name') }}" autocomplete="given-name">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="middle_name">Tussenvoegsel</label>
+                            <label class="kt-label mb-1" for="middle_name">{{ __('Tussenvoegsel') }}</label>
                             <input type="text" id="middle_name" name="middle_name" class="kt-input w-full" value="{{ old('middle_name') }}">
                         </div>
                         <div>
-                            <label class="kt-label mb-1" for="last_name">Achternaam</label>
+                            <label class="kt-label mb-1" for="last_name">{{ __('Achternaam') }}</label>
                             <input type="text" id="last_name" name="last_name" class="kt-input w-full" value="{{ old('last_name') }}" autocomplete="family-name">
                         </div>
                     </div>
-                    <label class="kt-label mb-1" for="email">E-mail *</label>
+                    <label class="kt-label mb-1" for="email">{{ __('E-mail *') }}</label>
                     <input type="email" id="email" name="email" class="kt-input w-full mb-3" required value="{{ old('email') }}">
-                    <label class="kt-label mb-1" for="phone">Telefoon</label>
+                    <label class="kt-label mb-1" for="phone">{{ __('Telefoon') }}</label>
                     <input type="text" id="phone" name="phone" class="kt-input w-full mb-3" value="{{ old('phone') }}">
-                    <label class="kt-label mb-1" for="address">Adres</label>
+                    <label class="kt-label mb-1" for="address">{{ __('Adres') }}</label>
                     <input type="text" id="address" name="address" class="kt-input w-full mb-3" value="{{ old('address') }}">
-                    <label class="kt-label mb-1" for="city">Plaats</label>
+                    <label class="kt-label mb-1" for="city">{{ __('Plaats') }}</label>
                     <input type="text" id="city" name="city" class="kt-input w-full mb-3" value="{{ old('city') }}">
-                    <label class="kt-label mb-1" for="province">Provincie</label>
+                    <label class="kt-label mb-1" for="province">{{ __('Provincie') }}</label>
                     <select id="province" name="province" class="kt-select w-full mb-3">
                         <option value="">—</option>
                         @foreach($provinces as $province)
                             <option value="{{ $province }}" @selected(old('province') === $province)>{{ $province }}</option>
                         @endforeach
                     </select>
-                    <label class="kt-label mb-1" for="website">Website</label>
+                    <label class="kt-label mb-1" for="website">{{ __('Website') }}</label>
                     <input type="text" id="website" name="website" class="kt-input w-full mb-4" value="{{ old('website') }}">
-                    <button type="submit" class="kt-btn kt-btn-outline">Toevoegen aan opt-in</button>
+                    <button type="submit" class="kt-btn kt-btn-outline">{{ __('Toevoegen aan opt-in') }}</button>
                 </form>
             </div>
         </div>
@@ -188,30 +187,30 @@
     <div class="kt-card kt-card-grid w-full min-w-0">
         @if($prospects->isEmpty())
             <div class="kt-card-header px-5 py-5">
-                <h5 class="kt-card-title mb-0">{{ $subscribedCount }} adressen klaar om te versturen</h5>
+                <h5 class="kt-card-title mb-0">{{ __(':count adressen klaar om te versturen', ['count' => $subscribedCount]) }}</h5>
             </div>
             <div class="kt-card-content p-5">
-                <p class="text-sm text-muted-foreground mb-0">Nog geen bedrijven. Zoek eerst op branche en provincie.</p>
+                <p class="text-sm text-muted-foreground mb-0">{{ __('Nog geen bedrijven. Zoek eerst op branche en provincie.') }}</p>
             </div>
         @else
             @php
                 $sourceLegend = [
-                    'google_places' => ['label' => 'Google Places', 'icon' => 'ki-google'],
+                    'google_places' => ['label' => __('Google Places'), 'icon' => 'ki-google'],
                     'knv' => ['label' => 'KNV', 'icon' => 'ki-abstract-26'],
-                    'partner_finder' => ['label' => 'Partner Finder', 'icon' => 'ki-geolocation'],
-                    'ai_web' => ['label' => 'AI-zoeken', 'icon' => 'ki-technology-4'],
-                    'hunter' => ['label' => 'Hunter', 'icon' => 'ki-magnifier'],
-                    'manual' => ['label' => 'Handmatig', 'icon' => 'ki-pencil'],
+                    'partner_finder' => ['label' => __('Partner Finder'), 'icon' => 'ki-geolocation'],
+                    'ai_web' => ['label' => __('AI-zoeken'), 'icon' => 'ki-technology-4'],
+                    'hunter' => ['label' => __('Hunter'), 'icon' => 'ki-magnifier'],
+                    'manual' => ['label' => __('Handmatig'), 'icon' => 'ki-pencil'],
                 ];
             @endphp
             <div class="kt-card-header py-5 px-5 flex-wrap gap-2 min-w-0">
                 <h3 class="kt-card-title text-sm pb-3 w-full mb-0">
-                    <span data-admin-datatable-info="true">Toon 1 tot {{ $prospects->count() }} van {{ $prospects->count() }} adressen</span>
+                    <span data-admin-datatable-info="true">{{ __('Toon 1 tot :count van :total adressen', ['count' => $prospects->count(), 'total' => $prospects->count()]) }}</span>
                 </h3>
                 <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 w-full -mt-1 pb-2">
-                    <p class="text-xs text-muted-foreground mb-0">{{ $subscribedCount }} klaar om te versturen</p>
-                    <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-xs text-muted-foreground ms-auto" role="note" aria-label="Legenda bronnen">
-                        <span class="font-medium text-secondary-foreground">Bronnen</span>
+                    <p class="text-xs text-muted-foreground mb-0">{{ __(':count klaar om te versturen', ['count' => $subscribedCount]) }}</p>
+                    <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-xs text-muted-foreground ms-auto" role="note" aria-label="{{ __('Legenda bronnen') }}">
+                        <span class="font-medium text-secondary-foreground">{{ __('Bronnen') }}</span>
                         @foreach($sourceLegend as $meta)
                             <span class="inline-flex items-center gap-1.5">
                                 <i class="ki-filled {{ $meta['icon'] }} text-base text-mono" aria-hidden="true"></i>
@@ -224,7 +223,7 @@
                      data-admin-live-filter="off">
                     <label class="kt-input w-full sm:w-64 min-w-0">
                         <i class="ki-filled ki-magnifier"></i>
-                        <input placeholder="Zoek op bedrijf, contact, e-mail, telefoon…"
+                        <input placeholder="{{ __('Zoek op bedrijf, contact, e-mail, telefoon…') }}"
                                type="text"
                                name="search"
                                autocomplete="off"
@@ -234,9 +233,9 @@
                             name="province"
                             data-admin-datatable-filter="province"
                             data-kt-select="true"
-                            data-kt-select-placeholder="Selecteer een provincie"
-                            aria-label="Selecteer een provincie">
-                        <option value="">Alle provincies</option>
+                            data-kt-select-placeholder="{{ __('Selecteer een provincie') }}"
+                            aria-label="{{ __('Selecteer een provincie') }}">
+                        <option value="">{{ __('Alle provincies') }}</option>
                         @foreach($provinces as $province)
                             <option value="{{ $province }}">{{ $province }}</option>
                         @endforeach
@@ -245,28 +244,28 @@
                             name="status"
                             data-admin-datatable-filter="status"
                             data-kt-select="true"
-                            data-kt-select-placeholder="Selecteer een status"
-                            aria-label="Selecteer een status">
-                        <option value="">Alle statussen</option>
-                        <option value="subscribed">Opt-in</option>
-                        <option value="unsubscribed">Afgemeld</option>
+                            data-kt-select-placeholder="{{ __('Selecteer een status') }}"
+                            aria-label="{{ __('Selecteer een status') }}">
+                        <option value="">{{ __('Alle statussen') }}</option>
+                        <option value="subscribed">{{ __('Opt-in') }}</option>
+                        <option value="unsubscribed">{{ __('Afgemeld') }}</option>
                     </select>
                     <select class="kt-select w-full sm:w-48"
                             name="source"
                             data-admin-datatable-filter="source"
                             data-kt-select="true"
-                            data-kt-select-placeholder="Selecteer een bron"
-                            aria-label="Selecteer een bron">
-                        <option value="">Alle bronnen</option>
-                        <option value="google_places">Google Places</option>
-                        <option value="ai_web">AI-zoeken</option>
-                        <option value="hunter">Hunter</option>
-                        <option value="manual">Handmatig</option>
+                            data-kt-select-placeholder="{{ __('Selecteer een bron') }}"
+                            aria-label="{{ __('Selecteer een bron') }}">
+                        <option value="">{{ __('Alle bronnen') }}</option>
+                        <option value="google_places">{{ __('Google Places') }}</option>
+                        <option value="ai_web">{{ __('AI-zoeken') }}</option>
+                        <option value="hunter">{{ __('Hunter') }}</option>
+                        <option value="manual">{{ __('Handmatig') }}</option>
                     </select>
                     <button type="button"
                             data-admin-datatable-reset
                             class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
-                            title="Filters resetten">
+                            title="{{ __('Filters resetten') }}">
                         <i class="ki-filled ki-arrows-circle text-base"></i>
                     </button>
                 </div>
@@ -276,19 +275,19 @@
                      data-admin-datatable="true"
                      data-admin-datatable-page-size="25"
                      id="newsletter_prospects_table"
-                     data-admin-datatable-label="adressen">
+                     data-admin-datatable-label="{{ __('adressen') }}">
                     <div class="newsletter-prospects-table-wrap min-w-0">
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                             <table id="newsletter-prospects-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                                 <thead>
                                     <tr>
-                                        <th class="newsletter-prospects-table__company-col text-secondary-foreground font-normal text-left" data-label="Bedrijf">Bedrijf</th>
-                                        <th class="text-secondary-foreground font-normal text-left" data-label="E-mail">E-mail</th>
-                                        <th class="newsletter-prospects-table__phone-col text-secondary-foreground font-normal text-left" data-label="Telefoon">Telefoon</th>
-                                        <th class="newsletter-prospects-table__province-col text-secondary-foreground font-normal text-left" data-label="Provincie">Provincie</th>
-                                        <th class="newsletter-prospects-table__source-col text-secondary-foreground font-normal text-center" data-label="Bron">Bron</th>
-                                        <th class="newsletter-prospects-table__status-col text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
-                                        <th class="newsletter-prospects-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                                        <th class="newsletter-prospects-table__company-col text-secondary-foreground font-normal text-left" data-label="{{ __('Bedrijf') }}">{{ __('Bedrijf') }}</th>
+                                        <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('E-mail') }}">{{ __('E-mail') }}</th>
+                                        <th class="newsletter-prospects-table__phone-col text-secondary-foreground font-normal text-left" data-label="{{ __('Telefoon') }}">{{ __('Telefoon') }}</th>
+                                        <th class="newsletter-prospects-table__province-col text-secondary-foreground font-normal text-left" data-label="{{ __('Provincie') }}">{{ __('Provincie') }}</th>
+                                        <th class="newsletter-prospects-table__source-col text-secondary-foreground font-normal text-center" data-label="{{ __('Bron') }}">{{ __('Bron') }}</th>
+                                        <th class="newsletter-prospects-table__status-col text-secondary-foreground font-normal text-left" data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                        <th class="newsletter-prospects-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -296,7 +295,7 @@
                                         @php
                                             $sourceMeta = $sourceLegend[$prospect->source] ?? $sourceLegend['ai_web'];
                                             $sourceLabel = $sourceMeta['label'];
-                                            $statusLabel = $prospect->isSubscribed() ? 'Opt-in' : 'Afgemeld';
+                                            $statusLabel = $prospect->isSubscribed() ? __('Opt-in') : __('Afgemeld');
                                             $searchText = mb_strtolower(implode(' ', array_filter([
                                                 $prospect->company_name,
                                                 $prospect->contactFullName(),
@@ -346,18 +345,18 @@
                                                              data-kt-menu-item-placement-rtl="bottom-start"
                                                              data-kt-menu-item-toggle="dropdown"
                                                              data-kt-menu-item-trigger="click">
-                                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}">
                                                                 <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                             </button>
                                                             <div class="kt-menu-dropdown kt-menu-default w-[175px] min-w-[175px]" data-kt-menu-dismiss="true">
                                                                 <div class="kt-menu-item">
                                                                     <form method="POST"
                                                                           action="{{ route('admin.newsletters.prospects.unsubscribe', $prospect) }}"
-                                                                          onsubmit="return confirm(@json($prospect->company_name.' afmelden van de nieuwsbrief?'));">
+                                                                          onsubmit="return confirm(@json(__(':name afmelden van de nieuwsbrief?', ['name' => $prospect->company_name])));">
                                                                         @csrf
                                                                         <button type="submit" class="kt-menu-link w-full text-left">
                                                                             <span class="kt-menu-icon"><i class="ki-filled ki-cross-circle"></i></span>
-                                                                            <span class="kt-menu-title">Afmelden</span>
+                                                                            <span class="kt-menu-title">{{ __('Afmelden') }}</span>
                                                                         </button>
                                                                     </form>
                                                                 </div>
@@ -374,14 +373,14 @@
                     </div>
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0 px-5 pb-5">
                         <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                                 <option value="10">10</option>
                                 <option value="25" selected>25</option>
                                 <option value="50">50</option>
                                 <option value="100">100</option>
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -461,7 +460,7 @@
 (function () {
     const form = document.getElementById('discover-form');
     const selectAll = document.getElementById('discover-provinces-all');
-    const REGION_ERROR = 'Kies minstens één provincie, of vul een plaats in. De straal wordt vanaf die plaats gebruikt.';
+    const REGION_ERROR = @json(__('Kies minstens één provincie, of vul een plaats in. De straal wordt vanaf die plaats gebruikt.'));
     let discoverTimerId = null;
 
     try {
@@ -517,7 +516,7 @@
         const totalSec = Math.max(0, Math.floor(ms / 1000));
         const minutes = Math.floor(totalSec / 60);
         const seconds = totalSec % 60;
-        return minutes + ' min ' + seconds + ' sec';
+        return @json(__(':minutes min :seconds sec')).replace(':minutes', minutes).replace(':seconds', seconds);
     }
 
     function stopDiscoverTimer() {
@@ -555,7 +554,7 @@
         }
         const detailEl = document.getElementById('discover-progress-detail');
         const labelEl = document.getElementById('discover-progress-label');
-        if (labelEl) labelEl.textContent = label || 'Zoeken mislukt';
+        if (labelEl) labelEl.textContent = label || @json(__('Zoeken mislukt'));
         if (detailEl) {
             detailEl.textContent = message;
             detailEl.classList.remove('hidden');
@@ -586,14 +585,14 @@
                 if (first[0]) return String(first[0]);
             }
         } catch (e) { /* not json */ }
-        return 'Zoeken kon niet worden gestart. Controleer of je een plaats of provincie hebt ingevuld.';
+        return @json(__('Zoeken kon niet worden gestart. Controleer of je een plaats of provincie hebt ingevuld.'));
     }
 
     form?.addEventListener('submit', function (event) {
         const btn = document.getElementById('discover-btn');
         if (!discoverHasRegion(form)) {
             event.preventDefault();
-            showDiscoverFormError(REGION_ERROR, 'Zoeken niet gestart');
+            showDiscoverFormError(REGION_ERROR, @json(__('Zoeken niet gestart')));
             return;
         }
         hideDiscoverFormError();
@@ -627,10 +626,10 @@
                 el.disabled = true;
             }
         });
-        if (labelEl) labelEl.textContent = 'Bezig met zoeken…';
+        if (labelEl) labelEl.textContent = @json(__('Bezig met zoeken…'));
         if (countEl) countEl.textContent = '0';
         if (detailEl) {
-            detailEl.textContent = 'Bedrijven worden opgezocht.';
+            detailEl.textContent = @json(__('Bedrijven worden opgezocht.'));
             detailEl.classList.remove('hidden');
         }
         hideDiscoverFormError();
@@ -652,7 +651,7 @@
                 });
             }
             if (!response.body) {
-                throw new Error('Zoeken kon niet worden gestart.');
+                throw new Error(@json(__('Zoeken kon niet worden gestart.')));
             }
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -664,13 +663,13 @@
                 const saved = Number(event.saved || 0);
                 if (countEl) countEl.textContent = String(found);
                 if (event.phase === 'starting' || event.phase === 'searching') {
-                    if (labelEl) labelEl.textContent = found === 1 ? 'Bedrijf gevonden' : 'Bedrijven gevonden';
-                    if (detailEl) detailEl.textContent = 'Google Places zoekt verder…';
+                    if (labelEl) labelEl.textContent = found === 1 ? @json(__('Bedrijf gevonden')) : @json(__('Bedrijven gevonden'));
+                    if (detailEl) detailEl.textContent = @json(__('Google Places zoekt verder…'));
                 } else if (event.phase === 'enriching') {
-                    if (labelEl) labelEl.textContent = found === 1 ? 'Bedrijf gevonden' : 'Bedrijven gevonden';
+                    if (labelEl) labelEl.textContent = found === 1 ? @json(__('Bedrijf gevonden')) : @json(__('Bedrijven gevonden'));
                     if (detailEl) {
-                        detailEl.textContent = saved + ' met e-mail opgeslagen'
-                            + (event.skipped ? ', ' + event.skipped + ' overgeslagen' : '')
+                        detailEl.textContent = @json(__(':saved met e-mail opgeslagen')).replace(':saved', saved)
+                            + (event.skipped ? @json(__(', :skipped overgeslagen')).replace(':skipped', event.skipped) : '')
                             + '.';
                     }
                 }
@@ -701,9 +700,9 @@
                                 completeEvent = event;
                                 stopDiscoverTimer();
                                 if (countEl) countEl.textContent = String(event.found || event.saved || 0);
-                                if (labelEl) labelEl.textContent = 'Zoeken afgerond';
+                                if (labelEl) labelEl.textContent = @json(__('Zoeken afgerond'));
                                 if (detailEl) {
-                                    detailEl.textContent = (event.saved || 0) + ' toegevoegd aan de lijst.';
+                                    detailEl.textContent = @json(__(':saved toegevoegd aan de lijst.')).replace(':saved', event.saved || 0);
                                 }
                             } else {
                                 applyProgress(event);
@@ -724,15 +723,15 @@
             unlockDiscoverForm(formEl, btn);
             if (countEl) countEl.textContent = String(listCount);
             if (event && event.success === false) {
-                showDiscoverFormError(event.message || 'Zoeken is mislukt.');
+                showDiscoverFormError(event.message || @json(__('Zoeken is mislukt.')));
                 return;
             }
-            showDiscoverFormError('Zoeken kon niet worden afgerond. Controleer of je een plaats of provincie hebt ingevuld.');
+            showDiscoverFormError(@json(__('Zoeken kon niet worden afgerond. Controleer of je een plaats of provincie hebt ingevuld.')));
         }).catch(function (err) {
             stopDiscoverTimer();
             unlockDiscoverForm(formEl, btn);
             if (countEl) countEl.textContent = String(listCount);
-            showDiscoverFormError(err.message || 'Probeer het opnieuw.');
+            showDiscoverFormError(err.message || @json(__('Probeer het opnieuw.')));
         });
     }
 })();

@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Formulier velden beheer')
+@section('title', __('Formulier velden beheer'))
 
 @section('content')
 
@@ -8,13 +8,13 @@
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <div>
             <h1 class="text-xl font-medium leading-none text-mono">
-                Formulier velden
+                {{ __('Formulier velden') }}
             </h1>
-            <p class="text-sm text-muted-foreground mt-1">Velden voor het formulier &quot;Informatie aanvragen&quot; op de website. Verplicht en validatie worden bij de POST gecontroleerd.</p>
+            <p class="text-sm text-muted-foreground mt-1">{{ __('Velden voor het formulier "Informatie aanvragen" op de website. Verplicht en validatie worden bij de POST gecontroleerd.') }}</p>
         </div>
         <a href="{{ route('admin.email-templates.form-fields.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Veld toevoegen
+            {{ __('Veld toevoegen') }}
         </a>
     </div>
 
@@ -27,7 +27,7 @@
                         {{ $stats['total'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal velden
+                        {{ __('Totaal velden') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -36,7 +36,7 @@
                         {{ $stats['required'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Verplicht
+                        {{ __('Verplicht') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -45,7 +45,7 @@
                         {{ $stats['optional'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Optioneel
+                        {{ __('Optioneel') }}
                     </span>
                 </div>
             </div>
@@ -56,7 +56,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon 1 tot {{ $fields->count() }} van {{ $fields->count() }} velden
+                    {{ __('Toon 1 tot :count van :total velden', ['count' => $fields->count(), 'total' => $fields->count()]) }}
                 </h3>
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full">
                     <!-- Search -->
@@ -79,7 +79,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek velden..."
+                                <input placeholder="{{ __('Zoek velden...') }}"
                                        type="text"
                                        name="search"
                                        value="{{ request('search') }}"
@@ -98,40 +98,40 @@
                             <select class="kt-select w-full sm:w-36"
                                     name="required"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Verplicht"
+                                    data-kt-select-placeholder="{{ __('Verplicht') }}"
                                     id="required-filter">
-                                <option value="">Alle</option>
-                                <option value="1" {{ request('required') === '1' ? 'selected' : '' }}>Ja</option>
-                                <option value="0" {{ request('required') === '0' ? 'selected' : '' }}>Nee</option>
+                                <option value="">{{ __('Alle') }}</option>
+                                <option value="1" {{ request('required') === '1' ? 'selected' : '' }}>{{ __('Ja') }}</option>
+                                <option value="0" {{ request('required') === '0' ? 'selected' : '' }}>{{ __('Nee') }}</option>
                             </select>
 
                             <select class="kt-select w-full sm:w-36"
                                     name="validation"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Validatie"
+                                    data-kt-select-placeholder="{{ __('Validatie') }}"
                                     id="validation-filter">
-                                <option value="">Alle</option>
-                                <option value="email" {{ request('validation') === 'email' ? 'selected' : '' }}>email</option>
-                                <option value="tel" {{ request('validation') === 'tel' ? 'selected' : '' }}>tel</option>
-                                <option value="none" {{ request('validation') === 'none' ? 'selected' : '' }}>Geen</option>
+                                <option value="">{{ __('Alle') }}</option>
+                                <option value="email" {{ request('validation') === 'email' ? 'selected' : '' }}>{{ __('email') }}</option>
+                                <option value="tel" {{ request('validation') === 'tel' ? 'selected' : '' }}>{{ __('tel') }}</option>
+                                <option value="none" {{ request('validation') === 'none' ? 'selected' : '' }}>{{ __('Geen') }}</option>
                             </select>
 
                             <select class="kt-select w-full sm:w-36"
                                     name="sort"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="sort_order" {{ request('sort', 'sort_order') === 'sort_order' ? 'selected' : '' }}>Volgorde</option>
-                                <option value="name" {{ request('sort') === 'name' ? 'selected' : '' }}>Naam (slug)</option>
-                                <option value="label" {{ request('sort') === 'label' ? 'selected' : '' }}>Label</option>
-                                <option value="created_at" {{ request('sort') === 'created_at' ? 'selected' : '' }}>Datum</option>
+                                <option value="sort_order" {{ request('sort', 'sort_order') === 'sort_order' ? 'selected' : '' }}>{{ __('Volgorde') }}</option>
+                                <option value="name" {{ request('sort') === 'name' ? 'selected' : '' }}>{{ __('Naam (slug)') }}</option>
+                                <option value="label" {{ request('sort') === 'label' ? 'selected' : '' }}>{{ __('Label') }}</option>
+                                <option value="created_at" {{ request('sort') === 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
                             </select>
                             <input type="hidden" name="direction" value="{{ request('direction', 'asc') }}">
                         </form>
                         @if(request('required') || request('validation') || request('search') || (request('sort') && request('sort') !== 'sort_order') || request('direction'))
                         <a href="{{ route('admin.email-templates.form-fields.index') }}"
                            class="kt-btn kt-btn-outline kt-btn-icon"
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -143,7 +143,7 @@
 
             <div class="kt-card-content">
                 @if($fields->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="form_fields_table" data-admin-datatable-label="velden">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="form_fields_table" data-admin-datatable-label="{{ __('velden') }}">
                         <div class="kt-scrollable-x-auto">
                             <table class="kt-table table-auto kt-table-border">
                                 <thead>
@@ -154,7 +154,7 @@
                                     <tr>
                                         <th class="min-w-[140px]">
                                             <span class="kt-table-col">
-                                                <span class="kt-table-col-label">Naam (slug)</span>
+                                                <span class="kt-table-col-label">{{ __('Naam (slug)') }}</span>
                                                 <span class="kt-table-col-sort">
                                                     @php $nextDir = ($currentSort === 'name' && $currentDirection === 'asc') ? 'desc' : 'asc'; @endphp
                                                     <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'direction' => $currentSort === 'name' ? $nextDir : 'asc']) }}" class="kt-table-col-sort-btn"></a>
@@ -163,7 +163,7 @@
                                         </th>
                                         <th class="min-w-[180px]">
                                             <span class="kt-table-col">
-                                                <span class="kt-table-col-label">Label</span>
+                                                <span class="kt-table-col-label">{{ __('Label') }}</span>
                                                 <span class="kt-table-col-sort">
                                                     @php $nextDir = ($currentSort === 'label' && $currentDirection === 'asc') ? 'desc' : 'asc'; @endphp
                                                     <a href="{{ request()->fullUrlWithQuery(['sort' => 'label', 'direction' => $currentSort === 'label' ? $nextDir : 'asc']) }}" class="kt-table-col-sort-btn"></a>
@@ -172,24 +172,24 @@
                                         </th>
                                         <th class="min-w-[100px]">
                                             <span class="kt-table-col">
-                                                <span class="kt-table-col-label">Verplicht</span>
+                                                <span class="kt-table-col-label">{{ __('Verplicht') }}</span>
                                             </span>
                                         </th>
                                         <th class="min-w-[100px]">
                                             <span class="kt-table-col">
-                                                <span class="kt-table-col-label">Validatie</span>
+                                                <span class="kt-table-col-label">{{ __('Validatie') }}</span>
                                             </span>
                                         </th>
                                         <th class="min-w-[90px]">
                                             <span class="kt-table-col">
-                                                <span class="kt-table-col-label">Volgorde</span>
+                                                <span class="kt-table-col-label">{{ __('Volgorde') }}</span>
                                                 <span class="kt-table-col-sort">
                                                     @php $nextDir = ($currentSort === 'sort_order' && $currentDirection === 'asc') ? 'desc' : 'asc'; @endphp
                                                     <a href="{{ request()->fullUrlWithQuery(['sort' => 'sort_order', 'direction' => $currentSort === 'sort_order' ? $nextDir : 'asc']) }}" class="kt-table-col-sort-btn"></a>
                                                 </span>
                                             </span>
                                         </th>
-                                        <th class="w-[60px] text-center">Acties</th>
+                                        <th class="w-[60px] text-center">{{ __('Acties') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -208,9 +208,9 @@
                                             <td class="form-field-cell-link">
                                                 <a href="{{ route('admin.email-templates.form-fields.edit', $field) }}" class="block min-h-full py-2 no-underline text-inherit">
                                                     @if($field->is_required)
-                                                        <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
+                                                        <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Ja') }}</span>
                                                     @else
-                                                        <span class="kt-badge kt-badge-sm kt-badge-secondary">Nee</span>
+                                                        <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ __('Nee') }}</span>
                                                     @endif
                                                 </a>
                                             </td>
@@ -236,7 +236,7 @@
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-pencil"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Bewerken</span>
+                                                                    <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                                 </a>
                                                             </div>
                                                             <div class="kt-menu-separator"></div>
@@ -244,14 +244,14 @@
                                                                 <form action="{{ route('admin.email-templates.form-fields.destroy', $field) }}"
                                                                       method="POST"
                                                                       style="display: inline;"
-                                                                      onsubmit="return confirm('Weet u zeker dat u dit veld wilt verwijderen?');">
+                                                                      onsubmit="return confirm(@json(__('Weet u zeker dat u dit veld wilt verwijderen?')));">
                                                                     @csrf
                                                                     @method('DELETE')
                                                                     <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                         <span class="kt-menu-icon">
                                                                             <i class="ki-filled ki-trash"></i>
                                                                         </span>
-                                                                        <span class="kt-menu-title">Verwijderen</span>
+                                                                        <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                     </button>
                                                                 </form>
                                                             </div>
@@ -268,10 +268,10 @@
                         <!-- Pagination -->
                         <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                             <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                                Toon
+                                {{ __('Toon') }}
                                 <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                                 </select>
-                                per pagina
+                                {{ __('per pagina') }}
                             </div>
                             <div class="admin-datatable-footer__pagination">
                                 <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -282,11 +282,11 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen formuliervelden gevonden</h4>
-                        <p class="text-muted-foreground text-center mb-4">Voeg een veld toe of run de seeder voor de standaardvelden (Voornaam, Achternaam, E-mailadres, Telefoonnummer, Omschrijving).</p>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen formuliervelden gevonden') }}</h4>
+                        <p class="text-muted-foreground text-center mb-4">{{ __('Voeg een veld toe of run de seeder voor de standaardvelden (Voornaam, Achternaam, E-mailadres, Telefoonnummer, Omschrijving).') }}</p>
                         <a href="{{ route('admin.email-templates.form-fields.create') }}" class="kt-btn kt-btn-primary">
                             <i class="ki-filled ki-plus me-2"></i>
-                            Veld toevoegen
+                            {{ __('Veld toevoegen') }}
                         </a>
                     </div>
                 @endif
@@ -297,7 +297,7 @@
     <div class="mt-4">
         <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug naar E-mail templates
+            {{ __('Terug naar E-mail templates') }}
         </a>
     </div>
 </div>
@@ -307,6 +307,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         function replaceOfWithVan() {
+            if (@json(app()->getLocale() !== 'nl')) return;
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
@@ -356,12 +357,12 @@
 <style>
     .kt-table-col { display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; }
     .kt-table-col-sort { margin-left: auto !important; }
-    a[title="Filters resetten"] {
+    a#reset-filter-btn {
         display: inline-flex !important; visibility: visible !important; opacity: 1 !important;
         min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important;
         border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important;
     }
-    a[title="Filters resetten"]:hover { background-color: var(--accent) !important; color: var(--accent-foreground) !important; }
+    a#reset-filter-btn:hover { background-color: var(--accent) !important; color: var(--accent-foreground) !important; }
     .form-field-cell-link a { cursor: pointer; min-height: 100%; }
     .form-field-row { cursor: pointer !important; }
     .form-field-row:hover { background-color: var(--muted) !important; }

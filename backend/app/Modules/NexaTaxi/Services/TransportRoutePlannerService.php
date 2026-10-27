@@ -41,17 +41,17 @@ class TransportRoutePlannerService
         $warnings = [];
 
         if ($pickups === []) {
-            return ['stops' => [], 'warnings' => ['Geen actieve leden met ophaaladres in deze groep.'], 'departure_time' => null];
+            return ['stops' => [], 'warnings' => [__('Geen actieve leden met ophaaladres in deze groep.')], 'departure_time' => null];
         }
 
         $missingCoords = array_filter($pickups, fn (array $stop) => $stop['lat'] === null || $stop['lng'] === null);
         if ($missingCoords !== []) {
-            $warnings[] = count($missingCoords).' stop(s) zonder coördinaten; rijtijden zijn een schatting.';
+            $warnings[] = __(':count stop(s) zonder coördinaten; rijtijden zijn een schatting.', ['count' => count($missingCoords)]);
         }
 
         $destination = $this->buildDestinationStop($group);
         if ($destination['lat'] === null || $destination['lng'] === null) {
-            $warnings[] = 'Eindlocatie heeft geen coördinaten; rijtijden zijn een schatting.';
+            $warnings[] = __('Eindlocatie heeft geen coördinaten; rijtijden zijn een schatting.');
         }
 
         $orderedPickups = $this->orderPickups(
@@ -92,7 +92,7 @@ class TransportRoutePlannerService
         }
 
         if ($departureTime !== null && $departureTime < self::EARLY_DEPARTURE_WARNING) {
-            $warnings[] = 'Vertrek om '.substr($departureTime, 0, 5).' lijkt vroeg; controleer de route.';
+            $warnings[] = __('Vertrek om :time lijkt vroeg; controleer de route.', ['time' => substr($departureTime, 0, 5)]);
         }
 
         $sequence = 1;
@@ -175,7 +175,7 @@ class TransportRoutePlannerService
         }
 
         if ($departureTime !== null && $departureTime < self::EARLY_DEPARTURE_WARNING) {
-            $warnings[] = 'Vertrek om '.substr($departureTime, 0, 5).' lijkt vroeg; controleer de route.';
+            $warnings[] = __('Vertrek om :time lijkt vroeg; controleer de route.', ['time' => substr($departureTime, 0, 5)]);
         }
 
         $sequence = 1;
@@ -497,12 +497,12 @@ class TransportRoutePlannerService
         $warnings = [];
 
         if ($homes === []) {
-            return ['stops' => [], 'warnings' => ['Geen actieve leden met ophaaladres in deze groep.'], 'departure_time' => null];
+            return ['stops' => [], 'warnings' => [__('Geen actieve leden met ophaaladres in deze groep.')], 'departure_time' => null];
         }
 
         $school = $this->buildDestinationStop($group);
         if ($school['lat'] === null || $school['lng'] === null) {
-            $warnings[] = 'Schooladres heeft geen coördinaten; rijtijden zijn een schatting.';
+            $warnings[] = __('Schooladres heeft geen coördinaten; rijtijden zijn een schatting.');
         }
 
         $pickupTime = $this->normalizeTime($group->return_pickup_time ?? '15:00');
@@ -551,8 +551,11 @@ class TransportRoutePlannerService
         }
 
         if ($boardingDelayMinutes > 0) {
-            $warnings[] = 'Rit vertrekt '.substr($departSchoolTime, 0, 5)
-                .' (ophaal '.substr($pickupTime, 0, 5).' + '.$boardingDelayMinutes.' min instaptijd).';
+            $warnings[] = __('Rit vertrekt :depart (ophaal :pickup + :minutes min instaptijd).', [
+                'depart' => substr($departSchoolTime, 0, 5),
+                'pickup' => substr($pickupTime, 0, 5),
+                'minutes' => $boardingDelayMinutes,
+            ]);
         }
 
         return [

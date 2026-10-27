@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var tools = {};
     if (typeof window.Header !== 'undefined') {
-        tools.header = { class: window.Header, config: { placeholder: 'Kop', levels: [1, 2, 3], defaultLevel: 2 } };
+        tools.header = { class: window.Header, config: { placeholder: @json(__('Kop')), levels: [1, 2, 3], defaultLevel: 2 } };
     }
     if (typeof window.List !== 'undefined') {
         tools.list = { class: window.List, inlineToolbar: true, config: { defaultStyle: 'unordered' } };
@@ -47,10 +47,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tools.image = { class: window.SimpleImage, inlineToolbar: false };
     }
     if (typeof window.Quote !== 'undefined') {
-        tools.quote = { class: window.Quote, inlineToolbar: true, config: { quotePlaceholder: 'Citaat', captionPlaceholder: 'Bron' } };
+        tools.quote = { class: window.Quote, inlineToolbar: true, config: { quotePlaceholder: @json(__('Citaat')), captionPlaceholder: @json(__('Bron')) } };
     }
     if (typeof window.CodeTool !== 'undefined') {
-        tools.code = { class: window.CodeTool, config: { placeholder: 'Code plakken' } };
+        tools.code = { class: window.CodeTool, config: { placeholder: @json(__('Code plakken')) } };
     }
     if (typeof window.EditorJsImageAligned !== 'undefined') {
         tools.imageAligned = { class: window.EditorJsImageAligned };
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var editor = new EditorJS({
         holder: 'editorjs',
-        placeholder: 'Voeg blokken toe met de + knop: koppen, tekst, lijsten, tabellen, afbeeldingen (met uitlijning), slider, citaten, code.',
+        placeholder: {{ \Illuminate\Support\Js::from(__('Voeg blokken toe met de + knop: koppen, tekst, lijsten, tabellen, afbeeldingen (met uitlijning), slider, citaten, code.')) }},
         data: initialData || undefined,
         tools: tools,
         onChange: function() {

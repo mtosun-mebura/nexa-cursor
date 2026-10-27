@@ -1,19 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Individuele contractritten')
+@section('title', __('Individuele contractritten'))
 
 @section('content')
 @php
     $contractWorkspaceTab = 'ritten';
     $contractWorkspaceCounts = ['bookings' => $bookings->total()];
-    $workspaceTitle = 'Individuele ritten';
-    $workspaceSubtitle = 'Eenmalige of losse contractritten';
+    $workspaceTitle = __('Individuele ritten');
+    $workspaceSubtitle = __('Eenmalige of losse contractritten');
 @endphp
 @can('rides.create')
     @php
         $workspaceHeaderActions = view('taxi::admin.transport_customers.partials.contract-workspace-action-btn', [
             'url' => transport_admin_url_with_return(route('admin.taxi.transport_individual_bookings.create', [$customer->id, $contract->id]), url()->current()),
-            'label' => 'Nieuwe rit',
+            'label' => __('Nieuwe rit'),
             'primary' => true,
         ])->render();
     @endphp
@@ -28,15 +28,15 @@
             <form method="GET" class="flex flex-wrap gap-2 w-full sm:w-auto sm:ms-auto">
                 <label class="kt-input w-full sm:w-64">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input placeholder="Zoek passagier of adres..." type="text" name="search" value="{{ request('search') }}">
+                    <input placeholder="{{ __('Zoek passagier of adres...') }}" type="text" name="search" value="{{ request('search') }}">
                 </label>
                 <select class="kt-select w-full sm:w-40" name="status" onchange="this.form.submit()">
-                    <option value="">Alle statussen</option>
+                    <option value="">{{ __('Alle statussen') }}</option>
                     @foreach(\App\Modules\NexaTaxi\Models\TransportIndividualBooking::statusLabels() as $value => $label)
-                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+                        <option value="{{ $value }}" @selected(request('status') === $value)>{{ __($label) }}</option>
                     @endforeach
                 </select>
-                <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">Zoeken</button>
+                <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">{{ __('Zoeken') }}</button>
             </form>
         </div>
         <div class="kt-card-content p-0 min-w-0">
@@ -44,10 +44,10 @@
                 <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                     <thead>
                         <tr>
-                            <th>Passagier</th>
-                            <th>Ophalen</th>
-                            <th>Route</th>
-                            <th>Status</th>
+                            <th>{{ __('Passagier') }}</th>
+                            <th>{{ __('Ophalen') }}</th>
+                            <th>{{ __('Route') }}</th>
+                            <th>{{ __('Status') }}</th>
                             @can('rides.update')
                             <th></th>
                             @endcan
@@ -72,18 +72,18 @@
                             </td>
                             <td>
                                 @if($booking->status === 'planned')
-                                    <span class="kt-badge kt-badge-light kt-badge-sm">Gepland</span>
+                                    <span class="kt-badge kt-badge-light kt-badge-sm">{{ __('Gepland') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Geannuleerd</span>
+                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Geannuleerd') }}</span>
                                 @endif
                             </td>
                             @can('rides.update')
                             <td class="text-end">
                                 @if($booking->status === 'planned')
-                                <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.destroy', [$customer->id, $contract->id, $booking->id]) }}" class="inline" onclick="event.stopPropagation()" onsubmit="return confirm('Rit annuleren?');">
+                                <form method="POST" action="{{ route('admin.taxi.transport_individual_bookings.destroy', [$customer->id, $contract->id, $booking->id]) }}" class="inline" onclick="event.stopPropagation()" onsubmit="return confirm({{ Js::from(__('Rit annuleren?')) }});">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive" title="Annuleren" aria-label="Annuleren">
+                                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive" title="{{ __('Annuleren') }}" aria-label="{{ __('Annuleren') }}">
                                         <i class="ki-filled ki-trash"></i>
                                     </button>
                                 </form>
@@ -94,7 +94,7 @@
                         @empty
                         <tr>
                             <td colspan="{{ auth()->user()->can('rides.update') ? 5 : 4 }}" class="text-center text-muted-foreground py-8">
-                                Nog geen individuele contractritten.
+                                {{ __('Nog geen individuele contractritten.') }}
                             </td>
                         </tr>
                         @endforelse

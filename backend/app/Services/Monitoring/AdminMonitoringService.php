@@ -477,6 +477,59 @@ class AdminMonitoringService
         return preg_match(self::FINANCIAL_JOB_PATTERN, $haystack) === 1;
     }
 
+    public function isFinancialText(string $text): bool
+    {
+        return preg_match(self::FINANCIAL_JOB_PATTERN, $text) === 1;
+    }
+
+    /**
+     * Ids van vastgelopen, niet-financiële jobs.
+     *
+     * @return list<int>
+     */
+    public function stuckJobIds(): array
+    {
+        if (! $this->jobsTableExists()) {
+            return [];
+        }
+
+        $cutoff = now()->timestamp - $this->retryAfterSeconds();
+        $ids = [];
+        foreach ($this->jobsTable()->whereNotNull('reserved_at')->where('reserved_at', '<', $cutoff)->get(['id', 'payload']) as $job) {
+            if (! $this->isFinancialPayload((string) $job->payload)) {
+                $ids[] = (int) $job->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Uuids van mislukte, niet-financiële jobs (laatste 7 dagen) waarvan de klassenaam in de tekst voorkomt.
+     *
+     * @return list<string>
+     */
+    public function failedJobUuidsMatching(string $text): array
+    {
+        if (! $this->failedTableExists() || trim($text) === '') {
+            return [];
+        }
+
+        $uuids = [];
+        $query = $this->failedTable()->where('failed_at', '>=', now()->subDays(7))->get(['uuid', 'payload']);
+        foreach ($query as $job) {
+            $label = $this->jobLabel((string) $job->payload);
+            if ($label === 'Onbekende job' || $this->isFinancialPayload((string) $job->payload)) {
+                continue;
+            }
+            if (stripos($text, $label) !== false) {
+                $uuids[] = (string) $job->uuid;
+            }
+        }
+
+        return $uuids;
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

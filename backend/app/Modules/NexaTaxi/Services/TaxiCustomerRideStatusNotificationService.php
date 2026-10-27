@@ -13,7 +13,7 @@ class TaxiCustomerRideStatusNotificationService
 {
     public const LOG_CONTEXT_PREFIX = 'customer_status';
 
-    public const INVOICE_SENT_LABEL = 'Het factuur is naar je verstuurd.';
+    public const INVOICE_SENT_LABEL = 'De factuur is naar je verstuurd.';
 
     public function __construct(
         protected WhatsAppBookingMessageComposer $composer,

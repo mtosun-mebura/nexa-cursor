@@ -53,13 +53,13 @@ class InvoiceReminderService
         $email = trim($email);
         if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw ValidationException::withMessages([
-                'email' => ['Vul een geldig e-mailadres in.'],
+                'email' => [__('Vul een geldig e-mailadres in.')],
             ]);
         }
 
         if ($invoice->status === 'paid') {
             throw ValidationException::withMessages([
-                'email' => ['Deze factuur is al betaald; een aanmaning is niet nodig.'],
+                'email' => [__('Deze factuur is al betaald; een aanmaning is niet nodig.')],
             ]);
         }
 
@@ -229,7 +229,7 @@ class InvoiceReminderService
                 || str_contains($e->getMessage(), '550 5.7.1')) {
                 throw ValidationException::withMessages([
                     'email' => [
-                        'De mailserver weigert verzending. Controleer Mail Server Instellingen (From-adres / SMTP-gebruiker).',
+                        __('De mailserver weigert verzending. Controleer Mail Server Instellingen (From-adres / SMTP-gebruiker).'),
                     ],
                 ]);
             }

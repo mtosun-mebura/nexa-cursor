@@ -253,6 +253,7 @@ class AppBootstrapController extends Controller
                 'id' => $user->id,
                 'email' => $user->email,
                 'name' => trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: $user->email,
+                'is_super_admin' => $user->isSuperAdmin(),
             ],
             'capabilities' => $caps,
             'tokens' => $tokens,

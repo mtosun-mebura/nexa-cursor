@@ -399,7 +399,7 @@
      data-system-avatar="{{ \App\Models\GeneralSetting::nexaSuiteAvatarUrl() }}"
      id="notifications_drawer">
 	<div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-2.5 border-b border-border bg-background" id="notifications_header">
-		Notificaties
+		{{ __('Notificaties') }}
 		<button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-kt-drawer-dismiss="true">
 			<i class="ki-filled ki-cross"></i>
 		</button>
@@ -413,7 +413,7 @@
 				<div class="flex items-center justify-center py-10 px-5">
 					<div class="text-center">
 						<i class="ki-filled ki-notification text-4xl text-muted-foreground mb-3"></i>
-						<p class="text-sm text-muted-foreground">Laden...</p>
+						<p class="text-sm text-muted-foreground">{{ __('Laden...') }}</p>
 					</div>
 				</div>
 			</div>
@@ -421,10 +421,10 @@
 		<div class="border-t border-border shrink-0"></div>
 		<div class="grid grid-cols-2 p-5 gap-2.5 bg-background shrink-0" id="notifications_all_footer" style="display: grid;">
 			<button class="kt-btn kt-btn-sm kt-btn-outline justify-center" id="archive_all_btn">
-				Alles archiveren
+				{{ __('Alles archiveren') }}
 			</button>
 			<button class="kt-btn kt-btn-sm kt-btn-outline justify-center" id="mark_all_read_btn">
-				Alles als gelezen markeren
+				{{ __('Alles als gelezen markeren') }}
 			</button>
 		</div>
 	</div>
@@ -433,10 +433,10 @@
 	<div class="flex flex-col h-full bg-background" id="notification_detail_view" style="display: none;">
 		<div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-2.5 border-b border-border bg-background">
 			<div class="flex items-center gap-2.5">
-				<button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost back-to-list-btn" title="Terug">
+				<button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost back-to-list-btn" title="{{ __('Terug') }}">
 					<i class="ki-filled ki-arrow-left"></i>
 				</button>
-				<span id="notification_detail_title">Notificatie Details</span>
+				<span id="notification_detail_title">{{ __('Notificatie Details') }}</span>
 			</div>
 			<button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-dim shrink-0" data-kt-drawer-dismiss="true">
 				<i class="ki-filled ki-cross"></i>

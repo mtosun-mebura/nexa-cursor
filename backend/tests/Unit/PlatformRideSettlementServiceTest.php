@@ -58,6 +58,29 @@ class PlatformRideSettlementServiceTest extends TestCase
     }
 
     #[Test]
+    public function small_marketplace_ride_pays_the_mollie_based_minimum_fee(): void
+    {
+        $company = Company::query()->create(['name' => 'Claimer BV', 'is_active' => true]);
+        $ride = new RideRequest;
+        $ride->forceFill([
+            'company_id' => $company->id,
+            'fulfilling_company_id' => $company->id,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'final_price' => 4,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'settlement_status' => RideRequest::SETTLEMENT_ELIGIBLE,
+        ]);
+        $ride->id = 9003;
+
+        $b = app(PlatformRideSettlementService::class)->computeBreakdown($ride);
+
+        // Default (kaarttarief): 0,25 + 1,8% van 4 (0,072) + uitbetaling 0,25 = 0,572 -> 0,58; 10% = 0,40.
+        $this->assertSame(0.58, $b['nexa_fee_amount']);
+        $this->assertSame(3.42, $b['net_amount']);
+        $this->assertSame(3.42, $b['owner_share_amount']);
+    }
+
+    #[Test]
     public function network_breakdown_splits_net_between_owner_and_fulfiller(): void
     {
         $owner = Company::query()->create(['name' => 'Taxi A', 'is_active' => true]);

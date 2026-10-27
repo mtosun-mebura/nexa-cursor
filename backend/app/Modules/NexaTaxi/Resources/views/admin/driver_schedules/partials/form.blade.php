@@ -12,7 +12,7 @@
         $repeatUntilRaw = $repeatUntilRaw->format('Y-m-d');
     }
     $repeatUntilValue = old('repeat_until', $repeatUntilRaw ?? '');
-    $weekdayLabels = [1 => 'Ma', 2 => 'Di', 3 => 'Wo', 4 => 'Do', 5 => 'Vr', 6 => 'Za', 7 => 'Zo'];
+    $weekdayLabels = [1 => __('Ma'), 2 => __('Di'), 3 => __('Wo'), 4 => __('Do'), 5 => __('Vr'), 6 => __('Za'), 7 => __('Zo')];
     $selectedWeekdays = old('weekdays');
     if (! is_array($selectedWeekdays)) {
         $fromSchedule = $isEdit ? array_filter(array_map('intval', explode(',', (string) ($schedule->weekdays ?? '')))) : [];
@@ -31,16 +31,16 @@
 
 <div class="kt-card w-full min-w-0">
     <div class="kt-card-header px-5 py-5">
-        <h3 class="kt-card-title mb-0">Dienst</h3>
+        <h3 class="kt-card-title mb-0">{{ __('Dienst') }}</h3>
     </div>
     <div class="kt-card-content p-0">
         <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Chauffeur *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Chauffeur *') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="driver_id" class="kt-select w-full @error('driver_id') border-destructive @enderror" required @error('driver_id') data-server-error="1" @enderror>
-                            <option value="">Kies chauffeur</option>
+                            <option value="">{{ __('Kies chauffeur') }}</option>
                             @foreach($chauffeurs as $chauffeur)
                                 <option value="{{ $chauffeur->id }}" @selected($selectedDriverId === (int) $chauffeur->id)>
                                     {{ trim($chauffeur->first_name.' '.$chauffeur->last_name) }}
@@ -53,10 +53,10 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Voertuig *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Voertuig *') }}</td>
                     <td class="min-w-48 w-full">
                         <select name="vehicle_id" class="kt-select w-full @error('vehicle_id') border-destructive @enderror" required @error('vehicle_id') data-server-error="1" @enderror>
-                            <option value="">Kies voertuig</option>
+                            <option value="">{{ __('Kies voertuig') }}</option>
                             @foreach($vehicles as $vehicle)
                                 <option value="{{ $vehicle->id }}" @selected($selectedVehicleId === (int) $vehicle->id)>
                                     {{ $vehicle->fleetLabel() }}
@@ -69,14 +69,14 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Vanaf datum *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Vanaf datum *') }}</td>
                     <td class="min-w-48 w-full">
                         @include('taxi::admin.transport_customers.partials.date-picker-input', [
                             'name' => 'date',
                             'id' => 'driver-schedule-date',
                             'value' => $dateValue,
                             'wrapperClass' => 'admin-field-fit w-auto max-w-full',
-                            'placeholder' => 'Selecteer datum',
+                            'placeholder' => __('Selecteer datum'),
                             'required' => true,
                         ])
                         @error('date')
@@ -85,7 +85,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">Dagen *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Dagen *') }}</td>
                     <td class="min-w-48 w-full">
                         <div class="admin-weekday-picks" id="driver-schedule-weekdays">
                             @foreach($weekdayLabels as $iso => $label)
@@ -98,21 +98,21 @@
                                 </label>
                             @endforeach
                         </div>
-                        <p class="text-xs text-muted-foreground mt-2 mb-0">Kies de dagen vanaf de startdatum. Deze dagen herhalen wekelijks tot de dienst wordt verwijderd, of tot een einddatum als je die zet.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Kies de dagen vanaf de startdatum. Deze dagen herhalen wekelijks tot de dienst wordt verwijderd, of tot een einddatum als je die zet.') }}</p>
                         @error('weekdays')
                             <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="weekdays">{{ $message }}</div>
                         @enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Van *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Van *') }}</td>
                     <td class="min-w-48 w-full">
                         @include('taxi::admin.transport_customers.partials.time-picker-input', [
                             'name' => 'start_time',
                             'id' => 'driver-schedule-start-time',
                             'value' => $startTime,
                             'wrapperClass' => 'admin-field-fit w-auto max-w-full',
-                            'placeholder' => 'Starttijd',
+                            'placeholder' => __('Starttijd'),
                             'required' => true,
                         ])
                         @error('start_time')
@@ -121,14 +121,14 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Tot *</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Tot *') }}</td>
                     <td class="min-w-48 w-full">
                         @include('taxi::admin.transport_customers.partials.time-picker-input', [
                             'name' => 'end_time',
                             'id' => 'driver-schedule-end-time',
                             'value' => $endTime,
                             'wrapperClass' => 'admin-field-fit w-auto max-w-full',
-                            'placeholder' => 'Eindtijd',
+                            'placeholder' => __('Eindtijd'),
                             'required' => true,
                         ])
                         @error('end_time')
@@ -137,7 +137,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Einddatum</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Einddatum') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="kt-label flex items-center gap-2 mb-0">
                             <input type="checkbox"
@@ -146,13 +146,13 @@
                                    class="kt-checkbox"
                                    id="driver-schedule-repeat-weekly"
                                    @checked($repeatWeekly)>
-                            <span>Begrenzen met een einddatum</span>
+                            <span>{{ __('Begrenzen met een einddatum') }}</span>
                         </label>
-                        <p class="text-xs text-muted-foreground mt-2 mb-0">Niet aanvinken: de gekozen dagen lopen door tot je de dienst verwijdert. Aanvinken: je kunt een einddatum zetten.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Niet aanvinken: de gekozen dagen lopen door tot je de dienst verwijdert. Aanvinken: je kunt een einddatum zetten.') }}</p>
                     </td>
                 </tr>
                 <tr id="driver-schedule-repeat-until-row" class="{{ $repeatWeekly ? '' : 'hidden' }}">
-                    <td class="min-w-56 text-secondary-foreground font-normal">Herhalen tot</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Herhalen tot') }}</td>
                     <td class="min-w-48 w-full">
                         <div class="flex flex-wrap items-center gap-3">
                             @include('taxi::admin.transport_customers.partials.date-picker-input', [
@@ -160,28 +160,28 @@
                                 'id' => 'driver-schedule-repeat-until',
                                 'value' => $repeatUntilValue,
                                 'wrapperClass' => 'admin-field-fit admin-field-fit--until w-auto max-w-full',
-                                'placeholder' => 'Leeg = doorlopend',
+                                'placeholder' => __('Leeg = doorlopend'),
                             ])
                             <button type="button"
                                     id="driver-schedule-repeat-until-clear"
                                     class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-                                Wissen
+                                {{ __('Wissen') }}
                             </button>
                         </div>
-                        <p class="text-xs text-muted-foreground mt-2 mb-0 w-full max-w-none">Laat leeg of wis de datum om door te laten lopen tot de dienst wordt verwijderd.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0 w-full max-w-none">{{ __('Laat leeg of wis de datum om door te laten lopen tot de dienst wordt verwijderd.') }}</p>
                         @error('repeat_until')
                             <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="repeat_until">{{ $message }}</div>
                         @enderror
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">Notitie</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Notitie') }}</td>
                     <td class="min-w-48 w-full">
                         <textarea name="notes"
                                   rows="3"
                                   class="kt-input @error('notes') border-destructive @enderror"
                                   maxlength="2000"
-                                  placeholder="Optioneel">{{ $notesValue }}</textarea>
+                                  placeholder="{{ __('Optioneel') }}">{{ $notesValue }}</textarea>
                         @error('notes')
                             <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="notes">{{ $message }}</div>
                         @enderror

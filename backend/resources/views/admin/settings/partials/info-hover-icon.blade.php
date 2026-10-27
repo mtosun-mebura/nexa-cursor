@@ -11,7 +11,7 @@
 <span class="admin-info-hover shrink-0 inline-flex">
     <button type="button"
             class="admin-info-hover-trigger kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground"
-            aria-label="Meer informatie"
+            aria-label="{{ __('Meer informatie') }}"
             aria-describedby="{{ $id }}">
         <i class="ki-filled ki-information-2 admin-info-hover-icon" aria-hidden="true"></i>
     </button>

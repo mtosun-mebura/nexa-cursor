@@ -500,6 +500,9 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         ->name('ai-chat.message');
 
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('locale/{locale}', [\App\Http\Controllers\Admin\AdminLocaleController::class, 'switch'])
+        ->whereIn('locale', ['nl', 'en'])
+        ->name('locale.switch');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
     Route::middleware('role:super-admin')->group(function () {
@@ -531,6 +534,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::post('mislukt/{uuid}/herstart', [AdminMonitoringController::class, 'retryFailed'])
             ->whereUuid('uuid')
             ->name('jobs.retry');
+        Route::post('fouten/oplossen', [AdminMonitoringController::class, 'resolveErrors'])->name('errors.bulk-resolve');
         Route::post('fouten/{errorLog}/opgelost', [AdminMonitoringController::class, 'resolveError'])->name('errors.resolve');
     });
 
@@ -918,6 +922,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::get('werkwijze', [AdminNexaSuiteMarketplaceController::class, 'procedure'])->name('procedure');
             Route::get('settings', [AdminNexaSuiteMarketplaceController::class, 'settings'])->name('settings');
             Route::put('settings', [AdminNexaSuiteMarketplaceController::class, 'updateSettings'])->name('settings.update');
+            Route::post('settings/refresh-prices', [AdminNexaSuiteMarketplaceController::class, 'refreshFeePrices'])->name('settings.refresh-prices');
             Route::post('generate', [AdminNexaSuiteMarketplaceController::class, 'generate'])->name('generate');
             Route::post('run-now', [AdminNexaSuiteMarketplaceController::class, 'runNow'])->name('run-now');
             Route::post('run-dunning', [AdminNexaSuiteMarketplaceController::class, 'runDunning'])->name('run-dunning');
@@ -951,7 +956,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::post('tenants/{company}/invoice-preview-pdf', [AdminCompanyBillingProfileController::class, 'invoicePreviewPdf'])->name('tenants.invoice-preview-pdf');
             Route::post('tenants/{company}/mandate', [AdminCompanyBillingProfileController::class, 'requestMandate'])->name('tenants.mandate');
             Route::post('tenants/{company}/emergency-terminate', [AdminCompanyBillingProfileController::class, 'emergencyTerminate'])->name('tenants.emergency-terminate');
-            Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', 'Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.'))->name('mandates.return');
+            Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', __('Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.')))->name('mandates.return');
             Route::get('invoices', [AdminPlatformInvoiceController::class, 'index'])->name('invoices.index');
             Route::post('invoices/run-now', [AdminPlatformInvoiceController::class, 'runNow'])->name('invoices.run-now');
             Route::post('invoices/run-dunning', [AdminPlatformInvoiceController::class, 'runDunningNow'])->name('invoices.run-dunning');

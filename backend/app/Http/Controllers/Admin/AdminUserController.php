@@ -41,7 +41,7 @@ class AdminUserController extends Controller
     public function index(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+            abort(403, __('Je hebt geen rechten om gebruikers te bekijken.'));
         }
 
         $query = User::with(['company.modules', 'roles']);
@@ -138,7 +138,7 @@ class AdminUserController extends Controller
     public function create(\Illuminate\Http\Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers aan te maken.');
+            abort(403, __('Je hebt geen rechten om gebruikers aan te maken.'));
         }
 
         $user = auth()->user();
@@ -275,7 +275,7 @@ class AdminUserController extends Controller
         }
 
         $user = $user->fresh();
-        $success = 'Gebruiker succesvol aangemaakt.';
+        $success = __('Gebruiker succesvol aangemaakt.');
         $success .= ' '.$this->sendNewUserVerifications($user);
 
         $wizardBack = $request->validated()['wizard_back_url'] ?? null;
@@ -396,12 +396,12 @@ class AdminUserController extends Controller
     public function show(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+            abort(403, __('Je hebt geen rechten om gebruikers te bekijken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         $user->loadMissing('company.modules');
@@ -414,12 +414,12 @@ class AdminUserController extends Controller
     public function edit(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
+            abort(403, __('Je hebt geen rechten om gebruikers te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         $currentUser = auth()->user();
@@ -447,7 +447,7 @@ class AdminUserController extends Controller
     {
         // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         $validated = $request->validated();
@@ -505,33 +505,33 @@ class AdminUserController extends Controller
         $user->refresh();
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $validated['roles']);
 
-        return redirect()->route('admin.users.show', $user)->with('success', 'Gebruiker succesvol bijgewerkt.');
+        return redirect()->route('admin.users.show', $user)->with('success', __('Gebruiker succesvol bijgewerkt.'));
     }
 
     public function destroy(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te verwijderen.');
+            abort(403, __('Je hebt geen rechten om gebruikers te verwijderen.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         if ($user->id === auth()->id()) {
-            return back()->with('error', 'Je kunt jezelf niet verwijderen.');
+            return back()->with('error', __('Je kunt jezelf niet verwijderen.'));
         }
 
         $user->delete();
 
-        return redirect()->route('admin.users.index')->with('success', 'Gebruiker succesvol verwijderd.');
+        return redirect()->route('admin.users.index')->with('success', __('Gebruiker succesvol verwijderd.'));
     }
 
     public function bulkDestroy(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te verwijderen.');
+            abort(403, __('Je hebt geen rechten om gebruikers te verwijderen.'));
         }
 
         $data = $request->validate([
@@ -563,15 +563,15 @@ class AdminUserController extends Controller
         }
 
         if ($deleted > 0 && $skipped > 0) {
-            return redirect()->route('admin.users.index')->with('warning', $deleted.' gebruiker(s) verwijderd. '.$skipped.' overgeslagen.');
+            return redirect()->route('admin.users.index')->with('warning', __(':deleted gebruiker(s) verwijderd. :skipped overgeslagen.', ['deleted' => $deleted, 'skipped' => $skipped]));
         }
         if ($deleted > 0) {
             return redirect()->route('admin.users.index')->with('success', $deleted === 1
-                ? 'Gebruiker succesvol verwijderd.'
-                : $deleted.' gebruikers succesvol verwijderd.');
+                ? __('Gebruiker succesvol verwijderd.')
+                : __(':count gebruikers succesvol verwijderd.', ['count' => $deleted]));
         }
 
-        return redirect()->route('admin.users.index')->with('error', 'Geen gebruikers verwijderd.');
+        return redirect()->route('admin.users.index')->with('error', __('Geen gebruikers verwijderd.'));
     }
 
     public function assignRole(Request $request, User $user)
@@ -582,16 +582,16 @@ class AdminUserController extends Controller
         ]);
 
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         if (! auth()->user()->canEditRolesOf($user)) {
-            return back()->withErrors(['roles' => 'Alleen een super-admin mag rollen wijzigen. Je kunt je eigen rollen niet aanpassen.']);
+            return back()->withErrors(['roles' => __('Alleen een super-admin mag rollen wijzigen. Je kunt je eigen rollen niet aanpassen.')]);
         }
 
         $roles = $request->input('roles', []);
         if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
-            return back()->withErrors(['roles' => 'Je mag geen super-admin rol toewijzen.']);
+            return back()->withErrors(['roles' => __('Je mag geen super-admin rol toewijzen.')]);
         }
 
         if ($user->company_id) {
@@ -605,18 +605,18 @@ class AdminUserController extends Controller
 
         app(UserRoleAssignmentService::class)->syncWebRoles($user, $roles);
 
-        return back()->with('success', 'Rollen succesvol toegewezen.');
+        return back()->with('success', __('Rollen succesvol toegewezen.'));
     }
 
     public function photo(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikersfoto\'s te bekijken.');
+            abort(403, __('Je hebt geen rechten om gebruikersfoto\'s te bekijken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         if (! $user->photo_blob) {
@@ -637,20 +637,20 @@ class AdminUserController extends Controller
     public function forceLogout(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
-            abort(403, 'Je hebt geen rechten om gebruikers uit te loggen.');
+            abort(403, __('Je hebt geen rechten om gebruikers uit te loggen.'));
         }
 
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         if ((int) $user->id === (int) auth()->id()) {
-            return back()->with('error', 'Je kunt jezelf niet op afstand uitloggen.');
+            return back()->with('error', __('Je kunt jezelf niet op afstand uitloggen.'));
         }
 
         $this->revokeUserLogins($user);
 
-        return back()->with('success', 'Gebruiker is op alle apparaten uitgelogd.');
+        return back()->with('success', __('Gebruiker is op alle apparaten uitgelogd.'));
     }
 
     private function revokeUserLogins(User $user): void
@@ -681,10 +681,10 @@ class AdminUserController extends Controller
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Je hebt geen rechten om gebruikers te bewerken.',
+                    'message' => __('Je hebt geen rechten om gebruikers te bewerken.'),
                 ], 403);
             }
-            abort(403, 'Je hebt geen rechten om gebruikers te bewerken.');
+            abort(403, __('Je hebt geen rechten om gebruikers te bewerken.'));
         }
 
         // Check if user can access this resource
@@ -692,10 +692,10 @@ class AdminUserController extends Controller
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Je hebt geen toegang tot deze gebruiker.',
+                    'message' => __('Je hebt geen toegang tot deze gebruiker.'),
                 ], 403);
             }
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         // Prevent users from deactivating themselves
@@ -703,11 +703,11 @@ class AdminUserController extends Controller
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Je kunt jezelf niet deactiveren.',
+                    'message' => __('Je kunt jezelf niet deactiveren.'),
                 ], 403);
             }
 
-            return back()->with('error', 'Je kunt jezelf niet deactiveren.');
+            return back()->with('error', __('Je kunt jezelf niet deactiveren.'));
         }
 
         // Toggle is_active to activate/deactivate user (email_verified_at remains unchanged)
@@ -770,11 +770,11 @@ class AdminUserController extends Controller
                     if ($isAjax) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'De is_active kolom bestaat niet. Voer handmatig uit: ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true;',
+                            'message' => __('De is_active kolom bestaat niet. Voer handmatig uit: ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT true;'),
                         ], 500);
                     }
 
-                    return back()->with('error', 'De is_active kolom bestaat niet.');
+                    return back()->with('error', __('De is_active kolom bestaat niet.'));
                 }
             }
 
@@ -803,14 +803,14 @@ class AdminUserController extends Controller
             }
 
             $user->refresh(); // Refresh after update to get new state
-            $status = $user->is_active ? 'geactiveerd' : 'gedeactiveerd';
+            $status = $user->is_active ? __('geactiveerd') : __('gedeactiveerd');
             $isActive = $user->is_active;
 
             // Always return JSON for AJAX requests
             if ($isAjax) {
                 return response()->json([
                     'success' => true,
-                    'message' => "Gebruiker '{$user->first_name} {$user->last_name}' is succesvol {$status}.",
+                    'message' => __('Gebruiker \':name\' is succesvol :status.', ['name' => $user->first_name.' '.$user->last_name, 'status' => $status]),
                     'is_active' => $isActive,
                 ], 200);
             }
@@ -822,15 +822,15 @@ class AdminUserController extends Controller
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Er is een fout opgetreden: '.$e->getMessage(),
+                    'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
                 ], 500);
             }
 
-            return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
+            return back()->with('error', __('Er is een fout opgetreden bij het wijzigen van de status.'));
         }
 
         return redirect()->route('admin.users.index')
-            ->with('success', "Gebruiker '{$user->first_name} {$user->last_name}' is succesvol {$status}.");
+            ->with('success', __('Gebruiker \':name\' is succesvol :status.', ['name' => $user->first_name.' '.$user->last_name, 'status' => $status]));
     }
 
     /**
@@ -839,55 +839,55 @@ class AdminUserController extends Controller
     public function sendActivationLink(User $user)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
-            abort(403, 'Je hebt geen rechten om activatielinks te versturen.');
+            abort(403, __('Je hebt geen rechten om activatielinks te versturen.'));
         }
 
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
 
         if ($user->email_verified_at) {
-            return back()->with('error', 'Deze gebruiker is al geverifieerd.');
+            return back()->with('error', __('Deze gebruiker is al geverifieerd.'));
         }
 
         try {
             $this->dispatchEmailVerification($user);
 
-            return back()->with('success', 'Activatielink is succesvol verzonden naar '.$user->email.'.');
+            return back()->with('success', __('Activatielink is succesvol verzonden naar :email.', ['email' => $user->email]));
         } catch (\Exception $e) {
             \Log::error('Error sending activation link: '.$e->getMessage());
 
-            return back()->with('error', 'Er is een fout opgetreden bij het versturen van de activatielink: '.$e->getMessage());
+            return back()->with('error', __('Er is een fout opgetreden bij het versturen van de activatielink: :error', ['error' => $e->getMessage()]));
         }
     }
 
     public function sendPhoneVerification(User $user, TaxiCustomerSmsService $sms)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-users')) {
-            abort(403, 'Je hebt geen rechten om verificatie te versturen.');
+            abort(403, __('Je hebt geen rechten om verificatie te versturen.'));
         }
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
         if ($user->phone_verified_at) {
-            return back()->with('error', 'Dit telefoonnummer is al geverifieerd.');
+            return back()->with('error', __('Dit telefoonnummer is al geverifieerd.'));
         }
         $phone = trim((string) ($user->phone ?? ''));
         if ($phone === '') {
-            return back()->with('error', 'Deze gebruiker heeft geen telefoonnummer.');
+            return back()->with('error', __('Deze gebruiker heeft geen telefoonnummer.'));
         }
 
         try {
             $viaSms = $this->dispatchPhoneVerification($user, $sms);
             if ($viaSms) {
-                return back()->with('success', 'Verificatie is verzonden via sms naar '.$phone.'.');
+                return back()->with('success', __('Verificatie is verzonden via sms naar :phone.', ['phone' => $phone]));
             }
 
-            return back()->with('success', 'Verificatie voor '.$phone.' is verzonden naar '.$user->email.'.');
+            return back()->with('success', __('Verificatie voor :phone is verzonden naar :email.', ['phone' => $phone, 'email' => $user->email]));
         } catch (\Exception $e) {
             \Log::error('Error sending phone verification: '.$e->getMessage());
 
-            return back()->with('error', 'Er is een fout opgetreden bij het versturen van de telefoonverificatie: '.$e->getMessage());
+            return back()->with('error', __('Er is een fout opgetreden bij het versturen van de telefoonverificatie: :error', ['error' => $e->getMessage()]));
         }
     }
 
@@ -895,28 +895,28 @@ class AdminUserController extends Controller
     {
         $this->assertSuperAdminCanVerify($user);
         if ($user->email_verified_at) {
-            return back()->with('error', 'Dit e-mailadres is al geverifieerd.');
+            return back()->with('error', __('Dit e-mailadres is al geverifieerd.'));
         }
 
         $user->forceFill(['email_verified_at' => now()])->save();
         $this->sendOfficialWelcomeAfterVerification($user);
 
-        return back()->with('success', 'E-mailadres is handmatig geverifieerd.');
+        return back()->with('success', __('E-mailadres is handmatig geverifieerd.'));
     }
 
     public function markPhoneVerified(User $user)
     {
         $this->assertSuperAdminCanVerify($user);
         if (trim((string) ($user->phone ?? '')) === '') {
-            return back()->with('error', 'Deze gebruiker heeft geen telefoonnummer.');
+            return back()->with('error', __('Deze gebruiker heeft geen telefoonnummer.'));
         }
         if ($user->phone_verified_at) {
-            return back()->with('error', 'Dit telefoonnummer is al geverifieerd.');
+            return back()->with('error', __('Dit telefoonnummer is al geverifieerd.'));
         }
 
         $user->forceFill(['phone_verified_at' => now()])->save();
 
-        return back()->with('success', 'Telefoonnummer is handmatig geverifieerd.');
+        return back()->with('success', __('Telefoonnummer is handmatig geverifieerd.'));
     }
 
     public function verifyPhone(Request $request, User $user)
@@ -952,10 +952,10 @@ class AdminUserController extends Controller
         $parts = [];
         try {
             $this->dispatchEmailVerification($user);
-            $parts[] = 'Er is een verificatielink naar het e-mailadres gestuurd.';
+            $parts[] = __('Er is een verificatielink naar het e-mailadres gestuurd.');
         } catch (\Throwable $e) {
             report($e);
-            $parts[] = 'De verificatiemail kon niet worden verzonden.';
+            $parts[] = __('De verificatiemail kon niet worden verzonden.');
         }
 
         $phone = trim((string) ($user->phone ?? ''));
@@ -966,11 +966,11 @@ class AdminUserController extends Controller
         try {
             $viaSms = $this->dispatchPhoneVerification($user, app(TaxiCustomerSmsService::class));
             $parts[] = $viaSms
-                ? 'Er is een verificatielink naar het telefoonnummer gestuurd via sms.'
-                : 'Er is een verificatielink voor het telefoonnummer naar het e-mailadres gestuurd.';
+                ? __('Er is een verificatielink naar het telefoonnummer gestuurd via sms.')
+                : __('Er is een verificatielink voor het telefoonnummer naar het e-mailadres gestuurd.');
         } catch (\Throwable $e) {
             report($e);
-            $parts[] = 'De telefoonverificatie kon niet worden verzonden.';
+            $parts[] = __('De telefoonverificatie kon niet worden verzonden.');
         }
 
         return implode(' ', $parts);
@@ -1138,10 +1138,10 @@ class AdminUserController extends Controller
     private function assertSuperAdminCanVerify(User $user): void
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen een super-admin kan verificatie handmatig afronden.');
+            abort(403, __('Alleen een super-admin kan verificatie handmatig afronden.'));
         }
         if (! $this->canAccessResource($user)) {
-            abort(403, 'Je hebt geen toegang tot deze gebruiker.');
+            abort(403, __('Je hebt geen toegang tot deze gebruiker.'));
         }
     }
 

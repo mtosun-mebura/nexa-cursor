@@ -7,6 +7,7 @@ import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
+import { DemoProvider, useDemo } from './src/demo/DemoContext';
 import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
 import { parseAppDeepLink } from './src/linking';
 import { LocaleProvider } from './src/i18n';
@@ -35,6 +36,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function RootNavigator() {
   const { ready, session, activeScreen, capabilities } = useAuth();
   const { colors, colorScheme } = useTheme();
+  const demo = useDemo();
   const [guestRoute, setGuestRoute] = useState<GuestRoute | null>(null);
   const hadSessionRef = React.useRef(false);
 
@@ -133,7 +135,12 @@ function RootNavigator() {
   const showDriver = screenKey === 'driver';
   const showContract = screenKey === 'contract';
 
-  const initialRouteName: keyof RootStackParamList = showDriver
+  // Superadmin-demo: Boeken openen vanuit het chauffeurs-/contractprofiel.
+  const demoBooking = demo.bookingOpen && (showDriver || showContract);
+
+  const initialRouteName: keyof RootStackParamList = demoBooking
+    ? 'Customer'
+    : showDriver
     ? 'Driver'
     : showContract
       ? 'Contract'
@@ -157,7 +164,11 @@ function RootNavigator() {
           contentStyle: { flex: 1, backgroundColor: colors.bg },
         }}
       >
-        {showDriver ? (
+        {demoBooking ? (
+          <Stack.Screen name="Customer">
+            {() => <CustomerHomeScreen onBack={() => demo.setBookingOpen(false)} />}
+          </Stack.Screen>
+        ) : showDriver ? (
           <Stack.Screen name="Driver" component={DriverHomeScreen} />
         ) : showContract ? (
           <Stack.Screen name="Contract" component={ContractHomeScreen} />
@@ -224,9 +235,11 @@ function AppShell() {
         <NavigationBar style={colorScheme === 'light' ? 'dark' : 'light'} />
       ) : null}
       <AuthProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-          <RootNavigator />
-        </SafeAreaView>
+        <DemoProvider>
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+            <RootNavigator />
+          </SafeAreaView>
+        </DemoProvider>
       </AuthProvider>
     </>
   );

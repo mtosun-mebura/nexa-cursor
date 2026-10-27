@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Tenant facturatie — '.$company->name)
+@section('title', __('Tenant facturatie').' — '.$company->name)
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
@@ -10,13 +10,13 @@
                 {{ $company->name }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                SaaS-abonnement en incasso
+                {{ __('SaaS-abonnement en incasso') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.platform-billing.tenants.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -33,29 +33,29 @@
 
             <div class="kt-card w-full min-w-0 overflow-x-clip">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Abonnement & facturatie</h3>
+                    <h3 class="kt-card-title">{{ __('Abonnement & facturatie') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tbody>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Facturatiemodus</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Facturatiemodus') }}</td>
                             <td class="min-w-48 w-full">
                                 <select name="billing_mode" class="kt-select w-full" id="billing_mode" data-invoice-preview-trigger>
-                                    <option value="package" @selected(old('billing_mode', $profile->billing_mode) === 'package')>Vast pakket</option>
-                                    <option value="custom" @selected(old('billing_mode', $profile->billing_mode) === 'custom')>Maatwerk bedrag</option>
-                                    <option value="free" @selected(old('billing_mode', $profile->billing_mode) === 'free')>Gratis</option>
+                                    <option value="package" @selected(old('billing_mode', $profile->billing_mode) === 'package')>{{ __('Vast pakket') }}</option>
+                                    <option value="custom" @selected(old('billing_mode', $profile->billing_mode) === 'custom')>{{ __('Maatwerk bedrag') }}</option>
+                                    <option value="free" @selected(old('billing_mode', $profile->billing_mode) === 'free')>{{ __('Gratis') }}</option>
                                 </select>
                             </td>
                         </tr>
                         <tr data-billing-field-row="package">
-                            <td class="text-secondary-foreground font-normal align-top">Pakket</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Pakket') }}</td>
                             <td>
                                 @php
                                     $companyPackageName = $profile->resolvedPackageName();
                                     $companyPackageAmount = $profile->subscriptionBaseAmount();
                                 @endphp
-                                <div class="text-sm font-medium text-foreground mb-2">{{ $companyPackageName ?: 'Geen pakket' }}</div>
+                                <div class="text-sm font-medium text-foreground mb-2">{{ $companyPackageName ?: __('Geen pakket') }}</div>
                                 <div class="inline-flex items-stretch">
                                     <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
                                     <input class="kt-input rounded-l-none tabular-nums bg-muted/40"
@@ -66,15 +66,15 @@
                                            value="{{ number_format($companyPackageAmount, 2, ',', '.') }}"
                                            style="width: 7.5rem; max-width: 7.5rem;">
                                 </div>
-                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">Komt uit het pakket van dit bedrijf. Wijzig het bij <a href="{{ route('admin.companies.edit', $company) }}" class="underline underline-offset-2">Bedrijf bewerken</a>. Prijzen komen uit <a href="{{ route('admin.nexa-pricing.edit') }}" class="underline underline-offset-2">Paketten</a>.</p>
+                                <p class="text-xs text-muted-foreground mt-1.5 mb-0">{!! __('Komt uit het pakket van dit bedrijf. Wijzig het bij :company_link. Prijzen komen uit :packages_link.', ['company_link' => '<a href="'.e(route('admin.companies.edit', $company)).'" class="underline underline-offset-2">'.e(__('Bedrijf bewerken')).'</a>', 'packages_link' => '<a href="'.e(route('admin.nexa-pricing.edit')).'" class="underline underline-offset-2">'.e(__('Paketten')).'</a>']) !!}</p>
                             </td>
                         </tr>
                         <tr data-billing-field-row="package">
-                            <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Aanvullende modules') }}</td>
                             <td>
                                 @php $addonLines = $profile->packageAddonLines(now(), false); @endphp
                                 @if($addonLines === [])
-                                    <p class="text-sm text-muted-foreground mb-0">Geen aanvullende modules. Stel ze in bij <a href="{{ route('admin.companies.edit', $company) }}" class="underline underline-offset-2">Bedrijf bewerken</a>.</p>
+                                    <p class="text-sm text-muted-foreground mb-0">{!! __('Geen aanvullende modules. Stel ze in bij :company_link.', ['company_link' => '<a href="'.e(route('admin.companies.edit', $company)).'" class="underline underline-offset-2">'.e(__('Bedrijf bewerken')).'</a>']) !!}</p>
                                 @else
                                     <div class="space-y-2">
                                         @foreach($addonLines as $addonLine)
@@ -82,24 +82,24 @@
                                                 <div class="min-w-0">
                                             <div class="text-sm font-medium text-foreground">{{ $addonLine['name'] }}</div>
                                             @if((int) $addonLine['quantity'] > 1)
-                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ (int) $addonLine['quantity'] }} × € {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ __(':quantity × € :price / maand', ['quantity' => (int) $addonLine['quantity'], 'price' => number_format((float) $addonLine['unit_price'], 2, ',', '.')]) }}</p>
                                             @else
-                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">€ {{ number_format((float) $addonLine['unit_price'], 2, ',', '.') }} / maand</p>
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ __('€ :price / maand', ['price' => number_format((float) $addonLine['unit_price'], 2, ',', '.')]) }}</p>
                                             @endif
                                             @if(! empty($addonLine['starts_at']) && (int) ($addonLine['quantity'] ?? 0) > 0)
-                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">Ingang {{ \Carbon\Carbon::parse($addonLine['starts_at'])->translatedFormat('j F Y') }}</p>
+                                                <p class="text-xs text-muted-foreground mt-0.5 mb-0">{{ __('Ingang :date', ['date' => \Carbon\Carbon::parse($addonLine['starts_at'])->translatedFormat('j F Y')]) }}</p>
                                             @endif
                                                 </div>
                                                 <span class="text-sm font-medium tabular-nums text-foreground">€ {{ number_format((float) $addonLine['total'], 2, ',', '.') }}</span>
                                             </div>
                                         @endforeach
                                     </div>
-                                    <p class="text-xs text-muted-foreground mt-2 mb-0">Deze modules komen als aparte regels op de factuur, bovenop de pakketprijs.</p>
+                                    <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Deze modules komen als aparte regels op de factuur, bovenop de pakketprijs.') }}</p>
                                 @endif
                             </td>
                         </tr>
                         <tr data-billing-field-row="custom">
-                            <td class="text-secondary-foreground font-normal align-top">Maatwerk maandbedrag (excl. BTW)</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Maatwerk maandbedrag (excl. BTW)') }}</td>
                             <td>
                                 <div class="inline-flex items-stretch platform-billing-monthly-amount">
                                     <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
@@ -117,7 +117,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Korting abonnement</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Korting abonnement') }}</td>
                             <td>
                                 <div class="inline-flex items-stretch platform-billing-percent-input">
                                     <input class="kt-input rounded-r-none tabular-nums platform-billing-percent-input__field @error('discount_percent') border-destructive @enderror"
@@ -137,7 +137,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Ingangsdatum</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Ingangsdatum') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <div class="kt-input w-full max-w-xs @error('subscription_start_date') border-destructive @enderror">
                                     <i class="ki-outline ki-calendar"></i>
@@ -146,7 +146,7 @@
                                            id="subscription_start_date"
                                            type="text"
                                            readonly
-                                           placeholder="Selecteer datum"
+                                           placeholder="{{ __('Selecteer datum') }}"
                                            value="{{ admin_date_picker_display(old('subscription_start_date', $profile->subscription_start_date)) }}"
                                            data-kt-date-picker="true"
                                            data-kt-date-picker-input-mode="true"
@@ -156,13 +156,13 @@
                                            data-mollie-preview-trigger>
                                 </div>
                                 <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                    Vanaf wanneer het abonnement loopt. Start u midden in de maand, dan is de eerste incasso pro rata plus de volgende maand vooruit.
+                                    {{ __('Vanaf wanneer het abonnement loopt. Start u midden in de maand, dan is de eerste incasso pro rata plus de volgende maand vooruit.') }}
                                 </p>
                                 @error('subscription_start_date')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Einddatum</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Einddatum') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <div class="kt-input w-full max-w-xs @error('subscription_end_date') border-destructive @enderror">
                                     <i class="ki-outline ki-calendar"></i>
@@ -171,7 +171,7 @@
                                            id="subscription_end_date"
                                            type="text"
                                            readonly
-                                           placeholder="Selecteer datum"
+                                           placeholder="{{ __('Selecteer datum') }}"
                                            value="{{ admin_date_picker_display(old('subscription_end_date', $profile->subscription_end_date)) }}"
                                            data-kt-date-picker="true"
                                            data-kt-date-picker-input-mode="true"
@@ -181,25 +181,25 @@
                                            data-mollie-preview-trigger>
                                 </div>
                                 <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                    Optioneel. Laatste incasso op de 1e van de maand vóór deze datum; daarna wordt de Mollie-subscription automatisch beëindigd.
+                                    {{ __('Optioneel. Laatste incasso op de 1e van de maand vóór deze datum; daarna wordt de Mollie-subscription automatisch beëindigd.') }}
                                 </p>
                                 @error('subscription_end_date')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Facturatie-e-mail</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Facturatie-e-mail') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <input type="email" name="billing_email" class="kt-input w-full" value="{{ old('billing_email', $profile->billing_email ?: $company->email) }}">
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Contactpersoon</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Contactpersoon') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <input type="text" name="billing_contact_name" id="billing_contact_name" class="kt-input w-full" data-invoice-preview-trigger value="{{ old('billing_contact_name', $profile->billing_contact_name) }}">
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Incasso</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Incasso') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <label class="kt-label flex items-center gap-2" for="auto_collect_enabled">
                                     <input class="kt-switch kt-switch-sm"
@@ -209,14 +209,14 @@
                                            value="1"
                                            data-mollie-preview-trigger
                                            @checked(old('auto_collect_enabled', $profile->auto_collect_enabled))>
-                                    <span>Automatisch incasseren via mandaat</span>
+                                    <span>{{ __('Automatisch incasseren via mandaat') }}</span>
                                 </label>
                                 <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                    Maandelijkse incasso op de 1e via Mollie, na het afgeven van het mandaat.
+                                    {{ __('Maandelijkse incasso op de 1e via Mollie, na het afgeven van het mandaat.') }}
                                 </p>
                                 @if($profile->mollie_subscription_id)
                                     <div class="text-xs text-muted-foreground mt-2">
-                                        Mollie subscription: <span class="font-mono">{{ $profile->mollie_subscription_id }}</span>
+                                        {!! __('Mollie subscription: :id', ['id' => '<span class="font-mono">'.e($profile->mollie_subscription_id).'</span>']) !!}
                                         @if($profile->mollie_subscription_status)
                                             ({{ $profile->mollie_subscription_status }})
                                         @endif
@@ -225,7 +225,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Notities</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Notities') }}</td>
                             <td class="min-w-48 w-full min-w-0">
                                 <textarea name="notes" id="notes" class="kt-input w-full" rows="3" data-invoice-preview-trigger>{{ old('notes', $profile->notes) }}</textarea>
                             </td>
@@ -243,42 +243,42 @@
             @endphp
             <div class="kt-card w-full min-w-0 overflow-x-clip">
                 <div class="kt-card-header px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Blokkade bij wanbetaling</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Blokkade bij wanbetaling') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tbody>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Na 2e aanmaning</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Na 2e aanmaning') }}</td>
                             <td class="min-w-48 w-full">
                                 <select name="overdue_block_mode" id="overdue_block_mode" class="kt-select w-full @error('overdue_block_mode') border-destructive @enderror">
-                                    <option value="bookings" @selected(old('overdue_block_mode', $profile->overdue_block_mode ?: 'bookings') === 'bookings')>Alleen boekingsmodule blokkeren</option>
-                                    <option value="full" @selected(old('overdue_block_mode', $profile->overdue_block_mode) === 'full')>Volledige blokkade (website, admin, apps)</option>
+                                    <option value="bookings" @selected(old('overdue_block_mode', $profile->overdue_block_mode ?: 'bookings') === 'bookings')>{{ __('Alleen boekingsmodule blokkeren') }}</option>
+                                    <option value="full" @selected(old('overdue_block_mode', $profile->overdue_block_mode) === 'full')>{{ __('Volledige blokkade (website, admin, apps)') }}</option>
                                 </select>
                                 <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                    De termijnen voor 1e en 2e aanmaning stel je in onder NEXA-facturatie-instellingen. Na de 2e aanmaning volgt deze blokkade. De boekingsmodule op de website gaat uit bij de eerste optie.
+                                    {{ __('De termijnen voor 1e en 2e aanmaning stel je in onder NEXA-facturatie-instellingen. Na de 2e aanmaning volgt deze blokkade. De boekingsmodule op de website gaat uit bij de eerste optie.') }}
                                 </p>
                                 @error('overdue_block_mode')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Huidige toegang</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Huidige toegang') }}</td>
                             <td class="min-w-48 w-full">
                                 <select name="access_restriction" id="access_restriction" class="kt-select w-full @error('access_restriction') border-destructive @enderror">
-                                    <option value="none" @selected($currentRestriction === 'none')>Geen blokkade</option>
-                                    <option value="bookings" @selected($currentRestriction === 'bookings')>Boekingsmodule geblokkeerd</option>
-                                    <option value="full" @selected($currentRestriction === 'full')>Volledig geblokkeerd</option>
+                                    <option value="none" @selected($currentRestriction === 'none')>{{ __('Geen blokkade') }}</option>
+                                    <option value="bookings" @selected($currentRestriction === 'bookings')>{{ __('Boekingsmodule geblokkeerd') }}</option>
+                                    <option value="full" @selected($currentRestriction === 'full')>{{ __('Volledig geblokkeerd') }}</option>
                                 </select>
                                 @if($profile->access_restricted_at)
                                     <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                        Actief sinds {{ $profile->access_restricted_at->format('d-m-Y H:i') }}
+                                        {{ __('Actief sinds :date', ['date' => $profile->access_restricted_at->format('d-m-Y H:i')]) }}
                                         @if($profile->access_restriction_source)
-                                            ({{ $profile->access_restriction_source === 'manual' ? 'handmatig' : 'automatisch na aanmaningen' }})
+                                            ({{ $profile->access_restriction_source === 'manual' ? __('handmatig') : __('automatisch na aanmaningen') }})
                                         @endif
                                     </p>
                                 @else
                                     <p class="platform-billing-field-hint text-xs text-muted-foreground mt-1.5 mb-0">
-                                        Kies hier een blokkade om die nu te zetten, of “Geen blokkade” om een automatische blokkade op te heffen.
+                                        {{ __('Kies hier een blokkade om die nu te zetten, of “Geen blokkade” om een automatische blokkade op te heffen.') }}
                                     </p>
                                 @endif
                                 @error('access_restriction')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
@@ -291,13 +291,13 @@
 
             <div class="kt-card w-full min-w-0 overflow-x-clip">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Extra factuurregels</h3>
+                    <h3 class="kt-card-title">{{ __('Extra factuurregels') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tbody>
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Regels</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Regels') }}</td>
                             <td class="min-w-48 w-full">
                                 @php
                                     $selectedLineItemIds = collect(old('platform_billing_line_item_ids', $profile->lineItems->pluck('id')->all()))
@@ -309,13 +309,13 @@
                                     'selectedLineItemIds' => $selectedLineItemIds,
                                 ])
                                 <div class="text-xs text-muted-foreground mt-2.5">
-                                    Klik op een regel om deze toe te voegen of te verwijderen.
-                                    <a href="{{ route('admin.platform-billing.line-items.index') }}" class="text-primary hover:underline">Beheer factuurregels</a>
+                                    {{ __('Klik op een regel om deze toe te voegen of te verwijderen.') }}
+                                    <a href="{{ route('admin.platform-billing.line-items.index') }}" class="text-primary hover:underline">{{ __('Beheer factuurregels') }}</a>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Korting factuurregels</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Korting factuurregels') }}</td>
                             <td>
                                 <div class="inline-flex items-stretch platform-billing-percent-input">
                                     <input class="kt-input rounded-r-none tabular-nums platform-billing-percent-input__field @error('extra_lines_discount_percent') border-destructive @enderror"
@@ -332,13 +332,13 @@
                                     <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-l-0 rounded-r-md bg-muted/50 text-sm font-medium text-foreground">%</span>
                                 </div>
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Korting op de geselecteerde extra factuurregels (niet op het abonnement).
+                                    {{ __('Korting op de geselecteerde extra factuurregels (niet op het abonnement).') }}
                                 </div>
                                 @error('extra_lines_discount_percent')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Eenmalig</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Eenmalig') }}</td>
                             <td>
                                 <label class="kt-label flex items-center gap-2" for="extra_lines_one_time">
                                     <input class="kt-switch kt-switch-sm"
@@ -348,15 +348,15 @@
                                            data-invoice-preview-trigger
                                            value="1"
                                            @checked(old('extra_lines_one_time', $profile->extra_lines_one_time ?? true))>
-                                    <span>Extra regels eenmalig toepassen op de volgende factuur</span>
+                                    <span>{{ __('Extra regels eenmalig toepassen op de volgende factuur') }}</span>
                                 </label>
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Uitgeschakeld = extra regels komen elke maand op de factuur terug (bijv. doorlopende wensen).
+                                    {{ __('Uitgeschakeld = extra regels komen elke maand op de factuur terug (bijv. doorlopende wensen).') }}
                                 </div>
                                 @if($profile->extra_lines_applied_at)
                                     <div class="text-xs text-muted-foreground mt-2">
-                                        Eenmalige regels toegepast op: {{ $profile->extra_lines_applied_at->format('d-m-Y H:i') }}.
-                                        Wijzig de selectie om opnieuw eenmalige regels te plannen.
+                                        {{ __('Eenmalige regels toegepast op: :date.', ['date' => $profile->extra_lines_applied_at->format('d-m-Y H:i')]) }}
+                                        {{ __('Wijzig de selectie om opnieuw eenmalige regels te plannen.') }}
                                     </div>
                                 @endif
                             </td>
@@ -369,11 +369,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.platform-billing.tenants.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>
@@ -382,17 +382,17 @@
     <div class="grid gap-5 lg:gap-7.5 mt-5 lg:mt-7.5">
         <div class="kt-card min-w-full">
             <div class="kt-card-header flex-wrap gap-2 w-full items-center px-5 py-5 overflow-visible">
-                <h3 class="kt-card-title mb-0">Factuurvoorbeeld</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Factuurvoorbeeld') }}</h3>
                 <span class="text-xs text-muted-foreground" id="invoice-preview-status"></span>
                 <button type="button"
                         class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                         id="invoice-preview-responsive-btn"
                         data-kt-tooltip="true"
                         data-kt-tooltip-placement="bottom"
-                        aria-label="Factuurvoorbeeld in mobiele weergave tonen"
+                        aria-label="{{ __('Factuurvoorbeeld in mobiele weergave tonen') }}"
                         aria-pressed="false">
                     <i class="ki-filled ki-phone"></i>
-                    <span class="kt-tooltip" data-kt-tooltip-content="true">Mobiele weergave: toont het factuurvoorbeeld zoals op een telefoon</span>
+                    <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Mobiele weergave: toont het factuurvoorbeeld zoals op een telefoon') }}</span>
                 </button>
                 <div class="flex items-center gap-1 ms-auto shrink-0">
                     <button type="button"
@@ -400,18 +400,18 @@
                             id="invoice-preview-pdf-preview-btn"
                             data-kt-tooltip="true"
                             data-kt-tooltip-placement="bottom"
-                            aria-label="Factuurvoorbeeld als PDF bekijken">
+                            aria-label="{{ __('Factuurvoorbeeld als PDF bekijken') }}">
                         <i class="ki-filled ki-eye"></i>
-                        <span class="kt-tooltip" data-kt-tooltip-content="true">PDF bekijken: opent het factuurvoorbeeld als PDF</span>
+                        <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('PDF bekijken: opent het factuurvoorbeeld als PDF') }}</span>
                     </button>
                     <button type="button"
                             class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                             id="invoice-preview-pdf-download-btn"
                             data-kt-tooltip="true"
                             data-kt-tooltip-placement="bottom"
-                            aria-label="Factuurvoorbeeld als PDF downloaden">
+                            aria-label="{{ __('Factuurvoorbeeld als PDF downloaden') }}">
                         <i class="ki-filled ki-file-down"></i>
-                        <span class="kt-tooltip" data-kt-tooltip-content="true">PDF downloaden: slaat het factuurvoorbeeld op als PDF-bestand</span>
+                        <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('PDF downloaden: slaat het factuurvoorbeeld op als PDF-bestand') }}</span>
                     </button>
                 </div>
             </div>
@@ -426,19 +426,19 @@
                      role="status"
                      aria-live="polite">
                     <i class="ki-filled ki-information-2 me-2"></i>
-                    De wijzigingen zijn nog niet opgeslagen. Sla het formulier op om de tenant-facturatie definitief bij te werken.
+                    {{ __('De wijzigingen zijn nog niet opgeslagen. Sla het formulier op om de tenant-facturatie definitief bij te werken.') }}
                 </div>
             </div>
         </div>
 
         <div class="kt-card min-w-full">
             <div class="kt-card-header flex-wrap gap-2 w-full items-center">
-                <h3 class="kt-card-title mb-0">Mollie API-requests</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Mollie API-requests') }}</h3>
                 <span class="text-xs text-muted-foreground" id="mollie-request-preview-status"></span>
             </div>
             <div class="kt-card-content p-5 lg:p-7.5 min-w-0">
                 <p class="text-sm text-secondary-foreground mb-4">
-                    Voorbeeld van de JSON-requests naar de <a href="https://docs.mollie.com/reference/overview" class="text-primary hover:underline" target="_blank" rel="noopener">Mollie API v2</a> voor deze tenant (customers, eerste betaling/mandaat, subscription en opzegging).
+                    {!! __('Voorbeeld van de JSON-requests naar de :link voor deze tenant (customers, eerste betaling/mandaat, subscription en opzegging).', ['link' => '<a href="https://docs.mollie.com/reference/overview" class="text-primary hover:underline" target="_blank" rel="noopener">Mollie API v2</a>']) !!}
                 </p>
                 <div id="mollie-request-preview-container">
                     @include('admin.platform-billing.tenants.partials.mollie-request-preview', ['requests' => $mollieRequestPlan])
@@ -448,21 +448,21 @@
 
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">SEPA-mandaat</h3>
+                <h3 class="kt-card-title">{{ __('SEPA-mandaat') }}</h3>
             </div>
             <div class="kt-card-content p-5 lg:p-7.5">
                 <p class="text-sm text-secondary-foreground mb-4">
-                    Status: <strong class="text-foreground">{{ $mandate?->status ?? 'nog niet aangevraagd' }}</strong>.
-                    Eerste betaling legt het SEPA-mandaat vast; bij een actief abonnement wordt de vooruitbetaling (pro rata + volgende maand) geïncasseerd.
+                    {!! __('Status: :status.', ['status' => '<strong class="text-foreground">'.e($mandate?->status ?? __('nog niet aangevraagd')).'</strong>']) !!}
+                    {{ __('Eerste betaling legt het SEPA-mandaat vast; bij een actief abonnement wordt de vooruitbetaling (pro rata + volgende maand) geïncasseerd.') }}
                 </p>
                 <form method="POST" action="{{ route('admin.platform-billing.tenants.mandate', $company) }}" class="flex flex-wrap gap-4 items-end">
                     @csrf
                     <label class="block flex-1 min-w-[14rem]">
-                        <span class="text-sm font-medium text-secondary-foreground">E-mail voor mandaat-link</span>
+                        <span class="text-sm font-medium text-secondary-foreground">{{ __('E-mail voor mandaat-link') }}</span>
                         <input type="email" name="recipient_email" class="kt-input mt-1.5 w-full" value="{{ old('recipient_email', $profile->billing_email ?: $company->email) }}">
                     </label>
                     <button type="submit" class="kt-btn kt-btn-outline">
-                        Mandaat aanvragen per e-mail
+                        {{ __('Mandaat aanvragen per e-mail') }}
                     </button>
                 </form>
             </div>
@@ -471,27 +471,24 @@
         @if(! empty($canEmergencyTerminate) || ! empty($emergencyCancelAlreadyScheduled))
             <div class="kt-card min-w-full border border-destructive/40">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0 text-destructive">Noodbeeindiging</h3>
+                    <h3 class="kt-card-title mb-0 text-destructive">{{ __('Noodbeeindiging') }}</h3>
                 </div>
                 <div class="kt-card-content p-5 lg:p-6">
                     @if(! empty($emergencyCancelAlreadyScheduled))
                         <p class="text-sm text-secondary-foreground mb-0">
-                            Dit abonnement is al gepland voor beëindiging per
-                            <strong class="text-foreground">{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>.
-                            De volgende Mollie-incasso is gestopt; de tenant behoudt toegang tot die datum.
+                            {!! __('Dit abonnement is al gepland voor beëindiging per :date.', ['date' => '<strong class="text-foreground">'.e($emergencyTerminateEffectiveOn->translatedFormat('j F Y')).'</strong>']) !!}
+                            {{ __('De volgende Mollie-incasso is gestopt; de tenant behoudt toegang tot die datum.') }}
                         </p>
                     @else
                         <p class="text-sm text-secondary-foreground mb-4">
-                            Alleen gebruiken bij noodzaak. Het abonnement loopt door tot
-                            <strong class="text-foreground">{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>
-                            (einde van de lopende maand). De volgende SEPA-incasso wordt direct gestopt, ook als er nog een contracttermijn loopt.
+                            {!! __('Alleen gebruiken bij noodzaak. Het abonnement loopt door tot :date (einde van de lopende maand). De volgende SEPA-incasso wordt direct gestopt, ook als er nog een contracttermijn loopt.', ['date' => '<strong class="text-foreground">'.e($emergencyTerminateEffectiveOn->translatedFormat('j F Y')).'</strong>']) !!}
                         </p>
                         <form id="tenant-emergency-terminate-form"
                               method="POST"
                               action="{{ route('admin.platform-billing.tenants.emergency-terminate', $company) }}">
                             @csrf
                             <button type="button" class="kt-btn kt-btn-danger" data-emergency-terminate-open>
-                                Abonnement tussentijds beëindigen
+                                {{ __('Abonnement tussentijds beëindigen') }}
                             </button>
                         </form>
                     @endif
@@ -511,11 +508,11 @@
     <div class="invoice-preview-pdf-modal-panel relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border shadow-2xl"
          style="height: min(90vh, 56rem);">
         <div class="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-5">
-            <h2 id="invoice-preview-pdf-title" class="text-lg font-semibold text-foreground mb-0">Factuurvoorbeeld PDF</h2>
+            <h2 id="invoice-preview-pdf-title" class="text-lg font-semibold text-foreground mb-0">{{ __('Factuurvoorbeeld PDF') }}</h2>
             <button type="button"
                     class="kt-btn kt-btn-icon kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0"
                     data-invoice-pdf-preview-dismiss
-                    aria-label="PDF-voorbeeld sluiten">
+                    aria-label="{{ __('PDF-voorbeeld sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
@@ -524,7 +521,7 @@
                class="absolute inset-0 z-10 flex items-center justify-center px-5 text-sm text-muted-foreground mb-0"
                role="status"
                aria-live="polite">
-                PDF genereren…
+                {{ __('PDF genereren…') }}
             </p>
             <div id="invoice-preview-pdf-pages"
                  class="absolute inset-0 overflow-y-auto px-5 py-5"
@@ -543,24 +540,23 @@
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-emergency-terminate-dismiss></div>
     <div class="tenant-emergency-modal-panel relative z-10 w-full max-w-lg rounded-2xl border border-border shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="tenant-emergency-terminate-title" class="text-lg font-semibold text-foreground mb-1">Noodbeeindiging bevestigen</h2>
+            <h2 id="tenant-emergency-terminate-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Noodbeeindiging bevestigen') }}</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                Dit is een noodactie voor super-admins.
+                {{ __('Dit is een noodactie voor super-admins.') }}
             </p>
         </div>
         <div class="px-6 py-5 space-y-3">
             <p class="text-sm text-foreground mb-0">
-                Het abonnement van <strong>{{ $company->name }}</strong> wordt beëindigd per
-                <strong>{{ $emergencyTerminateEffectiveOn->translatedFormat('j F Y') }}</strong>.
+                {!! __('Het abonnement van :company wordt beëindigd per :date.', ['company' => '<strong>'.e($company->name).'</strong>', 'date' => '<strong>'.e($emergencyTerminateEffectiveOn->translatedFormat('j F Y')).'</strong>']) !!}
             </p>
             <p class="text-sm text-muted-foreground mb-0">
-                De volgende maandelijkse incasso wordt gestopt. Tot die einddatum blijft de tenant het abonnement gebruiken.
+                {{ __('De volgende maandelijkse incasso wordt gestopt. Tot die einddatum blijft de tenant het abonnement gebruiken.') }}
             </p>
         </div>
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline" data-emergency-terminate-dismiss>Annuleren</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-emergency-terminate-dismiss>{{ __('Annuleren') }}</button>
             <button type="button" class="kt-btn kt-btn-danger" id="tenant-emergency-terminate-confirm">
-                Beëindigen per {{ $emergencyTerminateEffectiveOn->format('d-m-Y') }}
+                {{ __('Beëindigen per :date', ['date' => $emergencyTerminateEffectiveOn->format('d-m-Y')]) }}
             </button>
         </div>
     </div>
@@ -719,7 +715,7 @@
 
         var requestId = ++molliePreviewRequestId;
         if (molliePreviewStatus) {
-            molliePreviewStatus.textContent = 'Bijwerken…';
+            molliePreviewStatus.textContent = @json(__('Bijwerken…'));
         }
 
         fetch(molliePreviewUrl, {
@@ -752,7 +748,7 @@
                 return;
             }
             if (molliePreviewStatus) {
-                molliePreviewStatus.textContent = 'Kon Mollie-voorbeeld niet bijwerken';
+                molliePreviewStatus.textContent = @json(__('Kon Mollie-voorbeeld niet bijwerken'));
             }
         });
     }
@@ -760,7 +756,7 @@
     function updateInvoicePreview() {
         var requestId = ++previewRequestId;
         if (previewStatus) {
-            previewStatus.textContent = 'Voorbeeld bijwerken…';
+            previewStatus.textContent = @json(__('Voorbeeld bijwerken…'));
         }
 
         fetch(previewUrl, {
@@ -793,7 +789,7 @@
                 return;
             }
             if (previewStatus) {
-                previewStatus.textContent = 'Kon voorbeeld niet bijwerken';
+                previewStatus.textContent = @json(__('Kon voorbeeld niet bijwerken'));
             }
         });
     }
@@ -935,7 +931,7 @@
                     canvas.height = Math.floor(cssHeight * pixelRatio);
                     canvas.style.width = cssWidth + 'px';
                     canvas.style.height = cssHeight + 'px';
-                    canvas.setAttribute('aria-label', 'Factuurvoorbeeld pagina ' + pageNumber);
+                    canvas.setAttribute('aria-label', @json(__('Factuurvoorbeeld pagina :number')).replace(':number', String(pageNumber)));
                     pdfPages.appendChild(canvas);
 
                     return page.render({
@@ -977,7 +973,7 @@
         document.body.style.overflow = '';
         clearPdfPreviewPages();
         if (pdfModalStatus) {
-            pdfModalStatus.textContent = 'PDF genereren…';
+            pdfModalStatus.textContent = @json(__('PDF genereren…'));
             pdfModalStatus.classList.remove('hidden');
         }
     }
@@ -985,10 +981,10 @@
     function previewInvoicePreviewPdf() {
         setPdfActionButtonsDisabled(true);
         if (previewStatus) {
-            previewStatus.textContent = 'PDF genereren…';
+            previewStatus.textContent = @json(__('PDF genereren…'));
         }
         if (pdfModalStatus) {
-            pdfModalStatus.textContent = 'PDF genereren…';
+            pdfModalStatus.textContent = @json(__('PDF genereren…'));
             pdfModalStatus.classList.remove('hidden');
         }
         clearPdfPreviewPages();
@@ -1010,7 +1006,7 @@
         .catch(function() {
             closePdfPreviewModal();
             if (previewStatus) {
-                previewStatus.textContent = 'Kon PDF niet openen';
+                previewStatus.textContent = @json(__('Kon PDF niet openen'));
             }
         })
         .finally(function() {
@@ -1021,7 +1017,7 @@
     function downloadInvoicePreviewPdf() {
         setPdfActionButtonsDisabled(true);
         if (previewStatus) {
-            previewStatus.textContent = 'PDF genereren…';
+            previewStatus.textContent = @json(__('PDF genereren…'));
         }
 
         fetchInvoicePreviewPdf()
@@ -1040,7 +1036,7 @@
         })
         .catch(function() {
             if (previewStatus) {
-                previewStatus.textContent = 'Kon PDF niet genereren';
+                previewStatus.textContent = @json(__('Kon PDF niet genereren'));
             }
         })
         .finally(function() {

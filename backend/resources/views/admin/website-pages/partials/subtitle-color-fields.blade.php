@@ -10,13 +10,13 @@
     $subtitleColorPicker = $subtitleColor !== '' ? $subtitleColor : $subtitleColorDefault;
 @endphp
 <div class="mb-3 max-w-md">
-    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-subtitle_color">Kleur ondertitel</label>
+    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-subtitle_color">{{ __('Kleur ondertitel') }}</label>
     <div class="flex items-center gap-2">
         <input type="color"
                id="hero-{{ $sectionKey }}-subtitle_color_color"
                class="hero-subtitle-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
                value="{{ $subtitleColorPicker }}"
-               title="Kleur kiezen"
+               title="{{ __('Kleur kiezen') }}"
                data-target-input="hero-{{ $sectionKey }}-subtitle_color">
         <div class="home-section-hex-input-wrap shrink-0">
             <input type="text"
@@ -29,5 +29,5 @@
                    data-skip-validation-wrapper="1">
         </div>
     </div>
-    <p class="text-xs text-muted-foreground mt-1">Standaardkleur van de ondertitel op de website. Leeg = themakleur. Inline kleuren uit de editor blijven van kracht.</p>
+    <p class="text-xs text-muted-foreground mt-1">{{ __('Standaardkleur van de ondertitel op de website. Leeg = themakleur. Inline kleuren uit de editor blijven van kracht.') }}</p>
 </div>

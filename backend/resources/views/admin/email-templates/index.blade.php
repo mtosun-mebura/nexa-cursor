@@ -1,18 +1,18 @@
 @extends('admin.layouts.app')
 
-@section('title', 'E-mail Templates Beheer')
+@section('title', __('E-mail Templates Beheer'))
 
 @section('content')
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            E-mail Templates Beheer
+            {{ __('E-mail Templates Beheer') }}
         </h1>
         @can('create-email-templates')
         <a href="{{ route('admin.email-templates.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Nieuw Template
+            {{ __('Nieuw Template') }}
         </a>
         @endcan
     </div>
@@ -26,7 +26,7 @@
                         {{ $stats['active'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Actief
+                        {{ __('Actief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -35,7 +35,7 @@
                         {{ $stats['inactive'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Inactief
+                        {{ __('Inactief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -44,7 +44,7 @@
                         {{ $stats['total_templates'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal Templates
+                        {{ __('Totaal Templates') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -53,7 +53,7 @@
                         {{ $stats['unique_types'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Types
+                        {{ __('Types') }}
                     </span>
                 </div>
             </div>
@@ -64,7 +64,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header px-5 py-5 flex-wrap gap-3">
                 <h3 class="kt-card-title text-sm mb-0 w-full">
-                    Toon 1 tot {{ $emailTemplates->count() }} van {{ $emailTemplates->count() }} templates
+                    {{ __('Toon 1 tot :count van :total templates', ['count' => $emailTemplates->count(), 'total' => $emailTemplates->count()]) }}
                 </h3>
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full">
                     <!-- Search -->
@@ -90,7 +90,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek templates..." 
+                                <input placeholder="{{ __('Zoek templates...') }}" 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
@@ -110,10 +110,10 @@
                             <select class="kt-select w-full sm:w-48"
                                     name="company_id"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Tenant"
+                                    data-kt-select-placeholder="{{ __('Tenant') }}"
                                     id="company-filter">
-                                <option value="">Alle tenants</option>
-                                <option value="algemeen" {{ (string) ($filterCompanyId ?? '') === 'algemeen' ? 'selected' : '' }}>Algemeen</option>
+                                <option value="">{{ __('Alle tenants') }}</option>
+                                <option value="algemeen" {{ (string) ($filterCompanyId ?? '') === 'algemeen' ? 'selected' : '' }}>{{ __('Algemeen') }}</option>
                                 @foreach($filterCompanies as $company)
                                     <option value="{{ $company->id }}" {{ (string) ($filterCompanyId ?? '') === (string) $company->id ? 'selected' : '' }}>
                                         {{ $company->name }}
@@ -125,9 +125,9 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="type" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Type"
+                                    data-kt-select-placeholder="{{ __('Type') }}"
                                     id="type-filter">
-                                <option value="">Alle types</option>
+                                <option value="">{{ __('Alle types') }}</option>
                                 @foreach(($allowedTypes ?? []) as $typeKey)
                                     <option value="{{ $typeKey }}" {{ request('type') == $typeKey ? 'selected' : '' }}>
                                         {{ ($typeLabels ?? [])[$typeKey] ?? $typeKey }}
@@ -138,28 +138,28 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="status" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter">
-                                <option value="">Alle statussen</option>
-                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                             </select>
                             
                             <select class="kt-select w-full sm:w-36" 
                                     name="sort" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
-                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
-                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
-                                <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>Type</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>{{ __('Geen sortering') }}</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>{{ __('Naam') }}</option>
+                                <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>{{ __('Type') }}</option>
                             </select>
                         </form>
                         @if(request('type') || request('status') || request()->filled('company_id') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
                         <a href="{{ route('admin.email-templates.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -171,14 +171,14 @@
             
             <div class="kt-card-content p-0 min-w-0">
                 @if($emailTemplates->count() > 0)
-                    <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="10" id="email_templates_table" data-admin-datatable-label="templates">
+                    <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="10" id="email_templates_table" data-admin-datatable-label="{{ __('templates') }}">
                         <div class="kt-scrollable-x-auto admin-table-scroll-wrap admin-desktop-table-wrap email-templates-table-wrap min-w-0">
                             <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full" id="email-templates-table">
                             <thead>
                                 <tr>
                                     <th>
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Template & Details</span>
+                                            <span class="kt-table-col-label">{{ __('Template & Details') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -196,7 +196,7 @@
                                     </th>
                                     <th>
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Type</span>
+                                            <span class="kt-table-col-label">{{ __('Type') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -214,19 +214,19 @@
                                     </th>
                                     <th>
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Bedrijf</span>
+                                            <span class="kt-table-col-label">{{ __('Bedrijf') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
                                     <th>
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
                                     <th>
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Gemaakt op</span>
+                                            <span class="kt-table-col-label">{{ __('Gemaakt op') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -242,7 +242,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="text-center">Acties</th>
+                                    <th class="text-center">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -270,16 +270,16 @@
                                                 @if($template->company)
                                                     <span class="text-sm">{{ $template->company->name }}</span>
                                                 @else
-                                                    <span class="text-sm text-muted-foreground">Algemeen</span>
+                                                    <span class="text-sm text-muted-foreground">{{ __('Algemeen') }}</span>
                                                 @endif
                                             </a>
                                         </td>
                                         <td class="email-template-cell-link">
                                             <a href="{{ route('admin.email-templates.show', $template) }}" class="block min-h-full py-2 no-underline text-inherit">
                                                 @if($template->is_active)
-                                                    <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                                 @else
-                                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                    <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                                 @endif
                                             </a>
                                         </td>
@@ -301,7 +301,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -311,7 +311,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -323,7 +323,7 @@
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-copy"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Dupliceren</span>
+                                                                    <span class="kt-menu-title">{{ __('Dupliceren') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -336,14 +336,14 @@
                                                             <form action="{{ route('admin.email-templates.destroy', $template) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je dit template wilt verwijderen?')">
+                                                                  onsubmit="return confirm(@json(__('Weet je zeker dat je dit template wilt verwijderen?')))">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -361,10 +361,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -375,7 +375,7 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16 px-5">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen e-mail templates gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen e-mail templates gevonden') }}</h4>
                     </div>
                 @endif
             </div>
@@ -388,6 +388,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
         function replaceOfWithVan() {
+            if (@json(app()->getLocale() !== 'nl')) return;
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
@@ -499,7 +500,7 @@
     }
     
     /* Reset button visibility */
-    a[title="Filters resetten"] {
+    a#reset-filter-btn {
         display: inline-flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -511,11 +512,11 @@
         background-color: var(--background) !important;
         color: var(--secondary-foreground) !important;
     }
-    a[title="Filters resetten"]:hover {
+    a#reset-filter-btn:hover {
         background-color: var(--accent) !important;
         color: var(--accent-foreground) !important;
     }
-    a[title="Filters resetten"] i {
+    a#reset-filter-btn i {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;

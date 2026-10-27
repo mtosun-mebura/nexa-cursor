@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Kennisdocument bewerken')
+@section('title', __('Kennisdocument bewerken'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono mb-3">Kennisdocument bewerken</h1>
+        <h1 class="text-xl font-medium leading-none text-mono mb-3">{{ __('Kennisdocument bewerken') }}</h1>
         <a href="{{ route('admin.taxi.knowledge_documents.show', $document) }}" class="kt-btn kt-btn-outline shrink-0 w-fit">
-            <i class="ki-filled ki-arrow-left me-2"></i>Terug
+            <i class="ki-filled ki-arrow-left me-2"></i>{{ __('Terug') }}
         </a>
     </div>
 
@@ -17,9 +17,9 @@
         <div class="kt-card-content px-3 sm:px-5 py-5 grid gap-5">
             @include('taxi::admin.knowledge_documents.partials.form-fields', ['document' => $document])
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
-                <a href="{{ route('admin.taxi.knowledge_documents.show', $document) }}" class="kt-btn kt-btn-outline">Annuleren</a>
+                <a href="{{ route('admin.taxi.knowledge_documents.show', $document) }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
                 <button type="submit" class="kt-btn kt-btn-primary">
-                    <i class="ki-filled ki-check me-2"></i>Opslaan
+                    <i class="ki-filled ki-check me-2"></i>{{ __('Opslaan') }}
                 </button>
             </div>
         </div>
