@@ -30,7 +30,7 @@ RUN apt-get update && \
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql intl zip gd
+    && docker-php-ext-install pdo pdo_pgsql intl zip gd bcmath
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
