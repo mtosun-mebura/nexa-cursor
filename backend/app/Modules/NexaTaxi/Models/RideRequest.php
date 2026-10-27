@@ -977,10 +977,28 @@ class RideRequest extends Model
             return $gross;
         }
 
-        $percent = \App\Support\NexaMarketplaceFeeCopy::percent();
-        $fee = round($gross * ($percent / 100), 2);
+        $fee = app(\App\Services\Payout\MarketplaceFeeCalculator::class)
+            ->calculate($gross, $this->paidMollieMethod())['fee'];
 
         return round(max(0, $gross - $fee), 2);
+    }
+
+    /**
+     * Mollie-betaalmethode van de betaalde klantbetaling (ideal, creditcard, …), indien bekend.
+     */
+    public function paidMollieMethod(): ?string
+    {
+        try {
+            $payload = $this->payments()
+                ->where('status', RidePayment::STATUS_PAID)
+                ->value('mollie_payload');
+            $payload = is_string($payload) ? json_decode($payload, true) : $payload;
+            $method = is_array($payload) ? ($payload['method'] ?? null) : null;
+
+            return is_string($method) && $method !== '' ? $method : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function requiresPerLegDriverPayment(): bool

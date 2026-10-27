@@ -65,7 +65,11 @@ class AdminWhatsAppPickupProposalMockController extends Controller
 
         return redirect()
             ->route('admin.whatsapp-pickup-proposal-mock.index', ['saved' => 1])
-            ->with('success', 'Testdata aangemaakt: twee openstaande voorstellen op hetzelfde nummer ('.WhatsAppPickupProposalMockService::MOCK_PHONE.'), rit #'.$rides[0]->id.' en #'.$rides[1]->id.'.');
+            ->with('success', __('Testdata aangemaakt: twee openstaande voorstellen op hetzelfde nummer (:phone), rit #:first en #:second.', [
+                'phone' => WhatsAppPickupProposalMockService::MOCK_PHONE,
+                'first' => $rides[0]->id,
+                'second' => $rides[1]->id,
+            ]));
     }
 
     public function simulate(Request $request): RedirectResponse
@@ -79,21 +83,21 @@ class AdminWhatsAppPickupProposalMockController extends Controller
 
         $result = $this->mock->simulateReply((int) $validated['ride_id'], (string) $validated['action']);
         $labels = RideRequest::pickupProposalStatusLabels();
-        $after = $labels[$result['after']] ?? ($result['after'] ?: 'geen voorstel');
+        $after = __($labels[$result['after']] ?? ($result['after'] ?: __('geen voorstel')));
         $remark = trim((string) ($result['ride']->pickup_proposal_customer_remark ?? ''));
 
         $actionLabel = match ($validated['action']) {
-            'accept' => 'Accepteren',
-            'decline' => 'Weigeren',
-            default => 'Opmerking',
+            'accept' => __('Accepteren'),
+            'decline' => __('Weigeren'),
+            default => __('Opmerking'),
         };
 
-        $message = 'Gemockt WhatsApp-antwoord ('.$actionLabel.') verwerkt voor rit #'.$result['ride']->id.'. Voorstelstatus: '.$after.'.';
+        $message = __('Gemockt WhatsApp-antwoord (:action) verwerkt voor rit #:id. Voorstelstatus: :status.', ['action' => $actionLabel, 'id' => $result['ride']->id, 'status' => $after]);
         if ($remark !== '') {
-            $message .= ' Opmerking: '.$remark;
+            $message .= ' '.__('Opmerking: :remark', ['remark' => $remark]);
         }
         if (! $result['handled']) {
-            $message = 'Webhook ontvangen, maar de ritstatus is niet gewijzigd (rit #'.$result['ride']->id.', status '.$after.').';
+            $message = __('Webhook ontvangen, maar de ritstatus is niet gewijzigd (rit #:id, status :status).', ['id' => $result['ride']->id, 'status' => $after]);
         }
 
         return redirect()
@@ -109,7 +113,7 @@ class AdminWhatsAppPickupProposalMockController extends Controller
 
         return redirect()
             ->route('admin.whatsapp-pickup-proposal-mock.index', ['saved' => 1])
-            ->with('success', $count === 0 ? 'Geen testdata om te wissen.' : $count.' testrit(ten) verwijderd.');
+            ->with('success', $count === 0 ? __('Geen testdata om te wissen.') : __(':count testrit(ten) verwijderd.', ['count' => $count]));
     }
 
     public function feed(): JsonResponse
@@ -128,6 +132,16 @@ class AdminWhatsAppPickupProposalMockController extends Controller
             ], 500);
         }
 
+        $payload['rides'] = array_map(function ($ride) {
+            foreach (['status_label', 'proposal_label'] as $key) {
+                if (isset($ride[$key])) {
+                    $ride[$key] = __($ride[$key]);
+                }
+            }
+
+            return $ride;
+        }, $payload['rides'] ?? []);
+
         return response()->json(array_merge($payload, [
             'mock_allowed' => $this->mock->inboundMockAllowed(),
         ]));
@@ -145,13 +159,13 @@ class AdminWhatsAppPickupProposalMockController extends Controller
         $result = $this->mock->removeFromMockList($validated['ride_ids']);
         $parts = [];
         if ($result['deleted'] > 0) {
-            $parts[] = $result['deleted'].' testdata-rit(ten) verwijderd';
+            $parts[] = __(':count testdata-rit(ten) verwijderd', ['count' => $result['deleted']]);
         }
         if ($result['hidden'] > 0) {
-            $parts[] = $result['hidden'].' chauffeur-voorstel(len) uit de lijst gehaald';
+            $parts[] = __(':count chauffeur-voorstel(len) uit de lijst gehaald', ['count' => $result['hidden']]);
         }
         $message = $parts === []
-            ? 'Geen geselecteerde voorstellen om te verwijderen.'
+            ? __('Geen geselecteerde voorstellen om te verwijderen.')
             : implode(', ', $parts).'.';
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -171,7 +185,7 @@ class AdminWhatsAppPickupProposalMockController extends Controller
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins hebben toegang tot deze testpagina.');
+            abort(403, __('Alleen super-admins hebben toegang tot deze testpagina.'));
         }
     }
 }

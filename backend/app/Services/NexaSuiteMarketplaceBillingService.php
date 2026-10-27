@@ -9,6 +9,7 @@ use App\Models\NexaSuiteBookingInvoiceRide;
 use App\Models\NexaSuiteMarketplaceSetting;
 use App\Models\PlatformBillingSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Services\Payout\MarketplaceFeeCalculator;
 use Carbon\Carbon;
 use App\Support\EmailCardHtml;
 use Illuminate\Support\Facades\DB;
@@ -106,19 +107,22 @@ class NexaSuiteMarketplaceBillingService
 
         $feePercent = (float) $settings->fee_percent;
         $ridesSubtotal = 0.0;
+        $minimumTopUp = 0.0;
         $rideRows = [];
         foreach ($rides as $ride) {
             $price = $this->rideBillableAmount($ride);
             $ridesSubtotal += $price;
+            $topUp = $this->rideMinimumTopUp($ride, $feePercent);
+            $minimumTopUp += $topUp;
             $rideRows[] = [
                 'ride_request_id' => (int) $ride->id,
                 'ride_price' => round($price, 2),
-                'fee_amount' => round($price * ($feePercent / 100), 2),
+                'fee_amount' => round(round($price * ($feePercent / 100), 2) + $topUp, 2),
             ];
         }
 
         $rideCount = count($rideRows);
-        $amount = round($ridesSubtotal * ($feePercent / 100), 2);
+        $amount = round(round($ridesSubtotal * ($feePercent / 100), 2) + $minimumTopUp, 2);
         $taxRate = (float) $settings->tax_rate_percent;
         $taxAmount = round($amount * ($taxRate / 100), 2);
         $total = round($amount + $taxAmount, 2);
@@ -351,6 +355,18 @@ class NexaSuiteMarketplaceBillingService
         $price = $ride->final_price ?? $ride->quoted_price;
 
         return round(max(0, (float) $price), 2);
+    }
+
+    /**
+     * Extra fee boven het percentage wanneer het Mollie-minimum van toepassing is (anders 0).
+     */
+    public function rideMinimumTopUp(RideRequest $ride, float $feePercent): float
+    {
+        $price = $this->rideBillableAmount($ride);
+        $fee = app(MarketplaceFeeCalculator::class)
+            ->calculate($price, $ride->paidMollieMethod(), (int) round($feePercent))['fee'];
+
+        return round(max(0.0, $fee - round($price * ($feePercent / 100), 2)), 2);
     }
 
     public function lineDescription(int $rideCount, float $feePercent, float $ridesSubtotal): string

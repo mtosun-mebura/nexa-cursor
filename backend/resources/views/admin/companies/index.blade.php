@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Bedrijven Beheer')
+@section('title', __('Bedrijven Beheer'))
 
 @push('styles')
 <style>
@@ -24,18 +24,18 @@
     <div class="flex flex-col gap-4 pb-7.5">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
             <h1 class="text-xl font-medium leading-none text-mono shrink-0">
-                Bedrijven Beheer
+                {{ __('Bedrijven Beheer') }}
             </h1>
             @auth
             @if(auth()->user()->canCreateCompanies())
             <div class="flex flex-1 flex-wrap items-center justify-end gap-2 relative z-10 min-w-0" data-company-create-actions="true">
                 <a href="{{ route('admin.companies.wizard.start') }}" class="kt-btn kt-btn-wizard-start">
                     <i class="ki-filled ki-element-11 me-2"></i>
-                    Nieuwe tenant (wizard)
+                    {{ __('Nieuwe tenant (wizard)') }}
                 </a>
                 <a href="{{ route('admin.companies.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuw bedrijf
+                    {{ __('Nieuw bedrijf') }}
                 </a>
             </div>
             @endif
@@ -52,7 +52,7 @@
                         {{ $stats['total_companies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Bedrijven
+                        {{ __('Bedrijven') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -61,7 +61,7 @@
                         {{ $stats['active_companies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Actief
+                        {{ __('Actief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -70,7 +70,7 @@
                         {{ $stats['total_users'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Gebruikers
+                        {{ __('Gebruikers') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -79,7 +79,7 @@
                         {{ $stats['total_vacancies'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Vacatures
+                        {{ __('Vacatures') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -88,7 +88,7 @@
                         {{ $stats['intermediaries'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Tussenpartijen / Recruiters
+                        {{ __('Tussenpartijen / Recruiters') }}
                     </span>
                 </div>
             </div>
@@ -99,7 +99,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon 1 tot {{ $companies->count() }} van {{ $companies->count() }} bedrijven
+                    {{ __('Toon 1 tot :count van :total bedrijven', ['count' => $companies->count(), 'total' => $companies->count()]) }}
                 </h3>
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end items-center w-full">
                     <!-- Search -->
@@ -125,7 +125,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-auto" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek bedrijven..." 
+                                <input placeholder="{{ __('Zoek bedrijven...') }}" 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
@@ -144,30 +144,30 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="status" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter">
-                                <option value="">Alle statussen</option>
-                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                             </select>
                             
                             <select class="kt-select w-full sm:w-36" 
                                     name="intermediary" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Type"
+                                    data-kt-select-placeholder="{{ __('Type') }}"
                                     id="intermediary-filter">
-                                <option value="">Alle types</option>
-                                <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>Tussenpartij / Recruiter</option>
-                                <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>Directe werkgever</option>
+                                <option value="">{{ __('Alle types') }}</option>
+                                <option value="yes" {{ request('intermediary') == 'yes' ? 'selected' : '' }}>{{ __('Tussenpartij / Recruiter') }}</option>
+                                <option value="no" {{ request('intermediary') == 'no' ? 'selected' : '' }}>{{ __('Directe werkgever') }}</option>
                             </select>
                             
                             @if($industries->count() > 0)
                             <select class="kt-select w-full sm:w-36" 
                                     name="industry" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Industrie"
+                                    data-kt-select-placeholder="{{ __('Industrie') }}"
                                     id="industry-filter">
-                                <option value="">Alle industrieën</option>
+                                <option value="">{{ __('Alle industrieën') }}</option>
                                 @foreach($industries as $industry)
                                     <option value="{{ $industry }}" {{ request('industry') == $industry ? 'selected' : '' }}>
                                         {{ $industry }}
@@ -179,18 +179,18 @@
                             <select class="kt-select w-full sm:w-36" 
                                     name="sort" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
-                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
-                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
-                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>Status</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>{{ __('Geen sortering') }}</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>{{ __('Naam') }}</option>
+                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>{{ __('Status') }}</option>
                             </select>
                         </form>
                         @if(request('status') || request('intermediary') || request('industry') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
                         <a href="{{ route('admin.companies.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -202,57 +202,57 @@
             
             <div class="kt-card-content">
                 @if($companies->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="companies_table" data-admin-datatable-label="bedrijven" data-admin-datatable-on-page="initCompaniesTablePage">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="companies_table" data-admin-datatable-label="{{ __('bedrijven') }}" data-admin-datatable-on-page="initCompaniesTablePage">
                         <div class="kt-scrollable-x-auto min-w-0 companies-table-wrap">
                             <table class="kt-table kt-table-border admin-fluid-table w-full">
                             <thead>
                                 <tr>
-                                    <th data-label="Bedrijf">
+                                    <th data-label="{{ __('Bedrijf') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Bedrijf</span>
+                                            <span class="kt-table-col-label">{{ __('Bedrijf') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'direction' => request('sort') == 'name' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
                                                    class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
-                                    <th data-label="Contact">
+                                    <th data-label="{{ __('Contact') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Contact</span>
+                                            <span class="kt-table-col-label">{{ __('Contact') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th data-label="Locatie">
+                                    <th data-label="{{ __('Locatie') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Locatie</span>
+                                            <span class="kt-table-col-label">{{ __('Locatie') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th data-label="Type">
+                                    <th data-label="{{ __('Type') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Type</span>
+                                            <span class="kt-table-col-label">{{ __('Type') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th data-label="Status">
+                                    <th data-label="{{ __('Status') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'is_active', 'direction' => request('sort') == 'is_active' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
                                                    class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
-                                    <th data-label="Aangemaakt">
+                                    <th data-label="{{ __('Aangemaakt') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-label">{{ __('Aangemaakt') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <a href="{{ request()->fullUrlWithQuery(['sort' => 'created_at', 'direction' => request('sort') == 'created_at' && request('direction') == 'asc' ? 'desc' : 'asc']) }}" 
                                                    class="kt-table-col-sort-btn"></a>
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="text-center" data-label="Acties">Acties</th>
+                                    <th class="text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -264,13 +264,13 @@
                                                     {{ $company->name }}
                                                 </span>
                                                 <div class="inline-flex items-center gap-1" data-no-row-link>
-                                                    <span class="text-xs text-muted-foreground">ID</span>
+                                                    <span class="text-xs text-muted-foreground">{{ __('ID') }}</span>
                                                     <span class="text-xs font-mono font-semibold text-foreground" data-company-id="{{ $company->id }}">{{ $company->id }}</span>
                                                     <button type="button"
                                                             class="admin-email-copy shrink-0 inline-flex items-center justify-center size-5 rounded text-muted-foreground hover:text-primary"
                                                             data-copy-text="{{ $company->id }}"
-                                                            title="ID kopiëren"
-                                                            aria-label="Bedrijfs-ID {{ $company->id }} kopiëren">
+                                                            title="{{ __('ID kopiëren') }}"
+                                                            aria-label="{{ __('Bedrijfs-ID :id kopiëren', ['id' => $company->id]) }}">
                                                         <i class="ki-filled ki-copy text-[10px] pointer-events-none" aria-hidden="true"></i>
                                                     </button>
                                                 </div>
@@ -286,8 +286,8 @@
                                                                 class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                                                                 data-copy-text="{{ $company->email }}"
                                                                 data-no-row-link
-                                                                title="E-mailadres kopiëren"
-                                                                aria-label="E-mailadres kopiëren">
+                                                                title="{{ __('E-mailadres kopiëren') }}"
+                                                                aria-label="{{ __('E-mailadres kopiëren') }}">
                                                             <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
                                                         </button>
                                                     </div>
@@ -299,7 +299,7 @@
                                                     </div>
                                                 @endif
                                                 @if(!$company->email && !$company->phone)
-                                                    <span class="text-sm text-muted-foreground">Geen contact</span>
+                                                    <span class="text-sm text-muted-foreground">{{ __('Geen contact') }}</span>
                                                 @endif
                                             </div>
                                         </td>
@@ -311,21 +311,21 @@
                                                     @if($company->country){{ $company->country }}@endif
                                                 </div>
                                             @else
-                                                <span class="text-sm text-muted-foreground">Geen locatie</span>
+                                                <span class="text-sm text-muted-foreground">{{ __('Geen locatie') }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($company->is_intermediary)
-                                                <span class="kt-badge kt-badge-info whitespace-nowrap">Tussenpartij</span>
+                                                <span class="kt-badge kt-badge-info whitespace-nowrap">{{ __('Tussenpartij') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-success whitespace-nowrap">Direct</span>
+                                                <span class="kt-badge kt-badge-success whitespace-nowrap">{{ __('Direct') }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($company->is_active)
-                                                <span class="kt-badge kt-badge-success whitespace-nowrap">Actief</span>
+                                                <span class="kt-badge kt-badge-success whitespace-nowrap">{{ __('Actief') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger whitespace-nowrap">Inactief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger whitespace-nowrap">{{ __('Inactief') }}</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal companies-table__date-col">
@@ -334,7 +334,7 @@
                                         <td class="text-center companies-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -344,7 +344,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -354,7 +354,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -368,7 +368,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-element-11"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Nieuwe tenant — verder</span>
+                                                                <span class="kt-menu-title">{{ __('Nieuwe tenant — verder') }}</span>
                                                             </a>
                                                         </div>
                                                         @endif
@@ -381,13 +381,13 @@
                                                             <form action="{{ route('admin.companies.toggle-status', $company) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je de status wilt wijzigen?')">
+                                                                  onsubmit='return confirm(@json(__('Weet je zeker dat je de status wilt wijzigen?')))'>
                                                                 @csrf
                                                                 <button type="submit" class="kt-menu-link w-full text-left">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled {{ $company->is_active ? 'ki-pause' : 'ki-play' }}"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">{{ $company->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                    <span class="kt-menu-title">{{ $company->is_active ? __('Deactiveren') : __('Activeren') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -398,14 +398,14 @@
                                                             <form action="{{ route('admin.companies.destroy', $company) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je dit bedrijf wilt verwijderen?')">
+                                                                  onsubmit='return confirm(@json(__('Weet je zeker dat je dit bedrijf wilt verwijderen?')))'>
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -423,10 +423,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -437,7 +437,7 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen bedrijven gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen bedrijven gevonden') }}</h4>
                     </div>
                 @endif
             </div>
@@ -520,7 +520,7 @@
         function replaceOfWithVan() {
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
-                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', @json(' '.__('van').' '));
             }
         }
         

@@ -44,7 +44,7 @@
 @endphp
 <div class="carousel-slide-caption-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">
     <div class="carousel-slide-caption-field w-28 flex-none">
-        <label class="block text-xs font-medium text-muted-foreground mb-1">Tekstgrootte</label>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">{{ __('Tekstgrootte') }}</label>
         <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_size_px]" class="kt-input w-full text-sm carousel-slide-text-size-select">
             @for ($px = 12; $px <= 50; $px += 2)
                 <option value="{{ $px }}" @selected($slideTextSizePx === $px)>{{ $px }} px</option>
@@ -52,36 +52,36 @@
         </select>
     </div>
     <div class="carousel-slide-caption-field w-28 flex-none">
-        <label class="block text-xs font-medium text-muted-foreground mb-1">Positie</label>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">{{ __('Positie') }}</label>
         <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_position]" class="kt-input w-full text-sm carousel-slide-text-position-select">
-            <option value="top" @selected($slideTextPosition === 'top')>Boven</option>
-            <option value="center" @selected($slideTextPosition === 'center')>Midden</option>
-            <option value="bottom" @selected($slideTextPosition === 'bottom')>Onder</option>
+            <option value="top" @selected($slideTextPosition === 'top')>{{ __('Boven') }}</option>
+            <option value="center" @selected($slideTextPosition === 'center')>{{ __('Midden') }}</option>
+            <option value="bottom" @selected($slideTextPosition === 'bottom')>{{ __('Onder') }}</option>
         </select>
     </div>
     <div class="carousel-slide-caption-field w-40 flex-none">
-        <label class="block text-xs font-medium text-muted-foreground mb-1">Animatie</label>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">{{ __('Animatie') }}</label>
         <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_animation]" class="kt-input w-full text-sm carousel-slide-text-animation-select">
             @foreach ($carouselCaptionAnimations as $animKey => $animLabel)
-                <option value="{{ $animKey }}" @selected($slideTextAnimation === $animKey)>{{ $animLabel }}</option>
+                <option value="{{ $animKey }}" @selected($slideTextAnimation === $animKey)>{{ __($animLabel) }}</option>
             @endforeach
         </select>
     </div>
 </div>
 <div class="carousel-slide-caption-timing-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">
     <div class="carousel-slide-caption-field w-44 flex-none">
-        <label class="block text-xs font-medium text-muted-foreground mb-1">Animatieduur (per woord)</label>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">{{ __('Animatieduur (per woord)') }}</label>
         <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_animation_duration_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-duration-select">
             @foreach ($carouselAnimationDurationOptions as $ms => $label)
-                <option value="{{ $ms }}" @selected($slideAnimDurationMs === $ms)>{{ $label }}</option>
+                <option value="{{ $ms }}" @selected($slideAnimDurationMs === $ms)>{{ __($label) }}</option>
             @endforeach
         </select>
     </div>
     <div class="carousel-slide-caption-field w-44 flex-none">
-        <label class="block text-xs font-medium text-muted-foreground mb-1">Pauze tussen woorden</label>
+        <label class="block text-xs font-medium text-muted-foreground mb-1">{{ __('Pauze tussen woorden') }}</label>
         <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_animation_stagger_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-stagger-select">
             @foreach ($carouselAnimationStaggerOptions as $ms => $label)
-                <option value="{{ $ms }}" @selected($slideAnimStaggerMs === $ms)>{{ $label }}</option>
+                <option value="{{ $ms }}" @selected($slideAnimStaggerMs === $ms)>{{ __($label) }}</option>
             @endforeach
         </select>
     </div>

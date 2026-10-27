@@ -34,16 +34,16 @@ class AdminTenantWebsiteBundleController extends Controller
         $result = $this->bundles->importZip($company, $request->file('bundle'));
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Import voltooid: '.$result['imported_pages']." pagina's, ".$result['copied_files'].' bestand(en) gekopieerd naar storage/app/public.');
+            ->with('success', __('Import voltooid: :pages pagina\'s, :files bestand(en) gekopieerd naar storage/app/public.', ['pages' => $result['imported_pages'], 'files' => $result['copied_files']]));
     }
 
     private function authorizeBundle(Company $company): void
     {
         if (! auth()->user()?->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins kunnen website-bundels exporteren of importeren.');
+            abort(403, __('Alleen super-admins kunnen website-bundels exporteren of importeren.'));
         }
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
     }
 }

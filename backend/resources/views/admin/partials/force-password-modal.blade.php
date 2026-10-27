@@ -21,16 +21,15 @@
      data-admin-force-password="1">
     <div class="admin-modal-panel w-full max-w-lg rounded-2xl border border-border shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="force-password-title" class="text-lg font-semibold text-foreground mb-1">Wachtwoord wijzigen</h2>
+            <h2 id="force-password-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Wachtwoord wijzigen') }}</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                U bent ingelogd met een tijdelijk wachtwoord. Kies nu een eigen wachtwoord voordat u verdergaat.
-                Dit scherm kunt u niet verlaten totdat het wachtwoord is opgeslagen.
+                {{ __('U bent ingelogd met een tijdelijk wachtwoord. Kies nu een eigen wachtwoord voordat u verdergaat. Dit scherm kunt u niet verlaten totdat het wachtwoord is opgeslagen.') }}
             </p>
         </div>
         <form method="post" action="{{ route('admin.password.force.update') }}" class="px-6 py-5 space-y-4" data-validate="true" novalidate>
             @csrf
             <div>
-                <label for="force_password" class="kt-label mb-1">Nieuw wachtwoord</label>
+                <label for="force_password" class="kt-label mb-1">{{ __('Nieuw wachtwoord') }}</label>
                 <div class="relative">
                     <input id="force_password"
                            type="password"
@@ -39,16 +38,16 @@
                            required
                            minlength="8"
                            autocomplete="new-password"
-                           data-required-message="Nieuw wachtwoord is verplicht.">
+                           data-required-message="{{ __('Nieuw wachtwoord is verplicht.') }}">
                 </div>
-                <p class="text-xs text-muted-foreground mt-1">Minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.</p>
+                <p class="text-xs text-muted-foreground mt-1">{{ __('Minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.') }}</p>
                 <div class="field-feedback text-xs mt-1 hidden" data-field="password"></div>
                 @error('password')
                     <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="password" data-laravel-message="{{ $message }}" role="alert">{{ $message }}</div>
                 @enderror
             </div>
             <div>
-                <label for="force_password_confirmation" class="kt-label mb-1">Herhaal wachtwoord</label>
+                <label for="force_password_confirmation" class="kt-label mb-1">{{ __('Herhaal wachtwoord') }}</label>
                 <div class="relative">
                     <input id="force_password_confirmation"
                            type="password"
@@ -57,18 +56,18 @@
                            required
                            minlength="8"
                            autocomplete="new-password"
-                           data-required-message="Herhaal het wachtwoord.">
+                           data-required-message="{{ __('Herhaal het wachtwoord.') }}">
                 </div>
                 <div class="field-feedback text-xs mt-1 hidden" data-field="password_confirmation"></div>
                 @error('password_confirmation')
                     <div class="text-xs text-destructive mt-1 laravel-inline-error" data-laravel-field="password_confirmation" data-laravel-message="{{ $message }}" role="alert">{{ $message }}</div>
                 @enderror
             </div>
-            <button type="submit" class="kt-btn kt-btn-primary w-full">Wachtwoord opslaan</button>
+            <button type="submit" class="kt-btn kt-btn-primary w-full">{{ __('Wachtwoord opslaan') }}</button>
         </form>
         <form method="post" action="{{ route('admin.logout') }}" class="px-6 pb-5">
             @csrf
-            <button type="submit" class="kt-btn kt-btn-light w-full">Uitloggen</button>
+            <button type="submit" class="kt-btn kt-btn-light w-full">{{ __('Uitloggen') }}</button>
         </form>
     </div>
 </div>

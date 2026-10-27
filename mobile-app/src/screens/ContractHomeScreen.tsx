@@ -50,6 +50,7 @@ import { playRideAlertTone } from '../audio/rideAlert';
 import { API_BASE_URL, ColorPalette } from '../config';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { AppearanceControls } from '../ui/AppearanceControls';
+import { DemoModeRow } from '../ui/DemoModeRow';
 import { APP_PAGE_TOP_INSET, APP_PAGE_HEADER_PAD_H } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { AppScrollView } from '../ui/AppScrollView';
@@ -3205,6 +3206,7 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
         })}
       </View>
 
+      <DemoModeRow />
       <Pressable
         style={styles.logoutBtn}
         onPress={() => {

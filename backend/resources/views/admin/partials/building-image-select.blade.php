@@ -22,7 +22,7 @@
         aria-expanded="false"
         aria-controls="{{ $selectId }}-listbox">
         <span class="truncate text-sm text-foreground min-w-0 flex-1" data-building-image-label>
-            {{ $selected ? $opts[$selected]['label'] : 'Kies een gebouw…' }}
+            {{ $selected ? $opts[$selected]['label'] : __('Kies een gebouw…') }}
         </span>
         <i class="ki-filled ki-down text-muted-foreground shrink-0 transition-transform duration-200" data-building-image-chevron aria-hidden="true"></i>
     </button>
@@ -35,8 +35,8 @@
             data-value=""
             class="flex flex-col gap-2 px-2 py-2.5 rounded-md cursor-pointer hover:bg-muted/80 text-sm {{ $selected === null ? 'bg-muted/50' : '' }}"
             data-building-image-option>
-            <span class="block w-full aspect-[16/10] max-h-36 rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Geen afbeelding</span>
-            <span class="font-medium">Geen plaatje</span>
+            <span class="block w-full aspect-[16/10] max-h-36 rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">{{ __('Geen afbeelding') }}</span>
+            <span class="font-medium">{{ __('Geen plaatje') }}</span>
         </li>
         @foreach($opts as $val => $o)
             <li role="option"
@@ -49,7 +49,7 @@
         @endforeach
     </ul>
 </div>
-<p class="text-xs text-muted-foreground mt-1">Optioneel. Gebruikt o.a. voor het hoofdkantoor op het bedrijfsprofiel.</p>
+<p class="text-xs text-muted-foreground mt-1">{{ __('Optioneel. Gebruikt o.a. voor het hoofdkantoor op het bedrijfsprofiel.') }}</p>
 @error('building_image')
     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
 @enderror

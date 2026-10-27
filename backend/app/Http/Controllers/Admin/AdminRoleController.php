@@ -17,7 +17,7 @@ class AdminRoleController extends Controller
     public function index(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te bekijken.');
+            abort(403, __('Je hebt geen rechten om rollen te bekijken.'));
         }
 
         $query = Role::with(['permissions', 'users'])
@@ -109,7 +109,7 @@ class AdminRoleController extends Controller
     public function create()
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen aan te maken.');
+            abort(403, __('Je hebt geen rechten om rollen aan te maken.'));
         }
 
         $permissions = $this->groupedVisibleWebPermissions();
@@ -125,7 +125,7 @@ class AdminRoleController extends Controller
     public function store(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('create-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen aan te maken.');
+            abort(403, __('Je hebt geen rechten om rollen aan te maken.'));
         }
 
         \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::ensurePermissions();
@@ -146,13 +146,13 @@ class AdminRoleController extends Controller
         $this->syncSubmittedPermissions($role, $request, false);
 
         return redirect()->route('admin.roles.index')
-            ->with('success', 'Rol succesvol aangemaakt.');
+            ->with('success', __('Rol succesvol aangemaakt.'));
     }
 
     public function show(Role $role)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('view-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te bekijken.');
+            abort(403, __('Je hebt geen rechten om rollen te bekijken.'));
         }
 
         $role->load(['permissions', 'users.company']);
@@ -164,7 +164,7 @@ class AdminRoleController extends Controller
     public function edit(Role $role)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+            abort(403, __('Je hebt geen rechten om rollen te bewerken.'));
         }
 
         $role->load('permissions');
@@ -182,7 +182,7 @@ class AdminRoleController extends Controller
     public function update(Request $request, Role $role)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+            abort(403, __('Je hebt geen rechten om rollen te bewerken.'));
         }
 
         // Check if this is a system role
@@ -218,35 +218,35 @@ class AdminRoleController extends Controller
         $this->syncSubmittedPermissions($role, $request, true);
 
         return redirect()->route('admin.roles.index')
-            ->with('success', 'Rol succesvol bijgewerkt.');
+            ->with('success', __('Rol succesvol bijgewerkt.'));
     }
 
     public function destroy(Role $role)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('delete-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te verwijderen.');
+            abort(403, __('Je hebt geen rechten om rollen te verwijderen.'));
         }
 
         // Prevent deletion of system roles
         if (\App\Support\AdminPanelRoles::isSystemRole((string) $role->name)) {
-            return back()->with('error', 'Systeem rollen kunnen niet worden verwijderd.');
+            return back()->with('error', __('Systeem rollen kunnen niet worden verwijderd.'));
         }
 
         // Check if role is assigned to any users
         if ($role->users()->count() > 0) {
-            return back()->with('error', 'Deze rol is toegewezen aan gebruikers en kan niet worden verwijderd.');
+            return back()->with('error', __('Deze rol is toegewezen aan gebruikers en kan niet worden verwijderd.'));
         }
 
         $role->delete();
 
         return redirect()->route('admin.roles.index')
-            ->with('success', 'Rol succesvol verwijderd.');
+            ->with('success', __('Rol succesvol verwijderd.'));
     }
 
     public function toggleStatus(Request $request, Role $role)
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('edit-roles')) {
-            abort(403, 'Je hebt geen rechten om rollen te bewerken.');
+            abort(403, __('Je hebt geen rechten om rollen te bewerken.'));
         }
 
         // Prevent deactivating system roles
@@ -254,11 +254,11 @@ class AdminRoleController extends Controller
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Systeem rollen kunnen niet worden gedeactiveerd.',
+                    'message' => __('Systeem rollen kunnen niet worden gedeactiveerd.'),
                 ], 403);
             }
 
-            return back()->with('error', 'Systeem rollen kunnen niet worden gedeactiveerd.');
+            return back()->with('error', __('Systeem rollen kunnen niet worden gedeactiveerd.'));
         }
 
         $isAjax = $request->ajax() || $request->wantsJson();
@@ -278,11 +278,11 @@ class AdminRoleController extends Controller
                     if ($isAjax) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'De is_active kolom bestaat niet.',
+                            'message' => __('De is_active kolom bestaat niet.'),
                         ], 500);
                     }
 
-                    return back()->with('error', 'De is_active kolom bestaat niet.');
+                    return back()->with('error', __('De is_active kolom bestaat niet.'));
                 }
             }
 
@@ -303,11 +303,11 @@ class AdminRoleController extends Controller
             if ($isAjax) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Er is een fout opgetreden bij het wijzigen van de status.',
+                    'message' => __('Er is een fout opgetreden bij het wijzigen van de status.'),
                 ], 500);
             }
 
-            return back()->with('error', 'Er is een fout opgetreden bij het wijzigen van de status.');
+            return back()->with('error', __('Er is een fout opgetreden bij het wijzigen van de status.'));
         }
     }
 

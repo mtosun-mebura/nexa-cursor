@@ -6,13 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\ErrorLog;
 use App\Models\User;
 use App\Services\Monitoring\AdminMonitoringService;
+use App\Services\Monitoring\MonitoringBulkResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
 class AdminMonitoringController extends Controller
 {
+    private const BULK_ERROR_LIMIT = 200;
+
     public function __construct(private AdminMonitoringService $monitoring) {}
 
     public function index(Request $request): View
@@ -34,6 +38,7 @@ class AdminMonitoringController extends Controller
             'queue' => $queue,
             'errorLogs' => $this->monitoring->recentErrors(),
             'unresolvedErrors' => $this->monitoring->unresolvedErrorCount(),
+            'aiConfigured' => app(\App\Services\Monitoring\MonitoringAiDiagnoser::class)->configured(),
             'processes' => $processes,
             'income' => $this->monitoring->income($period),
         ]);
@@ -78,6 +83,48 @@ class AdminMonitoringController extends Controller
         $this->monitoring->resolveError($errorLog);
 
         return $this->redirectTo($request, 'fouten')->with('success', 'Fout gemarkeerd als opgelost.');
+    }
+
+    public function resolveErrors(Request $request, MonitoringBulkResolver $resolver): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validator = Validator::make($request->all(), [
+            'all' => ['nullable', 'boolean'],
+            'ids' => ['nullable', 'array', 'max:'.self::BULK_ERROR_LIMIT],
+            'ids.*' => ['integer', 'exists:error_logs,id'],
+        ], [
+            'ids.max' => 'Selecteer maximaal '.self::BULK_ERROR_LIMIT.' fouten tegelijk.',
+            'ids.*.exists' => 'Een geselecteerde fout bestaat niet meer.',
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', (array) $request->input('ids', []))));
+        $all = $request->boolean('all');
+        if ($validator->fails() || (! $all && $ids === [])) {
+            $message = $validator->errors()->first() ?: 'Selecteer eerst minstens één fout.';
+
+            return $this->redirectTo($request, 'fouten')->with('error', $message);
+        }
+
+        $logs = ErrorLog::query()
+            ->where('resolved', false)
+            ->when(! $all, fn ($query) => $query->whereIn('id', $ids))
+            ->orderBy('id')
+            ->limit(self::BULK_ERROR_LIMIT)
+            ->get();
+
+        $summary = $resolver->resolve($logs);
+        $message = $summary['resolved'].' opgelost, '.$summary['manual'].' vereisen handmatige actie, '.$summary['failed'].' mislukt.';
+        if ($summary['remaining'] > 0) {
+            $message .= ' Tijdslimiet bereikt: nog '.$summary['remaining'].' niet verwerkt, probeer opnieuw.';
+        }
+        if (! $summary['ai_configured']) {
+            $message .= ' AI niet geconfigureerd: alleen bekende reparaties en vaste diagnoses zijn gebruikt.';
+        }
+
+        $flash = $summary['resolved'] > 0 ? 'success' : ($summary['failed'] > 0 ? 'error' : 'warning');
+
+        return $this->redirectTo($request, 'fouten')->with($flash, $message);
     }
 
     private function redirectTo(Request $request, string $section): RedirectResponse

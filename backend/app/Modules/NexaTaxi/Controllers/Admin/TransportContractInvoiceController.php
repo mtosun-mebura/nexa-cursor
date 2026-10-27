@@ -46,7 +46,7 @@ class TransportContractInvoiceController extends Controller
                 $contractId,
                 'tab' => 'facturen',
             ])
-            ->with('success', 'Factuur '.$invoice->invoice_number.' aangemaakt.');
+            ->with('success', __('Factuur :number aangemaakt.', ['number' => $invoice->invoice_number]));
     }
 
     public function send(int $customerId, int $contractId, int $invoiceId, ContractInvoiceService $invoices)
@@ -61,7 +61,7 @@ class TransportContractInvoiceController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('success', 'Factuur verzonden naar '.$invoice->customer_email.'.');
+        return back()->with('success', __('Factuur verzonden naar :email.', ['email' => $invoice->customer_email]));
     }
 
     public function markPaid(int $customerId, int $contractId, int $invoiceId, ContractInvoiceService $invoices)
@@ -71,7 +71,7 @@ class TransportContractInvoiceController extends Controller
         $invoice = $this->findContractInvoice($customerId, $contractId, $invoiceId);
         $invoices->markInvoicePaid($invoice);
 
-        return back()->with('success', 'Factuur gemarkeerd als betaald.');
+        return back()->with('success', __('Factuur gemarkeerd als betaald.'));
     }
 
     public function destroy(int $customerId, int $contractId, int $invoiceId, ContractInvoiceService $invoices)
@@ -86,7 +86,7 @@ class TransportContractInvoiceController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('success', 'Conceptfactuur verwijderd. Je kunt nu opnieuw genereren met de bijgewerkte prijs.');
+        return back()->with('success', __('Conceptfactuur verwijderd. Je kunt nu opnieuw genereren met de bijgewerkte prijs.'));
     }
 
     public function downloadPdf(
@@ -125,15 +125,15 @@ class TransportContractInvoiceController extends Controller
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF");
             fputcsv($handle, [
-                'Factuurnummer',
-                'Periode',
-                'Datum',
-                'Vervaldatum',
-                'Bedrag excl.',
-                'BTW',
-                'Totaal',
-                'Status',
-                'Betaald op',
+                __('Factuurnummer'),
+                __('Periode'),
+                __('Datum'),
+                __('Vervaldatum'),
+                __('Bedrag excl.'),
+                __('BTW'),
+                __('Totaal'),
+                __('Status'),
+                __('Betaald op'),
             ], ';');
 
             foreach ($rows as $invoice) {

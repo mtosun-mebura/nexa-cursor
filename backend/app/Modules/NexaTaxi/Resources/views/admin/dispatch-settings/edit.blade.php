@@ -2,7 +2,7 @@
 
 @include('admin.settings.partials.collapsible-section-assets')
 
-@section('title', 'Chauffeur dispatch')
+@section('title', __('Chauffeur dispatch'))
 
 @section('content')
 @php
@@ -19,23 +19,21 @@
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div class="min-w-0 flex-1">
             <h1 class="text-xl font-medium leading-none text-mono">
-                {{ !empty($marketplaceNetworkOnly) ? 'NEXA Network' : 'Chauffeur dispatch' }}
+                {{ !empty($marketplaceNetworkOnly) ? __('NEXA Network') : __('Chauffeur dispatch') }}
             </h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
                 @if(!empty($marketplaceNetworkOnly))
-                    Koppel partner-taxi’s via NEXA Network. Andere dispatch-instellingen worden door NEXA Suite beheerd.
+                    {{ __('Koppel partner-taxi’s via NEXA Network. Andere dispatch-instellingen worden door NEXA Suite beheerd.') }}
                 @elseif(!empty($noTenantSelected))
-                    Platformstandaard voor <strong>Nexa Suite</strong> (marktplaats &amp; network).
-                    Tenants zonder eigen waarde gebruiken deze instellingen; met een tenant geselecteerd bewerk je alleen dat bedrijf.
+                    {!! __('Platformstandaard voor :suite (marktplaats & network). Tenants zonder eigen waarde gebruiken deze instellingen; met een tenant geselecteerd bewerk je alleen dat bedrijf.', ['suite' => '<strong>'.e(__('Nexa Suite')).'</strong>']) !!}
                 @else
-                    Instellingen voor de chauffeur-app en meldingen bij nieuwe boekingen. Geldt per bedrijf (tenant).
-                    Zonder eigen acceptatietijd wordt de Nexa Suite-/serverstandaard gebruikt (nu {{ (int) round($envDefaultSeconds / 60) }} min).
+                    {{ __('Instellingen voor de chauffeur-app en meldingen bij nieuwe boekingen. Geldt per bedrijf (tenant). Zonder eigen acceptatietijd wordt de Nexa Suite-/serverstandaard gebruikt (nu :minutes min).', ['minutes' => (int) round($envDefaultSeconds / 60)]) }}
                 @endif
             </p>
         </div>
         <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug naar ritten
+            {{ __('Terug naar ritten') }}
         </a>
     </div>
 
@@ -49,10 +47,10 @@
                 <i class="ki-filled ki-information-2 text-lg shrink-0 mt-0.5" aria-hidden="true"></i>
                 <div class="min-w-0 flex-1 space-y-1.5 leading-relaxed">
                     <p class="mb-0 text-sm sm:text-base font-medium break-words">
-                        Geen tenant geselecteerd — je bewerkt de <strong>Nexa Suite</strong>-standaard voor marktplaats en network.
+                        {!! __('Geen tenant geselecteerd — je bewerkt de :suite-standaard voor marktplaats en network.', ['suite' => '<strong>'.e(__('Nexa Suite')).'</strong>']) !!}
                     </p>
                     <p class="mb-0 text-sm opacity-90 break-words">
-                        Partner-koppelingen (invite-codes) blijven per bedrijf; selecteer daarvoor een tenant.
+                        {{ __('Partner-koppelingen (invite-codes) blijven per bedrijf; selecteer daarvoor een tenant.') }}
                     </p>
                 </div>
             </div>
@@ -68,7 +66,7 @@
         @unless(!empty($marketplaceNetworkOnly))
         @if(!empty($dispatchSections['accept_timer']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-accept-timer">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Acceptatietimer'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Acceptatietimer')])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
@@ -77,7 +75,7 @@
                     <col>
                 </colgroup>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">Acceptatietijd (minuten)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Acceptatietijd (minuten)') }}</td>
                     <td class="min-w-48 w-full">
                         <input
                             type="number"
@@ -91,8 +89,7 @@
                             value="{{ old('offer_ttl_minutes', $offerTtlMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Tussen {{ $minMinutes }} en {{ $maxMinutes }} minuten
-                            ({{ $offerTtlSeconds }} seconden in de app-timer).
+                            {{ __('Tussen :min en :max minuten (:seconds seconden in de app-timer).', ['min' => $minMinutes, 'max' => $maxMinutes, 'seconds' => $offerTtlSeconds]) }}
                         </p>
                         @error('offer_ttl_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -100,7 +97,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Verlopen ophaalmoment in aanvragen (minuten)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Verlopen ophaalmoment in aanvragen (minuten)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
@@ -114,10 +111,7 @@
                             value="{{ old('past_pickup_grace_minutes', $pastPickupGraceMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Zodra het ophaalmoment voorbij is, blijft de rit nog zo lang onder Nieuwe ritaanvraag
-                            (met rode verlopen-banner). Daarna alleen onder Verlopen ritten.
-                            Standaard server: {{ $envDefaultPastPickupGraceMinutes }} minuten.
-                            Tussen {{ $minPastPickupGraceMinutes }} en {{ $maxPastPickupGraceMinutes }} minuten.
+                            {{ __('Zodra het ophaalmoment voorbij is, blijft de rit nog zo lang onder Nieuwe ritaanvraag (met rode verlopen-banner). Daarna alleen onder Verlopen ritten. Standaard server: :default minuten. Tussen :min en :max minuten.', ['default' => $envDefaultPastPickupGraceMinutes, 'min' => $minPastPickupGraceMinutes, 'max' => $maxPastPickupGraceMinutes]) }}
                         </p>
                         @error('past_pickup_grace_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -126,7 +120,7 @@
                 </tr>
                 @if(empty($noTenantSelected))
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Verlopen rit auto-archiveren (dagen)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Verlopen rit auto-archiveren (dagen)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
@@ -142,10 +136,7 @@
                         >
                         <div class="field-feedback text-sm mt-1" data-field="overdue_auto_archive_days" aria-live="polite"></div>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Geaccepteerde ritten met een verlopen ophaalmoment verdwijnen na deze dagen uit
-                            Ritten en komen in het archief van de chauffeur-app.
-                            Standaard voor iedereen: {{ $envDefaultOverdueAutoArchiveDays }} dagen; per tenant aanpasbaar.
-                            0 = nooit automatisch. Tussen {{ $minOverdueAutoArchiveDays }} en {{ $maxOverdueAutoArchiveDays }} dagen.
+                            {{ __('Geaccepteerde ritten met een verlopen ophaalmoment verdwijnen na deze dagen uit Ritten en komen in het archief van de chauffeur-app. Standaard voor iedereen: :default dagen; per tenant aanpasbaar. 0 = nooit automatisch. Tussen :min en :max dagen.', ['default' => $envDefaultOverdueAutoArchiveDays, 'min' => $minOverdueAutoArchiveDays, 'max' => $maxOverdueAutoArchiveDays]) }}
                         </p>
                         @error('overdue_auto_archive_days')
                             <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
@@ -156,7 +147,7 @@
                 </tr>
                 @endif
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geen chauffeur: keuze aan klant (minuten)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen chauffeur: keuze aan klant (minuten)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
@@ -170,11 +161,7 @@
                             value="{{ old('unaccepted_auto_cancel_minutes', $unacceptedAutoCancelMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Na deze tijd na het ophaalmoment (zonder geaccepteerde chauffeur) krijgt de klant
-                            de keuze: blijven wachten of annuleren. Stelt een chauffeur een nieuw tijdstip voor,
-                            dan telt die nieuwe tijd.
-                            Standaard server: {{ $envDefaultUnacceptedAutoCancelMinutes }} minuten.
-                            0 = uit. Tussen {{ $minUnacceptedAutoCancelMinutes }} en {{ $maxUnacceptedAutoCancelMinutes }} minuten.
+                            {{ __('Na deze tijd na het ophaalmoment (zonder geaccepteerde chauffeur) krijgt de klant de keuze: blijven wachten of annuleren. Stelt een chauffeur een nieuw tijdstip voor, dan telt die nieuwe tijd. Standaard server: :default minuten. 0 = uit. Tussen :min en :max minuten.', ['default' => $envDefaultUnacceptedAutoCancelMinutes, 'min' => $minUnacceptedAutoCancelMinutes, 'max' => $maxUnacceptedAutoCancelMinutes]) }}
                         </p>
                         @error('unaccepted_auto_cancel_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -182,7 +169,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geen reactie van klant: auto-annuleren (minuten)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen reactie van klant: auto-annuleren (minuten)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
@@ -196,11 +183,7 @@
                             value="{{ old('customer_unaccepted_decision_minutes', $customerUnacceptedDecisionMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Als de klant na de keuze-prompt niet reageert, wordt de rit na deze tijd automatisch
-                            geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”,
-                            dan blijft de rit open.
-                            Standaard server: {{ $envDefaultCustomerUnacceptedDecisionMinutes }} minuten.
-                            0 = nooit automatisch. Tussen {{ $minCustomerUnacceptedDecisionMinutes }} en {{ $maxCustomerUnacceptedDecisionMinutes }} minuten.
+                            {{ __('Als de klant na de keuze-prompt niet reageert, wordt de rit na deze tijd automatisch geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”, dan blijft de rit open. Standaard server: :default minuten. 0 = nooit automatisch. Tussen :min en :max minuten.', ['default' => $envDefaultCustomerUnacceptedDecisionMinutes, 'min' => $minCustomerUnacceptedDecisionMinutes, 'max' => $maxCustomerUnacceptedDecisionMinutes]) }}
                         </p>
                         @error('customer_unaccepted_decision_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -215,11 +198,10 @@
 
         @if(!empty($dispatchSections['booking_notifications']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-booking-notifications">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Boekingsmeldingen'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Boekingsmeldingen')])
             <div class="settings-collapsible-body">
             <p class="text-xs text-muted-foreground leading-relaxed mx-5 mt-4 mb-2 pt-1">
-                Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API.
-                Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).
+                {{ __('Klant-WhatsApp en API staan onder Algemene configuraties → WhatsApp Business API. Boekingsmelding naar het bedrijf: schakelaar bij Boekingssjablonen (platform) + WhatsApp-nummer bedrijf onder Instellingen → WhatsApp (tenant).') }}
             </p>
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
@@ -228,7 +210,7 @@
                     <col>
                 </colgroup>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar chauffeurs</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('E-mail naar chauffeurs') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="booking_driver_email_enabled" value="0">
@@ -237,15 +219,15 @@
                                    name="booking_driver_email_enabled"
                                    value="1"
                                    {{ old('booking_driver_email_enabled', $bookingDriverEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Stuur elke chauffeur een e-mail bij een nieuwe rit</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Stuur elke chauffeur een e-mail bij een nieuwe rit') }}</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Verstuurd naar het e-mailadres van elk chauffeur-account binnen dit bedrijf.
+                            {{ __('Verstuurd naar het e-mailadres van elk chauffeur-account binnen dit bedrijf.') }}
                         </p>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('E-mail naar klant') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="booking_customer_email_enabled" value="0">
@@ -254,10 +236,10 @@
                                    name="booking_customer_email_enabled"
                                    value="1"
                                    {{ old('booking_customer_email_enabled', $bookingCustomerEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Stuur de klant een bevestigingsmail direct na de boeking</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Stuur de klant een bevestigingsmail direct na de boeking') }}</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Vereist een geldig e-mailadres in het boekingsformulier.
+                            {{ __('Vereist een geldig e-mailadres in het boekingsformulier.') }}
                         </p>
                     </td>
                 </tr>
@@ -269,12 +251,12 @@
 
         @if(!empty($dispatchSections['customer_login']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-mijn-taxi-login">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Mijn Taxi – klant inlogcode'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Mijn Taxi – klant inlogcode')])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Geldigheid inlogcode (minuten)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geldigheid inlogcode (minuten)') }}</td>
                     <td class="min-w-48 w-full align-top pt-4">
                         <input
                             type="number"
@@ -288,10 +270,7 @@
                             value="{{ old('customer_login_code_expires_minutes', $customerLoginCodeExpiresMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            Tussen {{ $minLoginCodeExpiresMinutes }} en {{ $maxLoginCodeExpiresMinutes }} minuten.
-                            Serverstandaard zonder tenant-waarde: {{ $envDefaultLoginCodeExpiresMinutes }} min.
-                            In de e-mail wordt <code class="text-xs">{{ '{' }}{{ '{' }} CODE_EXPIRES_MINUTES {{ '}' }}{{ '}' }}</code> automatisch met dit getal ingevuld;
-                            de code verloopt in de database na hetzelfde aantal minuten.
+                            {!! __('Tussen :min en :max minuten. Serverstandaard zonder tenant-waarde: :default min. In de e-mail wordt :token automatisch met dit getal ingevuld; de code verloopt in de database na hetzelfde aantal minuten.', ['min' => $minLoginCodeExpiresMinutes, 'max' => $maxLoginCodeExpiresMinutes, 'default' => $envDefaultLoginCodeExpiresMinutes, 'token' => '<code class="text-xs">'.'{'.'{ CODE_EXPIRES_MINUTES }'.'}'.'</code>']) !!}
                         </p>
                         @error('customer_login_code_expires_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -299,12 +278,12 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">E-mailtekst inlogcode</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('E-mailtekst inlogcode') }}</td>
                     <td class="min-w-48 w-full align-top pt-4">
                         <p class="text-sm text-secondary-foreground mb-2">
-                            Onderwerp, opmaak en overige variabelen (naam, code, link) pas je aan in E-mail templates.
+                            {{ __('Onderwerp, opmaak en overige variabelen (naam, code, link) pas je aan in E-mail templates.') }}
                         </p>
-                        <a href="{{ $customerLoginCodeEmailTemplateUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">E-mailtemplate inlogcode</a>
+                        <a href="{{ $customerLoginCodeEmailTemplateUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('E-mailtemplate inlogcode') }}</a>
                     </td>
                 </tr>
             </table>
@@ -315,62 +294,62 @@
 
         @if(!empty($dispatchSections['customer_accept']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-customer-accept">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Klantmelding bij acceptatie'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Klantmelding bij acceptatie')])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Meldingen aan klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Meldingen aan klant') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="customer_accept_enabled" value="0">
                             <input type="checkbox" class="kt-checkbox" name="customer_accept_enabled" value="1"
                                    id="customer_accept_enabled"
                                    {{ old('customer_accept_enabled', $customerAcceptEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Stuur melding wanneer een chauffeur de rit accepteert</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Stuur melding wanneer een chauffeur de rit accepteert') }}</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-2 mb-2">
-                            Pas de e-mail aan die de klant ontvangt wanneer een chauffeur de rit accepteert (onderwerp, HTML, logo en variabelen).
+                            {{ __('Pas de e-mail aan die de klant ontvangt wanneer een chauffeur de rit accepteert (onderwerp, HTML, logo en variabelen).') }}
                         </p>
-                        <a href="{{ $customerAcceptEmailEditUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">E-mailtekst aanpassen</a>
+                        <a href="{{ $customerAcceptEmailEditUrl }}" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('E-mailtekst aanpassen') }}</a>
                         @if($canEditEmailTemplatesModule ?? false)
-                            <span class="text-xs text-muted-foreground ms-2">of via
-                                <a href="{{ $emailTemplateIndexUrl }}" class="text-primary underline">E-mail templates</a></span>
+                            <span class="text-xs text-muted-foreground ms-2">{{ __('of via') }}
+                                <a href="{{ $emailTemplateIndexUrl }}" class="text-primary underline">{{ __('E-mail templates') }}</a></span>
                         @endif
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal">E-mail naar klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal">{{ __('E-mail naar klant') }}</td>
                     <td class="min-w-48 w-full">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="customer_accept_email_enabled" value="0">
                             <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_email_enabled" value="1"
                                    {{ old('customer_accept_email_enabled', $customerAcceptEmailEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Verstuur e-mail na chauffeursacceptatie (vereist klant-e-mail op de rit)</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Verstuur e-mail na chauffeursacceptatie (vereist klant-e-mail op de rit)') }}</span>
                         </label>
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp naar klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('WhatsApp naar klant') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="customer_accept_whatsapp_enabled" value="0">
                             <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_whatsapp_enabled" value="1"
                                    {{ old('customer_accept_whatsapp_enabled', $customerAcceptWhatsappEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Verstuur WhatsApp (vereist klanttelefoon)</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Verstuur WhatsApp (vereist klanttelefoon)') }}</span>
                         </label>
                         @if(! $whatsappApiConfigured)
-                            <p class="text-xs text-destructive mt-1">WhatsApp Business API is niet geconfigureerd op de server.</p>
+                            <p class="text-xs text-destructive mt-1">{{ __('WhatsApp Business API is niet geconfigureerd op de server.') }}</p>
                         @else
                             <p class="text-xs text-muted-foreground mt-1">
-                                Gebruikt het statussjabloon (<code class="text-xs">rit_status_update</code>) onder
-                                <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">Algemene configuraties → WhatsApp</a>.
+                                {!! __('Gebruikt het statussjabloon (:template) onder', ['template' => '<code class="text-xs">rit_status_update</code>']) !!}
+                                <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">{{ __('Algemene configuraties → WhatsApp') }}</a>.
                             </p>
                         @endif
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">WhatsApp communicatie klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('WhatsApp communicatie klant') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         @php
                             $selectedCustomerWhatsappStatusEvents = old('customer_whatsapp_status_events', $customerWhatsappStatusEvents ?? []);
@@ -379,7 +358,7 @@
                             }
                         @endphp
                         <p class="text-sm text-secondary-foreground mb-2">
-                            Kies welke WhatsApp-statusberichten de klant ontvangt nadat een chauffeur de rit via dispatch heeft geaccepteerd.
+                            {{ __('Kies welke WhatsApp-statusberichten de klant ontvangt nadat een chauffeur de rit via dispatch heeft geaccepteerd.') }}
                         </p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl">
                             @foreach($whatsappStatusEventLabels as $eventKey => $eventLabel)
@@ -389,54 +368,51 @@
                                            name="customer_whatsapp_status_events[]"
                                            value="{{ $eventKey }}"
                                            @checked(in_array($eventKey, $selectedCustomerWhatsappStatusEvents, true))>
-                                    <span>{{ $eventLabel }}</span>
+                                    <span>{{ __($eventLabel) }}</span>
                                 </label>
                             @endforeach
                         </div>
                         <p class="text-xs text-muted-foreground mt-2 mb-0 max-w-xl">
-                            Uitgevinkte statussen worden niet naar de klant gestuurd. <strong>Rit afgerond</strong> staat standaard uit.
-                            Sjabloon: <code class="text-xs">rit_status_update</code> onder
-                            <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">Algemene configuraties → WhatsApp</a>.
+                            {!! __('Uitgevinkte statussen worden niet naar de klant gestuurd. :status staat standaard uit. Sjabloon: :template onder', ['status' => '<strong>'.e(__('Rit afgerond')).'</strong>', 'template' => '<code class="text-xs">rit_status_update</code>']) !!}
+                            <a href="{{ route('admin.settings.general.index') }}#whatsapp-status-templates" class="underline">{{ __('Algemene configuraties → WhatsApp') }}</a>.
                         </p>
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">SMS naar klant</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('SMS naar klant') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2 mb-2">
                             <input type="hidden" name="customer_accept_sms_enabled" value="0">
                             <input type="checkbox" class="kt-checkbox customer-accept-channel" name="customer_accept_sms_enabled" value="1"
                                    {{ old('customer_accept_sms_enabled', $customerAcceptSmsEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Verstuur SMS (vereist klanttelefoon)</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Verstuur SMS (vereist klanttelefoon)') }}</span>
                         </label>
-                        <label for="customer_accept_sms_provider" class="text-xs text-muted-foreground block mb-1">SMS-provider</label>
+                        <label for="customer_accept_sms_provider" class="text-xs text-muted-foreground block mb-1">{{ __('SMS-provider') }}</label>
                         <select name="customer_accept_sms_provider" id="customer_accept_sms_provider" class="kt-select w-full max-w-md">
                             @foreach ($smsProviderOptions as $provider)
                                 <option value="{{ $provider }}" {{ old('customer_accept_sms_provider', $customerAcceptSmsProvider) === $provider ? 'selected' : '' }}>
-                                    {{ \App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::smsProviderLabel($provider) }}
+                                    {{ __(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::smsProviderLabel($provider)) }}
                                 </option>
                             @endforeach
                         </select>
                         @if(! $vonageConfigured)
                             <p class="text-xs text-muted-foreground mt-1">
-                                Vonage: zet <code class="text-xs">VONAGE_API_KEY</code>, <code class="text-xs">VONAGE_API_SECRET</code> en <code class="text-xs">VONAGE_FROM_NUMBER</code> in .env.
-                                Demo logt alleen (gratis, voor test).
+                                {!! __('Vonage: zet :key, :secret en :from in .env. Demo logt alleen (gratis, voor test).', ['key' => '<code class="text-xs">VONAGE_API_KEY</code>', 'secret' => '<code class="text-xs">VONAGE_API_SECRET</code>', 'from' => '<code class="text-xs">VONAGE_FROM_NUMBER</code>']) !!}
                             </p>
                         @endif
                     </td>
                 </tr>
                 <tr class="customer-accept-channel-row">
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Tekst SMS</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Tekst SMS') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <p class="text-xs text-muted-foreground mb-2 max-w-xl">
-                            Vaste SMS-tekst bij acceptatie/afwijzing.
-                            Variabelen: <code class="text-xs">@{{1}}</code> klant,
-                            <code class="text-xs">@{{2}}</code> bedrijf,
-                            <code class="text-xs">@{{3}}</code> status (Geaccepteerd/Geweigerd),
-                            <code class="text-xs">@{{4}}</code> opmerking,
-                            <code class="text-xs">@{{5}}</code> chauffeur,
-                            <code class="text-xs">@{{6}}</code> ophaalmoment,
-                            <code class="text-xs">@{{7}}</code> ophaaladres.
+                            {{ __('Vaste SMS-tekst bij acceptatie/afwijzing. Variabelen:') }} <code class="text-xs">@{{1}}</code> {{ __('klant,') }}
+                            <code class="text-xs">@{{2}}</code> {{ __('bedrijf,') }}
+                            <code class="text-xs">@{{3}}</code> {{ __('status (Geaccepteerd/Geweigerd),') }}
+                            <code class="text-xs">@{{4}}</code> {{ __('opmerking,') }}
+                            <code class="text-xs">@{{5}}</code> {{ __('chauffeur,') }}
+                            <code class="text-xs">@{{6}}</code> {{ __('ophaalmoment,') }}
+                            <code class="text-xs">@{{7}}</code> {{ __('ophaaladres.') }}
                         </p>
                         <pre class="kt-input w-full max-w-xl text-xs whitespace-pre-wrap break-words font-mono py-3 h-auto min-h-[8rem]">{{ \App\Services\WhatsAppBookingMessageComposer::META_BODY_CUSTOMER_SMS }}</pre>
                     </td>
@@ -449,69 +425,69 @@
 
         @if(!empty($dispatchSections['payments']))
         <div class="settings-collapsible-section settings-collapsible-card--collapsed" id="dispatch-payments">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Betalingen (Mollie)'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Betalingen (Mollie)')])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
             <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Mollie (betalingsprovider)</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Mollie (betalingsprovider)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         @if($mollieSummary['configured'] && $mollieSummary['provider'])
                             <p class="text-sm text-secondary-foreground mb-2">
                                 <strong>{{ $mollieSummary['provider']->name }}</strong>
                                 @if($mollieSummary['is_active'])
-                                    <span class="text-green-600">· actief</span>
+                                    <span class="text-green-600">{{ __('· actief') }}</span>
                                 @else
-                                    <span class="text-amber-600">· niet actief</span>
+                                    <span class="text-amber-600">{{ __('· niet actief') }}</span>
                                 @endif
                                 @if($mollieSummary['test_mode'])
-                                    <span class="text-muted-foreground">· testmodus</span>
+                                    <span class="text-muted-foreground">{{ __('· testmodus') }}</span>
                                 @endif
                             </p>
                             <p class="text-xs text-muted-foreground mb-1">
-                                API-sleutel: <code class="text-xs">{{ $mollieSummary['api_key_preview'] }}</code>
+                                {{ __('API-sleutel:') }} <code class="text-xs">{{ $mollieSummary['api_key_preview'] }}</code>
                             </p>
                             <p class="text-xs text-muted-foreground mb-2 break-all">
-                                Webhook: {{ $mollieSummary['webhook_url'] }}
+                                {{ __('Webhook: :url', ['url' => $mollieSummary['webhook_url']]) }}
                             </p>
                             @if(auth()->user()->hasRole('super-admin'))
                                 <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
-                                    Mollie-instellingen bewerken
+                                    {{ __('Mollie-instellingen bewerken') }}
                                 </a>
                             @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.edit', $mollieSummary['provider']) }}" class="kt-btn kt-btn-outline kt-btn-sm">
-                                    Mollie-instellingen bewerken
+                                    {{ __('Mollie-instellingen bewerken') }}
                                 </a>
                             @endif
                         @else
                             <p class="text-sm text-secondary-foreground mb-2">
-                                Er is nog geen actieve Mollie-omgeving voor dit bedrijf. Vul de API-sleutel van <strong>dit bedrijf</strong> in — chauffeur-betalingen komen dan op die Mollie-rekening.
+                                {!! __('Er is nog geen actieve Mollie-omgeving voor dit bedrijf. Vul de API-sleutel van :company in — chauffeur-betalingen komen dan op die Mollie-rekening.', ['company' => '<strong>'.e(__('dit bedrijf')).'</strong>']) !!}
                                 @if(auth()->user()->hasRole('super-admin'))
-                                    Super-admin: <strong>Configuraties → Mollie (tenant)</strong>.
+                                    {{ __('Super-admin:') }} <strong>{{ __('Configuraties → Mollie (tenant)') }}</strong>.
                                 @else
-                                    Onder <strong>Betalingsproviders</strong>.
+                                    {{ __('Onder') }} <strong>{{ __('Betalingsproviders') }}</strong>.
                                 @endif
                             </p>
                             <p class="text-xs text-muted-foreground mb-2">
-                                Aanbevolen webhook voor taxi-betalingen: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl }}</code>
+                                {{ __('Aanbevolen webhook voor taxi-betalingen:') }} <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl }}</code>
                             </p>
                             <p class="text-xs text-muted-foreground mb-2">
-                                Lokaal (<code>localhost</code> of <code>192.168.x.x</code>): Mollie kan die URL niet bereiken. Betalingen werken zonder webhook via terugkeer-URL en polling in de chauffeur-app. Voor webhooks: gebruik een tunnel (ngrok) en zet <code>TAXI_MOLLIE_WEBHOOK_URL</code> in <code>.env</code>.
+                                {!! __('Lokaal (:localhost of :ip): Mollie kan die URL niet bereiken. Betalingen werken zonder webhook via terugkeer-URL en polling in de chauffeur-app. Voor webhooks: gebruik een tunnel (ngrok) en zet :var in :env.', ['localhost' => '<code>localhost</code>', 'ip' => '<code>192.168.x.x</code>', 'var' => '<code>TAXI_MOLLIE_WEBHOOK_URL</code>', 'env' => '<code>.env</code>']) !!}
                             </p>
                             @if(auth()->user()->hasRole('super-admin'))
                                 <a href="{{ route('admin.settings.index') }}#mollie" class="kt-btn kt-btn-outline kt-btn-sm">
-                                    Mollie instellen
+                                    {{ __('Mollie instellen') }}
                                 </a>
                             @elseif($canManagePaymentProviders)
                                 <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-outline kt-btn-sm">
-                                    Mollie-provider aanmaken
+                                    {{ __('Mollie-provider aanmaken') }}
                                 </a>
                             @endif
                         @endif
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Direct betalen bij boeking</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Direct betalen bij boeking') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="payment_booking_enabled" value="0">
@@ -520,12 +496,12 @@
                                    name="payment_booking_enabled"
                                    value="1"
                                    {{ old('payment_booking_enabled', $paymentBookingEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Klant kan daarnaast direct via Mollie betalen na het bevestigen van de boeking</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Klant kan daarnaast direct via Mollie betalen na het bevestigen van de boeking') }}</span>
                         </label>
                     </td>
                 </tr>
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">Betalen in chauffeur-app</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Betalen in chauffeur-app') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <label class="inline-flex items-center gap-2">
                             <input type="hidden" name="payment_driver_enabled" value="0">
@@ -534,10 +510,10 @@
                                    name="payment_driver_enabled"
                                    value="1"
                                    {{ old('payment_driver_enabled', $paymentDriverEnabled ? '1' : '0') === '1' ? 'checked' : '' }}>
-                            <span class="text-sm text-secondary-foreground">Daarnaast QR-code via Mollie in de chauffeur-app</span>
+                            <span class="text-sm text-secondary-foreground">{{ __('Daarnaast QR-code via Mollie in de chauffeur-app') }}</span>
                         </label>
                         <p class="text-xs text-muted-foreground mt-1">
-                            Contant betalen is altijd beschikbaar. De rit wordt pas afgerond na betaling; daarna kan de chauffeur een factuur naar de klant sturen. Deze vinkjes voegen online betalen bij boeking of QR in de app toe. QR en boeking vereisen een actieve Mollie-provider voor dit bedrijf (zie hierboven).
+                            {{ __('Contant betalen is altijd beschikbaar. De rit wordt pas afgerond na betaling; daarna kan de chauffeur een factuur naar de klant sturen. Deze vinkjes voegen online betalen bij boeking of QR in de app toe. QR en boeking vereisen een actieve Mollie-provider voor dit bedrijf (zie hierboven).') }}
                         </p>
                     </td>
                 </tr>
@@ -550,20 +526,16 @@
 
         @if(!empty($dispatchSections['network']))
         <div class="settings-collapsible-section {{ !empty($marketplaceNetworkOnly) ? '' : 'settings-collapsible-card--collapsed' }}" id="dispatch-nexa-network">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'NEXA Network'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('NEXA Network')])
             <div class="settings-collapsible-body">
             <div class="px-3 sm:px-5 pb-3 min-w-0">
                 <p class="text-sm text-muted-foreground pt-3 mb-0">
                     @if(!empty($noTenantSelected))
-                        Platformstandaard voor Nexa Suite. Tenants zonder eigen network-instelling gebruiken deze waarden.
-                        Partner-invite-codes en handmatige partner-IDs stel je in per tenant.
+                        {{ __('Platformstandaard voor Nexa Suite. Tenants zonder eigen network-instelling gebruiken deze waarden. Partner-invite-codes en handmatige partner-IDs stel je in per tenant.') }}
                     @elseif(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
-                        Marketplace (fee-only): deel je invite-code zodat een tenant met betaald abonnement jou als uitvoerder koppelt.
-                        Over die ritten geldt de NEXA-fee (zichtbaar in de chauffeur-app / ritten). Zelf network uitzetten kan alleen met Start, Pro of Business, of als een super-admin marketplace↔marketplace aanzet onder Configuraties → Nexa Suite (klant-app).
+                        {{ __('Marketplace (fee-only): deel je invite-code zodat een tenant met betaald abonnement jou als uitvoerder koppelt. Over die ritten geldt de NEXA-fee (zichtbaar in de chauffeur-app / ritten). Zelf network uitzetten kan alleen met Start, Pro of Business, of als een super-admin marketplace↔marketplace aanzet onder Configuraties → Nexa Suite (klant-app).') }}
                     @else
-                        Standaard uit. Bij network blijft de booking-owner (<code>company_id</code>) van dit bedrijf;
-                        een partner-taxi rijdt als uitvoerder (<code>fulfilling_company_id</code>).
-                        Partners koppelen via invite-code — de partner hoeft geen abonnement (marketplace mag).
+                        {!! __('Standaard uit. Bij network blijft de booking-owner (:owner) van dit bedrijf; een partner-taxi rijdt als uitvoerder (:fulfilling). Partners koppelen via invite-code — de partner hoeft geen abonnement (marketplace mag).', ['owner' => '<code>company_id</code>', 'fulfilling' => '<code>fulfilling_company_id</code>']) !!}
                     @endif
                 </p>
 
@@ -579,53 +551,51 @@
 
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Network inschakelen</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Network inschakelen') }}</td>
                         <td class="min-w-48 w-full">
                             @if(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
                                 <input type="hidden" name="network_enabled" value="0">
-                                <p class="text-sm text-muted-foreground mb-0">Niet beschikbaar op marketplace. Upgrade naar een betaald abonnement, of vraag een super-admin marketplace↔marketplace aan te zetten bij Configuraties → Nexa Suite (klant-app).</p>
+                                <p class="text-sm text-muted-foreground mb-0">{{ __('Niet beschikbaar op marketplace. Upgrade naar een betaald abonnement, of vraag een super-admin marketplace↔marketplace aan te zetten bij Configuraties → Nexa Suite (klant-app).') }}</p>
                             @else
                                 <label class="inline-flex items-center gap-2">
                                     <input type="hidden" name="network_enabled" value="0">
                                     <input type="checkbox" class="kt-checkbox" name="network_enabled" id="network_enabled" value="1"
                                            {{ old('network_enabled', !empty($networkEnabled) ? '1' : '0') === '1' ? 'checked' : '' }}>
-                                    <span class="text-sm text-secondary-foreground">Partner-taxi’s mogen ritten uitvoeren zonder klant-eigenaarschap over te nemen</span>
+                                    <span class="text-sm text-secondary-foreground">{{ __('Partner-taxi’s mogen ritten uitvoeren zonder klant-eigenaarschap over te nemen') }}</span>
                                 </label>
                             @endif
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Modus</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Modus') }}</td>
                         <td class="min-w-48 w-full">
                             <select name="network_mode" class="kt-select admin-field-fit" data-kt-select="true">
                                 @foreach($networkModeOptions as $value => $label)
-                                    <option value="{{ $value }}" @selected(old('network_mode', $networkMode ?? 'off') === $value)>{{ $label }}</option>
+                                    <option value="{{ $value }}" @selected(old('network_mode', $networkMode ?? 'off') === $value)>{{ __($label) }}</option>
                                 @endforeach
                             </select>
                             <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                Handmatig: chauffeur kiest in de app “Naar network”. Automatisch: partners krijgen ook ritten bij escalatie.
+                                {{ __('Handmatig: chauffeur kiest in de app “Naar network”. Automatisch: partners krijgen ook ritten bij escalatie.') }}
                             </p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Fallback (seconden)</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Fallback (seconden)') }}</td>
                         <td class="min-w-48 w-full">
                             <input type="number" name="network_fallback_seconds" class="kt-input w-32" min="30" max="3600"
                                    value="{{ old('network_fallback_seconds', $networkFallbackSeconds ?? 120) }}">
                             <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                Alleen bij modus Automatisch: na zoveel seconden zonder acceptatie door de eigen vloot
-                                krijgen network-partners (binnen de max. radius) ook offers.
+                                {{ __('Alleen bij modus Automatisch: na zoveel seconden zonder acceptatie door de eigen vloot krijgen network-partners (binnen de max. radius) ook offers.') }}
                             </p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Max. radius (km)</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Max. radius (km)') }}</td>
                         <td class="min-w-48 w-full">
                             <input type="number" name="network_max_radius_km" class="kt-input w-32" min="1" max="200"
                                    value="{{ old('network_max_radius_km', $networkMaxRadiusKm ?? 25) }}">
                             <p class="text-xs text-muted-foreground mt-1 mb-0">
-                                Partner-chauffeurs krijgen alleen een aanbod als hun live GPS binnen deze hemelsbrede
-                                afstand van de ophaallocatie ligt. Zonder GPS of zonder pickup-coördinaten: geen network-offer.
+                                {{ __('Partner-chauffeurs krijgen alleen een aanbod als hun live GPS binnen deze hemelsbrede afstand van de ophaallocatie ligt. Zonder GPS of zonder pickup-coördinaten: geen network-offer.') }}
                             </p>
                         </td>
                     </tr>
@@ -639,10 +609,9 @@
                     @endphp
                     <div class="mt-5 rounded-lg border border-dashed border-border p-4 min-w-0" id="network-manual-partners-picker"
                          data-selected="{{ implode(',', $manualPartnerSelected) }}">
-                        <h4 class="text-sm font-semibold text-foreground mb-1">Super-admin: handmatige partner-IDs</h4>
+                        <h4 class="text-sm font-semibold text-foreground mb-1">{{ __('Super-admin: handmatige partner-IDs') }}</h4>
                         <p class="text-xs text-muted-foreground mb-3">
-                            Alleen voor support/onboarding. Klik op een ID om te (de)selecteren — multi-select.
-                            Wordt samengevoegd met geaccepteerde invite-partners. Tenants zien deze lijst niet.
+                            {{ __('Alleen voor support/onboarding. Klik op een ID om te (de)selecteren — multi-select. Wordt samengevoegd met geaccepteerde invite-partners. Tenants zien deze lijst niet.') }}
                         </p>
                         <input type="hidden" name="network_manual_partner_company_ids" id="network_manual_partner_company_ids"
                                value="{{ implode(', ', $manualPartnerSelected) }}">
@@ -650,14 +619,14 @@
                         <div class="relative mb-3 max-w-md">
                             <i class="ki-filled ki-magnifier absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none" aria-hidden="true"></i>
                             <input type="search" id="network-manual-partner-search" class="kt-input w-full ps-9"
-                                   placeholder="Zoek op naam of ID…" autocomplete="off" aria-label="Zoek bedrijven">
+                                   placeholder="{{ __('Zoek op naam of ID…') }}" autocomplete="off" aria-label="{{ __('Zoek bedrijven') }}">
                             <div id="network-manual-partner-suggest"
                                  class="hidden absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-background shadow-lg"
                                  role="listbox"></div>
                         </div>
 
                         <p class="text-xs text-muted-foreground mb-2">
-                            Geselecteerd: <span id="network-manual-partner-count" class="font-semibold text-foreground">{{ count($manualPartnerSelected) }}</span>
+                            {{ __('Geselecteerd:') }} <span id="network-manual-partner-count" class="font-semibold text-foreground">{{ count($manualPartnerSelected) }}</span>
                         </p>
 
                         @if(($networkPartnerCandidates ?? collect())->isNotEmpty())
@@ -673,25 +642,25 @@
                                                 class="network-manual-partner-id kt-btn kt-btn-sm font-mono shrink-0 {{ $isSelected ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700' : 'kt-btn-outline' }}"
                                                 data-id="{{ $candidate->id }}"
                                                 aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
-                                                title="{{ $isSelected ? 'Deselecteren' : 'Selecteren' }}">
+                                                title="{{ $isSelected ? __('Deselecteren') : __('Selecteren') }}">
                                             {{ $candidate->id }}
                                         </button>
                                         <span class="min-w-0 truncate text-foreground">{{ $candidate->name }}</span>
                                         @unless($candidate->is_active)
-                                            <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                         @endunless
                                     </li>
                                 @endforeach
                             </ul>
                         @else
-                            <p class="text-xs text-muted-foreground mb-0">Geen andere bedrijven gevonden.</p>
+                            <p class="text-xs text-muted-foreground mb-0">{{ __('Geen andere bedrijven gevonden.') }}</p>
                         @endif
                     </div>
                 @endif
 
                 @if(empty($noTenantSelected))
                 <p class="text-xs text-muted-foreground mt-4 mb-0">
-                    Partners koppelen (invite-code) doe je in het blok <a href="#dispatch-nexa-network-partners" class="text-primary hover:underline">Network-partners</a> onder Opslaan.
+                    {!! __('Partners koppelen (invite-code) doe je in het blok :link onder Opslaan.', ['link' => '<a href="#dispatch-nexa-network-partners" class="text-primary hover:underline">'.e(__('Network-partners')).'</a>']) !!}
                 </p>
                 @endif
             </div>
@@ -702,15 +671,15 @@
         </div>
 
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
-            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline">Naar ritten</a>
-            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-outline">{{ __('Naar ritten') }}</a>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
         </div>
     </form>
 
     @if(empty($noTenantSelected) && !empty($dispatchSections['network']))
         <div class="kt-card w-full min-w-0 mt-5" id="dispatch-nexa-network-partners">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Network-partners (invite)</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Network-partners (invite)') }}</h3>
             </div>
             <div class="kt-card-content p-5">
                 @error('network_partnership')
@@ -722,10 +691,9 @@
 
                 <div class="grid gap-4">
                     <div class="rounded-lg border border-border p-4 min-w-0">
-                        <h4 class="text-sm font-semibold text-foreground mb-1">1. Jouw invite-code delen</h4>
+                        <h4 class="text-sm font-semibold text-foreground mb-1">{{ __('1. Jouw invite-code delen') }}</h4>
                         <p class="text-xs text-muted-foreground mb-3">
-                            Deel deze code met een ander taxibedrijf. Zij plakken hem bij stap 2.
-                            Jij ziet hun verzoek onder “Inkomende verzoeken” (tenzij auto-accept aan staat).
+                            {{ __('Deel deze code met een ander taxibedrijf. Zij plakken hem bij stap 2. Jij ziet hun verzoek onder “Inkomende verzoeken” (tenzij auto-accept aan staat).') }}
                         </p>
                         <div class="flex flex-wrap items-center gap-2 mb-3">
                             <code class="text-base font-mono font-semibold tracking-wider text-foreground px-3 py-2 rounded-md border border-border bg-muted/30">
@@ -735,15 +703,15 @@
                                 <button type="button"
                                         class="admin-email-copy kt-btn kt-btn-sm kt-btn-outline"
                                         data-copy-text="{{ $networkInviteCode->code }}"
-                                        title="Code kopiëren">
-                                    <i class="ki-filled ki-copy me-1"></i> Kopiëren
+                                        title="{{ __('Code kopiëren') }}">
+                                    <i class="ki-filled ki-copy me-1"></i> {{ __('Kopiëren') }}
                                 </button>
                             @endif
                             <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.invite_rotate') }}" class="inline m-0">
                                 @csrf
                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline"
-                                        onclick="return confirm('Oude code wordt ongeldig. Doorgaan?')">
-                                    Nieuwe code
+                                        onclick="return confirm({{ \Illuminate\Support\Js::from(__('Oude code wordt ongeldig. Doorgaan?')) }})">
+                                    {{ __('Nieuwe code') }}
                                 </button>
                             </form>
                         </div>
@@ -754,60 +722,58 @@
                                 <input type="checkbox" class="kt-checkbox" name="auto_accept" value="1"
                                        {{ !empty($networkInviteCode?->auto_accept) ? 'checked' : '' }}
                                        onchange="this.form.submit()">
-                                <span class="text-sm text-secondary-foreground">Auto-accept: verzoeken via mijn code direct goedkeuren</span>
+                                <span class="text-sm text-secondary-foreground">{{ __('Auto-accept: verzoeken via mijn code direct goedkeuren') }}</span>
                             </label>
                         </form>
                         @if($networkInviteCode?->expires_at)
                             <p class="text-xs text-muted-foreground mt-2 mb-0">
-                                Geldig tot {{ $networkInviteCode->expires_at->format('d-m-Y H:i') }}.
+                                {{ __('Geldig tot :date.', ['date' => $networkInviteCode->expires_at->format('d-m-Y H:i')]) }}
                             </p>
                         @endif
                     </div>
 
                     <div class="rounded-lg border border-border p-4 min-w-0">
-                        <h4 class="text-sm font-semibold text-foreground mb-1">2. Partner koppelen (hun code)</h4>
+                        <h4 class="text-sm font-semibold text-foreground mb-1">{{ __('2. Partner koppelen (hun code)') }}</h4>
                         <p class="text-xs text-muted-foreground mb-3">
-                            Alleen met een betaald maandabonnement (Start, Pro of Business) kun je hier een partner koppelen, tenzij marketplace↔marketplace is aangezet.
-                            De partner zelf hoeft geen abonnement: marketplace/fee-only mag uitvoeren; over die ritten zie je de NEXA-fee.
-                            Jij blijft owner; zij voeren jouw network-ritten uit na acceptatie.
+                            {{ __('Alleen met een betaald maandabonnement (Start, Pro of Business) kun je hier een partner koppelen, tenzij marketplace↔marketplace is aangezet. De partner zelf hoeft geen abonnement: marketplace/fee-only mag uitvoeren; over die ritten zie je de NEXA-fee. Jij blijft owner; zij voeren jouw network-ritten uit na acceptatie.') }}
                         </p>
                         @if(!empty($marketplaceNetworkOnly) && empty($marketplaceCanOwnNetwork))
                             <div class="kt-alert kt-alert-warning mb-3 text-sm">
-                                Dit bedrijf staat op het marketplace-pakket (geen maandabonnement). Je kunt wel invites delen en inkomende verzoeken accepteren als uitvoerder, maar geen eigen partners koppelen.
+                                {{ __('Dit bedrijf staat op het marketplace-pakket (geen maandabonnement). Je kunt wel invites delen en inkomende verzoeken accepteren als uitvoerder, maar geen eigen partners koppelen.') }}
                             </div>
                         @else
                             <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.invite_redeem') }}" class="flex flex-wrap items-end gap-2 m-0">
                                 @csrf
                                 <div class="min-w-0">
-                                    <label class="text-xs text-muted-foreground mb-1 block" for="network_invite_code_input">Invite-code</label>
+                                    <label class="text-xs text-muted-foreground mb-1 block" for="network_invite_code_input">{{ __('Invite-code') }}</label>
                                     <input type="text" name="invite_code" id="network_invite_code_input"
                                            class="kt-input w-48 font-mono uppercase @error('invite_code') border-destructive @enderror"
                                            value="{{ old('invite_code') }}"
-                                           placeholder="AB12CD34" autocomplete="off" maxlength="32">
+                                           placeholder="{{ __('AB12CD34') }}" autocomplete="off" maxlength="32">
                                 </div>
-                                <button type="submit" class="kt-btn kt-btn-primary h-[34px] min-h-[34px] px-4 text-sm leading-none">Verzoek versturen</button>
+                                <button type="submit" class="kt-btn kt-btn-primary h-[34px] min-h-[34px] px-4 text-sm leading-none">{{ __('Verzoek versturen') }}</button>
                             </form>
                         @endif
                     </div>
 
                     @if(($networkPendingIncoming ?? collect())->isNotEmpty())
                         <div class="rounded-lg border border-border p-4 min-w-0">
-                            <h4 class="text-sm font-semibold text-foreground mb-2">Inkomende verzoeken</h4>
-                            <p class="text-xs text-muted-foreground mb-3">Deze bedrijven willen jou als uitvoerder voor hun network-ritten.</p>
+                            <h4 class="text-sm font-semibold text-foreground mb-2">{{ __('Inkomende verzoeken') }}</h4>
+                            <p class="text-xs text-muted-foreground mb-3">{{ __('Deze bedrijven willen jou als uitvoerder voor hun network-ritten.') }}</p>
                             <ul class="list-none p-0 m-0 flex flex-col gap-2">
                                 @foreach($networkPendingIncoming as $partnership)
                                     <li class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
                                         <span class="text-sm text-foreground font-medium">
-                                            {{ $partnership->ownerCompany?->name ?? ('Bedrijf #'.$partnership->owner_company_id) }}
+                                            {{ $partnership->ownerCompany?->name ?? __('Bedrijf #:id', ['id' => $partnership->owner_company_id]) }}
                                         </span>
                                         <div class="flex flex-wrap gap-2">
                                             <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.partnership_accept', $partnership) }}" class="m-0">
                                                 @csrf
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Accepteren</button>
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">{{ __('Accepteren') }}</button>
                                             </form>
                                             <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.partnership_decline', $partnership) }}" class="m-0">
                                                 @csrf
-                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Afwijzen</button>
+                                                <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Afwijzen') }}</button>
                                             </form>
                                         </div>
                                     </li>
@@ -818,17 +784,17 @@
 
                     @if(($networkPendingOutgoing ?? collect())->isNotEmpty())
                         <div class="rounded-lg border border-border p-4 min-w-0">
-                            <h4 class="text-sm font-semibold text-foreground mb-2">Uitgaande verzoeken (wacht op acceptatie)</h4>
+                            <h4 class="text-sm font-semibold text-foreground mb-2">{{ __('Uitgaande verzoeken (wacht op acceptatie)') }}</h4>
                             <ul class="list-none p-0 m-0 flex flex-col gap-2">
                                 @foreach($networkPendingOutgoing as $partnership)
                                     <li class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
                                         <span class="text-sm text-foreground">
-                                            {{ $partnership->partnerCompany?->name ?? ('Partner #'.$partnership->partner_company_id) }}
-                                            <span class="text-xs text-muted-foreground">· in afwachting</span>
+                                            {{ $partnership->partnerCompany?->name ?? __('Partner #:id', ['id' => $partnership->partner_company_id]) }}
+                                            <span class="text-xs text-muted-foreground">{{ __('· in afwachting') }}</span>
                                         </span>
                                         <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.partnership_revoke', $partnership) }}" class="m-0">
                                             @csrf
-                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Intrekken</button>
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Intrekken') }}</button>
                                         </form>
                                     </li>
                                 @endforeach
@@ -837,20 +803,20 @@
                     @endif
 
                     <div class="rounded-lg border border-border p-4 min-w-0">
-                        <h4 class="text-sm font-semibold text-foreground mb-2">Actieve partners</h4>
+                        <h4 class="text-sm font-semibold text-foreground mb-2">{{ __('Actieve partners') }}</h4>
                         @if(($networkAcceptedPartners ?? collect())->isEmpty())
-                            <p class="text-sm text-muted-foreground mb-0">Nog geen partners gekoppeld. Deel of plak een invite-code hierboven.</p>
+                            <p class="text-sm text-muted-foreground mb-0">{{ __('Nog geen partners gekoppeld. Deel of plak een invite-code hierboven.') }}</p>
                         @else
                             <ul class="list-none p-0 m-0 flex flex-col gap-2">
                                 @foreach($networkAcceptedPartners as $partnership)
                                     <li class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
                                         <span class="text-sm text-foreground font-medium">
-                                            {{ $partnership->partnerCompany?->name ?? ('Partner #'.$partnership->partner_company_id) }}
+                                            {{ $partnership->partnerCompany?->name ?? __('Partner #:id', ['id' => $partnership->partner_company_id]) }}
                                         </span>
                                         <form method="POST" action="{{ route('admin.taxi.dispatch_settings.network.partnership_revoke', $partnership) }}" class="m-0"
-                                              onsubmit="return confirm('Koppeling intrekken?')">
+                                              onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Koppeling intrekken?')) }})">
                                             @csrf
-                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">Intrekken</button>
+                                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Intrekken') }}</button>
                                         </form>
                                     </li>
                                 @endforeach
@@ -914,7 +880,7 @@ function initNetworkManualPartnerPicker() {
         item.classList.toggle('border-transparent', !on);
         if (btn) {
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            btn.title = on ? 'Deselecteren' : 'Selecteren';
+            btn.title = on ? @json(__('Deselecteren')) : @json(__('Selecteren'));
             btn.classList.toggle('bg-emerald-600', on);
             btn.classList.toggle('text-white', on);
             btn.classList.toggle('border-emerald-600', on);
@@ -982,7 +948,7 @@ function initNetworkManualPartnerPicker() {
                 + (on ? 'bg-emerald-600/10' : '') + '">'
                 + '<span class="font-mono font-semibold ' + (on ? 'text-emerald-600' : 'text-foreground') + '">' + id + '</span>'
                 + '<span class="truncate text-foreground">' + label.replace(/</g, '&lt;') + '</span>'
-                + (on ? '<span class="ms-auto text-xs text-emerald-600">gekozen</span>' : '')
+                + (on ? '<span class="ms-auto text-xs text-emerald-600">' + @json(__('gekozen')) + '</span>' : '')
                 + '</button>';
         }).join('');
         suggest.classList.remove('hidden');

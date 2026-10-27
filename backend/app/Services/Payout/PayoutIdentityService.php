@@ -102,7 +102,7 @@ class PayoutIdentityService
     ): PayoutIdentity {
         if (! is_valid_iban($iban)) {
             throw ValidationException::withMessages([
-                'iban' => ['Voer een geldig IBAN in.'],
+                'iban' => [__('Voer een geldig IBAN in.')],
             ]);
         }
 
@@ -127,7 +127,7 @@ class PayoutIdentityService
 
         if ($identity->masked_destination === $masked) {
             throw ValidationException::withMessages([
-                'iban' => ['Dit is al de geregistreerde rekening (zelfde eindcijfers).'],
+                'iban' => [__('Dit is al de geregistreerde rekening (zelfde eindcijfers).')],
             ]);
         }
 
@@ -171,7 +171,7 @@ class PayoutIdentityService
 
         if (strlen($last4) < 4) {
             throw ValidationException::withMessages([
-                'iban' => ['IBAN bevat te weinig cijfers om te maskeren.'],
+                'iban' => [__('IBAN bevat te weinig cijfers om te maskeren.')],
             ]);
         }
 
@@ -189,7 +189,7 @@ class PayoutIdentityService
 
         if (strlen($last4) < 4) {
             throw ValidationException::withMessages([
-                'iban' => ['IBAN bevat te weinig cijfers om te maskeren.'],
+                'iban' => [__('IBAN bevat te weinig cijfers om te maskeren.')],
             ]);
         }
 
@@ -226,7 +226,7 @@ class PayoutIdentityService
         $companyId = (int) $driver->company_id;
         if ($companyId <= 0) {
             throw ValidationException::withMessages([
-                'iban' => ['Geen bedrijf gekoppeld aan dit account.'],
+                'iban' => [__('Geen bedrijf gekoppeld aan dit account.')],
             ]);
         }
 
@@ -363,7 +363,7 @@ class PayoutIdentityService
 
             throw ValidationException::withMessages([
                 'settlement_party' => [
-                    'Directe uitbetaling aan individuele chauffeurs is niet beschikbaar. Settlement loopt via het taxibedrijf (rechtspersoon).',
+                    __('Directe uitbetaling aan individuele chauffeurs is niet beschikbaar. Settlement loopt via het taxibedrijf (rechtspersoon).'),
                 ],
             ]);
         }
@@ -372,7 +372,7 @@ class PayoutIdentityService
 
         throw ValidationException::withMessages([
             'settlement_party' => [
-                'Independent-driver payout onboarding is geconfigureerd maar nog niet geïmplementeerd voor productie.',
+                __('Independent-driver payout onboarding is geconfigureerd maar nog niet geïmplementeerd voor productie.'),
             ],
         ]);
     }
@@ -422,13 +422,13 @@ class PayoutIdentityService
         $newAccountId = trim((string) ($input['provider_account_id'] ?? ''));
         if ($newAccountId === '') {
             throw ValidationException::withMessages([
-                'provider_account_id' => ['Nieuwe provider-account-id is verplicht.'],
+                'provider_account_id' => [__('Nieuwe provider-account-id is verplicht.')],
             ]);
         }
 
         if ($newAccountId === (string) $identity->provider_account_id) {
             throw ValidationException::withMessages([
-                'provider_account_id' => ['Dit is al de actieve bestemming.'],
+                'provider_account_id' => [__('Dit is al de actieve bestemming.')],
             ]);
         }
 
@@ -457,14 +457,14 @@ class PayoutIdentityService
     {
         if (! $identity->hasPendingDestinationChange()) {
             throw ValidationException::withMessages([
-                'destination' => ['Er is geen openstaande bestemmingswijziging.'],
+                'destination' => [__('Er is geen openstaande bestemmingswijziging.')],
             ]);
         }
 
         if ($identity->destinationChangeIsCooling()) {
             throw ValidationException::withMessages([
                 'destination' => [
-                    'Cooling-off loopt nog tot '.$identity->destination_change_eligible_at->toIso8601String().'.',
+                    __('Cooling-off loopt nog tot :date.', ['date' => $identity->destination_change_eligible_at->toIso8601String()]),
                 ],
             ]);
         }
@@ -550,7 +550,7 @@ class PayoutIdentityService
         foreach (self::FORBIDDEN_SECRET_FIELDS as $field) {
             if (array_key_exists($field, $input) && $input[$field] !== null && $input[$field] !== '') {
                 throw ValidationException::withMessages([
-                    $field => ['Het opslaan van betaal- of bankgegevens is niet toegestaan. Gebruik provider-hosted onboarding.'],
+                    $field => [__('Het opslaan van betaal- of bankgegevens is niet toegestaan. Gebruik provider-hosted onboarding.')],
                 ]);
             }
         }
@@ -574,7 +574,7 @@ class PayoutIdentityService
         } elseif ($code !== '') {
             if (! app(\App\Services\AdminFirstLoginService::class)->consumeStepUpCode($actor, $code)) {
                 throw ValidationException::withMessages([
-                    'confirmation_code' => ['Deze bevestigingscode is onjuist of verlopen. Vraag een nieuwe code aan.'],
+                    'confirmation_code' => [__('Deze bevestigingscode is onjuist of verlopen. Vraag een nieuwe code aan.')],
                 ]);
             }
             $passwordOk = true;
@@ -582,8 +582,8 @@ class PayoutIdentityService
 
         if (! $passwordOk) {
             throw ValidationException::withMessages([
-                'password' => ['Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.'],
-                'confirmation_code' => ['Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.'],
+                'password' => [__('Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.')],
+                'confirmation_code' => [__('Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.')],
             ]);
         }
 
@@ -599,13 +599,13 @@ class PayoutIdentityService
     {
         if (trim($iban) === '') {
             throw ValidationException::withMessages([
-                'iban' => ['Vul een IBAN in.'],
+                'iban' => [__('Vul een IBAN in.')],
             ]);
         }
 
         if (! is_valid_iban($iban)) {
             throw ValidationException::withMessages([
-                'iban' => ['Voer een geldig IBAN in.'],
+                'iban' => [__('Voer een geldig IBAN in.')],
             ]);
         }
 
@@ -619,7 +619,7 @@ class PayoutIdentityService
         // Reject values that look like a full IBAN/PAN rather than a masked label.
         if ($digitCount >= 12 || preg_match('/\d{12,}/', $value)) {
             throw ValidationException::withMessages([
-                'masked_destination' => ['Gebruik alleen een gemaskeerde weergave van de provider, geen volledige rekening- of kaartnummers.'],
+                'masked_destination' => [__('Gebruik alleen een gemaskeerde weergave van de provider, geen volledige rekening- of kaartnummers.')],
             ]);
         }
 

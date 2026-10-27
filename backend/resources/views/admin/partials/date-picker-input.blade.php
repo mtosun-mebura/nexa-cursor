@@ -8,7 +8,7 @@
            data-kt-date-picker-input-mode="true"
            data-kt-date-picker-position-to-input="left"
            data-kt-date-picker-date-format="DD-MM-YYYY"
-           placeholder="{{ $placeholder ?? 'Selecteer datum' }}"
+           placeholder="{{ $placeholder ?? __('Selecteer datum') }}"
            readonly
            type="text"
            @if(!empty($required)) required @endif />

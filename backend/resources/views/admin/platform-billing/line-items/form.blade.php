@@ -1,22 +1,22 @@
 @extends('admin.layouts.app')
 
-@section('title', $lineItem->exists ? 'Factuurregel bewerken' : 'Nieuwe factuurregel')
+@section('title', $lineItem->exists ? __('Factuurregel bewerken') : __('Nieuwe factuurregel'))
 
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                {{ $lineItem->exists ? 'Factuurregel bewerken' : 'Nieuwe factuurregel' }}
+                {{ $lineItem->exists ? __('Factuurregel bewerken') : __('Nieuwe factuurregel') }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Generieke regel voor NEXA-facturen
+                {{ __('Generieke regel voor NEXA-facturen') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.platform-billing.line-items.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -32,26 +32,26 @@
 
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Regelgegevens</h3>
+                    <h3 class="kt-card-title">{{ __('Regelgegevens') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Naam <span class="text-destructive">*</span></td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Naam') }} <span class="text-destructive">*</span></td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input w-full @error('name') border-destructive @enderror" type="text" name="name" value="{{ old('name', $lineItem->name) }}" required>
                                 @error('name')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Omschrijving</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Omschrijving') }}</td>
                             <td>
                                 <textarea class="kt-input w-full @error('description') border-destructive @enderror" name="description" rows="3">{{ old('description', $lineItem->description) }}</textarea>
                                 @error('description')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Prijs excl. BTW <span class="text-destructive">*</span></td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Prijs excl. BTW') }} <span class="text-destructive">*</span></td>
                             <td>
                                 <div class="inline-flex items-stretch platform-billing-monthly-amount">
                                     <span class="inline-flex items-center shrink-0 px-2.5 border border-input border-r-0 rounded-l-md bg-muted/50 text-sm font-medium text-foreground">€</span>
@@ -68,14 +68,14 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Sorteervolgorde</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Sorteervolgorde') }}</td>
                             <td>
                                 <input class="kt-input @error('sort_order') border-destructive @enderror" type="number" name="sort_order" value="{{ old('sort_order', $lineItem->sort_order ?? 0) }}" style="width: 13ch;">
                                 @error('sort_order')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Status</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Status') }}</td>
                             <td>
                                 <label class="kt-label flex items-center gap-2" for="line_item_is_active">
                                     <input class="kt-switch kt-switch-sm"
@@ -84,7 +84,7 @@
                                            id="line_item_is_active"
                                            value="1"
                                            @checked(old('is_active', $lineItem->is_active ?? true))>
-                                    <span>Actief</span>
+                                    <span>{{ __('Actief') }}</span>
                                 </label>
                             </td>
                         </tr>
@@ -95,11 +95,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.platform-billing.line-items.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>

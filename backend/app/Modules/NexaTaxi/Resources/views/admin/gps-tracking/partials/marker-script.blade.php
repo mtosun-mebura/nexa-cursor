@@ -204,7 +204,7 @@ window.NexaGpsMarker = (function () {
         appearance = appearance || {};
         var wrap = document.createElement('div');
         wrap.className = 'nexa-gps-marker' + (item.is_online ? '' : ' is-offline');
-        wrap.title = (item.license_plate || 'Geen kenteken') + ' · ' + (item.driver_name || '');
+        wrap.title = (item.license_plate || @json(__('Geen kenteken'))) + ' · ' + (item.driver_name || '');
         if (item.id) wrap.setAttribute('data-gps-marker-id', item.id);
 
         var plate = document.createElement('div');

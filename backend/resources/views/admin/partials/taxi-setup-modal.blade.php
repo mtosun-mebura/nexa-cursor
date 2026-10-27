@@ -31,10 +31,9 @@
     <div class="admin-modal-panel relative z-10 w-full max-w-xl rounded-2xl border border-border shadow-2xl max-h-[90vh] overflow-y-auto"
          style="scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.55) transparent;">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="admin-taxi-setup-title" class="text-lg font-semibold text-foreground mb-1">Nexa Taxi inrichten</h2>
+            <h2 id="admin-taxi-setup-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Nexa Taxi inrichten') }}</h2>
             <p class="text-sm text-muted-foreground mb-0">
-                Volg deze stappen zodat boekingen, prijzen en e-mails goed werken voor
-                <strong class="text-foreground">{{ $adminTaxiSetup['company_name'] ?? 'jouw bedrijf' }}</strong>.
+                {!! __('Volg deze stappen zodat boekingen, prijzen en e-mails goed werken voor :company.', ['company' => '<strong class="text-foreground">'.e($adminTaxiSetup['company_name'] ?? __('jouw bedrijf')).'</strong>']) !!}
             </p>
         </div>
         <div class="px-6 py-5 space-y-4">
@@ -49,11 +48,11 @@
                             <div class="flex flex-wrap items-center gap-2 mb-1">
                                 <h3 class="text-sm font-semibold text-foreground mb-0">{{ $step['title'] }}</h3>
                                 @if($done)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success">Klaar</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Klaar') }}</span>
                                 @elseif(! empty($step['required']))
-                                    <span class="kt-badge kt-badge-sm kt-badge-danger">Verplicht</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Verplicht') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Aanbevolen</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Aanbevolen') }}</span>
                                 @endif
                             </div>
                             <p class="text-sm text-foreground mb-0">{{ $step['description'] }}</p>
@@ -69,12 +68,12 @@
 
             @if(empty($adminTaxiSetup['booking_allowed']))
                 <p class="text-sm text-red-500 mb-4">
-                    {{ $adminTaxiSetup['booking_block_message'] ?? 'Zonder voertuig kan de boekingsmodule niet op de website.' }}
+                    {{ $adminTaxiSetup['booking_block_message'] ?? __('Zonder voertuig kan de boekingsmodule niet op de website.') }}
                 </p>
             @endif
 
             <p class="text-sm text-muted-foreground mb-0">
-                Dit stappenplan blijft beschikbaar via de banner bovenaan en via je notificaties, totdat alles is afgerond.
+                {{ __('Dit stappenplan blijft beschikbaar via de banner bovenaan en via je notificaties, totdat alles is afgerond.') }}
             </p>
         </div>
         <div class="border-t border-border px-6 py-5 flex flex-wrap justify-end gap-2">
@@ -82,7 +81,7 @@
                     class="kt-btn kt-btn-outline"
                     data-taxi-setup-dismiss
                     onclick="window.adminDismissTaxiSetup && window.adminDismissTaxiSetup()">
-                Later verder
+                {{ __('Later verder') }}
             </button>
         </div>
     </div>

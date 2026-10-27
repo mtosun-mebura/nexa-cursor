@@ -69,21 +69,21 @@ class ContractInvoiceService
     ): Invoice {
         if (! preg_match('/^\d{4}-\d{2}$/', $period)) {
             throw ValidationException::withMessages([
-                'period' => ['Ongeldige factuurperiode. Gebruik YYYY-MM.'],
+                'period' => [__('Ongeldige factuurperiode. Gebruik YYYY-MM.')],
             ]);
         }
 
         $existing = $this->findInvoiceForContractPeriod($contract->id, $period);
         if ($existing) {
             throw ValidationException::withMessages([
-                'period' => ['Er bestaat al een factuur voor deze periode.'],
+                'period' => [__('Er bestaat al een factuur voor deze periode.')],
             ]);
         }
 
         $customer = TransportCustomer::on($conn)->find($contract->transport_customer_id);
         if (! $customer) {
             throw ValidationException::withMessages([
-                'contract' => ['Contractklant niet gevonden.'],
+                'contract' => [__('Contractklant niet gevonden.')],
             ]);
         }
 
@@ -96,7 +96,7 @@ class ContractInvoiceService
 
         if ($netAmount < 0.01) {
             throw ValidationException::withMessages([
-                'amount' => ['Geen factuurbedrag voor deze periode. Controleer tarief en afgeronde ritten.'],
+                'amount' => [__('Geen factuurbedrag voor deze periode. Controleer tarief en afgeronde ritten.')],
             ]);
         }
 
@@ -188,7 +188,7 @@ class ContractInvoiceService
     {
         if (! $invoice->customer_email) {
             throw ValidationException::withMessages([
-                'email' => ['Geen e-mailadres voor de contractklant.'],
+                'email' => [__('Geen e-mailadres voor de contractklant.')],
             ]);
         }
 
@@ -206,7 +206,7 @@ class ContractInvoiceService
     {
         if ($invoice->module !== Invoice::MODULE_TAXI_CONTRACT) {
             throw ValidationException::withMessages([
-                'invoice' => ['Alleen contractfacturen kunnen hier worden afgehandeld.'],
+                'invoice' => [__('Alleen contractfacturen kunnen hier worden afgehandeld.')],
             ]);
         }
 
@@ -222,13 +222,13 @@ class ContractInvoiceService
     {
         if ($invoice->module !== Invoice::MODULE_TAXI_CONTRACT) {
             throw ValidationException::withMessages([
-                'invoice' => ['Alleen contractfacturen kunnen hier worden verwijderd.'],
+                'invoice' => [__('Alleen contractfacturen kunnen hier worden verwijderd.')],
             ]);
         }
 
         if ($invoice->status !== 'draft') {
             throw ValidationException::withMessages([
-                'invoice' => ['Alleen conceptfacturen kunnen worden verwijderd. Verzonden of betaalde facturen blijven bewaard.'],
+                'invoice' => [__('Alleen conceptfacturen kunnen worden verwijderd. Verzonden of betaalde facturen blijven bewaard.')],
             ]);
         }
 

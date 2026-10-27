@@ -192,7 +192,13 @@ export const EN: Record<string, string> = {
   'Factuur verstuurd.': 'Invoice sent.',
   'Focus op de taxi': 'Focus on the taxi',
   'Focus op taxi': 'Focus on taxi',
+  'Foto kiezen': 'Choose photo',
   'Foto kiezen mislukt.': 'Could not choose a photo.',
+  'Je geeft Nexa Taxi toegang tot een selectie foto’s. Voeg er meer aan toe als je een andere foto nodig hebt.':
+    'You have given Nexa Taxi access to a selection of photos. Add more if you need a different photo.',
+  'Geen toegestane foto’s gevonden.': 'No allowed photos found.',
+  'Meer laden': 'Load more',
+  'Meer foto’s toevoegen': 'Add more photos',
   'Foto uploaden mislukt.': 'Could not upload the photo.',
   'Foto van dit voertuig': 'Photo of this vehicle',
   'Foto, optioneel': 'Photo, optional',
@@ -204,6 +210,7 @@ export const EN: Record<string, string> = {
   'Geaccepteerde ritten verschijnen hier. Afgeronde ritten blijven zichtbaar tot je ze archiveert.':
     'Accepted rides appear here. Completed rides stay visible until you archive them.',
   Geannuleerd: 'Cancelled',
+  'Gearchiveerde ritten': 'Archived rides',
   Gebruik: 'Use',
   'Geef deze ophaalcode aan de chauffeur om de rit te starten.':
     'Give this pickup code to the driver to start the ride.',
@@ -451,6 +458,7 @@ export const EN: Record<string, string> = {
   Ritsimulator: 'Ride simulator',
   Ritstatus: 'Ride status',
   Ritten: 'Rides',
+  'Ritten →': 'Rides →',
   'Ritten ({count})': 'Rides ({count})',
   'Ritten resetten': 'Reset rides',
   'Ritten resetten…': 'Resetting rides…',
@@ -630,4 +638,9 @@ export const EN: Record<string, string> = {
   Zacht: 'Soft',
   '{rest} min': '{rest} min',
   '— km · — min': '— km · — min',
+  'Demo-modus': 'Demo mode',
+  "Toont 20 gesimuleerde taxi's op de kaart bij Boeken": 'Shows 20 simulated taxis on the map under Book',
+  'Open Boeken (demo)': 'Open Book (demo)',
+  'Demo-modus: er is geen echte rit aangevraagd.': 'Demo mode: no real ride was requested.',
+  'Taxi komt eraan (gesimuleerd).': 'Taxi is on its way (simulated).',
 };

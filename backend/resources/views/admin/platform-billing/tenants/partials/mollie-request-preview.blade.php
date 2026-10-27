@@ -17,6 +17,6 @@
             </div>
         </details>
     @empty
-        <p class="text-sm text-secondary-foreground">Geen Mollie API-requests van toepassing voor deze instellingen.</p>
+        <p class="text-sm text-secondary-foreground">{{ __('Geen Mollie API-requests van toepassing voor deze instellingen.') }}</p>
     @endforelse
 </div>

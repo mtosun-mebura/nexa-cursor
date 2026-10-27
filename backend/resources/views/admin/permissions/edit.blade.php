@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Permissie Bewerken')
+@section('title', __('Permissie Bewerken'))
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
@@ -11,11 +11,11 @@
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Permissie Bewerken
+            {{ __('Permissie Bewerken') }}
         </h1>
         <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     </div>
 
@@ -28,20 +28,20 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Basis Informatie</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Basis Informatie') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Naam *</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Naam *') }}</td>
                                 <td class="min-w-48 w-full">
                                     <div class="relative">
                                         <input type="text"
                                                name="name"
                                                class="kt-input @error('name') border-destructive @enderror"
                                                value="{{ old('name', $permission->name) }}"
-                                               placeholder="bijv. view-users, create-vacancies"
+                                               placeholder="{{ __('bijv. view-users, create-vacancies') }}"
                                                required>
                                     </div>
                                     <div class="field-feedback text-xs mt-1 hidden" data-field="name"></div>
@@ -51,13 +51,13 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Omschrijving</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Omschrijving') }}</td>
                                 <td class="min-w-48 w-full">
                                     <div class="relative">
                                         <textarea name="description"
                                                   rows="4"
                                                   class="kt-input pt-1 @error('description') border-destructive @enderror"
-                                                  placeholder="Beschrijf wat deze permissie doet...">{{ old('description', $permission->description) }}</textarea>
+                                                  placeholder="{{ __('Beschrijf wat deze permissie doet...') }}">{{ old('description', $permission->description) }}</textarea>
                                     </div>
                                     <div class="field-feedback text-xs mt-1 hidden" data-field="description"></div>
                                     @error('description')
@@ -72,11 +72,11 @@
 
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Wijzigingen Opslaan
+                    {{ __('Wijzigingen Opslaan') }}
                 </button>
             </div>
         </div>

@@ -98,7 +98,7 @@ class GpsTrackingController extends Controller
         }
         if ($view === 'offline' && ! $this->settings->isOfflineUnlocked((int) $company->id)) {
             return response()->json([
-                'message' => 'Voer eerst de veiligheidscode in om offline voertuigen te zien.',
+                'message' => __('Voer eerst de veiligheidscode in om offline voertuigen te zien.'),
                 'vehicles' => [],
                 'view' => 'online',
                 'offline_code_set' => $this->settings->hasOfflineCode((int) $company->id),
@@ -116,7 +116,7 @@ class GpsTrackingController extends Controller
     {
         $this->authorizeGpsView();
         if (! $this->canUseLiveDemo()) {
-            abort(403, 'Alleen een super-admin mag de GPS-demo gebruiken.');
+            abort(403, __('Alleen een super-admin mag de GPS-demo gebruiken.'));
         }
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
@@ -166,8 +166,8 @@ class GpsTrackingController extends Controller
                 'regex:/^\d{'.TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH.','.TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH.'}$/',
             ],
         ], [
-            'code.required' => 'Vul de veiligheidscode in.',
-            'code.regex' => 'De code bestaat uit '.TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH.' tot '.TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH.' cijfers.',
+            'code.required' => __('Vul de veiligheidscode in.'),
+            'code.regex' => __('De code bestaat uit :min tot :max cijfers.', ['min' => TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH, 'max' => TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH]),
         ]);
 
         $companyId = (int) $company->id;
@@ -176,13 +176,13 @@ class GpsTrackingController extends Controller
             $seconds = RateLimiter::availableIn($limiterKey);
 
             return response()->json([
-                'message' => 'Te veel pogingen. Probeer het over '.$seconds.' seconden opnieuw.',
+                'message' => __('Te veel pogingen. Probeer het over :seconds seconden opnieuw.', ['seconds' => $seconds]),
             ], 429);
         }
 
         if (! $this->settings->hasOfflineCode($companyId)) {
             return response()->json([
-                'message' => 'Er is nog geen veiligheidscode ingesteld. Stel die eerst in via Veiligheidscode.',
+                'message' => __('Er is nog geen veiligheidscode ingesteld. Stel die eerst in via Veiligheidscode.'),
             ], 422);
         }
 
@@ -190,7 +190,7 @@ class GpsTrackingController extends Controller
             RateLimiter::hit($limiterKey, 600);
 
             return response()->json([
-                'message' => 'De veiligheidscode is onjuist.',
+                'message' => __('De veiligheidscode is onjuist.'),
             ], 422);
         }
 
@@ -200,7 +200,7 @@ class GpsTrackingController extends Controller
         return response()->json([
             'ok' => true,
             'offline_unlocked' => true,
-            'message' => 'Offline voertuigen zijn nu zichtbaar.',
+            'message' => __('Offline voertuigen zijn nu zichtbaar.'),
         ]);
     }
 
@@ -218,7 +218,7 @@ class GpsTrackingController extends Controller
         return response()->json([
             'ok' => true,
             'offline_unlocked' => false,
-            'message' => 'Offline voertuigen zijn weer verborgen.',
+            'message' => __('Offline voertuigen zijn weer verborgen.'),
         ]);
     }
 
@@ -230,13 +230,13 @@ class GpsTrackingController extends Controller
         if ($company === null) {
             return redirect()
                 ->route('admin.taxi.gps_tracking.index')
-                ->withErrors(['tenant' => 'Selecteer eerst een bedrijf om de veiligheidscode in te stellen.']);
+                ->withErrors(['tenant' => __('Selecteer eerst een bedrijf om de veiligheidscode in te stellen.')]);
         }
 
         $companyId = (int) $company->id;
         $hasExisting = $this->settings->hasOfflineCode($companyId);
         $digitRule = 'regex:/^\d{'.TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH.','.TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH.'}$/';
-        $digitMessage = 'De code bestaat uit '.TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH.' tot '.TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH.' cijfers.';
+        $digitMessage = __('De code bestaat uit :min tot :max cijfers.', ['min' => TaxiGpsTrackingSettingsService::MIN_CODE_LENGTH, 'max' => TaxiGpsTrackingSettingsService::MAX_CODE_LENGTH]);
         $rules = [
             'code' => ['required', 'string', $digitRule],
             'code_confirmation' => ['required', 'string', $digitRule, 'same:code'],
@@ -246,19 +246,19 @@ class GpsTrackingController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'code.required' => 'Vul een nieuwe veiligheidscode in.',
+            'code.required' => __('Vul een nieuwe veiligheidscode in.'),
             'code.regex' => $digitMessage,
-            'code_confirmation.required' => 'Bevestig de nieuwe veiligheidscode.',
+            'code_confirmation.required' => __('Bevestig de nieuwe veiligheidscode.'),
             'code_confirmation.regex' => $digitMessage,
-            'code_confirmation.same' => 'De opgegeven nieuwe codes komen niet overeen.',
-            'current_code.required' => 'Vul de huidige veiligheidscode in.',
+            'code_confirmation.same' => __('De opgegeven nieuwe codes komen niet overeen.'),
+            'current_code.required' => __('Vul de huidige veiligheidscode in.'),
             'current_code.regex' => $digitMessage,
         ]);
 
         if ($hasExisting && ! $this->settings->codeMatches((string) $request->input('current_code'), $companyId)) {
             return redirect()
                 ->route('admin.taxi.gps_tracking.index')
-                ->withErrors(['current_code' => 'De huidige veiligheidscode is onjuist.']);
+                ->withErrors(['current_code' => __('De huidige veiligheidscode is onjuist.')]);
         }
 
         $this->settings->setOfflineCode((string) $validated['code'], $companyId);
@@ -266,13 +266,13 @@ class GpsTrackingController extends Controller
 
         return redirect()
             ->route('admin.taxi.gps_tracking.index', ['saved' => 1])
-            ->with('success', 'Veiligheidscode is opgeslagen. Offline voertuigen blijven verborgen tot de code opnieuw is ingevoerd.');
+            ->with('success', __('Veiligheidscode is opgeslagen. Offline voertuigen blijven verborgen tot de code opnieuw is ingevoerd.'));
     }
 
     public function settings(): View
     {
         if (! TaxiDispatchAccess::sees(auth()->user(), 'gps_settings')) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
         $company = $this->tenantCompany();
         $this->assertGpsAddon($company);
@@ -300,12 +300,12 @@ class GpsTrackingController extends Controller
         $this->assertGpsAddon($company);
         if ($company === null) {
             if ($request->expectsJson() || $request->ajax()) {
-                return response()->json(['message' => 'Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.'], 422);
+                return response()->json(['message' => __('Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.')], 422);
             }
 
             return redirect()
                 ->route('admin.taxi.gps_tracking.settings')
-                ->withErrors(['tenant' => 'Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.']);
+                ->withErrors(['tenant' => __('Selecteer eerst een bedrijf om de GPS-configuratie op te slaan.')]);
         }
 
         $validated = $request->validate([
@@ -325,26 +325,26 @@ class GpsTrackingController extends Controller
                 'max:'.TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS,
             ],
         ], [
-            'car_color.regex' => 'Kies een geldige autokleur.',
-            'type_colors.*.regex' => 'Kies een geldige kleur per type auto.',
-            'vehicle_colors.*.regex' => 'Kies een geldige kleur per voertuig.',
-            'plate_background.regex' => 'Kies een geldige achtergrondkleur voor het kenteken.',
-            'plate_text_color.regex' => 'Kies een geldige tekstkleur voor het kenteken.',
-            'plate_border_color.regex' => 'Kies een geldige randkleur voor het kenteken.',
-            'refresh_seconds.required' => 'Vul het aantal seconden in.',
-            'refresh_seconds.min' => 'Vernieuwen kan minimaal elke seconde.',
-            'refresh_seconds.max' => 'Vernieuwen kan maximaal elke '.TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS.' seconden.',
+            'car_color.regex' => __('Kies een geldige autokleur.'),
+            'type_colors.*.regex' => __('Kies een geldige kleur per type auto.'),
+            'vehicle_colors.*.regex' => __('Kies een geldige kleur per voertuig.'),
+            'plate_background.regex' => __('Kies een geldige achtergrondkleur voor het kenteken.'),
+            'plate_text_color.regex' => __('Kies een geldige tekstkleur voor het kenteken.'),
+            'plate_border_color.regex' => __('Kies een geldige randkleur voor het kenteken.'),
+            'refresh_seconds.required' => __('Vul het aantal seconden in.'),
+            'refresh_seconds.min' => __('Vernieuwen kan minimaal elke seconde.'),
+            'refresh_seconds.max' => __('Vernieuwen kan maximaal elke :seconds seconden.', ['seconds' => TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS]),
         ]);
 
         $this->settings->setAppearance($validated, (int) $company->id);
 
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'GPS-configuratie is opgeslagen.']);
+            return response()->json(['ok' => true, 'message' => __('GPS-configuratie is opgeslagen.')]);
         }
 
         return redirect()
             ->route('admin.taxi.gps_tracking.settings', ['saved' => 1])
-            ->with('success', 'GPS-configuratie is opgeslagen.');
+            ->with('success', __('GPS-configuratie is opgeslagen.'));
     }
 
     /**
@@ -354,7 +354,7 @@ class GpsTrackingController extends Controller
     private function missingTenantResponse(Request $request): JsonResponse|RedirectResponse
     {
         if ($request->ajax() || $request->expectsJson()) {
-            return response()->json(['message' => 'Selecteer eerst een bedrijf.'], 422);
+            return response()->json(['message' => __('Selecteer eerst een bedrijf.')], 422);
         }
 
         return redirect()->route('admin.dashboard');
@@ -382,7 +382,7 @@ class GpsTrackingController extends Controller
     private function authorizeGpsView(): void
     {
         if (! TaxiDispatchAccess::sees(auth()->user(), 'gps_vehicles')) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 
@@ -473,6 +473,6 @@ class GpsTrackingController extends Controller
                 return;
             }
         }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 }

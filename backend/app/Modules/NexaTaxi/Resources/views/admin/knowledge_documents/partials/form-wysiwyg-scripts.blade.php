@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var sourceContent;
         var titleInput = document.getElementById('title');
         var categorySelect = document.getElementById('category');
-        var defaultLabel = formatBtn.getAttribute('data-default-label') || 'Tekst opmaken';
+        var defaultLabel = formatBtn.getAttribute('data-default-label') || @json(__('Tekst opmaken'));
 
         if (shorten) {
             var editorContent = getEditorContent();
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 lastFullSourceKey = null;
             }
             if (plainLength(fullSourceHtml) < 20) {
-                window.alert('Vul eerst minimaal 20 tekens inhoud in om op te maken.');
+                window.alert(@json(__('Vul eerst minimaal 20 tekens inhoud in om op te maken.')));
                 return;
             }
             sourceContent = fullSourceHtml;
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 sourceContent = editorContent;
                 if (plainLength(sourceContent) < 20) {
-                    window.alert('Vul eerst minimaal 20 tekens inhoud in om op te maken.');
+                    window.alert(@json(__('Vul eerst minimaal 20 tekens inhoud in om op te maken.')));
                     return;
                 }
                 fullSourceHtml = sourceContent;
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         formatBtn.disabled = true;
-        formatBtn.innerHTML = '<span class="inline-flex items-center gap-1.5"><i class="ki-filled ki-loading animate-spin" aria-hidden="true"></i> Bezig…</span>';
+        formatBtn.innerHTML = '<span class="inline-flex items-center gap-1.5"><i class="ki-filled ki-loading animate-spin" aria-hidden="true"></i> ' + @json(__('Bezig…')) + '</span>';
 
         fetch(formatBtn.getAttribute('data-format-url'), {
             method: 'POST',
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (response) {
                 return response.json().then(function (payload) {
                     if (!response.ok || payload.success === false) {
-                        throw new Error(payload.message || 'Tekst opmaken mislukt.');
+                        throw new Error(payload.message || @json(__('Tekst opmaken mislukt.')));
                     }
                     return payload;
                 });
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(function (error) {
-                window.alert(error && error.message ? error.message : 'Tekst opmaken mislukt.');
+                window.alert(error && error.message ? error.message : @json(__('Tekst opmaken mislukt.')));
             })
             .finally(function () {
                 formatBtn.disabled = false;

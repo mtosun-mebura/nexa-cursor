@@ -3,17 +3,17 @@
 @endphp
 @if(!empty($ctx['visible']))
     <tr>
-        <td class="min-w-56 text-secondary-foreground font-normal align-top">Bedrijf (tenant)</td>
+        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Bedrijf (tenant)') }}</td>
         <td class="min-w-48 w-full">
             @if(!empty($ctx['stored_company']))
                 <p class="text-sm text-foreground mb-1 font-medium">{{ $ctx['stored_company']->name }}</p>
-                <p class="text-xs text-muted-foreground mb-0">Deze pagina is aan dit bedrijf gekoppeld. De koppeling kan hier niet worden gewijzigd.</p>
+                <p class="text-xs text-muted-foreground mb-0">{{ __('Deze pagina is aan dit bedrijf gekoppeld. De koppeling kan hier niet worden gewijzigd.') }}</p>
             @elseif(!empty($ctx['show_company_dropdown']))
-                <label for="website_page_company_id" class="text-sm font-medium text-foreground block mb-1">Bedrijf</label>
+                <label for="website_page_company_id" class="text-sm font-medium text-foreground block mb-1">{{ __('Bedrijf') }}</label>
                 <select name="company_id"
                         id="website_page_company_id"
                         class="kt-input @error('company_id') border-destructive @enderror">
-                    <option value="" {{ old('company_id') ? '' : 'selected' }}>NEXA Suite (geen tenant)</option>
+                    <option value="" {{ old('company_id') ? '' : 'selected' }}>{{ __('NEXA Suite (geen tenant)') }}</option>
                     @foreach($ctx['companies'] ?? [] as $c)
                         <option value="{{ $c->id }}" {{ (string) old('company_id') === (string) $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
                     @endforeach
@@ -21,13 +21,13 @@
                 @error('company_id')
                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                 @enderror
-                <p class="text-xs text-muted-foreground mt-1 mb-0">Laat dit op NEXA Suite staan voor de hoofdwebsite. Kies alleen een bedrijf als deze pagina bij een tenant hoort.</p>
+                <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Laat dit op NEXA Suite staan voor de hoofdwebsite. Kies alleen een bedrijf als deze pagina bij een tenant hoort.') }}</p>
             @elseif(!empty($ctx['effective_company']))
                 <p class="text-sm text-foreground mb-1 font-medium">{{ $ctx['effective_company']->name }}</p>
-                <p class="text-xs text-muted-foreground mb-0">De actieve tenant in de sidebar wordt gebruikt. Bij opslaan wordt deze pagina aan dit bedrijf gekoppeld.</p>
+                <p class="text-xs text-muted-foreground mb-0">{{ __('De actieve tenant in de sidebar wordt gebruikt. Bij opslaan wordt deze pagina aan dit bedrijf gekoppeld.') }}</p>
             @else
-                <p class="text-sm text-destructive mb-1 font-medium">Geen bedrijfscontext</p>
-                <p class="text-xs text-muted-foreground mb-0">Kies een tenant in de sidebar of selecteer hierboven een bedrijf.</p>
+                <p class="text-sm text-destructive mb-1 font-medium">{{ __('Geen bedrijfscontext') }}</p>
+                <p class="text-xs text-muted-foreground mb-0">{{ __('Kies een tenant in de sidebar of selecteer hierboven een bedrijf.') }}</p>
             @endif
         </td>
     </tr>

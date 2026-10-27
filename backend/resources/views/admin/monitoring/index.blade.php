@@ -146,9 +146,40 @@
                 <p class="text-sm text-muted-foreground mt-1.5 mb-0">Recente regels uit het foutenlog. Onopgeloste fouten geven een melding in de admin en een badge bij Monitoring.</p>
             </div>
             <div class="kt-card-content p-0 min-w-0">
+                <div class="px-5 pt-5 pb-5 min-w-0">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <form method="POST" id="monitoring-errors-selected-form" action="{{ route('admin.monitoring.errors.bulk-resolve') }}" class="shrink-0" data-admin-confirm="Geselecteerde fouten automatisch oplossen?" data-admin-confirm-title="Fouten oplossen" data-admin-confirm-label="Oplossen" data-monitoring-bulk-loader data-loading-label="Fouten worden opgelost…">
+                            @csrf
+                            <input type="hidden" name="periode" value="{{ $period }}">
+                            <button type="submit" class="kt-btn kt-btn-primary" id="monitoring-errors-selected-btn" disabled>Geselecteerde fouten oplossen</button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.monitoring.errors.bulk-resolve') }}" class="shrink-0" data-admin-confirm="Alle onopgeloste fouten (maximaal 200) in één keer automatisch oplossen?" data-admin-confirm-title="Alle fouten oplossen" data-admin-confirm-label="Alles oplossen" data-monitoring-bulk-loader data-loading-label="Alle fouten worden opgelost…" data-loading-count="{{ min((int) $unresolvedErrors, 200) }}">
+                            @csrf
+                            <input type="hidden" name="periode" value="{{ $period }}">
+                            <input type="hidden" name="all" value="1">
+                            <button type="submit" class="kt-btn kt-btn-outline" @if((int) $unresolvedErrors === 0) disabled @endif>Alle onopgeloste fouten oplossen</button>
+                        </form>
+                        <span class="text-sm text-muted-foreground" id="monitoring-errors-selected-count" aria-live="polite">0 geselecteerd</span>
+                        <span class="text-sm text-muted-foreground" id="monitoring-errors-loading-status" role="status" aria-live="polite" hidden>
+                            <span class="inline-flex items-center gap-2">
+                                <i class="ki-filled ki-arrows-circle animate-spin" aria-hidden="true"></i>
+                                <span data-monitoring-loading-text></span>
+                            </span>
+                        </span>
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-3 mb-0">
+                        Eerst een bekende reparatie met hercontrole, daarna (per soort fout één keer) AI-diagnose. Alleen vaste, veilige acties worden uitgevoerd; een fout wordt pas opgelost als de hercontrole slaagt. Betalingen, facturen en incasso worden nooit automatisch aangepast.
+                        @if($aiConfigured)
+                            AI-diagnose: actief.
+                        @else
+                            AI-diagnose: niet geconfigureerd (alleen bekende reparaties en vaste diagnoses).
+                        @endif
+                    </p>
+                </div>
                 <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
-                    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                    <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full" id="monitoring-errors-table">
                         <colgroup>
+                            <col style="width: 3.5rem">
                             <col style="width: 18%">
                             <col style="width: 14%">
                             <col>
@@ -157,6 +188,11 @@
                         </colgroup>
                         <thead>
                             <tr>
+                                <th class="admin-table__check-col text-center" data-no-row-link data-label="">
+                                    <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                        <input type="checkbox" class="kt-checkbox" id="monitoring-errors-select-all" aria-label="Alles selecteren">
+                                    </label>
+                                </th>
                                 <th data-label="Tijd">Tijd</th>
                                 <th data-label="Bron">Bron</th>
                                 <th data-label="Bericht">Bericht</th>
@@ -168,14 +204,36 @@
                             @forelse($errorLogs as $error)
                                 @php
                                     $errorContextText = '';
-                                    if (is_array($error->context) && $error->context !== []) {
-                                        $errorContextText = \Illuminate\Support\Str::limit(json_encode($error->context, JSON_UNESCAPED_UNICODE), 180);
+                                    $errorFix = is_array($error->context) && is_array($error->context['monitoring_fix'] ?? null) ? $error->context['monitoring_fix'] : null;
+                                    $errorShownContext = is_array($error->context) ? array_diff_key($error->context, ['monitoring_fix' => true, 'frames' => true]) : [];
+                                    if ($errorShownContext !== []) {
+                                        $errorContextText = \Illuminate\Support\Str::limit(json_encode($errorShownContext, JSON_UNESCAPED_UNICODE), 180);
                                     }
                                     $errorCopyText = $errorContextText !== ''
                                         ? trim((string) $error->message)."\n".$errorContextText
                                         : (string) $error->message;
+                                    $errorFixText = '';
+                                    if ($errorFix !== null) {
+                                        $errorFixText = trim(implode("\n", array_filter([
+                                            (string) ($errorFix['outcome'] ?? ''),
+                                            ! empty($errorFix['diagnosis_nl']) ? 'Diagnose: '.$errorFix['diagnosis_nl'] : '',
+                                            ! empty($errorFix['proposed_fix_nl']) ? 'Voorgestelde oplossing: '.$errorFix['proposed_fix_nl'] : '',
+                                        ])));
+                                        $errorCopyText .= "\n".$errorFixText;
+                                    }
                                 @endphp
                                 <tr>
+                                    <td class="admin-table__check-col text-center align-middle" data-no-row-link data-label="">
+                                        <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
+                                            <input type="checkbox"
+                                                   class="kt-checkbox monitoring-error-check"
+                                                   name="ids[]"
+                                                   value="{{ $error->id }}"
+                                                   form="monitoring-errors-selected-form"
+                                                   aria-label="Fout selecteren"
+                                                   @if($error->resolved) disabled @endif>
+                                        </label>
+                                    </td>
                                     <td class="text-muted-foreground whitespace-nowrap">{{ $error->created_at?->timezone('Europe/Amsterdam')->format('d-m-Y H:i') }}</td>
                                     <td class="text-muted-foreground">{{ $error->source }}</td>
                                     <td class="text-foreground">
@@ -184,6 +242,20 @@
                                                 <div class="break-words">{{ $error->message }}</div>
                                                 @if($errorContextText !== '')
                                                     <div class="text-xs text-muted-foreground mt-1 break-all">{{ $errorContextText }}</div>
+                                                @endif
+                                                @if($errorFix !== null)
+                                                    <details class="mt-2 text-xs text-muted-foreground">
+                                                        <summary class="cursor-pointer select-none">
+                                                            @if(($errorFix['status'] ?? '') === 'opgelost')
+                                                                Automatisch opgelost
+                                                            @elseif(($errorFix['status'] ?? '') === 'mislukt')
+                                                                Automatisch oplossen mislukt
+                                                            @else
+                                                                Handmatige actie nodig{{ ! empty($errorFix['ai']) ? ' (AI-diagnose)' : '' }}
+                                                            @endif
+                                                        </summary>
+                                                        <div class="mt-1 break-words whitespace-pre-line select-text">{{ $errorFixText }}</div>
+                                                    </details>
                                                 @endif
                                             </div>
                                             <button type="button"
@@ -199,6 +271,9 @@
                                             <span class="kt-badge kt-badge-success kt-badge-sm">Opgelost</span>
                                         @else
                                             <span class="kt-badge kt-badge-danger kt-badge-sm">Open</span>
+                                            @if($errorFix !== null && ($errorFix['status'] ?? '') === 'handmatig')
+                                                <div class="mt-1"><span class="kt-badge kt-badge-warning kt-badge-sm">Handmatig</span></div>
+                                            @endif
                                         @endif
                                     </td>
                                     <td>
@@ -215,7 +290,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted-foreground py-8">Geen fouten vastgelegd.</td>
+                                    <td colspan="6" class="text-center text-muted-foreground py-8">Geen fouten vastgelegd.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -892,6 +967,108 @@ function monitoringShowCopied(button) {
         button.setAttribute('aria-label', 'Kopiëren');
     }, 1500);
 }
+
+(function () {
+    var selectAll = document.getElementById('monitoring-errors-select-all');
+    var form = document.getElementById('monitoring-errors-selected-form');
+    var button = document.getElementById('monitoring-errors-selected-btn');
+    var counter = document.getElementById('monitoring-errors-selected-count');
+    if (!selectAll || !form || !button || !counter) {
+        return;
+    }
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#monitoring-errors-table .monitoring-error-check:not(:disabled)'));
+    function sync() {
+        var checked = rows.filter(function (box) { return box.checked; }).length;
+        selectAll.disabled = rows.length === 0;
+        selectAll.checked = rows.length > 0 && checked === rows.length;
+        selectAll.indeterminate = checked > 0 && checked < rows.length;
+        button.disabled = checked === 0;
+        counter.textContent = checked + ' geselecteerd';
+        form.setAttribute('data-admin-confirm', checked + ' geselecteerde ' + (checked === 1 ? 'fout' : 'fouten') + ' automatisch oplossen?');
+    }
+    selectAll.addEventListener('change', function () {
+        rows.forEach(function (box) { box.checked = selectAll.checked; });
+        sync();
+    });
+    rows.forEach(function (box) { box.addEventListener('change', sync); });
+    sync();
+})();
+
+(function () {
+    var forms = Array.prototype.slice.call(document.querySelectorAll('form[data-monitoring-bulk-loader]'));
+    var status = document.getElementById('monitoring-errors-loading-status');
+    if (forms.length === 0 || !status) {
+        return;
+    }
+    var disabledByLoader = [];
+    var busyButton = null;
+    var busyHtml = '';
+
+    function countText(form) {
+        var n = form.hasAttribute('data-loading-count')
+            ? parseInt(form.getAttribute('data-loading-count'), 10)
+            : document.querySelectorAll('#monitoring-errors-table .monitoring-error-check:checked').length;
+        if (form.hasAttribute('data-loading-count')) {
+            return 'Bezig met oplossen van alle onopgeloste fouten (' + n + ')… dit kan even duren';
+        }
+        return 'Bezig met oplossen van ' + n + (n === 1 ? ' fout' : ' fouten') + '… dit kan even duren';
+    }
+
+    function start(form, submitter) {
+        var button = submitter && submitter.tagName === 'BUTTON' ? submitter : form.querySelector('button[type="submit"]');
+        var text = countText(form);
+        var controls = document.querySelectorAll('#monitoring-section-fouten .kt-card-content form[data-monitoring-bulk-loader] button, #monitoring-errors-table input[type="checkbox"]');
+        Array.prototype.forEach.call(controls, function (el) {
+            if (!el.disabled) {
+                el.disabled = true;
+                disabledByLoader.push(el);
+            }
+        });
+        if (button) {
+            busyButton = button;
+            busyHtml = button.innerHTML;
+            button.innerHTML = '<span class="inline-flex items-center gap-2"><i class="ki-filled ki-arrows-circle animate-spin" aria-hidden="true"></i><span></span></span>';
+            button.querySelector('span span').textContent = form.getAttribute('data-loading-label');
+            button.setAttribute('aria-busy', 'true');
+        }
+        status.querySelector('[data-monitoring-loading-text]').textContent = text;
+        status.hidden = false;
+    }
+
+    function reset() {
+        disabledByLoader.forEach(function (el) { el.disabled = false; });
+        disabledByLoader = [];
+        if (busyButton) {
+            busyButton.innerHTML = busyHtml;
+            busyButton.removeAttribute('aria-busy');
+            busyButton = null;
+        }
+        status.hidden = true;
+        var first = document.querySelector('#monitoring-errors-table .monitoring-error-check:not(:disabled)');
+        if (first) {
+            first.dispatchEvent(new Event('change'));
+        }
+    }
+
+    forms.forEach(function (form) {
+        // De bevestigingsmodal onderschept de eerste submit (capture) en verstuurt het formulier pas na "Oplossen".
+        // Deze bubble-handler draait dus alleen bij de echte submit, niet bij openen of annuleren van de modal.
+        form.addEventListener('submit', function (event) {
+            if (event.defaultPrevented) {
+                return;
+            }
+            var submitter = event.submitter;
+            // Pas na het opbouwen van de formuliergegevens uitschakelen: disabled velden worden niet meegestuurd.
+            window.setTimeout(function () { start(form, submitter); }, 0);
+        });
+    });
+
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            reset();
+        }
+    });
+})();
 
 document.addEventListener('click', function (event) {
     var button = event.target && event.target.closest ? event.target.closest('#monitoring-section-fouten .monitoring-error-copy') : null;

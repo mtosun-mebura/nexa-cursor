@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nieuwe Factuur')
+@section('title', __('Nieuwe Factuur'))
 
 @section('content')
 
@@ -26,13 +26,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Nieuwe Factuur
+                {{ __('Nieuwe Factuur') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -47,14 +47,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Basis Informatie
+                        {{ __('Basis Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Bedrijf *
+                                {{ __('Bedrijf *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select @error('company_id') border-destructive @enderror" 
@@ -62,7 +62,7 @@
                                         id="company_id" 
                                         data-kt-select="true"
                                         required>
-                                    <option value="">Selecteer bedrijf</option>
+                                    <option value="">{{ __('Selecteer bedrijf') }}</option>
                                     @foreach($companies as $company)
                                         <option value="{{ $company->id }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>
                                             {{ $company->name }}
@@ -77,17 +77,17 @@
                         @if($skillmatchingAvailable ?? false)
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Match (optioneel)
+                                {{ __('Match (optioneel)') }}
                             </td>
                             <td>
                                 <select class="kt-select @error('job_match_id') border-destructive @enderror" 
                                         name="job_match_id" 
                                         id="job_match_id"
                                         data-kt-select="true">
-                                    <option value="">Geen match</option>
+                                    <option value="">{{ __('Geen match') }}</option>
                                     @foreach($jobMatches as $match)
                                         <option value="{{ $match->id }}" {{ old('job_match_id') == $match->id ? 'selected' : '' }}>
-                                            Match #{{ $match->id }} - {{ $match->company->name ?? 'N/A' }}
+                                            {{ __('Match #:id', ['id' => $match->id]) }} - {{ $match->company->name ?? 'N/A' }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -99,7 +99,7 @@
                         @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Factuurdatum *
+                                {{ __('Factuurdatum *') }}
                             </td>
                             <td>
                                 <div class="kt-input w-64 @error('invoice_date') border-destructive @enderror">
@@ -112,7 +112,7 @@
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
                                            data-kt-date-picker-date-format="DD-MM-YYYY"
-                                           placeholder="Selecteer datum" 
+                                           placeholder="{{ __('Selecteer datum') }}" 
                                            readonly 
                                            type="text"
                                            required/>
@@ -124,7 +124,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Vervaldatum *
+                                {{ __('Vervaldatum *') }}
                             </td>
                             <td>
                                 <div class="kt-input w-64 @error('due_date') border-destructive @enderror">
@@ -137,7 +137,7 @@
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
                                            data-kt-date-picker-date-format="DD-MM-YYYY"
-                                           placeholder="Selecteer datum" 
+                                           placeholder="{{ __('Selecteer datum') }}" 
                                            readonly 
                                            type="text"
                                            required/>
@@ -149,7 +149,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Status *
+                                {{ __('Status *') }}
                             </td>
                             <td>
                                 <select class="kt-select @error('status') border-destructive @enderror" 
@@ -157,10 +157,10 @@
                                         id="status"
                                         data-kt-select="true"
                                         required>
-                                    <option value="draft" {{ old('status') == 'draft' ? 'selected' : '' }}>Concept</option>
-                                    <option value="in_progress" {{ old('status') == 'in_progress' ? 'selected' : '' }}>In behandeling</option>
-                                    <option value="sent" {{ old('status') == 'sent' ? 'selected' : '' }}>Verzonden</option>
-                                    <option value="paid" {{ old('status') == 'paid' ? 'selected' : '' }}>Betaald</option>
+                                    <option value="draft" {{ old('status') == 'draft' ? 'selected' : '' }}>{{ __('Concept') }}</option>
+                                    <option value="in_progress" {{ old('status') == 'in_progress' ? 'selected' : '' }}>{{ __('In behandeling') }}</option>
+                                    <option value="sent" {{ old('status') == 'sent' ? 'selected' : '' }}>{{ __('Verzonden') }}</option>
+                                    <option value="paid" {{ old('status') == 'paid' ? 'selected' : '' }}>{{ __('Betaald') }}</option>
                                 </select>
                                 @error('status')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -175,14 +175,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Bedrag Informatie
+                        {{ __('Bedrag Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Bedrag (excl. BTW) *
+                                {{ __('Bedrag (excl. BTW) *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex gap-2">
@@ -198,13 +198,13 @@
                                     <button type="button" 
                                             class="kt-btn kt-btn-sm kt-btn-outline" 
                                             id="use-default-amount"
-                                            title="Gebruik standaard bedrag: €{{ number_format($settings->default_amount, 2, ',', '.') }}">
+                                            title="{{ __('Gebruik standaard bedrag: €:amount', ['amount' => number_format($settings->default_amount, 2, ',', '.')]) }}">
                                         <i class="ki-filled ki-arrow-down text-base"></i>
                                     </button>
                                     @endif
                                 </div>
                                 @if($settings->default_amount)
-                                <div class="text-xs text-muted-foreground mt-1">Standaard bedrag: €{{ number_format($settings->default_amount, 2, ',', '.') }}</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Standaard bedrag: €:amount', ['amount' => number_format($settings->default_amount, 2, ',', '.')]) }}</div>
                                 @endif
                                 @error('amount')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -213,7 +213,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                BTW Percentage
+                                {{ __('BTW Percentage') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('tax_rate') border-destructive @enderror" 
@@ -224,7 +224,7 @@
                                        step="1"
                                        min="0"
                                        max="100">
-                                <div class="text-xs text-muted-foreground mt-1">Standaard: {{ (int)($settings->default_tax_rate ?? 21) }}%</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Standaard: :percent%', ['percent' => (int)($settings->default_tax_rate ?? 21)]) }}</div>
                                 @error('tax_rate')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -232,7 +232,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                BTW Bedrag
+                                {{ __('BTW Bedrag') }}
                             </td>
                             <td>
                                 <input class="kt-input" 
@@ -249,7 +249,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Totaal Bedrag (incl. BTW) *
+                                {{ __('Totaal Bedrag (incl. BTW) *') }}
                             </td>
                             <td>
                                 <input class="kt-input font-semibold" 
@@ -267,7 +267,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Valuta *
+                                {{ __('Valuta *') }}
                             </td>
                             <td>
                                 <select class="kt-select @error('currency') border-destructive @enderror" 
@@ -285,7 +285,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Deelfactuur
+                                {{ __('Deelfactuur') }}
                             </td>
                             <td>
                                 <label class="kt-label flex items-center">
@@ -295,7 +295,7 @@
                                            id="is_partial"
                                            value="1"
                                            {{ old('is_partial') ? 'checked' : '' }}>
-                                    <span class="ms-2">Deelfactuur</span>
+                                    <span class="ms-2">{{ __('Deelfactuur') }}</span>
                                 </label>
                             </td>
                         </tr>
@@ -307,14 +307,14 @@
             <div id="partial-fields" class="kt-card min-w-full hidden">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Deelfactuur Informatie
+                        {{ __('Deelfactuur Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Ouder Factuurnummer
+                                {{ __('Ouder Factuurnummer') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input @error('parent_invoice_number') border-destructive @enderror" 
@@ -329,7 +329,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Deelnummer
+                                {{ __('Deelnummer') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('partial_number') border-destructive @enderror" 
@@ -351,7 +351,7 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Opmerkingen
+                        {{ __('Opmerkingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-content pb-3">
@@ -359,7 +359,7 @@
                               name="notes" 
                               id="notes"
                               rows="4"
-                              placeholder="Optionele opmerkingen...">{{ old('notes') }}</textarea>
+                              placeholder="{{ __('Optionele opmerkingen...') }}">{{ old('notes') }}</textarea>
                     @error('notes')
                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                     @enderror
@@ -370,11 +370,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Factuur Aanmaken
+                    {{ __('Factuur Aanmaken') }}
                 </button>
             </div>
         </div>

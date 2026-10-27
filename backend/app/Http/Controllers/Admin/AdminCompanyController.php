@@ -35,7 +35,7 @@ class AdminCompanyController extends Controller
     public function index(Request $request)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bekijken.'));
         }
 
         $query = Company::withCount('users')->with('mainLocation');
@@ -109,7 +109,7 @@ class AdminCompanyController extends Controller
     public function create()
     {
         if (! auth()->user()->canCreateCompanies()) {
-            abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
+            abort(403, __('Je hebt geen rechten om bedrijven aan te maken.'));
         }
 
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
@@ -129,7 +129,7 @@ class AdminCompanyController extends Controller
     public function store(Request $request)
     {
         if (! auth()->user()->canCreateCompanies()) {
-            abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
+            abort(403, __('Je hebt geen rechten om bedrijven aan te maken.'));
         }
 
         $request->merge([
@@ -176,30 +176,30 @@ class AdminCompanyController extends Controller
             'package_key' => $this->packageKeyRules(),
             ...$this->packageAddonValidationRules(),
         ], [
-            'name.required' => 'Bedrijfsnaam is verplicht.',
-            'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
-            'email.required' => 'E-mailadres is verplicht.',
-            'email.email' => 'Voer een geldig e-mailadres in.',
-            'phone.required' => 'Telefoonnummer is verplicht.',
-            'phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
-            'street.required' => 'Straat is verplicht.',
-            'street.min' => 'Straat moet minimaal 2 tekens bevatten.',
-            'house_number.required' => 'Huisnummer is verplicht.',
-            'house_number.min' => 'Huisnummer is verplicht.',
-            'postal_code.required' => 'Postcode is verplicht.',
-            'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
-            'city.required' => 'Plaats is verplicht.',
-            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
-            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
-            'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
-            'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
-            'favicon.mimes' => 'Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.',
-            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
-            'locations.*.name.required_with' => 'Vestigingsnaam is verplicht wanneer een vestiging wordt toegevoegd.',
-            'locations.*.name.min' => 'Vestigingsnaam moet minimaal 2 tekens bevatten.',
-            'locations.*.postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
-            'locations.*.phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
-            'locations.*.email.email' => 'Voer een geldig e-mailadres in.',
+            'name.required' => __('Bedrijfsnaam is verplicht.'),
+            'name.min' => __('Bedrijfsnaam moet minimaal 2 tekens bevatten.'),
+            'email.required' => __('E-mailadres is verplicht.'),
+            'email.email' => __('Voer een geldig e-mailadres in.'),
+            'phone.required' => __('Telefoonnummer is verplicht.'),
+            'phone.regex' => __('Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).'),
+            'street.required' => __('Straat is verplicht.'),
+            'street.min' => __('Straat moet minimaal 2 tekens bevatten.'),
+            'house_number.required' => __('Huisnummer is verplicht.'),
+            'house_number.min' => __('Huisnummer is verplicht.'),
+            'postal_code.required' => __('Postcode is verplicht.'),
+            'postal_code.regex' => __('Voer een geldige Nederlandse postcode in (bijv. 1234AB).'),
+            'city.required' => __('Plaats is verplicht.'),
+            'city.min' => __('Plaats moet minimaal 2 tekens bevatten.'),
+            'kvk_number.regex' => __('KVK nummer moet 8 cijfers bevatten (bijv. 12345678).'),
+            'website.url' => __('Voer een geldige URL in (bijv. https://www.voorbeeld.nl).'),
+            'package_key.in' => __('Kies een bestaand pakket of laat leeg.'),
+            'favicon.mimes' => __('Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.'),
+            'favicon.max' => __('Favicon mag maximaal 2MB groot zijn.'),
+            'locations.*.name.required_with' => __('Vestigingsnaam is verplicht wanneer een vestiging wordt toegevoegd.'),
+            'locations.*.name.min' => __('Vestigingsnaam moet minimaal 2 tekens bevatten.'),
+            'locations.*.postal_code.regex' => __('Voer een geldige Nederlandse postcode in (bijv. 1234AB).'),
+            'locations.*.phone.regex' => __('Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).'),
+            'locations.*.email.email' => __('Voer een geldig e-mailadres in.'),
         ]);
 
         $companyData = $request->all();
@@ -299,18 +299,18 @@ class AdminCompanyController extends Controller
         }
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Bedrijf succesvol aangemaakt.');
+            ->with('success', __('Bedrijf succesvol aangemaakt.'));
     }
 
     public function show(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bekijken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $eagerLoad = ['users', 'locations', 'mainLocation', 'domains', 'modules', 'billingProfile'];
@@ -377,11 +377,11 @@ class AdminCompanyController extends Controller
     public function sendWelcomeMail(Company $company, TenantOnboardingService $onboarding): \Illuminate\Http\RedirectResponse
     {
         if (! auth()->user()?->isSuperAdmin()) {
-            abort(403, 'Alleen super-admin kan de welkomstmail van een tenant versturen.');
+            abort(403, __('Alleen super-admin kan de welkomstmail van een tenant versturen.'));
         }
 
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         try {
@@ -394,8 +394,8 @@ class AdminCompanyController extends Controller
 
         if ($result['mailed']) {
             $message = $result['created']
-                ? 'Company-admin aangemaakt. Welkomstmail verstuurd naar '.$result['user']->email.'.'
-                : 'Welkomstmail opnieuw verstuurd naar '.$result['user']->email.'.';
+                ? __('Company-admin aangemaakt. Welkomstmail verstuurd naar :email.', ['email' => $result['user']->email])
+                : __('Welkomstmail opnieuw verstuurd naar :email.', ['email' => $result['user']->email]);
 
             return redirect()
                 ->route('admin.companies.show', $company)
@@ -404,18 +404,18 @@ class AdminCompanyController extends Controller
 
         return redirect()
             ->route('admin.companies.show', $company)
-            ->with('error', $this->envService->explainMailSendException(new RuntimeException('De welkomstmail kon niet worden verstuurd. Controleer de mailserver.')));
+            ->with('error', $this->envService->explainMailSendException(new RuntimeException(__('De welkomstmail kon niet worden verstuurd. Controleer de mailserver.'))));
     }
 
     public function edit(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $branches = Branch::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
@@ -458,12 +458,12 @@ class AdminCompanyController extends Controller
     public function update(Request $request, Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $request->merge([
@@ -506,27 +506,27 @@ class AdminCompanyController extends Controller
             'package_key' => $this->packageKeyRules(),
             ...$this->packageAddonValidationRules(),
         ], [
-            'name.required' => 'Bedrijfsnaam is verplicht.',
-            'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
-            'email.required' => 'E-mailadres is verplicht.',
-            'email.email' => 'Voer een geldig e-mailadres in.',
-            'phone.required' => 'Telefoonnummer is verplicht.',
-            'phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
-            'street.required' => 'Straat is verplicht.',
-            'street.min' => 'Straat moet minimaal 2 tekens bevatten.',
-            'house_number.required' => 'Huisnummer is verplicht.',
-            'house_number.min' => 'Huisnummer is verplicht.',
-            'postal_code.required' => 'Postcode is verplicht.',
-            'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
-            'city.required' => 'Plaats is verplicht.',
-            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
-            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
-            'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
-            'favicon.mimes' => 'Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.',
-            'favicon.max' => 'Favicon mag maximaal 2MB groot zijn.',
-            'module_ids.required' => 'Selecteer minimaal één module.',
-            'module_ids.min' => 'Selecteer minimaal één module.',
-            'package_key.in' => 'Kies een bestaand pakket of laat leeg.',
+            'name.required' => __('Bedrijfsnaam is verplicht.'),
+            'name.min' => __('Bedrijfsnaam moet minimaal 2 tekens bevatten.'),
+            'email.required' => __('E-mailadres is verplicht.'),
+            'email.email' => __('Voer een geldig e-mailadres in.'),
+            'phone.required' => __('Telefoonnummer is verplicht.'),
+            'phone.regex' => __('Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).'),
+            'street.required' => __('Straat is verplicht.'),
+            'street.min' => __('Straat moet minimaal 2 tekens bevatten.'),
+            'house_number.required' => __('Huisnummer is verplicht.'),
+            'house_number.min' => __('Huisnummer is verplicht.'),
+            'postal_code.required' => __('Postcode is verplicht.'),
+            'postal_code.regex' => __('Voer een geldige Nederlandse postcode in (bijv. 1234AB).'),
+            'city.required' => __('Plaats is verplicht.'),
+            'city.min' => __('Plaats moet minimaal 2 tekens bevatten.'),
+            'kvk_number.regex' => __('KVK nummer moet 8 cijfers bevatten (bijv. 12345678).'),
+            'website.url' => __('Voer een geldige URL in (bijv. https://www.voorbeeld.nl).'),
+            'favicon.mimes' => __('Favicon moet ICO, PNG, JPG, SVG, GIF of WebP zijn.'),
+            'favicon.max' => __('Favicon mag maximaal 2MB groot zijn.'),
+            'module_ids.required' => __('Selecteer minimaal één module.'),
+            'module_ids.min' => __('Selecteer minimaal één module.'),
+            'package_key.in' => __('Kies een bestaand pakket of laat leeg.'),
         ]);
 
         $data = $request->all();
@@ -600,7 +600,7 @@ class AdminCompanyController extends Controller
                 return redirect()
                     ->back()
                     ->withInput()
-                    ->with('error', 'Modules bijwerken mislukt: '.$e->getMessage());
+                    ->with('error', __('Modules bijwerken mislukt: :error', ['error' => $e->getMessage()]));
             }
         }
 
@@ -618,27 +618,27 @@ class AdminCompanyController extends Controller
         }
 
         return redirect()->route('admin.companies.edit', $company)
-            ->with('success', 'Bedrijf succesvol bijgewerkt.');
+            ->with('success', __('Bedrijf succesvol bijgewerkt.'));
     }
 
     public function uploadLogo(Request $request, Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $request->validate([
             'logo' => 'required|file|mimes:svg,png,jpg,jpeg|max:5120',
         ], [
-            'logo.required' => 'Selecteer een logo bestand.',
-            'logo.file' => 'Het bestand moet een geldig bestand zijn.',
-            'logo.mimes' => 'Alleen SVG, PNG, JPG en JPEG bestanden zijn toegestaan.',
-            'logo.max' => 'Het bestand mag maximaal 5MB groot zijn.',
+            'logo.required' => __('Selecteer een logo bestand.'),
+            'logo.file' => __('Het bestand moet een geldig bestand zijn.'),
+            'logo.mimes' => __('Alleen SVG, PNG, JPG en JPEG bestanden zijn toegestaan.'),
+            'logo.max' => __('Het bestand mag maximaal 5MB groot zijn.'),
         ]);
 
         // Get file content and MIME type
@@ -659,7 +659,7 @@ class AdminCompanyController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Er is een fout opgetreden bij het opslaan van het logo: '.$e->getMessage(),
+                'message' => __('Er is een fout opgetreden bij het opslaan van het logo: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
 
@@ -667,7 +667,7 @@ class AdminCompanyController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Logo succesvol geüpload.',
+            'message' => __('Logo succesvol geüpload.'),
             'logo_url' => $company->adminLogoLightUrl(),
         ]);
     }
@@ -675,71 +675,74 @@ class AdminCompanyController extends Controller
     public function destroy(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('delete-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te verwijderen.');
+            abort(403, __('Je hebt geen rechten om bedrijven te verwijderen.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         if ($company->users()->count() > 0) {
-            return back()->with('error', 'Kan bedrijf niet verwijderen: er zijn nog gebruikers gekoppeld.');
+            return back()->with('error', __('Kan bedrijf niet verwijderen: er zijn nog gebruikers gekoppeld.'));
         }
 
         if (ModuleSchemaAvailability::vacanciesTableExists() && $company->vacancies()->count() > 0) {
-            return back()->with('error', 'Kan bedrijf niet verwijderen: er zijn nog vacatures gekoppeld.');
+            return back()->with('error', __('Kan bedrijf niet verwijderen: er zijn nog vacatures gekoppeld.'));
         }
 
         $company->delete();
 
         return redirect()->route('admin.companies.index')
-            ->with('success', 'Bedrijf succesvol verwijderd.');
+            ->with('success', __('Bedrijf succesvol verwijderd.'));
     }
 
     public function toggleStatus(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $company->update(['is_active' => ! $company->is_active]);
 
-        $status = $company->is_active ? 'geactiveerd' : 'gedeactiveerd';
+        $toggleMessage = $company->is_active
+            ? __('Bedrijf \':name\' is succesvol geactiveerd.', ['name' => $company->name])
+            : __('Bedrijf \':name\' is succesvol gedeactiveerd.', ['name' => $company->name]);
 
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Bedrijf '{$company->name}' is succesvol {$status}.",
+                'message' => $toggleMessage,
                 'is_active' => $company->is_active,
             ]);
         }
 
         return redirect()->route('admin.companies.index')
-            ->with('success', "Bedrijf '{$company->name}' is succesvol {$status}.");
+            ->with('success', $toggleMessage);
     }
 
     public function toggleMainLocation(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+            abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         // Toggle the is_main field on the company itself
         $company->update(['is_main' => ! $company->is_main]);
 
-        $status = $company->is_main ? 'aangewezen' : 'uitgeschakeld';
-        $message = "Bedrijf '{$company->name}' is succesvol als hoofdkantoor {$status}.";
+        $message = $company->is_main
+            ? __('Bedrijf \':name\' is succesvol als hoofdkantoor aangewezen.', ['name' => $company->name])
+            : __('Bedrijf \':name\' is succesvol als hoofdkantoor uitgeschakeld.', ['name' => $company->name]);
 
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
@@ -756,11 +759,11 @@ class AdminCompanyController extends Controller
     public function getUsersJson(Company $company)
     {
         if (! auth()->user()->isSuperAdmin() && ! auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om gebruikers te bekijken.');
+            abort(403, __('Je hebt geen rechten om gebruikers te bekijken.'));
         }
 
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $users = User::where('company_id', $company->id)

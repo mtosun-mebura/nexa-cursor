@@ -14,16 +14,15 @@
 @endphp
 <div class="kt-card">
     <div class="kt-card-header">
-        <h5 class="kt-card-title">Test e-mail versturen</h5>
+        <h5 class="kt-card-title">{{ __('Test e-mail versturen') }}</h5>
     </div>
     <div class="kt-card-content">
         <p class="text-sm text-muted-foreground mb-4">
-            De e-mail wordt verstuurd via de <strong>NEXA Suite-mailserver</strong> naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld.
-            De testmail is herkenbaar als voorbeeld: het onderwerp begint met <strong>[Voorbeeld]</strong> en bovenaan staat een gele vermelding dat dit geen echte e-mail is.
+            {!! __('De e-mail wordt verstuurd via de <strong>NEXA Suite-mailserver</strong> naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld. De testmail is herkenbaar als voorbeeld: het onderwerp begint met <strong>[Voorbeeld]</strong> en bovenaan staat een gele vermelding dat dit geen echte e-mail is.') !!}
             @if($formFields->isNotEmpty())
-                Onderstaande velden komen uit <a href="{{ route('admin.email-templates.form-fields.index') }}" class="text-primary underline">Formulier velden</a>; de waarden worden in de template gebruikt (zelfde variabelen als op de website).
+                {!! __('Onderstaande velden komen uit <a href=":fields_url" class="text-primary underline">Formulier velden</a>; de waarden worden in de template gebruikt (zelfde variabelen als op de website).', ['fields_url' => e(route('admin.email-templates.form-fields.index'))]) !!}
             @else
-                Bij type <strong>Informatieaanvraag</strong> kunt u onder <a href="{{ route('admin.email-templates.form-fields.index') }}" class="text-primary underline">Formulier velden</a> velden toevoegen; die verschijnen hier en in de variabelenlijst.
+                {!! __('Bij type <strong>Informatieaanvraag</strong> kunt u onder <a href=":fields_url" class="text-primary underline">Formulier velden</a> velden toevoegen; die verschijnen hier en in de variabelenlijst.', ['fields_url' => e(route('admin.email-templates.form-fields.index'))]) !!}
             @endif
         </p>
         <form action="{{ route('admin.email-templates.send-test', $emailTemplate) }}" method="POST" class="send-test-form">
@@ -57,7 +56,7 @@
                                     <span class="admin-ajax-action-idle-icon send-test-form-submit-icon inline-flex items-center" aria-hidden="true">
                                         <i class="ki-filled ki-send"></i>
                                     </span>
-                                    <span class="send-test-form-submit-label">Verstuur testmail</span>
+                                    <span class="send-test-form-submit-label">{{ __('Verstuur testmail') }}</span>
                                 </button>
                             </div>
                         </td>
@@ -81,7 +80,7 @@
     var iconEl = btn.querySelector('.send-test-form-submit-icon');
     var labelEl = btn.querySelector('.send-test-form-submit-label');
     var idleIcon = iconEl ? iconEl.innerHTML : '';
-    var idleLabel = labelEl ? labelEl.textContent : 'Verstuur testmail';
+    var idleLabel = labelEl ? labelEl.textContent : @json(__('Verstuur testmail'));
     var resetTimer = null;
 
     function setButtonState(state) {
@@ -94,7 +93,7 @@
                 iconEl.innerHTML = idleIcon;
             }
             if (labelEl) {
-                labelEl.textContent = 'Versturen…';
+                labelEl.textContent = @json(__('Versturen…'));
             }
             return;
         }
@@ -105,7 +104,7 @@
                 iconEl.innerHTML = '<i class="ki-filled ki-check"></i>';
             }
             if (labelEl) {
-                labelEl.textContent = 'Verstuurd';
+                labelEl.textContent = @json(__('Verstuurd'));
             }
             return;
         }

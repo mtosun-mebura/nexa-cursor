@@ -111,7 +111,7 @@ class AdminEmailTemplateController extends Controller
     private function ensureSuperAdminEmailTemplates(): void
     {
         if (! auth()->user()?->hasRole('super-admin')) {
-            abort(403, 'Alleen een super-admin mag e-mailtemplates beheren.');
+            abort(403, __('Alleen een super-admin mag e-mailtemplates beheren.'));
         }
     }
 
@@ -121,32 +121,32 @@ class AdminEmailTemplateController extends Controller
     protected static function emailTemplateTypeLabels(): array
     {
         return [
-            'welcome' => 'Welkom',
-            'tenant_welcome' => 'Welkomstmail tenant (company-admin)',
-            AdminFirstLoginCodeEmailTemplateService::TYPE => 'Eenmalige inlogcode admin (eerste login)',
-            AdminBankAccountChangeCodeEmailTemplateService::TYPE => 'Bevestigingscode bankrekening wijzigen',
-            TenantConfigAccessGrantedEmailTemplateService::TYPE => 'Configuratie-toegang (bericht in NEXA Suite)',
-            'saas_trial_ending' => 'Proeftijd bijna voorbij (NEXA Suite)',
-            'saas_billing_start' => 'Eerste betaling NEXA-abonnement',
-            'password_reset' => 'Wachtwoord Reset',
-            'email_verification' => 'E-mail Verificatie',
-            'informatieaanvraag' => 'Informatieaanvraag',
-            'interview' => 'Interview',
-            'interview_invitation' => 'Interview Uitnodiging',
-            'interview_update' => 'Interview Update',
-            'interview_confirmed' => 'Interview Bevestigd',
-            'match_notification' => 'Match Notificatie',
-            'application_received' => 'Sollicitatie Ontvangen',
-            'application_status' => 'Sollicitatie Status',
-            'rejection' => 'Afwijzing',
-            'custom' => 'Aangepast',
-            'invoice' => 'Factuur',
-            'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
-            'taxi_customer_login_code' => 'Taxi: eenmalige inlogcode (klant)',
-            TaxiAppLoginCodeEmailTemplateService::TYPE => 'Taxi: eenmalige inlogcode (chauffeur / contract)',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => 'Taxi: welkomstmail chauffeur',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => 'Taxi: welkomstmail contractant',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => 'Taxi: welkomstmail contractouder',
+            'welcome' => __('Welkom'),
+            'tenant_welcome' => __('Welkomstmail tenant (company-admin)'),
+            AdminFirstLoginCodeEmailTemplateService::TYPE => __('Eenmalige inlogcode admin (eerste login)'),
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => __('Bevestigingscode bankrekening wijzigen'),
+            TenantConfigAccessGrantedEmailTemplateService::TYPE => __('Configuratie-toegang (bericht in NEXA Suite)'),
+            'saas_trial_ending' => __('Proeftijd bijna voorbij (NEXA Suite)'),
+            'saas_billing_start' => __('Eerste betaling NEXA-abonnement'),
+            'password_reset' => __('Wachtwoord Reset'),
+            'email_verification' => __('E-mail Verificatie'),
+            'informatieaanvraag' => __('Informatieaanvraag'),
+            'interview' => __('Interview'),
+            'interview_invitation' => __('Interview Uitnodiging'),
+            'interview_update' => __('Interview Update'),
+            'interview_confirmed' => __('Interview Bevestigd'),
+            'match_notification' => __('Match Notificatie'),
+            'application_received' => __('Sollicitatie Ontvangen'),
+            'application_status' => __('Sollicitatie Status'),
+            'rejection' => __('Afwijzing'),
+            'custom' => __('Aangepast'),
+            'invoice' => __('Factuur'),
+            'taxi_ride_accepted' => __('Taxi: rit geaccepteerd (klant)'),
+            'taxi_customer_login_code' => __('Taxi: eenmalige inlogcode (klant)'),
+            TaxiAppLoginCodeEmailTemplateService::TYPE => __('Taxi: eenmalige inlogcode (chauffeur / contract)'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => __('Taxi: welkomstmail chauffeur'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => __('Taxi: welkomstmail contractant'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => __('Taxi: welkomstmail contractouder'),
         ];
     }
 
@@ -199,7 +199,7 @@ class AdminEmailTemplateController extends Controller
      */
     protected static function templateVariablesForType(?string $type): array
     {
-        return match ($type) {
+        return array_map(static fn (string $label): string => __($label), match ($type) {
             TaxiCustomerLoginCodeEmailTemplateService::TYPE => TaxiCustomerLoginCodeEmailTemplateService::variableLabels(),
             TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
             TenantWelcomeEmailTemplateService::TYPE => TenantWelcomeEmailTemplateService::variableLabels(),
@@ -213,7 +213,7 @@ class AdminEmailTemplateController extends Controller
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => TaxiAppUserWelcomeEmailTemplateService::variableLabels(),
             default => static::genericTemplateVariables(),
-        };
+        });
     }
 
     /**
@@ -436,7 +436,7 @@ class AdminEmailTemplateController extends Controller
     public function create()
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         $query = Company::query();
@@ -578,7 +578,7 @@ class AdminEmailTemplateController extends Controller
     public function store(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         $menuService = app(MenuService::class);
@@ -640,11 +640,11 @@ class AdminEmailTemplateController extends Controller
                 }
                 app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, usePlatformMail: true, asTemplateSample: true);
 
-                return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar '.$toEmail);
+                return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template aangemaakt en testmail verstuurd naar :email', ['email' => $toEmail]));
             }
         }
 
-        return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol aangemaakt.');
+        return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template succesvol aangemaakt.'));
     }
 
     public function show(EmailTemplate $emailTemplate)
@@ -660,7 +660,7 @@ class AdminEmailTemplateController extends Controller
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $templateVariables = static::templateVariablesForType($emailTemplate->type);
@@ -726,12 +726,12 @@ class AdminEmailTemplateController extends Controller
     public function edit(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $query = Company::query();
@@ -768,12 +768,12 @@ class AdminEmailTemplateController extends Controller
     public function update(Request $request, EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $menuService = app(MenuService::class);
@@ -835,17 +835,17 @@ class AdminEmailTemplateController extends Controller
 
         $emailTemplate->update($emailTemplateData);
 
-        return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', 'E-mail template succesvol bijgewerkt.');
+        return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', __('E-mail template succesvol bijgewerkt.'));
     }
 
     public function duplicate(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $user = auth()->user();
@@ -869,7 +869,7 @@ class AdminEmailTemplateController extends Controller
 
         return redirect()
             ->route('admin.email-templates.edit', $copy)
-            ->with('success', 'Template gedupliceerd. Pas de naam aan en koppel het template aan een bedrijf indien nodig.');
+            ->with('success', __('Template gedupliceerd. Pas de naam aan en koppel het template aan een bedrijf indien nodig.'));
     }
 
     /**
@@ -944,16 +944,16 @@ class AdminEmailTemplateController extends Controller
     {
         if (! auth()->user()->hasRole('super-admin')) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om e-mail templates te bewerken.'], 403);
+                return response()->json(['success' => false, 'message' => __('Je hebt geen rechten om e-mail templates te bewerken.')], 403);
             }
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         if (! $this->canAccessResource($emailTemplate)) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json(['success' => false, 'message' => 'Je hebt geen toegang tot deze e-mail template.'], 403);
+                return response()->json(['success' => false, 'message' => __('Je hebt geen toegang tot deze e-mail template.')], 403);
             }
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $emailTemplate->update(['is_active' => ! $emailTemplate->is_active]);
@@ -962,32 +962,32 @@ class AdminEmailTemplateController extends Controller
             return response()->json(['success' => true, 'is_active' => $emailTemplate->fresh()->is_active]);
         }
 
-        return redirect()->back()->with('success', 'Status bijgewerkt.');
+        return redirect()->back()->with('success', __('Status bijgewerkt.'));
     }
 
     public function destroy(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te verwijderen.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $emailTemplate->delete();
 
-        return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol verwijderd.');
+        return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template succesvol verwijderd.'));
     }
 
     public function sendTest(Request $request, EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $formFields = $emailTemplate->type === 'informatieaanvraag'
@@ -1004,7 +1004,7 @@ class AdminEmailTemplateController extends Controller
 
         $toEmail = $emailTemplate->getRecipientEmailAddress();
         if (! $toEmail) {
-            return $this->sendTestResult($request, false, 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
+            return $this->sendTestResult($request, false, __('Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).'));
         }
 
         $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
@@ -1051,10 +1051,10 @@ class AdminEmailTemplateController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return $this->sendTestResult($request, false, 'Versturen mislukt. Probeer het opnieuw.', 500);
+            return $this->sendTestResult($request, false, __('Versturen mislukt. Probeer het opnieuw.'), 500);
         }
 
-        return $this->sendTestResult($request, true, 'Testmail verstuurd naar '.$toEmail);
+        return $this->sendTestResult($request, true, __('Testmail verstuurd naar :email', ['email' => $toEmail]));
     }
 
     private function sendTestResult(Request $request, bool $ok, string $message, int $errorStatus = 422)

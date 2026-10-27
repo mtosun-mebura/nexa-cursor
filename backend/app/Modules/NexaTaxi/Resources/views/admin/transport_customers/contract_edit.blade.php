@@ -1,16 +1,16 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Abonnement bewerken')
+@section('title', __('Abonnement bewerken'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">{{ $contract->name }} bewerken</h1>
-        <p class="text-sm text-muted-foreground pt-2">Klant: {{ $customer->name }}</p>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __(':name bewerken', ['name' => $contract->name]) }}</h1>
+        <p class="text-sm text-muted-foreground pt-2">{{ __('Klant: :name', ['name' => $customer->name]) }}</p>
         <div class="pt-3">
             <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -32,13 +32,13 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Abonnementsgegevens</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Abonnementsgegevens') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Naam <span class="text-danger">*</span></td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Naam') }} <span class="text-danger">*</span></td>
                                 <td class="min-w-48 w-full">
                                     <input type="text" name="name" value="{{ old('name', $contract->name) }}" class="kt-input w-full" required maxlength="200">
                                 </td>
@@ -47,17 +47,17 @@
                                 'value' => old('planning_color', $contract->planning_color),
                             ])
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Status</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Status') }}</td>
                                 <td>
                                     <select name="status" class="kt-select w-full">
-                                        <option value="active" @selected(old('status', $contract->status) === 'active')>Actief</option>
-                                        <option value="paused" @selected(old('status', $contract->status) === 'paused')>Gepauzeerd</option>
-                                        <option value="ended" @selected(old('status', $contract->status) === 'ended')>Beëindigd</option>
+                                        <option value="active" @selected(old('status', $contract->status) === 'active')>{{ __('Actief') }}</option>
+                                        <option value="paused" @selected(old('status', $contract->status) === 'paused')>{{ __('Gepauzeerd') }}</option>
+                                        <option value="ended" @selected(old('status', $contract->status) === 'ended')>{{ __('Beëindigd') }}</option>
                                     </select>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Startdatum</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Startdatum') }}</td>
                                 <td>
                                     @include('taxi::admin.transport_customers.partials.date-picker-input', [
                                         'name' => 'start_date',
@@ -66,7 +66,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Einddatum</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Einddatum') }}</td>
                                 <td>
                                     @include('taxi::admin.transport_customers.partials.date-picker-input', [
                                         'name' => 'end_date',
@@ -81,23 +81,23 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Facturatie</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Facturatie') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Facturatiemodel</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Facturatiemodel') }}</td>
                                 <td class="min-w-48 w-full">
                                     <select name="billing_model" class="kt-select w-full" id="billing_model">
-                                        <option value="fixed_monthly" @selected(old('billing_model', $contract->billing_model) === 'fixed_monthly')>Vast maandbedrag</option>
-                                        <option value="per_ride" @selected(old('billing_model', $contract->billing_model) === 'per_ride')>Per rit</option>
-                                        <option value="hybrid" @selected(old('billing_model', $contract->billing_model) === 'hybrid')>Hybride</option>
+                                        <option value="fixed_monthly" @selected(old('billing_model', $contract->billing_model) === 'fixed_monthly')>{{ __('Vast maandbedrag') }}</option>
+                                        <option value="per_ride" @selected(old('billing_model', $contract->billing_model) === 'per_ride')>{{ __('Per rit') }}</option>
+                                        <option value="hybrid" @selected(old('billing_model', $contract->billing_model) === 'hybrid')>{{ __('Hybride') }}</option>
                                     </select>
                                 </td>
                             </tr>
                             <tr id="row_monthly_amount">
-                                <td class="text-secondary-foreground font-normal">Maandbedrag (excl. BTW)</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Maandbedrag (excl. BTW)') }}</td>
                                 <td>
                                     <div class="kt-input-group w-full max-w-xs">
                                         <span class="kt-input-addon">&euro;</span>
@@ -106,7 +106,7 @@
                                 </td>
                             </tr>
                             <tr id="row_price_per_ride">
-                                <td class="text-secondary-foreground font-normal">Prijs per rit (excl. BTW)</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Prijs per rit (excl. BTW)') }}</td>
                                 <td>
                                     <div class="kt-input-group w-full max-w-xs">
                                         <span class="kt-input-addon">&euro;</span>
@@ -115,7 +115,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">BTW-percentage</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('BTW-percentage') }}</td>
                                 <td>
                                     <div class="kt-input-group w-fit">
                                         <input type="number" name="tax_rate" value="{{ old('tax_rate', $contract->tax_rate) }}" class="kt-input w-24 grow-0" step="0.01" min="0" max="100">
@@ -124,13 +124,13 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Factuurdag van de maand</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Factuurdag van de maand') }}</td>
                                 <td>
                                     <input type="number" name="invoice_day" value="{{ old('invoice_day', $contract->invoice_day) }}" class="kt-input w-24" min="1" max="28" required>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Betalingstermijn (dagen)</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Betalingstermijn (dagen)') }}</td>
                                 <td>
                                     <input type="number" name="payment_terms_days" value="{{ old('payment_terms_days', $contract->payment_terms_days) }}" class="kt-input w-24" min="1" max="90" required>
                                 </td>
@@ -143,8 +143,8 @@
         </div>
 
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
-            <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-outline">Annuleren</a>
-            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+            <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
         </div>
     </form>
 </div>

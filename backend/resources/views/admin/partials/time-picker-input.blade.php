@@ -8,7 +8,7 @@
                name="{{ $name }}"
                @isset($id) id="{{ $id }}" @endisset
                value="{{ $timeValue }}"
-               placeholder="{{ $placeholder ?? 'Selecteer tijd' }}"
+               placeholder="{{ $placeholder ?? __('Selecteer tijd') }}"
                readonly
                type="text"
                inputmode="numeric"

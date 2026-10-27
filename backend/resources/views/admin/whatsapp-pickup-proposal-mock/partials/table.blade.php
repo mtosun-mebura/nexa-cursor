@@ -1,6 +1,6 @@
 @if($rides->isEmpty())
     <p class="text-sm text-muted-foreground px-5 py-6 mb-0">
-        Nog geen voorstellen. Stuur een ophaalvoorstel vanuit de chauffeur-app, of kies een tenant en klik op <strong>Testdata aanmaken</strong>.
+        {!! __('Nog geen voorstellen. Stuur een ophaalvoorstel vanuit de chauffeur-app, of kies een tenant en klik op <strong>Testdata aanmaken</strong>.') !!}
     </p>
 @else
     <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
@@ -9,23 +9,23 @@
                 <tr>
                     <th class="text-center whatsapp-mock-table__check-col" data-label="">
                         <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
-                            <input type="checkbox" class="kt-checkbox" id="whatsapp-mock-select-all" aria-label="Alles selecteren">
+                            <input type="checkbox" class="kt-checkbox" id="whatsapp-mock-select-all" aria-label="{{ __('Alles selecteren') }}">
                         </label>
                     </th>
-                    <th data-label="Rit">Rit</th>
-                    <th data-label="Bron">Bron</th>
-                    <th data-label="Klant / nummer">Klant / nummer</th>
-                    <th data-label="Voorstelstatus">Voorstelstatus</th>
+                    <th data-label="{{ __('Rit') }}">{{ __('Rit') }}</th>
+                    <th data-label="{{ __('Bron') }}">{{ __('Bron') }}</th>
+                    <th data-label="{{ __('Klant / nummer') }}">{{ __('Klant / nummer') }}</th>
+                    <th data-label="{{ __('Voorstelstatus') }}">{{ __('Voorstelstatus') }}</th>
                     <th data-label="wamid">wamid</th>
-                    <th data-label="Opmerking">Opmerking</th>
-                    <th class="text-center whatsapp-mock-table__actions-col" data-label="Acties">Acties</th>
+                    <th data-label="{{ __('Opmerking') }}">{{ __('Opmerking') }}</th>
+                    <th class="text-center whatsapp-mock-table__actions-col" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                 </tr>
             </thead>
             <tbody>
             @foreach($rides as $ride)
                 @php
                     $proposalStatus = $ride->pickup_proposal_status;
-                    $proposalLabel = $proposalLabels[$proposalStatus] ?? ($proposalStatus ?: '—');
+                    $proposalLabel = __($proposalLabels[$proposalStatus] ?? ($proposalStatus ?: '—'));
                     $pending = $ride->hasPendingPickupProposal();
                     $declined = $ride->hasDeclinedPickupProposal();
                     $isSeeded = str_contains((string) $ride->customer_note, \App\Modules\NexaTaxi\Services\WhatsAppPickupProposalMockService::NOTE_MARKER);
@@ -33,15 +33,15 @@
                 <tr data-ride-id="{{ $ride->id }}">
                     <td class="text-center whatsapp-mock-table__check-col" data-no-row-link>
                         <label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">
-                            <input type="checkbox" class="kt-checkbox whatsapp-mock-row-check" value="{{ $ride->id }}" aria-label="Selecteer rit #{{ $ride->id }}">
+                            <input type="checkbox" class="kt-checkbox whatsapp-mock-row-check" value="{{ $ride->id }}" aria-label="{{ __('Selecteer rit #:id', ['id' => $ride->id]) }}">
                         </label>
                     </td>
                     <td class="whitespace-nowrap">
                         <div class="font-medium text-foreground">#{{ $ride->id }}</div>
-                        <div class="text-xs text-muted-foreground">{{ $rideStatusLabels[$ride->status] ?? $ride->status }}</div>
+                        <div class="text-xs text-muted-foreground">{{ __($rideStatusLabels[$ride->status] ?? $ride->status) }}</div>
                     </td>
                     <td class="whitespace-nowrap">
-                        <span class="text-xs text-muted-foreground">{{ $isSeeded ? 'Testdata' : 'Chauffeur-app' }}</span>
+                        <span class="text-xs text-muted-foreground">{{ $isSeeded ? __('Testdata') : __('Chauffeur-app') }}</span>
                     </td>
                     <td>
                         <div>{{ $ride->customer_name }}</div>
@@ -70,8 +70,8 @@
                         <div class="flex items-center justify-center gap-0.5">
                             <button type="button"
                                     class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost whatsapp-mock-view-message"
-                                    data-tooltip="Bericht bekijken"
-                                    aria-label="Bericht bekijken"
+                                    data-tooltip="{{ __('Bericht bekijken') }}"
+                                    aria-label="{{ __('Bericht bekijken') }}"
                                     data-ride-id="{{ $ride->id }}"
                                     data-message="{{ $messagePreview }}">
                                 <i class="ki-filled ki-eye text-muted-foreground"></i>
@@ -82,7 +82,7 @@
                                         @csrf
                                         <input type="hidden" name="ride_id" value="{{ $ride->id }}">
                                         <input type="hidden" name="action" value="accept">
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="Accepteren" aria-label="Accepteren">
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="{{ __('Accepteren') }}" aria-label="{{ __('Accepteren') }}">
                                             <i class="ki-filled ki-check text-emerald-600 dark:text-emerald-400"></i>
                                         </button>
                                     </form>
@@ -90,7 +90,7 @@
                                         @csrf
                                         <input type="hidden" name="ride_id" value="{{ $ride->id }}">
                                         <input type="hidden" name="action" value="decline">
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="Weigeren" aria-label="Weigeren">
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="{{ __('Weigeren') }}" aria-label="{{ __('Weigeren') }}">
                                             <i class="ki-filled ki-cross text-destructive"></i>
                                         </button>
                                     </form>
@@ -99,7 +99,7 @@
                                     @csrf
                                     <input type="hidden" name="ride_id" value="{{ $ride->id }}">
                                     <input type="hidden" name="action" value="remark">
-                                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="Opmerking" aria-label="Opmerking">
+                                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-tooltip="{{ __('Opmerking') }}" aria-label="{{ __('Opmerking') }}">
                                         <i class="ki-filled ki-message-text text-muted-foreground"></i>
                                     </button>
                                 </form>

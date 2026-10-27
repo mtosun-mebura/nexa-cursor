@@ -45,6 +45,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
+    @include('admin.layouts.partials.js-i18n')
 
     <style>
         /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
@@ -846,20 +847,20 @@
             if (! empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashSuccess) {
                 $whatsappFlashName = trim((string) ($whatsappConnectionTest['meta']['verified_name'] ?? ''));
                 $adminHeaderFlashSuccess = $whatsappFlashName !== ''
-                    ? 'WhatsApp-verbinding OK — '.$whatsappFlashName
-                    : 'WhatsApp-verbinding OK';
+                    ? __('WhatsApp-verbinding OK — :name', ['name' => $whatsappFlashName])
+                    : __('WhatsApp-verbinding OK');
             } elseif (empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashError) {
                 $whatsappFlashError = trim((string) ($whatsappConnectionTest['error'] ?? ''));
                 $adminHeaderFlashError = $whatsappFlashError !== ''
-                    ? 'WhatsApp API-verbinding mislukt: '.$whatsappFlashError
-                    : 'WhatsApp API-verbinding mislukt.';
+                    ? __('WhatsApp API-verbinding mislukt: :error', ['error' => $whatsappFlashError])
+                    : __('WhatsApp API-verbinding mislukt.');
             }
         }
         if (! $adminHeaderFlashSuccess && request()->routeIs('admin.newsletters.prospects') && request()->integer('discovered') > 0) {
-            $adminHeaderFlashSuccess = request()->integer('discovered').' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.';
+            $adminHeaderFlashSuccess = __(':count bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.', ['count' => request()->integer('discovered')]);
         }
         if ($adminHeaderFlashSuccess && session('route_departure_time')) {
-            $adminHeaderFlashSuccess .= ' Geschat vertrek: '.session('route_departure_time');
+            $adminHeaderFlashSuccess .= ' '.__('Geschat vertrek: :time', ['time' => session('route_departure_time')]);
         }
         $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
         $adminTrialDeclined = null;
@@ -957,8 +958,8 @@
                         @php
                             $taxiIncomplete = (int) ($adminTaxiSetup['incomplete_count'] ?? 0);
                             $taxiOpenLabel = $taxiIncomplete === 1
-                                ? '1 openstaande stap'
-                                : $taxiIncomplete . ' openstaande stappen';
+                                ? __('1 openstaande stap')
+                                : __(':count openstaande stappen', ['count' => $taxiIncomplete]);
                         @endphp
                         <div class="kt-alert kt-alert-warning mb-5 flex flex-wrap items-center justify-between gap-3" role="status" data-taxi-setup-banner>
                             <div class="flex min-w-0 items-start gap-2">
@@ -988,13 +989,13 @@
                                 <i class="ki-filled ki-information shrink-0" aria-hidden="true"></i>
                                 <div class="min-w-0 text-sm">
                                     @if((int) $adminMonitoringUnresolvedErrors === 1)
-                                        Er is 1 onopgeloste monitoringfout.
+                                        {{ __('Er is 1 onopgeloste monitoringfout.') }}
                                     @else
-                                        Er zijn {{ (int) $adminMonitoringUnresolvedErrors }} onopgeloste monitoringfouten.
+                                        {{ __('Er zijn :count onopgeloste monitoringfouten.', ['count' => (int) $adminMonitoringUnresolvedErrors]) }}
                                     @endif
                                 </div>
                             </div>
-                            <a href="{{ route('admin.monitoring.index', ['sectie' => 'fouten']) }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">Bekijk fouten</a>
+                            <a href="{{ route('admin.monitoring.index', ['sectie' => 'fouten']) }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">{{ __('Bekijk fouten') }}</a>
                         </div>
                     @endif
 

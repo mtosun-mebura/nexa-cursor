@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             }
                             return;
                         }
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Actie mislukt');
+                        throw new Error((result.data && result.data.message) ? result.data.message : @json(__('Actie mislukt')));
                     }
                     applyCompanyDomainsList(result.data);
                 })
@@ -182,7 +182,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (sw && form.getAttribute('data-domain-primary-toggle') === '1') {
                         sw.checked = !sw.checked;
                     }
-                    alert(err.message || 'Er is een fout opgetreden.');
+                    alert(err.message || @json(__('Er is een fout opgetreden.')));
                 })
                 .finally(function () {
                     if (submitBtn) {
@@ -194,9 +194,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (form.getAttribute('data-domain-destroy') === '1') {
             if (typeof window.showAdminConfirm === 'function') {
                 window.showAdminConfirm({
-                    title: 'Domein verwijderen',
-                    message: 'Domein verwijderen?',
-                    confirmLabel: 'Verwijderen'
+                    title: @json(__('Domein verwijderen')),
+                    message: @json(__('Domein verwijderen?')),
+                    confirmLabel: @json(__('Verwijderen'))
                 }).then(function (ok) {
                     if (ok) {
                         runDomainAction();
@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 return;
             }
-            if (!window.confirm('Domein verwijderen?')) {
+            if (!window.confirm(@json(__('Domein verwijderen?')))) {
                 return;
             }
         }
@@ -252,13 +252,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             }
                             return;
                         }
-                        throw new Error((result.data && result.data.message) ? result.data.message : 'Opslaan mislukt');
+                        throw new Error((result.data && result.data.message) ? result.data.message : @json(__('Opslaan mislukt')));
                     }
                     applyCompanyDomainsList(result.data);
                     domainAddForm.reset();
                 })
                 .catch(function (err) {
-                    alert(err.message || 'Er is een fout opgetreden bij het toevoegen van het domein.');
+                    alert(err.message || @json(__('Er is een fout opgetreden bij het toevoegen van het domein.')));
                 })
                 .finally(function () {
                     if (submitBtn) {

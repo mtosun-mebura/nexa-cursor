@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
         menubar: false,
         plugins: 'lists link code charmap table',
         toolbar: 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link | charmap | table | code',
-        block_formats: 'Paragraaf=p; Kop 1=h1; Kop 2=h2; Kop 3=h3',
+        block_formats: @json(__('Paragraaf').'=p; '.__('Kop 1').'=h1; '.__('Kop 2').'=h2; '.__('Kop 3').'=h3'),
         content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; padding: 1rem; color: #333; }' +
             'p { margin: 0 0 0.75em 0; }' +
             'h1 { font-size: 1.875em; font-weight: 700; margin: 0 0 0.5em 0; }' +

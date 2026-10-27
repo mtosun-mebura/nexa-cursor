@@ -26,7 +26,7 @@ class AdminPaymentProviderController extends Controller
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders te bekijken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders te bekijken.'));
         }
         
         $query = PaymentProvider::query()->with('company');
@@ -128,7 +128,7 @@ class AdminPaymentProviderController extends Controller
     public function create()
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders aan te maken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders aan te maken.'));
         }
         
         $providerTypes = [
@@ -151,7 +151,7 @@ class AdminPaymentProviderController extends Controller
     public function store(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('create-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders aan te maken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders aan te maken.'));
         }
         
         $validator = Validator::make($request->all(), [
@@ -168,7 +168,7 @@ class AdminPaymentProviderController extends Controller
         $companyId = $this->requireTenantCompanyId();
         if ($companyId === null) {
             return back()->withErrors([
-                'provider_type' => 'Selecteer eerst een bedrijf (tenant) om een betalingsprovider aan te maken.',
+                'provider_type' => __('Selecteer eerst een bedrijf (tenant) om een betalingsprovider aan te maken.'),
             ])->withInput();
         }
 
@@ -176,7 +176,7 @@ class AdminPaymentProviderController extends Controller
             ->where('company_id', $companyId)
             ->first();
         if ($existingProvider) {
-            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type) . ' voor dit bedrijf.'])->withInput();
+            return back()->withErrors(['provider_type' => __('Er bestaat al een provider van het type :type voor dit bedrijf.', ['type' => ucfirst($request->provider_type)])])->withInput();
         }
 
         if ($validator->fails()) {
@@ -201,13 +201,13 @@ class AdminPaymentProviderController extends Controller
         ]);
 
         return redirect()->route('admin.payment-providers.index')
-            ->with('success', 'Betalingsprovider succesvol aangemaakt.');
+            ->with('success', __('Betalingsprovider succesvol aangemaakt.'));
     }
 
     public function show(PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders te bekijken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders te bekijken.'));
         }
 
         if (! $this->canAccessResource($paymentProvider)) {
@@ -226,7 +226,7 @@ class AdminPaymentProviderController extends Controller
     public function edit(PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders te bewerken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders te bewerken.'));
         }
 
         if (! $this->canAccessResource($paymentProvider)) {
@@ -273,7 +273,7 @@ class AdminPaymentProviderController extends Controller
     public function update(Request $request, PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders te bewerken.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders te bewerken.'));
         }
 
         if (! $this->canAccessResource($paymentProvider)) {
@@ -296,7 +296,7 @@ class AdminPaymentProviderController extends Controller
             $resolved = $this->requireTenantCompanyId();
             if ($resolved === null) {
                 return back()
-                    ->withErrors(['provider_type' => 'Selecteer eerst een bedrijf (tenant) in de zijbalk.'])
+                    ->withErrors(['provider_type' => __('Selecteer eerst een bedrijf (tenant) in de zijbalk.')])
                     ->withInput();
             }
             $companyId = $resolved;
@@ -307,7 +307,7 @@ class AdminPaymentProviderController extends Controller
             ->where('id', '!=', $paymentProvider->id)
             ->first();
         if ($existingProvider) {
-            return back()->withErrors(['provider_type' => 'Er bestaat al een provider van het type ' . ucfirst($request->provider_type) . ' voor dit bedrijf.'])->withInput();
+            return back()->withErrors(['provider_type' => __('Er bestaat al een provider van het type :type voor dit bedrijf.', ['type' => ucfirst($request->provider_type)])])->withInput();
         }
 
         if ($validator->fails()) {
@@ -331,13 +331,13 @@ class AdminPaymentProviderController extends Controller
         ]);
 
         return redirect()->route('admin.payment-providers.index')
-            ->with('success', 'Betalingsprovider succesvol bijgewerkt.');
+            ->with('success', __('Betalingsprovider succesvol bijgewerkt.'));
     }
 
     public function destroy(PaymentProvider $paymentProvider)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-payment-providers')) {
-            abort(403, 'Je hebt geen rechten om betalingsproviders te verwijderen.');
+            abort(403, __('Je hebt geen rechten om betalingsproviders te verwijderen.'));
         }
 
         if (! $this->canAccessResource($paymentProvider)) {
@@ -347,47 +347,49 @@ class AdminPaymentProviderController extends Controller
         $paymentProvider->delete();
 
         return redirect()->route('admin.payment-providers.index')
-            ->with('success', 'Betalingsprovider succesvol verwijderd.');
+            ->with('success', __('Betalingsprovider succesvol verwijderd.'));
     }
 
     public function toggleStatus(PaymentProvider $paymentProvider)
     {
         if (! $this->canAccessResource($paymentProvider)) {
             if (request()->ajax() || request()->expectsJson()) {
-                return response()->json(['success' => false, 'message' => 'Geen toegang tot deze provider.'], 403);
+                return response()->json(['success' => false, 'message' => __('Geen toegang tot deze provider.')], 403);
             }
             abort(403);
         }
 
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-payment-providers')) {
             if (request()->ajax() || request()->expectsJson()) {
-                return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om de status van betalingsproviders te wijzigen.'], 403);
+                return response()->json(['success' => false, 'message' => __('Je hebt geen rechten om de status van betalingsproviders te wijzigen.')], 403);
             }
-            abort(403, 'Je hebt geen rechten om de status van betalingsproviders te wijzigen.');
+            abort(403, __('Je hebt geen rechten om de status van betalingsproviders te wijzigen.'));
         }
 
         $paymentProvider->update([
             'is_active' => !$paymentProvider->is_active
         ]);
 
-        $status = $paymentProvider->is_active ? 'geactiveerd' : 'gedeactiveerd';
+        $statusMessage = $paymentProvider->is_active
+            ? __('Betalingsprovider succesvol geactiveerd.')
+            : __('Betalingsprovider succesvol gedeactiveerd.');
         
         if (request()->ajax() || request()->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Betalingsprovider succesvol ' . $status . '.',
+                'message' => $statusMessage,
                 'is_active' => $paymentProvider->is_active
             ]);
         }
         
         return redirect()->route('admin.payment-providers.index')
-            ->with('success', "Betalingsprovider succesvol {$status}.");
+            ->with('success', $statusMessage);
     }
 
     public function testConnection(PaymentProvider $paymentProvider)
     {
         if (! $this->canAccessResource($paymentProvider)) {
-            return response()->json(['success' => false, 'message' => 'Geen toegang tot deze provider.'], 403);
+            return response()->json(['success' => false, 'message' => __('Geen toegang tot deze provider.')], 403);
         }
 
         try {
@@ -397,7 +399,7 @@ class AdminPaymentProviderController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Fout bij testen van verbinding: ' . $e->getMessage()
+                'message' => __('Fout bij testen van verbinding:') . ' ' . $e->getMessage()
             ]);
         }
     }

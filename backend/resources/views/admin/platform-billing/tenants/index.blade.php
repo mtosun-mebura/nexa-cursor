@@ -1,16 +1,16 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Tenant-abonnementen')
+@section('title', __('Tenant-abonnementen'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Tenant-abonnementen
+                {{ __('Tenant-abonnementen') }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                SaaS-abonnementen en incasso per tenant
+                {{ __('SaaS-abonnementen en incasso per tenant') }}
             </div>
         </div>
     </div>
@@ -19,33 +19,33 @@
         <div class="kt-card-header px-5 py-5 flex-wrap gap-3 justify-between items-center">
             <div class="min-w-0">
                 <h3 class="kt-card-title text-sm mb-0">
-                    Tenants
+                    {{ __('Tenants') }}
                 </h3>
-                <p class="text-xs text-muted-foreground mt-1 mb-0">Facturen gebruiken het pakket en de aanvullende modules van het bedrijf.</p>
+                <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Facturen gebruiken het pakket en de aanvullende modules van het bedrijf.') }}</p>
             </div>
             <form method="GET" action="{{ route('admin.platform-billing.tenants.index') }}" class="admin-filter-panel flex flex-wrap items-center gap-2">
-                <select class="kt-select w-full sm:w-48" name="company_id" data-label="Tenant">
-                    <option value="">Alle tenants</option>
+                <select class="kt-select w-full sm:w-48" name="company_id" data-label="{{ __('Tenant') }}">
+                    <option value="">{{ __('Alle tenants') }}</option>
                     @foreach($tenantOptions as $tenant)
                         <option value="{{ $tenant->id }}" @selected((string) ($filterCompanyId ?? '') === (string) $tenant->id)>{{ $tenant->name }}</option>
                     @endforeach
                 </select>
                 <label class="kt-input w-full sm:w-56 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoek tenant…" class="min-w-0" autocomplete="off">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Zoek tenant…') }}" class="min-w-0" autocomplete="off">
                 </label>
                 <select class="kt-select w-full sm:w-44" name="billing_mode">
-                    <option value="">Alle modi</option>
-                    <option value="package" @selected(request('billing_mode') === 'package')>Pakket</option>
-                    <option value="custom" @selected(request('billing_mode') === 'custom')>Custom</option>
-                    <option value="free" @selected(request('billing_mode') === 'free')>Gratis</option>
-                    <option value="none" @selected(request('billing_mode') === 'none')>Niet geconfigureerd</option>
+                    <option value="">{{ __('Alle modi') }}</option>
+                    <option value="package" @selected(request('billing_mode') === 'package')>{{ __('Pakket') }}</option>
+                    <option value="custom" @selected(request('billing_mode') === 'custom')>{{ __('Custom') }}</option>
+                    <option value="free" @selected(request('billing_mode') === 'free')>{{ __('Gratis') }}</option>
+                    <option value="none" @selected(request('billing_mode') === 'none')>{{ __('Niet geconfigureerd') }}</option>
                 </select>
                 <select class="kt-select w-full sm:w-44" name="mandate_status">
-                    <option value="">Alle mandaten</option>
-                    <option value="none" @selected(request('mandate_status') === 'none')>Geen mandaat</option>
-                    <option value="active" @selected(request('mandate_status') === 'active')>Actief</option>
-                    <option value="pending" @selected(request('mandate_status') === 'pending')>In afwachting</option>
+                    <option value="">{{ __('Alle mandaten') }}</option>
+                    <option value="none" @selected(request('mandate_status') === 'none')>{{ __('Geen mandaat') }}</option>
+                    <option value="active" @selected(request('mandate_status') === 'active')>{{ __('Actief') }}</option>
+                    <option value="pending" @selected(request('mandate_status') === 'pending')>{{ __('In afwachting') }}</option>
                 </select>
             </form>
         </div>
@@ -61,11 +61,11 @@
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Tenant">Tenant</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Pakket">Pakket</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Bedrag/maand">Bedrag/maand</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Mandaat">Mandaat</th>
-                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Tenant') }}">{{ __('Tenant') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Pakket') }}">{{ __('Pakket') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Bedrag/maand') }}">{{ __('Bedrag/maand') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Mandaat') }}">{{ __('Mandaat') }}</th>
+                            <th class="admin-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,7 +84,7 @@
                                 {{ $company->name }}
                                 @if(in_array($profile?->access_restriction, ['bookings', 'full'], true))
                                     <span class="ms-1 text-xs font-normal text-destructive">
-                                        {{ $profile->access_restriction === 'full' ? 'volledig geblokkeerd' : 'boekingen geblokkeerd' }}
+                                        {{ $profile->access_restriction === 'full' ? __('volledig geblokkeerd') : __('boekingen geblokkeerd') }}
                                     </span>
                                 @endif
                             </td>
@@ -95,18 +95,18 @@
                                 @endif
                             </td>
                             <td class="platform-billing-tenants__amount whitespace-nowrap tabular-nums">@if($profile) € {{ number_format($profile->resolveMonthlyAmount(), 2, ',', '.') }} @else — @endif</td>
-                            <td class="platform-billing-tenants__mandate whitespace-nowrap">{{ $mandate?->status ?? 'geen' }}</td>
+                            <td class="platform-billing-tenants__mandate whitespace-nowrap">{{ $mandate?->status ?? __('geen') }}</td>
                             <td class="admin-table__actions-col" data-no-row-link>
                                 <div class="kt-menu flex justify-center" data-kt-menu="true">
                                     <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                        <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
                                         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
                                             <div class="kt-menu-item">
                                                 <a class="kt-menu-link" href="{{ route('admin.platform-billing.tenants.edit', $company) }}">
                                                     <span class="kt-menu-icon"><i class="ki-filled ki-setting-2"></i></span>
-                                                    <span class="kt-menu-title">Configureren</span>
+                                                    <span class="kt-menu-title">{{ __('Configureren') }}</span>
                                                 </a>
                                             </div>
                                         </div>
@@ -116,7 +116,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="p-5 text-secondary-foreground">Geen tenants gevonden.</td>
+                            <td colspan="5" class="p-5 text-secondary-foreground">{{ __('Geen tenants gevonden.') }}</td>
                         </tr>
                     @endforelse
                     </tbody>

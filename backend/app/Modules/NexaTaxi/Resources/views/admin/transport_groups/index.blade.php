@@ -1,19 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Groepen')
+@section('title', __('Groepen'))
 
 @section('content')
 @php
     $contractWorkspaceTab = 'groepen';
     $contractWorkspaceCounts = ['groups' => $groups->total()];
-    $workspaceTitle = 'Groepen & routes';
-    $workspaceSubtitle = 'Vaste heen- en terugritten voor dit abonnement';
+    $workspaceTitle = __('Groepen & routes');
+    $workspaceSubtitle = __('Vaste heen- en terugritten voor dit abonnement');
 @endphp
 @can('rides.create')
     @php
         $workspaceHeaderActions = view('taxi::admin.transport_customers.partials.contract-workspace-action-btn', [
             'url' => transport_admin_url_with_return(route('admin.taxi.transport_groups.create', [$customer->id, $contract->id]), url()->current()),
-            'label' => 'Nieuwe groep',
+            'label' => __('Nieuwe groep'),
             'primary' => true,
         ])->render();
     @endphp
@@ -25,18 +25,18 @@
     <div class="grid gap-5 lg:gap-7.5 pt-5">
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header py-5 flex-wrap gap-2">
-                <h3 class="kt-card-title text-sm w-full">Groepen onder dit abonnement</h3>
+                <h3 class="kt-card-title text-sm w-full">{{ __('Groepen onder dit abonnement') }}</h3>
                 <form method="GET" action="{{ route('admin.taxi.transport_groups.index', [$customer->id, $contract->id]) }}" class="flex flex-wrap gap-2 w-full sm:justify-end">
                     <label class="kt-input w-full sm:w-64">
                         <i class="ki-filled ki-magnifier"></i>
-                        <input placeholder="Zoek groep of adres..." type="text" name="search" value="{{ request('search') }}">
+                        <input placeholder="{{ __('Zoek groep of adres...') }}" type="text" name="search" value="{{ request('search') }}">
                     </label>
                     <select class="kt-select w-full sm:w-36" name="active" onchange="this.form.submit()">
-                        <option value="">Alle statussen</option>
-                        <option value="1" @selected(request('active') === '1')>Actief</option>
-                        <option value="0" @selected(request('active') === '0')>Inactief</option>
+                        <option value="">{{ __('Alle statussen') }}</option>
+                        <option value="1" @selected(request('active') === '1')>{{ __('Actief') }}</option>
+                        <option value="0" @selected(request('active') === '0')>{{ __('Inactief') }}</option>
                     </select>
-                    <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">Zoeken</button>
+                    <button type="submit" class="kt-btn kt-btn-outline kt-btn-sm">{{ __('Zoeken') }}</button>
                 </form>
             </div>
             <div class="kt-card-content p-0 min-w-0">
@@ -44,12 +44,12 @@
                     <table id="transport-groups-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                         <thead>
                             <tr>
-                                <th data-label="Naam">Naam</th>
-                                <th data-label="Eindlocatie">Eindlocatie</th>
-                                <th data-label="Aankomst">Aankomst</th>
-                                <th data-label="Leden">Leden</th>
-                                <th data-label="Status">Status</th>
-                                <th class="transport-groups-table__actions-col text-center" data-label="Acties"></th>
+                                <th data-label="{{ __('Naam') }}">{{ __('Naam') }}</th>
+                                <th data-label="{{ __('Eindlocatie') }}">{{ __('Eindlocatie') }}</th>
+                                <th data-label="{{ __('Aankomst') }}">{{ __('Aankomst') }}</th>
+                                <th data-label="{{ __('Leden') }}">{{ __('Leden') }}</th>
+                                <th data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                <th class="transport-groups-table__actions-col text-center" data-label="{{ __('Acties') }}"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -59,7 +59,7 @@
                                 class="cursor-pointer hover:bg-muted/40"
                                 tabindex="0"
                                 role="link"
-                                aria-label="Bekijk groep {{ $group->name }}"
+                                aria-label="{{ __('Bekijk groep :name', ['name' => $group->name]) }}"
                             >
                                 <td>
                                     <span class="font-medium text-foreground">{{ $group->name }}</span>
@@ -69,13 +69,13 @@
                                 <td>{{ $memberCounts[$group->id] ?? 0 }}</td>
                                 <td>
                                     @if($group->active)
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                     @endif
                                 </td>
                                 <td class="transport-groups-table__actions-col" data-no-row-link onclick="event.stopPropagation();">
-                                    <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.show', [$customer->id, $contract->id, $group->id]), url()->current()) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken" aria-label="Bekijken">
+                                    <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.show', [$customer->id, $contract->id, $group->id]), url()->current()) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bekijken') }}" aria-label="{{ __('Bekijken') }}">
                                         <i class="ki-filled ki-eye"></i>
                                     </a>
                                 </td>
@@ -83,9 +83,9 @@
                             @empty
                             <tr>
                                 <td colspan="6" class="text-center text-muted-foreground py-8">
-                                    Nog geen groepen.
+                                    {{ __('Nog geen groepen.') }}
                                     @can('rides.create')
-                                    <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.create', [$customer->id, $contract->id]), url()->current()) }}" class="text-primary hover:underline">Eerste groep aanmaken</a>.
+                                    <a href="{{ transport_admin_url_with_return(route('admin.taxi.transport_groups.create', [$customer->id, $contract->id]), url()->current()) }}" class="text-primary hover:underline">{{ __('Eerste groep aanmaken') }}</a>.
                                     @endcan
                                 </td>
                             </tr>

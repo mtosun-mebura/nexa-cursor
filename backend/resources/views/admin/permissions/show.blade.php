@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Permissie Details - ' . ucfirst(str_replace('-', ' ', $permission->name)))
+@section('title', __('Permissie Details - :name', ['name' => ucfirst(str_replace('-', ' ', $permission->name))]))
 
 @push('styles')
 <style>
@@ -48,13 +48,13 @@
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-shield-user text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $permission->roles->count() }} rollen
+                        {{ $permission->roles->count() }} {{ __('rollen') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-people text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $permission->users->count() }} gebruikers
+                        {{ $permission->users->count() }} {{ __('gebruikers') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -75,7 +75,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -88,21 +88,21 @@
                            class="kt-switch kt-switch-sm" 
                            checked 
                            disabled/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             @else
                 <label class="kt-label flex items-center">
                     <input type="checkbox" 
                            class="kt-switch kt-switch-sm" 
                            disabled/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             @endif
             <span class="text-orange-500">|</span>
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions'))
                 <a href="{{ route('admin.permissions.edit', $permission) }}" class="kt-btn kt-btn-warning">
                     <i class="ki-filled ki-pencil me-2"></i>
-                    Bewerken
+                    {{ __('Bewerken') }}
                 </a>
             @endif
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions'))
@@ -110,12 +110,12 @@
                     <form action="{{ route('admin.permissions.destroy', $permission) }}" 
                           method="POST" 
                           class="inline"
-                          onsubmit="return confirm('Weet je zeker dat je deze permissie wilt verwijderen?')">
+                          onsubmit="return confirm(@js(__('Weet je zeker dat je deze permissie wilt verwijderen?')))">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="kt-btn kt-btn-danger">
                             <i class="ki-filled ki-trash me-2"></i>
-                            Verwijderen
+                            {{ __('Verwijderen') }}
                         </button>
                     </form>
                 @endif
@@ -127,76 +127,76 @@
         <!-- Basic Information -->
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Basis Informatie</h3>
+                <h3 class="kt-card-title">{{ __('Basis Informatie') }}</h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Permissie Naam</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Permissie Naam') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground font-medium">{{ ucfirst(str_replace('-', ' ', $permission->name)) }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Naam (technisch)</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Naam (technisch)') }}</td>
                         <td class="min-w-48 w-full">
                             <code class="text-sm text-foreground">{{ $permission->name }}</code>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Groep</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Groep') }}</td>
                         <td class="min-w-48 w-full">
                             @if($permission->group)
                                 <span class="kt-badge kt-badge-primary">{{ $permission->group }}</span>
                             @else
-                                <span class="text-muted-foreground">Geen groep</span>
+                                <span class="text-muted-foreground">{{ __('Geen groep') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Guard</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Guard') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground">{{ $permission->guard_name }}</span>
                         </td>
                     </tr>
                     @if($permission->description)
                     <tr>
-                        <td class="text-secondary-foreground font-normal align-top">Beschrijving</td>
+                        <td class="text-secondary-foreground font-normal align-top">{{ __('Beschrijving') }}</td>
                         <td>
                             <span class="text-foreground">{{ $permission->description }}</span>
                         </td>
                     </tr>
                     @endif
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Status</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Status') }}</td>
                         <td class="min-w-48 w-full">
                             @if($hasRoles)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Toegewezen aan rollen</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Toegewezen aan rollen') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Niet toegewezen</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Niet toegewezen') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Rollen</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aantal Rollen') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="kt-badge kt-badge-info">{{ $permission->roles->count() }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Gebruikers</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aantal Gebruikers') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="kt-badge kt-badge-secondary">{{ $permission->users->count() }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aangemaakt</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aangemaakt') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground">{{ $permission->created_at->format('d-m-Y H:i') }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Laatst bijgewerkt</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Laatst bijgewerkt') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground">{{ $permission->updated_at->format('d-m-Y H:i') }}</span>
                         </td>
@@ -208,7 +208,7 @@
         <!-- Roles with this Permission -->
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Rollen met deze Permissie ({{ $permission->roles->count() }})</h3>
+                <h3 class="kt-card-title">{{ __('Rollen met deze Permissie (:count)', ['count' => $permission->roles->count()]) }}</h3>
             </div>
             <div class="kt-card-content">
                 @if($permission->roles->count() > 0)
@@ -216,11 +216,11 @@
                         <table class="kt-table kt-table-border align-middle">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[200px]">Rol</th>
-                                    <th class="min-w-[200px]">Beschrijving</th>
-                                    <th class="min-w-[150px]">Type</th>
-                                    <th class="min-w-[100px]">Aantal Gebruikers</th>
-                                    <th class="min-w-[100px]">Acties</th>
+                                    <th class="min-w-[200px]">{{ __('Rol') }}</th>
+                                    <th class="min-w-[200px]">{{ __('Beschrijving') }}</th>
+                                    <th class="min-w-[150px]">{{ __('Type') }}</th>
+                                    <th class="min-w-[100px]">{{ __('Aantal Gebruikers') }}</th>
+                                    <th class="min-w-[100px]">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -239,16 +239,16 @@
                                     </td>
                                     <td>
                                         @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                            <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Systeem') }}</span>
                                         @else
-                                            <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Aangepast') }}</span>
                                         @endif
                                     </td>
                                     <td>
                                         <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $role->users->count() }}</span>
                                     </td>
                                     <td>
-                                        <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
+                                        <a href="{{ route('admin.roles.show', $role) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bekijken') }}">
                                             <i class="ki-filled ki-eye"></i>
                                         </a>
                                     </td>
@@ -259,7 +259,7 @@
                     </div>
                 @else
                     <div class="p-5">
-                        <p class="text-muted-foreground">Deze permissie is niet toegewezen aan rollen.</p>
+                        <p class="text-muted-foreground">{{ __('Deze permissie is niet toegewezen aan rollen.') }}</p>
                     </div>
                 @endif
             </div>
@@ -269,18 +269,18 @@
         @if($permission->users->count() > 0)
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Gebruikers met deze Permissie ({{ $permission->users->count() }})</h3>
+                <h3 class="kt-card-title">{{ __('Gebruikers met deze Permissie (:count)', ['count' => $permission->users->count()]) }}</h3>
             </div>
             <div class="kt-card-content">
                 <div class="kt-scrollable-x-auto">
                     <table class="kt-table kt-table-border align-middle">
                         <thead>
                             <tr>
-                                <th class="min-w-[200px]">Gebruiker</th>
-                                <th class="min-w-[200px]">Email</th>
-                                <th class="min-w-[150px]">Bedrijf</th>
-                                <th class="min-w-[150px]">Rollen</th>
-                                <th class="min-w-[100px]">Acties</th>
+                                <th class="min-w-[200px]">{{ __('Gebruiker') }}</th>
+                                <th class="min-w-[200px]">{{ __('Email') }}</th>
+                                <th class="min-w-[150px]">{{ __('Bedrijf') }}</th>
+                                <th class="min-w-[150px]">{{ __('Rollen') }}</th>
+                                <th class="min-w-[100px]">{{ __('Acties') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -313,7 +313,7 @@
                                     @if($user->company)
                                         <span class="kt-badge kt-badge-sm kt-badge-info">{{ $user->company->name }}</span>
                                     @else
-                                        <span class="text-sm text-muted-foreground">Geen bedrijf</span>
+                                        <span class="text-sm text-muted-foreground">{{ __('Geen bedrijf') }}</span>
                                     @endif
                                 </td>
                                 <td>
@@ -325,11 +325,11 @@
                                 </td>
                                 <td>
                                     <div class="flex items-center gap-2">
-                                        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
+                                        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bekijken') }}">
                                             <i class="ki-filled ki-eye"></i>
                                         </a>
                                         @can('edit-users')
-                                        <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
+                                        <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bewerken') }}">
                                             <i class="ki-filled ki-pencil"></i>
                                         </a>
                                         @endcan

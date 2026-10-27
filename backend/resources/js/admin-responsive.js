@@ -927,7 +927,7 @@ function getTableEmptyMessage(table) {
             return text;
         }
     }
-    return 'Geen resultaten gevonden';
+    return (window.NEXA_I18N && window.NEXA_I18N['Geen resultaten gevonden']) || 'Geen resultaten gevonden';
 }
 
 function syncMobileListEmptyState(table, list, visibleCount) {
@@ -1381,8 +1381,8 @@ function syncFilterFieldsFromRemote(localCard, remoteCard) {
 }
 
 function syncResetFilterButton(localCard, remoteCard) {
-    const localBtn = localCard.querySelector('#reset-filter-btn, a[title="Filters resetten"]');
-    const remoteBtn = remoteCard.querySelector('#reset-filter-btn, a[title="Filters resetten"]');
+    const localBtn = localCard.querySelector('#reset-filter-btn, a[title="Filters resetten"], a[title="Reset filters"]');
+    const remoteBtn = remoteCard.querySelector('#reset-filter-btn, a[title="Filters resetten"], a[title="Reset filters"]');
     const panel = localCard.querySelector('.admin-filter-panel') || localCard.querySelector('.kt-card-header');
     if (remoteBtn && !localBtn && panel) {
         panel.appendChild(remoteBtn.cloneNode(true));
@@ -1596,7 +1596,7 @@ function bindAdminFilterAjaxNavigation(card, form) {
         }
 
         const isReset =
-            link.id === 'reset-filter-btn' || link.getAttribute('title') === 'Filters resetten';
+            link.id === 'reset-filter-btn' || ['Filters resetten', 'Reset filters'].includes(link.getAttribute('title'));
         const inResults = link.closest(
             '.kt-card-content, .kt-card-body, .kt-card-table, .kt-card-footer, .kt-table-col-sort'
         );

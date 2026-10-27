@@ -89,12 +89,12 @@ class AdminNexaPricingController extends Controller
             'modules.*.price' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'modules.*.description' => ['nullable', 'string', 'max:255'],
         ], [
-            'packages.required' => 'Voeg minstens één maandpakket toe.',
-            'packages.min' => 'Voeg minstens één maandpakket toe.',
-            'trial_notice_days.required' => 'Vul in hoeveel dagen voor het einde van de proeftijd de aankondiging verstuurd wordt.',
-            'packages.*.name.required' => 'Elk pakket heeft een naam nodig.',
-            'packages.*.price.required' => 'Elk pakket heeft een maandprijs nodig.',
-            'website.price_label.required' => 'Vul de eenmalige websiteprijs in.',
+            'packages.required' => __('Voeg minstens één maandpakket toe.'),
+            'packages.min' => __('Voeg minstens één maandpakket toe.'),
+            'trial_notice_days.required' => __('Vul in hoeveel dagen voor het einde van de proeftijd de aankondiging verstuurd wordt.'),
+            'packages.*.name.required' => __('Elk pakket heeft een naam nodig.'),
+            'packages.*.price.required' => __('Elk pakket heeft een maandprijs nodig.'),
+            'website.price_label.required' => __('Vul de eenmalige websiteprijs in.'),
         ]);
 
         $pricing = $this->pricing->save($valid);
@@ -102,13 +102,13 @@ class AdminNexaPricingController extends Controller
 
         return redirect()
             ->route('admin.nexa-pricing.edit')
-            ->with('success', 'Paketten opgeslagen. NEXA-facturatie gebruikt deze prijzen; /prijzen is bijgewerkt.');
+            ->with('success', __('Paketten opgeslagen. NEXA-facturatie gebruikt deze prijzen; /prijzen is bijgewerkt.'));
     }
 
     private function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
-            abort(403, 'Alleen super-admins hebben toegang tot de paketten.');
+            abort(403, __('Alleen super-admins hebben toegang tot de paketten.'));
         }
     }
 }

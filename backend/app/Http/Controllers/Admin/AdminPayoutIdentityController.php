@@ -68,7 +68,7 @@ class AdminPayoutIdentityController extends Controller
 
         return redirect()
             ->route('admin.payout-identities.index')
-            ->with('success', 'Payout-onboarding voor het bedrijf is gestart of bijgewerkt.');
+            ->with('success', __('Payout-onboarding voor het bedrijf is gestart of bijgewerkt.'));
     }
 
     public function setBankAccount(Request $request)
@@ -94,8 +94,8 @@ class AdminPayoutIdentityController extends Controller
         }
 
         $msg = $identity->hasPendingDestinationChange()
-            ? 'Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over '.(int) config('nexa_payout.destination_change_cooling_off_hours', 48).' uur gebruikt voor uitbetalingen. We bewaren alleen *** + laatste 4 cijfers.'
-            : 'Bankrekening opgeslagen. Alleen *** + laatste 4 cijfers worden bewaard.';
+            ? __('Wijziging aangevraagd. Het nieuwe rekeningnummer wordt pas over :hours uur gebruikt voor uitbetalingen. We bewaren alleen *** + laatste 4 cijfers.', ['hours' => (int) config('nexa_payout.destination_change_cooling_off_hours', 48)])
+            : __('Bankrekening opgeslagen. Alleen *** + laatste 4 cijfers worden bewaard.');
 
         return redirect()
             ->route('admin.payout-identities.index')
@@ -111,7 +111,7 @@ class AdminPayoutIdentityController extends Controller
 
         return redirect()
             ->route('admin.payout-identities.index')
-            ->with('success', 'Status gesynchroniseerd: '.$identity->capability_status);
+            ->with('success', __('Status gesynchroniseerd: :status', ['status' => $identity->capability_status]));
     }
 
     public function requestDestinationChange(Request $request, PayoutIdentity $payoutIdentity)
@@ -134,7 +134,7 @@ class AdminPayoutIdentityController extends Controller
 
         return redirect()
             ->route('admin.payout-identities.index')
-            ->with('success', 'Bestemmingswijziging aangevraagd. Cooling-off tot '.$identity->destination_change_eligible_at?->timezone(config('app.timezone'))->format('d-m-Y H:i').'.');
+            ->with('success', __('Bestemmingswijziging aangevraagd. Cooling-off tot :date.', ['date' => $identity->destination_change_eligible_at?->timezone(config('app.timezone'))->format('d-m-Y H:i')]));
     }
 
     public function applyDestinationChange(Request $request, PayoutIdentity $payoutIdentity)
@@ -150,7 +150,7 @@ class AdminPayoutIdentityController extends Controller
 
         return redirect()
             ->route('admin.payout-identities.index')
-            ->with('success', 'Nieuwe payout-bestemming is doorgevoerd (nog pending provider-verificatie).');
+            ->with('success', __('Nieuwe payout-bestemming is doorgevoerd (nog pending provider-verificatie).'));
     }
 
     public function disable(Request $request, PayoutIdentity $payoutIdentity)
@@ -170,7 +170,7 @@ class AdminPayoutIdentityController extends Controller
 
         return redirect()
             ->route('admin.payout-identities.index')
-            ->with('success', 'Payout-identiteit is uitgeschakeld.');
+            ->with('success', __('Payout-identiteit is uitgeschakeld.'));
     }
 
     public function ensureIndependentDriver(Request $request)
@@ -190,7 +190,7 @@ class AdminPayoutIdentityController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        return back()->with('error', 'Onverwachte status.');
+        return back()->with('error', __('Onverwachte status.'));
     }
 
     private function authorizeView(): void
@@ -204,7 +204,7 @@ class AdminPayoutIdentityController extends Controller
             return;
         }
 
-        abort(403, 'Geen rechten om payout-identiteiten te bekijken.');
+        abort(403, __('Geen rechten om payout-identiteiten te bekijken.'));
     }
 
     private function authorizeManage(): void
@@ -218,7 +218,7 @@ class AdminPayoutIdentityController extends Controller
             return;
         }
 
-        abort(403, 'Geen rechten om payout-identiteiten te beheren.');
+        abort(403, __('Geen rechten om payout-identiteiten te beheren.'));
     }
 
     private function resolveCompany(Request $request): ?Company
@@ -239,7 +239,7 @@ class AdminPayoutIdentityController extends Controller
     {
         $company = $this->resolveCompany($request);
         if (! $company) {
-            abort(422, 'Selecteer eerst een tenant/bedrijf.');
+            abort(422, __('Selecteer eerst een tenant/bedrijf.'));
         }
 
         return $company;
@@ -249,7 +249,7 @@ class AdminPayoutIdentityController extends Controller
     {
         $tenantId = $this->getTenantId();
         if ($tenantId && (int) $identity->company_id !== (int) $tenantId) {
-            abort(403, 'Geen toegang tot deze payout-identiteit.');
+            abort(403, __('Geen toegang tot deze payout-identiteit.'));
         }
     }
 }

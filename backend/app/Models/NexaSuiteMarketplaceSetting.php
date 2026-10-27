@@ -13,6 +13,7 @@ class NexaSuiteMarketplaceSetting extends Model
 
     protected $fillable = [
         'fee_percent',
+        'fee_minimum_settings',
         'allow_marketplace_network_owner',
         'auto_generate',
         'auto_send',
@@ -41,6 +42,7 @@ class NexaSuiteMarketplaceSetting extends Model
 
     protected $casts = [
         'fee_percent' => 'integer',
+        'fee_minimum_settings' => 'array',
         'allow_marketplace_network_owner' => 'boolean',
         'auto_generate' => 'boolean',
         'auto_send' => 'boolean',

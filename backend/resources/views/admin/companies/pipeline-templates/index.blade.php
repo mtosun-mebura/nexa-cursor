@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Pipeline Templates - ' . $company->name)
+@section('title', __('Pipeline Templates').' - '.$company->name)
 
 @section('content')
 
@@ -9,16 +9,16 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.companies.show', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
-            <h1 class="text-2xl font-semibold text-mono">Pipeline Templates</h1>
+            <h1 class="text-2xl font-semibold text-mono">{{ __('Pipeline Templates') }}</h1>
         </div>
         <div class="flex items-center gap-2.5">
             <form action="{{ route('admin.companies.pipeline-templates.create-from-default', $company) }}" method="POST">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuw template (van standaard)
+                    {{ __('Nieuw template (van standaard)') }}
                 </button>
             </form>
         </div>
@@ -26,7 +26,7 @@
 
     <div class="kt-card">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Pipeline Templates voor {{ $company->name }}</h3>
+            <h3 class="kt-card-title">{{ __('Pipeline Templates voor :name', ['name' => $company->name]) }}</h3>
         </div>
         <div class="kt-card-content">
             @if($templates->count() > 0)
@@ -39,28 +39,28 @@
                                         <div class="flex items-center gap-2 mb-2">
                                             <h4 class="text-lg font-semibold text-mono">{{ $template->name }}</h4>
                                             @if($template->is_default)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Standaard</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Standaard') }}</span>
                                             @endif
                                             @if($template->company_id === null)
-                                                <span class="kt-badge kt-badge-sm kt-badge-info">Globaal</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-info">{{ __('Globaal') }}</span>
                                             @endif
                                         </div>
                                         @if($template->description)
                                             <p class="text-sm text-muted-foreground mb-2">{{ $template->description }}</p>
                                         @endif
                                         <div class="flex items-center gap-4 text-sm text-muted-foreground">
-                                            <span><i class="ki-filled ki-calendar me-1"></i> Versie {{ $template->version }}</span>
-                                            <span><i class="ki-filled ki-list me-1"></i> {{ count($template->stages) }} stappen</span>
+                                            <span><i class="ki-filled ki-calendar me-1"></i> {{ __('Versie :version', ['version' => $template->version]) }}</span>
+                                            <span><i class="ki-filled ki-list me-1"></i> {{ __(':stages stappen', ['stages' => count($template->stages)]) }}</span>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         @if($template->company_id === $company->id || $template->company_id === null)
                                             <a href="{{ route('admin.companies.pipeline-templates.edit', [$company, $template]) }}" class="kt-btn kt-btn-primary">
                                                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                                                Bewerken
+                                                {{ __('Bewerken') }}
                                             </a>
                                         @else
-                                            <span class="text-sm text-muted-foreground">Niet bewerkbaar</span>
+                                            <span class="text-sm text-muted-foreground">{{ __('Niet bewerkbaar') }}</span>
                                         @endif
                                     </div>
                                 </div>
@@ -71,12 +71,12 @@
             @else
                 <div class="text-center py-10">
                     <i class="ki-filled ki-information-2 text-4xl text-muted-foreground mb-4"></i>
-                    <p class="text-muted-foreground mb-4">Geen pipeline templates gevonden.</p>
+                    <p class="text-muted-foreground mb-4">{{ __('Geen pipeline templates gevonden.') }}</p>
                     <form action="{{ route('admin.companies.pipeline-templates.create-from-default', $company) }}" method="POST" class="inline">
                         @csrf
                         <button type="submit" class="kt-btn kt-btn-primary">
                             <i class="ki-filled ki-plus me-2"></i>
-                            Maak eerste template aan
+                            {{ __('Maak eerste template aan') }}
                         </button>
                     </form>
                 </div>

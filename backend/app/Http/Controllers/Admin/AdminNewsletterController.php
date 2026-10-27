@@ -68,7 +68,7 @@ class AdminNewsletterController extends Controller
 
         return redirect()
             ->route('admin.newsletters.edit', $campaign)
-            ->with('success', 'Nieuwsbrief opgeslagen.');
+            ->with('success', __('Nieuwsbrief opgeslagen.'));
     }
 
     public function edit(NewsletterCampaign $campaign): View
@@ -91,7 +91,7 @@ class AdminNewsletterController extends Controller
 
         return redirect()
             ->route('admin.newsletters.edit', $campaign)
-            ->with('success', 'Nieuwsbrief bijgewerkt.');
+            ->with('success', __('Nieuwsbrief bijgewerkt.'));
     }
 
     public function generate(Request $request)
@@ -180,12 +180,12 @@ class AdminNewsletterController extends Controller
         if ($result['created'] === 0) {
             return redirect()
                 ->route('admin.newsletters.prospects')
-                ->with('error', 'Geen bedrijven met een openbaar e-mailadres gevonden. Controleer de Google Maps-sleutel (Places) of probeer een andere plaats/branche.');
+                ->with('error', __('Geen bedrijven met een openbaar e-mailadres gevonden. Controleer de Google Maps-sleutel (Places) of probeer een andere plaats/branche.'));
         }
 
         return redirect()
             ->route('admin.newsletters.prospects')
-            ->with('success', $result['created'].' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon ('.$result['skipped'].' overgeslagen, '.$result['scanned'].' bronnen bekeken).');
+            ->with('success', __(':created bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon (:skipped overgeslagen, :scanned bronnen bekeken).', ['created' => $result['created'], 'skipped' => $result['skipped'], 'scanned' => $result['scanned']]));
     }
 
     public function storeProspect(Request $request): RedirectResponse
@@ -222,7 +222,7 @@ class AdminNewsletterController extends Controller
 
         return redirect()
             ->route('admin.newsletters.prospects')
-            ->with('success', 'Bedrijf toegevoegd aan de opt-inlijst.');
+            ->with('success', __('Bedrijf toegevoegd aan de opt-inlijst.'));
     }
 
     public function unsubscribeProspect(NewsletterProspect $prospect): RedirectResponse
@@ -232,7 +232,7 @@ class AdminNewsletterController extends Controller
 
         return redirect()
             ->route('admin.newsletters.prospects')
-            ->with('success', $prospect->company_name.' is afgemeld.');
+            ->with('success', __(':name is afgemeld.', ['name' => $prospect->company_name]));
     }
 
     public function sendForm(): View
@@ -259,7 +259,7 @@ class AdminNewsletterController extends Controller
 
         return redirect()
             ->route('admin.newsletters.send')
-            ->with('success', 'Verzonden: '.$stats['sent'].' · mislukt: '.$stats['failed'].' · overgeslagen: '.$stats['skipped'].'.');
+            ->with('success', __('Verzonden: :sent · mislukt: :failed · overgeslagen: :skipped.', ['sent' => $stats['sent'], 'failed' => $stats['failed'], 'skipped' => $stats['skipped']]));
     }
 
     /**
@@ -337,7 +337,7 @@ class AdminNewsletterController extends Controller
 
         if ($provinces === [] && $city === '') {
             throw ValidationException::withMessages([
-                'city' => 'Kies minstens één provincie, of vul een plaats in. De straal wordt vanaf die plaats gebruikt.',
+                'city' => __('Kies minstens één provincie, of vul een plaats in. De straal wordt vanaf die plaats gebruikt.'),
             ]);
         }
 
@@ -379,8 +379,8 @@ class AdminNewsletterController extends Controller
                     'saved' => $result['created'],
                     'skipped' => $result['skipped'],
                     'message' => $result['created'] > 0
-                        ? $result['created'].' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon ('.$result['skipped'].' overgeslagen, '.$result['scanned'].' bronnen bekeken).'
-                        : 'Geen bedrijven met een openbaar e-mailadres gevonden. Controleer de Google Maps-sleutel (Places) of probeer een andere plaats/branche.',
+                        ? __(':created bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon (:skipped overgeslagen, :scanned bronnen bekeken).', ['created' => $result['created'], 'skipped' => $result['skipped'], 'scanned' => $result['scanned']])
+                        : __('Geen bedrijven met een openbaar e-mailadres gevonden. Controleer de Google Maps-sleutel (Places) of probeer een andere plaats/branche.'),
                     'redirect' => $result['created'] > 0
                         ? route('admin.newsletters.prospects', ['discovered' => $result['created']])
                         : null,
@@ -391,7 +391,7 @@ class AdminNewsletterController extends Controller
                     'success' => false,
                     'found' => 0,
                     'saved' => 0,
-                    'message' => 'Zoeken mislukt: '.$e->getMessage(),
+                    'message' => __('Zoeken mislukt: :error', ['error' => $e->getMessage()]),
                 ]);
             }
         }, 200, [
@@ -423,7 +423,7 @@ class AdminNewsletterController extends Controller
     private function ensureSuperAdmin(): void
     {
         if (! auth()->user()?->hasRole('super-admin')) {
-            abort(403, 'Alleen een super-admin mag nieuwsbrieven beheren.');
+            abort(403, __('Alleen een super-admin mag nieuwsbrieven beheren.'));
         }
     }
 }

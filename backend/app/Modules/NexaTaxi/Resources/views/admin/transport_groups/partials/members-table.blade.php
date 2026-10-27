@@ -2,11 +2,11 @@
     <table id="transport-group-members-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
         <thead>
             <tr>
-                <th data-label="Naam">Naam</th>
-                <th data-label="Ophaaladres">Ophaaladres</th>
-                <th data-label="Sinds">Sinds</th>
+                <th data-label="{{ __('Naam') }}">{{ __('Naam') }}</th>
+                <th data-label="{{ __('Ophaaladres') }}">{{ __('Ophaaladres') }}</th>
+                <th data-label="{{ __('Sinds') }}">{{ __('Sinds') }}</th>
                 @can('rides.update')
-                <th class="transport-group-members-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
+                <th class="transport-group-members-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}"></th>
                 @endcan
             </tr>
         </thead>
@@ -23,7 +23,7 @@
                     <form method="POST" action="{{ route('admin.taxi.transport_groups.member_remove', [$customer->id, $contract->id, $group->id, $member->id]) }}" class="inline">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive" title="Uit groep halen" aria-label="Uit groep halen">
+                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive" title="{{ __('Uit groep halen') }}" aria-label="{{ __('Uit groep halen') }}">
                             <i class="ki-filled ki-trash"></i>
                         </button>
                     </form>
@@ -33,7 +33,7 @@
             @empty
             <tr>
                 <td colspan="{{ auth()->user()->can('rides.update') ? 4 : 3 }}" class="text-center text-muted-foreground py-8">
-                    Nog geen leden in deze groep.
+                    {{ __('Nog geen leden in deze groep.') }}
                 </td>
             </tr>
             @endforelse

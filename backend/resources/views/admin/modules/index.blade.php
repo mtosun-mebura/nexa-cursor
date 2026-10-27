@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Modules Beheer')
+@section('title', __('Modules Beheer'))
 
 @section('content')
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Modules Beheer
+            {{ __('Modules Beheer') }}
         </h1>
     </div>
 
@@ -27,7 +27,7 @@
                         {{ $stats['total_modules'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal Modules
+                        {{ __('Totaal Modules') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -36,7 +36,7 @@
                         {{ $stats['installed_modules'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Geïnstalleerd
+                        {{ __('Geïnstalleerd') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -45,7 +45,7 @@
                         {{ $stats['active_modules'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Actief
+                        {{ __('Actief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -54,7 +54,7 @@
                         {{ $stats['internal_modules'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Intern
+                        {{ __('Intern') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -63,7 +63,7 @@
                         {{ $stats['external_modules'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Extern
+                        {{ __('Extern') }}
                     </span>
                 </div>
             </div>
@@ -74,18 +74,18 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon 1 tot {{ count($availableModules) }} van {{ count($availableModules) }} modules
+                    {{ __('Toon 1 tot :count van :count modules', ['count' => count($availableModules)]) }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed admin-modules-table align-middle text-sm text-muted-foreground">
                     <thead>
                         <tr>
-                            <th class="min-w-[200px] text-secondary-foreground font-normal">Module</th>
-                            <th class="min-w-[100px] text-secondary-foreground font-normal">Versie</th>
-                            <th class="min-w-[100px] text-secondary-foreground font-normal">Type</th>
-                            <th class="min-w-[100px] text-secondary-foreground font-normal">Status</th>
-                            <th class="text-secondary-foreground font-normal text-center px-4">Acties</th>
+                            <th class="min-w-[200px] text-secondary-foreground font-normal">{{ __('Module') }}</th>
+                            <th class="min-w-[100px] text-secondary-foreground font-normal">{{ __('Versie') }}</th>
+                            <th class="min-w-[100px] text-secondary-foreground font-normal">{{ __('Type') }}</th>
+                            <th class="min-w-[100px] text-secondary-foreground font-normal">{{ __('Status') }}</th>
+                            <th class="text-secondary-foreground font-normal text-center px-4">{{ __('Acties') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -97,8 +97,8 @@
                                             <i class="{{ $module['icon'] }} text-2xl text-primary"></i>
                                         </div>
                                         <div>
-                                            <div class="font-medium text-foreground">{{ $module['display_name'] }}</div>
-                                            <div class="text-xs text-muted-foreground mt-0.5">{{ $module['description'] }}</div>
+                                            <div class="font-medium text-foreground">{{ __($module['display_name']) }}</div>
+                                            <div class="text-xs text-muted-foreground mt-0.5">{{ __($module['description']) }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -109,7 +109,7 @@
                                 </td>
                                 <td>
                                     <span class="text-xs px-2 py-1 rounded {{ $module['type'] === 'internal' ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary' }}">
-                                        {{ $module['type'] === 'internal' ? 'Intern' : 'Extern' }}
+                                        {{ $module['type'] === 'internal' ? __('Intern') : __('Extern') }}
                                     </span>
                                 </td>
                                 <td>
@@ -117,30 +117,30 @@
                                         <div class="flex flex-wrap gap-1">
                                             @if($module['installed'])
                                                 <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #2563eb !important; color: #ffffff !important;">
-                                                    <i class="ki-filled ki-check me-1" style="color: #ffffff !important;"></i> Geïnstalleerd
+                                                    <i class="ki-filled ki-check me-1" style="color: #ffffff !important;"></i> {{ __('Geïnstalleerd') }}
                                                 </span>
                                             @else
                                                 <span class="text-xs px-2 py-1 rounded bg-muted/50 text-foreground border border-border">
-                                                    Niet geïnstalleerd
+                                                    {{ __('Niet geïnstalleerd') }}
                                                 </span>
                                             @endif
                                             @if($module['active'])
                                                 <span class="text-xs px-2 py-1 rounded font-medium" style="background-color: #16a34a !important; color: #ffffff !important;">
-                                                    <i class="ki-filled ki-check-circle me-1" style="color: #ffffff !important;"></i> Actief
+                                                    <i class="ki-filled ki-check-circle me-1" style="color: #ffffff !important;"></i> {{ __('Actief') }}
                                                 </span>
                                             @endif
                                         </div>
                                         @if($module['installed'])
-                                            <span class="text-xs text-muted-foreground block" title="Centrale applicatie (users, modules, settings).">
-                                                Database: <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
+                                            <span class="text-xs text-muted-foreground block" title="{{ __('Centrale applicatie (users, modules, settings).') }}">
+                                                {{ __('Database:') }} <code class="bg-muted/50 px-1 rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : '—' }}</code>
                                             </span>
                                             @if(!empty($module['schema_name']))
-                                                <span class="text-xs text-muted-foreground block" title="PostgreSQL-schema in dezelfde database (MODULE_DATABASE_STRATEGY=schema).">
-                                                    Schema: <code class="bg-muted/50 px-1 rounded">{{ $module['schema_name'] }}</code>
+                                                <span class="text-xs text-muted-foreground block" title="{{ __('PostgreSQL-schema in dezelfde database (MODULE_DATABASE_STRATEGY=schema).') }}">
+                                                    {{ __('Schema:') }} <code class="bg-muted/50 px-1 rounded">{{ $module['schema_name'] }}</code>
                                                 </span>
                                             @elseif(!empty($module['database_name']))
-                                                <span class="text-xs text-muted-foreground block" title="Aparte database per module (MODULE_DATABASE_STRATEGY=database).">
-                                                    Module-database: <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
+                                                <span class="text-xs text-muted-foreground block" title="{{ __('Aparte database per module (MODULE_DATABASE_STRATEGY=database).') }}">
+                                                    {{ __('Module-database:') }} <code class="bg-muted/50 px-1 rounded">{{ $module['database_name'] }}</code>
                                                 </span>
                                             @endif
                                         @endif
@@ -154,7 +154,7 @@
                                              data-kt-menu-item-placement-rtl="bottom-start" 
                                              data-kt-menu-item-toggle="dropdown" 
                                              data-kt-menu-item-trigger="click">
-                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties" aria-expanded="false" data-modules-action-toggle="true">
+                                            <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}" aria-expanded="false" data-modules-action-toggle="true">
                                                 <x-heroicon-o-ellipsis-vertical class="w-5 h-5" />
                                             </button>
                                             <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -165,7 +165,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-arrow-path class="w-5 h-5 animate-spin" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Bezig met installeren...</span>
+                                                                <span class="kt-menu-title">{{ __('Bezig met installeren...') }}</span>
                                                             </span>
                                                         @else
                                                             <form action="{{ route('admin.modules.install', $module['name']) }}" method="POST" style="display: inline;">
@@ -174,29 +174,29 @@
                                                                     <span class="kt-menu-icon">
                                                                         <x-heroicon-o-arrow-down-tray class="w-5 h-5" />
                                                                     </span>
-                                                                    <span class="kt-menu-title">Installeer</span>
+                                                                    <span class="kt-menu-title">{{ __('Installeer') }}</span>
                                                                 </button>
                                                             </form>
                                                         @endif
                                                     </div>
                                                 @else
                                                     <div class="kt-menu-item">
-                                                        <a class="kt-menu-link" href="{{ route('admin.modules.config', $module['name']) }}" title="Onderdelen selecteren">
+                                                        <a class="kt-menu-link" href="{{ route('admin.modules.config', $module['name']) }}" title="{{ __('Onderdelen selecteren') }}">
                                                             <span class="kt-menu-icon">
                                                                 <x-heroicon-o-cog-6-tooth class="w-5 h-5" />
                                                             </span>
-                                                            <span class="kt-menu-title">Configureren</span>
+                                                            <span class="kt-menu-title">{{ __('Configureren') }}</span>
                                                         </a>
                                                     </div>
                                                     <div class="kt-menu-item">
                                                         <form action="{{ route('admin.modules.run-migrations', $module['name']) }}" method="POST" style="display: inline;"
-                                                              onsubmit="return confirm('Module-migraties opnieuw uitvoeren? Gebruik dit na wijziging van MODULE_DATABASE_STRATEGY in .env (en php artisan config:clear). Doorgaan?');">
+                                                              onsubmit="return confirm(@js(__('Module-migraties opnieuw uitvoeren? Gebruik dit na wijziging van MODULE_DATABASE_STRATEGY in .env (en php artisan config:clear). Doorgaan?')));">
                                                             @csrf
-                                                            <button type="submit" class="kt-menu-link w-full text-left" title="Zelfde pad als bij install: hoofddatabase of eigen module-database">
+                                                            <button type="submit" class="kt-menu-link w-full text-left" title="{{ __('Zelfde pad als bij install: hoofddatabase of eigen module-database') }}">
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-table-cells class="w-5 h-5" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Migraties opnieuw</span>
+                                                                <span class="kt-menu-title">{{ __('Migraties opnieuw') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -208,7 +208,7 @@
                                                                     <span class="kt-menu-icon">
                                                                         <x-heroicon-o-check-circle class="w-5 h-5" />
                                                                     </span>
-                                                                    <span class="kt-menu-title">Activeer</span>
+                                                                    <span class="kt-menu-title">{{ __('Activeer') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -220,7 +220,7 @@
                                                                     <span class="kt-menu-icon">
                                                                         <x-heroicon-o-x-circle class="w-5 h-5" />
                                                                     </span>
-                                                                    <span class="kt-menu-title">Deactiveer</span>
+                                                                    <span class="kt-menu-title">{{ __('Deactiveer') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -233,7 +233,7 @@
                                                                     <span class="kt-menu-icon">
                                                                         <x-heroicon-o-link class="w-5 h-5" />
                                                                     </span>
-                                                                    <span class="kt-menu-title">Test</span>
+                                                                    <span class="kt-menu-title">{{ __('Test') }}</span>
                                                                 </a>
                                                             </div>
                                                         @endif
@@ -242,14 +242,14 @@
                                                     <div class="kt-menu-separator"></div>
                                                     <div class="kt-menu-item">
                                                         <form action="{{ route('admin.modules.database-reset') }}" method="POST" style="display: inline;"
-                                                              onsubmit="return confirm('Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan met alle rechten. Weet je het zeker?');">
+                                                              onsubmit="return confirm(@js(__('Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan met alle rechten. Weet je het zeker?')));">
                                                             @csrf
                                                             <input type="hidden" name="confirm_reset" value="yes">
                                                             <button type="submit" class="kt-menu-link w-full text-left text-warning">
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-arrow-path class="w-5 h-5" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Database reset</span>
+                                                                <span class="kt-menu-title">{{ __('Database reset') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -260,7 +260,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-cube class="w-5 h-5" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Database dummydata</span>
+                                                                <span class="kt-menu-title">{{ __('Database dummydata') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -270,13 +270,13 @@
                                                         <form action="{{ route('admin.modules.uninstall', $module['name']) }}" 
                                                               method="POST" 
                                                               style="display: inline;"
-                                                              onsubmit="return confirm('Weet je zeker dat je deze module wilt verwijderen?')">
+                                                              onsubmit="return confirm(@js(__('Weet je zeker dat je deze module wilt verwijderen?')))">
                                                             @csrf
                                                             <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-trash class="w-5 h-5" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Verwijder</span>
+                                                                <span class="kt-menu-title">{{ __('Verwijder') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -290,7 +290,7 @@
                             <tr>
                                 <td colspan="5" class="text-center py-10">
                                     <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-3 block"></i>
-                                    <p class="text-muted-foreground">Geen modules gevonden</p>
+                                    <p class="text-muted-foreground">{{ __('Geen modules gevonden') }}</p>
                                 </td>
                             </tr>
                         @endforelse
@@ -305,22 +305,22 @@
                 <div class="flex items-start gap-3 p-2">
                     <i class="ki-filled ki-information-5 text-2xl text-primary"></i>
                     <div>
-                        <h4 class="font-semibold mb-1">Hoe werken modules?</h4>
+                        <h4 class="font-semibold mb-1">{{ __('Hoe werken modules?') }}</h4>
                         <p class="text-sm text-muted-foreground mb-2">
-                            Modules zijn uitbreidbare functionaliteiten die kunnen worden geïnstalleerd en geactiveerd. Wanneer een module geactiveerd is, worden de routes automatisch geregistreerd onder <code class="px-1 py-0.5 bg-background rounded">/admin/{module-name}/</code>
+                            {{ __('Modules zijn uitbreidbare functionaliteiten die kunnen worden geïnstalleerd en geactiveerd. Wanneer een module geactiveerd is, worden de routes automatisch geregistreerd onder') }} <code class="px-1 py-0.5 bg-background rounded">/admin/{module-name}/</code>
                         </p>
                         <ul class="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                             @if(($moduleDatabaseStrategy ?? 'schema') === 'schema' && $hasModuleDatabases)
-                            <li><strong>Schema per module:</strong> één database <code class="px-1 py-0.5 bg-background rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : 'DB_DATABASE' }}</code>, module-tabellen in PostgreSQL-schema's zoals <code class="px-1 py-0.5 bg-background rounded">nexa_taxi</code> (standaard: <code class="px-1 py-0.5 bg-background rounded">MODULE_DATABASE_STRATEGY=schema</code>).</li>
+                            <li><strong>{{ __('Schema per module:') }}</strong> {{ __('één database') }} <code class="px-1 py-0.5 bg-background rounded">{{ $mainDatabaseName !== '' ? $mainDatabaseName : 'DB_DATABASE' }}</code>{{ __(", module-tabellen in PostgreSQL-schema's zoals") }} <code class="px-1 py-0.5 bg-background rounded">nexa_taxi</code> ({{ __('standaard:') }} <code class="px-1 py-0.5 bg-background rounded">MODULE_DATABASE_STRATEGY=schema</code>).</li>
                             @elseif($hasModuleDatabases)
-                            <li><strong>Database per module:</strong> aparte databases <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> (<code class="px-1 py-0.5 bg-background rounded">MODULE_DATABASE_STRATEGY=database</code>).</li>
+                            <li><strong>{{ __('Database per module:') }}</strong> {{ __('aparte databases') }} <code class="px-1 py-0.5 bg-background rounded">nexa_*</code> (<code class="px-1 py-0.5 bg-background rounded">MODULE_DATABASE_STRATEGY=database</code>).</li>
                             @else
-                            <li>Geen PostgreSQL-schema's of module-databases in deze setup.</li>
+                            <li>{{ __("Geen PostgreSQL-schema's of module-databases in deze setup.") }}</li>
                             @endif
-                            <li>Na activatie: Routes beschikbaar op <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/*</code></li>
-                            <li>Test route: <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/test</code> (werkt alleen als module actief is)</li>
-                            <li>Menu items worden automatisch toegevoegd wanneer module actief is</li>
-                            <li>Permissions worden automatisch geregistreerd bij installatie</li>
+                            <li>{{ __('Na activatie: Routes beschikbaar op') }} <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/*</code></li>
+                            <li>{{ __('Test route:') }} <code class="px-1 py-0.5 bg-background rounded">/admin/skillmatching/test</code> {{ __('(werkt alleen als module actief is)') }}</li>
+                            <li>{{ __('Menu items worden automatisch toegevoegd wanneer module actief is') }}</li>
+                            <li>{{ __('Permissions worden automatisch geregistreerd bij installatie') }}</li>
                         </ul>
                     </div>
                 </div>
@@ -330,12 +330,12 @@
 </div>
 
 <!-- Loader modal bij module-acties: boven alles (sidebar, header, dropdowns) -->
-<div id="modules-action-loader-modal" class="modules-loader-overlay fixed inset-0 hidden" aria-hidden="true" aria-label="Bezig">
+<div id="modules-action-loader-modal" class="modules-loader-overlay fixed inset-0 hidden" aria-hidden="true" aria-label="{{ __('Bezig') }}">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-md modules-loader-backdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
         <div class="relative flex flex-col items-center gap-5 rounded-2xl bg-card border-2 border-border shadow-2xl px-12 py-10 min-w-[240px] modules-loader-card bg-gray-100 dark:bg-gray-700">
             <div class="modules-loader-spinner h-20 w-20 rounded-full border-4" style="animation: modules-spin 0.8s linear infinite;"></div>
-            <p class="text-base font-semibold text-foreground">Bezig met verwerken...</p>
+            <p class="text-base font-semibold text-foreground">{{ __('Bezig met verwerken...') }}</p>
         </div>
     </div>
 </div>
@@ -473,9 +473,10 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             var onsubmitAttr = form.getAttribute('onsubmit');
             if (onsubmitAttr && onsubmitAttr.indexOf('confirm') >= 0 && !form.adminConfirmAccepted && typeof window.showAdminConfirm !== 'function') {
-                var msg = 'Weet je het zeker?';
-                if (onsubmitAttr.indexOf('Alle tabellen') >= 0) msg = 'Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan. Weet je het zeker?';
-                if (onsubmitAttr.indexOf('verwijderen') >= 0) msg = 'Weet je zeker dat je deze module wilt verwijderen?';
+                var msg = @json(__('Weet je het zeker?'));
+                var formActionUrl = form.getAttribute('action') || '';
+                if (formActionUrl.indexOf('/database-reset') >= 0) msg = @json(__('Alle tabellen worden geleegd. Alleen super admin m.tosun@mebura.nl blijft bestaan. Weet je het zeker?'));
+                if (formActionUrl.indexOf('/uninstall') >= 0) msg = @json(__('Weet je zeker dat je deze module wilt verwijderen?'));
                 if (!confirm(msg)) return;
             }
             showLoader();

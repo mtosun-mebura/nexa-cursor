@@ -27,7 +27,31 @@ class MonitoringErrorLogger
             'exception' => $e::class,
             'file' => basename($e->getFile()),
             'line' => $e->getLine(),
+            'frames' => $this->appFrames($e),
         ]);
+    }
+
+    /**
+     * De eerste drie stackframes uit de eigen code (zonder vendor), voor een compacte AI-diagnose.
+     *
+     * @return list<string>
+     */
+    private function appFrames(Throwable $e): array
+    {
+        $base = base_path().DIRECTORY_SEPARATOR;
+        $frames = [];
+        foreach ($e->getTrace() as $frame) {
+            $file = (string) ($frame['file'] ?? '');
+            if ($file === '' || str_contains($file, DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR) || ! str_starts_with($file, $base)) {
+                continue;
+            }
+            $frames[] = substr($file, strlen($base)).':'.($frame['line'] ?? 0);
+            if (count($frames) === 3) {
+                break;
+            }
+        }
+
+        return $frames;
     }
 
     /**

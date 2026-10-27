@@ -6,7 +6,7 @@
         ?? ($defaultTheme ?? null);
 @endphp
 @if($selectableThemes->isEmpty())
-    <span class="text-sm text-muted-foreground">Geen gepubliceerd thema beschikbaar.</span>
+    <span class="text-sm text-muted-foreground">{{ __('Geen gepubliceerd thema beschikbaar.') }}</span>
     <input type="hidden" name="frontend_theme_id" id="frontend_theme_id" value="">
 @elseif($selectableThemes->count() === 1)
     @php $onlyTheme = $selectableThemes->first(); @endphp
@@ -31,10 +31,10 @@
 @endif
 <div class="text-xs text-muted-foreground mt-1">
     @if($companyTheme && ($selectableThemes->count() > 1))
-        Standaard bedrijfsthema: <strong>{{ $companyTheme->name }}</strong>. De keuze hier geldt voor deze pagina.
+        {{ __('Standaard bedrijfsthema:') }} <strong>{{ $companyTheme->name }}</strong>. {{ __('De keuze hier geldt voor deze pagina.') }}
     @elseif($selectableThemes->count() > 1)
-        Kies uit de gepubliceerde frontend-thema's. Bij een module wordt het module-thema voorgesteld; je kunt handmatig wisselen.
+        {!! __("Kies uit de gepubliceerde frontend-thema's. Bij een module wordt het module-thema voorgesteld; je kunt handmatig wisselen.") !!}
     @else
-        Pagina's worden getoond in het enige gepubliceerde thema.
+        {!! __("Pagina's worden getoond in het enige gepubliceerde thema.") !!}
     @endif
 </div>

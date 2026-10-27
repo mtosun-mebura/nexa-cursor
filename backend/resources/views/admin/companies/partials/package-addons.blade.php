@@ -21,12 +21,12 @@
     }
 @endphp
 <tr>
-    <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+    <td class="text-secondary-foreground font-normal align-top">{{ __('Aanvullende modules') }}</td>
     <td>
         @if($addonsInTrial)
-            <p class="text-xs text-muted-foreground mb-3">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Zet een module aan om die ná de proefperiode te houden. Zet hem uit vóór het abonnement ingaat: dan stopt hij kosteloos, zonder factuur. Het pakket zelf kan niet worden opgezegd.</p>
+            <p class="text-xs text-muted-foreground mb-3">{{ __('Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Zet een module aan om die ná de proefperiode te houden. Zet hem uit vóór het abonnement ingaat: dan stopt hij kosteloos, zonder factuur. Het pakket zelf kan niet worden opgezegd.') }}</p>
         @else
-            <p class="text-xs text-muted-foreground mb-3">Extra’s binnen het abonnement. Een nieuwe module krijgt een ingangsdatum (vanaf vandaag of de 1e van volgende maand). Opzeggen gaat per de 1e van volgende maand: de module blijft deze maand actief. Het pakket zelf kan niet worden opgezegd.</p>
+            <p class="text-xs text-muted-foreground mb-3">{{ __('Extra’s binnen het abonnement. Een nieuwe module krijgt een ingangsdatum (vanaf vandaag of de 1e van volgende maand). Opzeggen gaat per de 1e van volgende maand: de module blijft deze maand actief. Het pakket zelf kan niet worden opgezegd.') }}</p>
         @endif
         <div class="space-y-3" data-package-addons>
             @foreach($addonCatalog as $addon)
@@ -40,14 +40,14 @@
                     $isQuantity = ($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY;
                     $isActive = $quantity > 0;
                     $price = (int) ($addon['price'] ?? 0);
-                    $addonName = $addon['name'] ?? $addon['label'] ?? $addonKey;
+                    $addonName = __($addon['name'] ?? $addon['label'] ?? $addonKey);
                 @endphp
                 <div class="border border-border rounded-lg p-3" data-package-addon="{{ $addonKey }}">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
                             @if($isQuantity)
                                 <div class="text-sm font-medium text-foreground">{{ $addonName }}</div>
-                                <p class="text-xs text-muted-foreground mt-1 mb-0">{{ $addon['description'] ?? '' }} (+ € {{ $price }} / maand per bundel)</p>
+                                <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __(':addon (+ € :price / maand per bundel)', ['addon' => __($addon['description'] ?? ''), 'price' => $price]) }}</p>
                             @else
                                 <label class="kt-label flex items-start gap-2 mb-0" for="package-addon-{{ $addonKey }}">
                                     <input type="hidden" name="package_addons[{{ $addonKey }}][quantity]" value="0">
@@ -60,7 +60,7 @@
                                            @checked($isActive)>
                                     <span>
                                         <span class="text-sm font-medium text-foreground">{{ $addonName }}</span>
-                                        <span class="block text-xs text-muted-foreground font-normal mt-1">{{ $addon['description'] ?? '' }} (+ € {{ $price }} / maand)</span>
+                                        <span class="block text-xs text-muted-foreground font-normal mt-1">{{ __(':addon (+ € :price / maand)', ['addon' => __($addon['description'] ?? ''), 'price' => $price]) }}</span>
                                     </span>
                                 </label>
                             @endif
@@ -76,13 +76,13 @@
                                        step="1"
                                        inputmode="numeric"
                                        data-package-addon-quantity>
-                                <span class="text-xs text-muted-foreground">bundels</span>
+                                <span class="text-xs text-muted-foreground">{{ __('bundels') }}</span>
                             </div>
                         @endif
                     </div>
                     @if(! $addonsInTrial)
                     <div class="mt-3 pt-3 border-t border-border {{ $isActive ? '' : 'hidden' }}" data-package-addon-start>
-                        <label class="text-xs font-medium text-foreground" for="package-addon-{{ $addonKey }}-start">Ingangsdatum</label>
+                        <label class="text-xs font-medium text-foreground" for="package-addon-{{ $addonKey }}-start">{{ __('Ingangsdatum') }}</label>
                         <div class="mt-1.5 flex flex-wrap items-center gap-2">
                             <input class="kt-input w-44"
                                    type="date"
@@ -91,8 +91,8 @@
                                    value="{{ $startValue }}"
                                    min="{{ $minStart }}"
                                    max="{{ $maxStart }}">
-                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-package-addon-date="{{ $todayStart }}" onclick="var i=this.closest('[data-package-addon]').querySelector('input[type=date]'); if(i) i.value=this.getAttribute('data-package-addon-date');">Vandaag</button>
-                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-package-addon-date="{{ $nextMonthStart }}" onclick="var i=this.closest('[data-package-addon]').querySelector('input[type=date]'); if(i) i.value=this.getAttribute('data-package-addon-date');">1e volgende maand</button>
+                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-package-addon-date="{{ $todayStart }}" onclick="var i=this.closest('[data-package-addon]').querySelector('input[type=date]'); if(i) i.value=this.getAttribute('data-package-addon-date');">{{ __('Vandaag') }}</button>
+                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-package-addon-date="{{ $nextMonthStart }}" onclick="var i=this.closest('[data-package-addon]').querySelector('input[type=date]'); if(i) i.value=this.getAttribute('data-package-addon-date');">{{ __('1e volgende maand') }}</button>
                         </div>
                         @error('package_addons.'.$addonKey.'.starts_at')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -100,14 +100,16 @@
                     </div>
                     @endif
                     @if($pendingCancel && ! empty($record['starts_at']))
-                        <p class="text-xs text-muted-foreground mt-2 mb-0">Opgezegd per {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}. Blijft tot die datum actief.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Opgezegd per :date. Blijft tot die datum actief.', ['date' => \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y')]) }}</p>
                     @elseif($pendingDecrease && ! empty($record['starts_at']))
-                        <p class="text-xs text-muted-foreground mt-2 mb-0">Vanaf {{ \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y') }}: {{ $quantity }} bundel{{ $quantity === 1 ? '' : 's' }}. Deze maand blijft {{ (int) ($record['active_quantity'] ?? 0) }} actief.</p>
+                        <p class="text-xs text-muted-foreground mt-2 mb-0">{{ $quantity === 1
+                            ? __('Vanaf :date: :quantity bundel. Deze maand blijft :active actief.', ['date' => \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y'), 'quantity' => $quantity, 'active' => (int) ($record['active_quantity'] ?? 0)])
+                            : __('Vanaf :date: :quantity bundels. Deze maand blijft :active actief.', ['date' => \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y'), 'quantity' => $quantity, 'active' => (int) ($record['active_quantity'] ?? 0)]) }}</p>
                     @endif
                 </div>
             @endforeach
         </div>
-        <p class="text-xs text-muted-foreground mt-3 mb-0">Effectief contractklantenlimiet: <span class="font-medium text-foreground">{{ $clientLimitLabel }}</span></p>
+        <p class="text-xs text-muted-foreground mt-3 mb-0">{{ __('Effectief contractklantenlimiet:') }} <span class="font-medium text-foreground">{{ __($clientLimitLabel) }}</span></p>
         @error('package_addons')
             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
         @enderror

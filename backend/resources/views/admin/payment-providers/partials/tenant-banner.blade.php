@@ -10,24 +10,24 @@
     <div class="kt-card-content py-4 px-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
             <div>
-                <span class="font-semibold text-mono">Bedrijf (tenant)</span>
+                <span class="font-semibold text-mono">{{ __('Bedrijf (tenant)') }}</span>
                 @if($displayCompany)
                     <span class="ms-1">— {{ $displayCompany->name }}</span>
                     <span class="text-xs opacity-80 ms-1">(ID {{ $displayCompany->id }})</span>
                 @else
-                    <span class="ms-1 text-destructive font-medium">— geen tenant gekozen</span>
+                    <span class="ms-1 text-destructive font-medium">— {{ __('geen tenant gekozen') }}</span>
                 @endif
                 @if($hasScopedTenant && $storedUnlinked)
-                    <span class="block text-xs opacity-80 mt-1">Wordt bij opslaan gekoppeld aan dit bedrijf.</span>
+                    <span class="block text-xs opacity-80 mt-1">{{ __('Wordt bij opslaan gekoppeld aan dit bedrijf.') }}</span>
                 @elseif($storedCompany && $scopedCompany && (int) $storedCompany->id !== (int) $scopedCompany->id)
-                    <span class="block text-xs opacity-80 mt-1">Opgeslagen: {{ $storedCompany->name }} (ID {{ $storedCompany->id }})</span>
+                    <span class="block text-xs opacity-80 mt-1">{{ __('Opgeslagen:') }} {{ $storedCompany->name }} (ID {{ $storedCompany->id }})</span>
                 @endif
             </div>
             <p class="text-xs mb-0 sm:text-end opacity-90 max-w-xl">
                 @if($hasScopedTenant)
-                    Geselecteerde tenant in de zijbalk. Deze betalingsprovider geldt voor dit bedrijf (o.a. Nexa Taxi-betalingen).
+                    {{ __('Geselecteerde tenant in de zijbalk. Deze betalingsprovider geldt voor dit bedrijf (o.a. Nexa Taxi-betalingen).') }}
                 @else
-                    Selecteer eerst een bedrijf via de <strong>tenant-switcher</strong> in de zijbalk. Zonder tenant worden betalingen niet aan een bedrijf gekoppeld.
+                    {{ __('Selecteer eerst een bedrijf via de') }} <strong>{{ __('tenant-switcher') }}</strong> {{ __('in de zijbalk. Zonder tenant worden betalingen niet aan een bedrijf gekoppeld.') }}
                 @endif
             </p>
         </div>

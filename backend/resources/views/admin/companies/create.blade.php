@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nieuw Bedrijf')
+@section('title', __('Nieuw Bedrijf'))
 
 @section('content')
 
@@ -8,13 +8,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Nieuw Bedrijf
+                {{ __('Nieuw Bedrijf') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -29,7 +29,7 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Algemene Informatie
+                        {{ __('Algemene Informatie') }}
                     </h3>
                     <div class="flex items-center gap-2">
                         <label class="kt-label">
@@ -37,7 +37,7 @@
                                    class="kt-switch kt-switch-sm" 
                                    id="toggle-main-location-header"
                                    {{ old('has_main_location', false) ? 'checked' : '' }}/>
-                            Hoofdkantoor
+                            {{ __('Hoofdkantoor') }}
                         </label>
                         <span class="text-muted-foreground">|</span>
                         <label class="kt-label" for="is_active">
@@ -47,7 +47,7 @@
                                    name="is_active"
                                    value="1"
                                    {{ old('is_active', true) ? 'checked' : '' }}/>
-                            Actief
+                            {{ __('Actief') }}
                         </label>
                         <span class="text-muted-foreground">|</span>
                         <label class="kt-label" for="accepts_nexa_suite_bookings">
@@ -58,7 +58,7 @@
                                    name="accepts_nexa_suite_bookings"
                                    value="1"
                                    {{ old('accepts_nexa_suite_bookings', true) ? 'checked' : '' }}/>
-                            Nexa Suite-boekingen
+                            {{ __('Nexa Suite-boekingen') }}
                         </label>
                     </div>
                 </div>
@@ -66,7 +66,7 @@
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Bedrijfsnaam *
+                                {{ __('Bedrijfsnaam *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="text" 
@@ -83,21 +83,21 @@
                             $formLogoMode = old('company_logo_mode', 'single');
                         @endphp
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Logo') }}</td>
                             <td class="min-w-48 w-full align-top">
                                 <input type="hidden" name="company_logo_mode" id="company-form-logo-mode-input" value="{{ $formLogoMode }}">
 
                                 <div class="mb-0">
-                                    <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                    <p class="text-sm text-muted-foreground mb-3">{{ __('Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).') }}</p>
                                     <div class="flex flex-col gap-2 mb-4">
-                                        <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Eén logo voor beide modi</span>
+                                        <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">{{ __('Eén logo voor beide modi') }}</span>
                                         <div class="flex flex-wrap items-center gap-3">
-                                            <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                            <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">Apart logo voor light en dark mode</span>
+                                            <input type="checkbox" id="company-form-logo-mode-toggle" class="kt-switch kt-switch-sm" {{ $formLogoMode === 'light_dark' ? 'checked' : '' }} aria-label="{{ __('Apart logo voor light en dark mode') }}">
+                                            <span class="text-sm text-muted-foreground wizard-onboarding-form-table w-full">{{ __('Apart logo voor light en dark mode') }}</span>
                                         </div>
                                     </div>
 
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Light mode (standaard)') }}</p>
                                     <div class="max-w-96 w-full">
                                         @include('admin.partials.image-upload-dropzone-inline', [
                                             'name' => 'logo',
@@ -109,19 +109,19 @@
                                             'existingUrl' => null,
                                             'dropzoneKey' => 'light',
                                             'clientMsgId' => 'company-form-logo-client-msg',
-                                            'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                            'hintLine' => __('SVG, PNG, JPG (max. 5MB)'),
                                             'maxFileBytes' => 5 * 1024 * 1024,
                                         ])
                                     </div>
                                     <div id="company-form-logo-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
-                                    <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-4">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)') }}</p>
                                     @error('logo')
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
 
                                     <div id="company-form-logo-dark-block" class="{{ $formLogoMode === 'light_dark' ? '' : 'hidden' }}">
-                                        <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
-                                        <p class="text-xs text-muted-foreground mb-2 max-w-xl">Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.</p>
+                                        <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Dark mode') }}</p>
+                                        <p class="text-xs text-muted-foreground mb-2 max-w-xl">{{ __('Optioneel. Wordt in de admin-sidebar getoond wanneer donker thema actief is. Laat leeg om overal het light mode-logo te gebruiken.') }}</p>
                                         <div class="max-w-96 w-full">
                                             @include('admin.partials.image-upload-dropzone-inline', [
                                                 'name' => 'logo_dark',
@@ -133,12 +133,12 @@
                                                 'existingUrl' => null,
                                                 'dropzoneKey' => 'dark',
                                                 'clientMsgId' => 'company-form-logo-dark-client-msg',
-                                                'hintLine' => 'SVG, PNG, JPG (max. 5MB)',
+                                                'hintLine' => __('SVG, PNG, JPG (max. 5MB)'),
                                                 'maxFileBytes' => 5 * 1024 * 1024,
                                             ])
                                         </div>
                                         <div id="company-form-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
-                                        <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                        <p class="text-xs text-muted-foreground mt-1">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)') }}</p>
                                         @error('logo_dark')
                                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                         @enderror
@@ -148,7 +148,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Plaatje gebouw
+                                {{ __('Plaatje gebouw') }}
                             </td>
                             <td>
                                 @include('admin.partials.building-image-select')
@@ -156,7 +156,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                KVK Nummer
+                                {{ __('KVK Nummer') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -166,19 +166,19 @@
                                        pattern="[0-9]{8}"
                                        placeholder="12345678"
                                        maxlength="8">
-                                <div class="text-xs text-muted-foreground mt-1">8 cijfers (bijv. 12345678)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('8 cijfers (bijv. 12345678)') }}</div>
                                 @error('kvk_number')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="kvk_number_error"></div>
                                 <div class="text-xs text-green-600 mt-1 hidden" id="kvk_number_success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> KVK nummer is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('KVK nummer is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Branche
+                                {{ __('Branche') }}
                             </td>
                             <td>
                                 @php
@@ -189,21 +189,21 @@
                                 <select class="kt-input @error('industry') border-destructive @enderror" 
                                         name="branch_select" 
                                         id="branch_select">
-                                    <option value="">-- Selecteer branche --</option>
+                                    <option value="">{{ __('-- Selecteer branche --') }}</option>
                                     @foreach($branches as $branch)
                                         <option value="{{ $branch->name }}" 
                                                 {{ $currentIndustry === $branch->name ? 'selected' : '' }}>
                                             {{ $branch->name }}
                                         </option>
                                     @endforeach
-                                    <option value="other" {{ $isOther ? 'selected' : '' }}>Anders</option>
+                                    <option value="other" {{ $isOther ? 'selected' : '' }}>{{ __('Anders') }}</option>
                                 </select>
                                 <input type="text" 
                                        class="kt-input @error('industry') border-destructive @enderror mt-2 {{ $isOther ? '' : 'hidden' }}" 
                                        name="industry" 
                                        id="industry_custom"
                                        value="{{ $isOther ? $currentIndustry : '' }}"
-                                       placeholder="Voer branche in">
+                                       placeholder="{{ __('Voer branche in') }}">
                                 @error('industry')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -211,7 +211,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Bedrijfstype
+                                {{ __('Bedrijfstype') }}
                             </td>
                             <td>
                                 <div class="flex items-center gap-2">
@@ -222,7 +222,7 @@
                                            value="1" 
                                            {{ old('is_intermediary') ? 'checked' : '' }}>
                                     <label for="is_intermediary" class="text-sm font-normal mb-0">
-                                        Tussenpartij / Recruiter
+                                        {{ __('Tussenpartij / Recruiter') }}
                                     </label>
                                 </div>
                                 @error('is_intermediary')
@@ -232,14 +232,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Website
+                                {{ __('Website') }}
                             </td>
                             <td>
                                 <input type="url" 
                                        class="kt-input @error('website') border-destructive @enderror" 
                                        name="website" 
                                        value="{{ old('website') }}"
-                                       placeholder="https://">
+                                       placeholder="{{ __('https://') }}">
                                 @error('website')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -247,7 +247,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Beschrijving
+                                {{ __('Beschrijving') }}
                             </td>
                             <td>
                                 <textarea class="kt-input @error('description') border-destructive @enderror" 
@@ -266,14 +266,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Contact Informatie
+                        {{ __('Contact Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                E-mail *
+                                {{ __('E-mail *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="email" 
@@ -287,13 +287,13 @@
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="email_error"></div>
                                 <div class="text-xs text-green-600 mt-1 hidden" id="email_success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> E-mailadres is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('E-mailadres is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Telefoon *
+                                {{ __('Telefoon *') }}
                             </td>
                             <td>
                                 <input type="tel" 
@@ -301,21 +301,21 @@
                                        name="phone" 
                                        value="{{ old('phone') }}"
                                        pattern="(\+31|0)[1-9][0-9]{8}"
-                                       placeholder="0612345678 of +31612345678"
+                                       placeholder="{{ __('0612345678 of +31612345678') }}"
                                        maxlength="13">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                                 @error('phone')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="phone_error"></div>
                                 <div class="text-xs text-green-600 mt-1 hidden" id="phone_success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> Telefoonnummer is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('Telefoonnummer is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Postcode *
+                                {{ __('Postcode *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -324,22 +324,22 @@
                                        name="postal_code" 
                                        value="{{ old('postal_code') }}"
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
-                                       placeholder="1234AB"
+                                       placeholder="{{ __('1234AB') }}"
                                        maxlength="7"
                                        style="text-transform: uppercase;">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlandse postcode (bijv. 1234AB). Bij verlaten van het veld wordt het adres automatisch opgezocht.') }}</div>
                                 @error('postal_code')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-destructive mt-1 hidden" id="postal_code_error"></div>
                                 <div class="text-xs text-green-600 mt-1 hidden" id="postal_code_success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> Postcode is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('Postcode is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Huisnummer *
+                                {{ __('Huisnummer *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -347,7 +347,7 @@
                                        class="kt-input @error('house_number') border-destructive @enderror" 
                                        name="house_number" 
                                        value="{{ old('house_number') }}">
-                                <div class="text-xs text-muted-foreground mt-1">Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Bij verlaten van het veld wordt straat en plaats automatisch ingevuld.') }}</div>
                                 @include('admin.partials.postcode-lookup-status', ['id' => 'house_number_lookup_loading'])
                                 @error('house_number')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -356,7 +356,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Straat *
+                                {{ __('Straat *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -365,7 +365,7 @@
                                        name="street" 
                                        value="{{ old('street') }}"
                                        readonly>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Wordt automatisch ingevuld bij postcode + huisnummer. Bij geen resultaat worden de velden bewerkbaar.') }}</div>
                                 @error('street')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -373,7 +373,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Plaats *
+                                {{ __('Plaats *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -389,7 +389,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Land
+                                {{ __('Land') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -411,14 +411,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Vestigingen
+                        {{ __('Vestigingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-content">
                     <div id="locations-container">
                         <div class="location-item mb-5 p-5 rounded-lg" style="border: 1px solid var(--input) !important;">
                             <div class="flex items-center justify-between mb-4">
-                                <h4 class="text-sm font-medium text-foreground">Vestiging 1</h4>
+                                <h4 class="text-sm font-medium text-foreground">{{ __('Vestiging 1') }}</h4>
                                 <div class="flex items-center gap-2">
                                     <label class="kt-label flex items-center gap-2">
                                         <input type="checkbox" 
@@ -426,7 +426,7 @@
                                                name="locations[0][is_main]" 
                                                value="1"
                                                {{ old('locations.0.is_main') ? 'checked' : '' }}/>
-                                        Hoofdkantoor
+                                        {{ __('Hoofdkantoor') }}
                                     </label>
                                     <label class="kt-label flex items-center gap-2">
                                         <input type="checkbox" 
@@ -434,7 +434,7 @@
                                                name="locations[0][is_active]" 
                                                value="1"
                                                {{ old('locations.0.is_active', true) ? 'checked' : '' }}/>
-                                        Actief
+                                        {{ __('Actief') }}
                                     </label>
                                     <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost remove-location-btn">
                                         <i class="ki-filled ki-cross"></i>
@@ -445,7 +445,7 @@
                                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                     <tr>
                                         <td class="min-w-56 text-secondary-foreground font-normal">
-                                            Naam *
+                                            {{ __('Naam *') }}
                                         </td>
                                         <td class="min-w-48 w-full">
                                             <input type="text" 
@@ -460,7 +460,7 @@
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Straat
+                                            {{ __('Straat') }}
                                         </td>
                                         <td>
                                             <input type="text" 
@@ -474,7 +474,7 @@
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Huisnummer
+                                            {{ __('Huisnummer') }}
                                         </td>
                                         <td>
                                             <input type="text" 
@@ -488,7 +488,7 @@
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Postcode
+                                            {{ __('Postcode') }}
                                         </td>
                                         <td>
                                             <input type="text" 
@@ -496,21 +496,21 @@
                                                    name="locations[0][postal_code]" 
                                                    value="{{ old('locations.0.postal_code') }}"
                                                    pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
-                                                   placeholder="1234AB"
+                                                   placeholder="{{ __('1234AB') }}"
                                                    maxlength="7"
                                                    style="text-transform: uppercase;">
-                                            <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
+                                            <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlandse postcode (bijv. 1234AB)') }}</div>
                                             @error('locations.0.postal_code')
                                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                             @enderror
                                             <div class="text-xs text-green-600 mt-1 hidden location-postal-code-success">
-                                                <i class="ki-filled ki-check-circle me-1"></i> Postcode is geldig
+                                                <i class="ki-filled ki-check-circle me-1"></i> {{ __('Postcode is geldig') }}
                                             </div>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Plaats
+                                            {{ __('Plaats') }}
                                         </td>
                                         <td>
                                             <input type="text" 
@@ -524,7 +524,7 @@
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Land
+                                            {{ __('Land') }}
                                         </td>
                                         <td>
                                             <input type="text" 
@@ -538,7 +538,7 @@
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            Telefoon
+                                            {{ __('Telefoon') }}
                                         </td>
                                         <td>
                                             <input type="tel" 
@@ -546,20 +546,20 @@
                                                    name="locations[0][phone]" 
                                                    value="{{ old('locations.0.phone') }}"
                                                    pattern="(\+31|0)[1-9][0-9]{8}"
-                                                   placeholder="0612345678 of +31612345678"
+                                                   placeholder="{{ __('0612345678 of +31612345678') }}"
                                                    maxlength="13">
-                                            <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                                            <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                                             @error('locations.0.phone')
                                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                             @enderror
                                             <div class="text-xs text-green-600 mt-1 hidden location-phone-success">
-                                                <i class="ki-filled ki-check-circle me-1"></i> Telefoonnummer is geldig
+                                                <i class="ki-filled ki-check-circle me-1"></i> {{ __('Telefoonnummer is geldig') }}
                                             </div>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="text-secondary-foreground font-normal">
-                                            E-mail
+                                            {{ __('E-mail') }}
                                         </td>
                                         <td>
                                             <input type="email" 
@@ -571,7 +571,7 @@
                                                 <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                             @enderror
                                             <div class="text-xs text-green-600 mt-1 hidden location-email-success">
-                                                <i class="ki-filled ki-check-circle me-1"></i> E-mailadres is geldig
+                                                <i class="ki-filled ki-check-circle me-1"></i> {{ __('E-mailadres is geldig') }}
                                             </div>
                                         </td>
                                     </tr>
@@ -581,7 +581,7 @@
                     </div>
                     <button type="button" id="add-location-btn" class="kt-btn kt-btn-outline">
                         <i class="ki-filled ki-plus me-2"></i>
-                        Extra Vestiging Toevoegen
+                        {{ __('Extra Vestiging Toevoegen') }}
                     </button>
                 </div>
             </div>
@@ -590,18 +590,18 @@
             @if(auth()->user()?->isSuperAdmin())
             <div class="kt-card min-w-full mt-5">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Pakket</h3>
+                    <h3 class="kt-card-title">{{ __('Pakket') }}</h3>
                 </div>
                 <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
-                    Dit pakket en de aanvullende modules zijn leidend voor Tenant-abonnementen en de maandfactuur. Functies stel je in bij Systeem → Paketten.
+                    {{ __('Dit pakket en de aanvullende modules zijn leidend voor Tenant-abonnementen en de maandfactuur. Functies stel je in bij Systeem → Paketten.') }}
                 </p>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Pakket</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Pakket') }}</td>
                             <td class="min-w-48 w-full">
                                 <select name="package_key" class="kt-input @error('package_key') border-destructive @enderror">
-                                    <option value="">— Geen pakket (geen extra beperking) —</option>
+                                    <option value="">{{ __('— Geen pakket (geen extra beperking) —') }}</option>
                                     @foreach($nexaPackages ?? [] as $packageKey => $packageName)
                                         <option value="{{ $packageKey }}" {{ (string) old('package_key') === (string) $packageKey ? 'selected' : '' }}>
                                             {{ $packageName }} ({{ $packageKey }})
@@ -621,18 +621,18 @@
 
             <div class="kt-card min-w-full mt-5">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Website-thema</h3>
+                    <h3 class="kt-card-title">{{ __('Website-thema') }}</h3>
                 </div>
                 <p class="text-sm text-secondary-foreground px-6 pt-2 pb-3 mb-0 max-w-3xl">
-                    Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij website-pagina's voor dit bedrijf.
+                    {{ __('Bepaalt het uiterlijk van de tenant-website en wordt automatisch gebruikt bij website-pagina\'s voor dit bedrijf.') }}
                 </p>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3 px-6">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top">Thema</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Thema') }}</td>
                             <td class="min-w-48 w-full">
                                 <select name="frontend_theme_id" class="kt-input @error('frontend_theme_id') border-destructive @enderror">
-                                    <option value="">— Geen thema —</option>
+                                    <option value="">{{ __('— Geen thema —') }}</option>
                                     @foreach($publishedFrontendThemes ?? [] as $theme)
                                         <option value="{{ $theme->id }}" {{ (string) old('frontend_theme_id') === (string) $theme->id ? 'selected' : '' }}>
                                             {{ $theme->name }}
@@ -648,11 +648,11 @@
         <div class="flex items-center justify-end gap-2.5 mt-5">
             <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-cross me-2"></i>
-                Annuleren
+                {{ __('Annuleren') }}
             </a>
             <button type="submit" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-check me-2"></i>
-                Bedrijf Opslaan
+                {{ __('Bedrijf Opslaan') }}
             </button>
         </div>
     </form>
@@ -823,7 +823,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const locationHtml = `
             <div class="location-item mb-5 p-5 rounded-lg" style="border: 1px solid var(--input) !important;">
                 <div class="flex items-center justify-between mb-4">
-                    <h4 class="text-sm font-medium text-foreground">Vestiging ${locationCount + 1}</h4>
+                    <h4 class="text-sm font-medium text-foreground">{{ __('Vestiging') }} ${locationCount + 1}</h4>
                     <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost remove-location-btn">
                         <i class="ki-filled ki-cross"></i>
                     </button>
@@ -834,7 +834,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                class="kt-checkbox" 
                                name="locations[${locationCount}][is_main]" 
                                value="1"/>
-                        Hoofdkantoor
+                        {{ __('Hoofdkantoor') }}
                     </label>
                     <label class="kt-label flex items-center gap-2">
                         <input type="checkbox" 
@@ -842,14 +842,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                name="locations[${locationCount}][is_active]" 
                                value="1"
                                checked/>
-                        Actief
+                        {{ __('Actief') }}
                     </label>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Naam *
+                                {{ __('Naam *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="text" 
@@ -860,7 +860,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Straat
+                                {{ __('Straat') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -870,7 +870,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Huisnummer
+                                {{ __('Huisnummer') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -880,25 +880,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Postcode
+                                {{ __('Postcode') }}
                             </td>
                             <td>
                                 <input type="text" 
                                        class="kt-input" 
                                        name="locations[${locationCount}][postal_code]"
                                        pattern="[1-9][0-9]{3}\s?[A-Za-z]{2}"
-                                       placeholder="1234AB"
+                                       placeholder="{{ __('1234AB') }}"
                                        maxlength="7"
                                        style="text-transform: uppercase;">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlandse postcode (bijv. 1234AB)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlandse postcode (bijv. 1234AB)') }}</div>
                                 <div class="text-xs text-green-600 mt-1 hidden location-postal-code-success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> Postcode is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('Postcode is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Plaats
+                                {{ __('Plaats') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -908,7 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Land
+                                {{ __('Land') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -919,24 +919,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Telefoon
+                                {{ __('Telefoon') }}
                             </td>
                             <td>
                                 <input type="tel" 
                                        class="kt-input" 
                                        name="locations[${locationCount}][phone]"
                                        pattern="(\+31|0)[1-9][0-9]{8}"
-                                       placeholder="0612345678 of +31612345678"
+                                       placeholder="{{ __('0612345678 of +31612345678') }}"
                                        maxlength="13">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                                 <div class="text-xs text-green-600 mt-1 hidden location-phone-success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> Telefoonnummer is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('Telefoonnummer is geldig') }}
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                E-mail
+                                {{ __('E-mail') }}
                             </td>
                             <td>
                                 <input type="email" 
@@ -944,7 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                        name="locations[${locationCount}][email]"
                                        autocomplete="email">
                                 <div class="text-xs text-green-600 mt-1 hidden location-email-success">
-                                    <i class="ki-filled ki-check-circle me-1"></i> E-mailadres is geldig
+                                    <i class="ki-filled ki-check-circle me-1"></i> {{ __('E-mailadres is geldig') }}
                                 </div>
                             </td>
                         </tr>
@@ -1003,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', function() {
         locationItems.forEach((item, index) => {
             const title = item.querySelector('h4');
             if (title) {
-                title.textContent = `Vestiging ${index + 1}`;
+                title.textContent = @json(__('Vestiging')) + ` ${index + 1}`;
             }
         });
     }
@@ -1128,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!isValid) {
                 e.preventDefault();
-                alert('Controleer de ingevulde gegevens. Sommige velden zijn ongeldig.');
+                alert(@json(__('Controleer de ingevulde gegevens. Sommige velden zijn ongeldig.')));
             }
         });
     }
@@ -1151,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (value.length !== 8) {
             input.classList.add('border-destructive');
             if (errorDiv) {
-                errorDiv.textContent = 'KVK nummer moet 8 cijfers bevatten.';
+                errorDiv.textContent = @json(__('KVK nummer moet 8 cijfers bevatten.'));
                 errorDiv.classList.remove('hidden');
             }
             if (successDiv) successDiv.classList.add('hidden');
@@ -1219,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (td) {
                             successDiv = document.createElement('div');
                             successDiv.className = 'text-xs text-green-600 mt-1 location-phone-success';
-                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> Telefoonnummer is geldig';
+                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> ' + @json(__('Telefoonnummer is geldig'));
                             td.appendChild(successDiv);
                         }
                     }
@@ -1286,7 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (td) {
                             successDiv = document.createElement('div');
                             successDiv.className = 'text-xs text-green-600 mt-1 location-postal-code-success';
-                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> Postcode is geldig';
+                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> ' + @json(__('Postcode is geldig'));
                             td.appendChild(successDiv);
                         }
                     }
@@ -1333,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const errorDiv = document.getElementById('email_error');
                 const successDiv = document.getElementById('email_success');
                 if (errorDiv) {
-                    errorDiv.textContent = 'Voer een geldig e-mailadres in.';
+                    errorDiv.textContent = @json(__('Voer een geldig e-mailadres in.'));
                     errorDiv.classList.remove('hidden');
                 }
                 if (successDiv) successDiv.classList.add('hidden');
@@ -1362,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (td) {
                             successDiv = document.createElement('div');
                             successDiv.className = 'text-xs text-green-600 mt-1 location-email-success';
-                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> E-mailadres is geldig';
+                            successDiv.innerHTML = '<i class="ki-filled ki-check-circle me-1"></i> ' + @json(__('E-mailadres is geldig'));
                             td.appendChild(successDiv);
                         }
                     }

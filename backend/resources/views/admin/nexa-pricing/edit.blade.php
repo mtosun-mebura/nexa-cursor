@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Paketten')
+@section('title', __('Paketten'))
 
 @section('content')
 @php
@@ -71,12 +71,12 @@
 </style>
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col gap-5 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Paketten</h1>
-        <p class="text-sm text-muted-foreground">Maandpakketten voor nexasuite.nl én NEXA-facturatie, inclusief de functies die de software afdwingt en aanvullende modules (GPS, extra contractklanten, Vloot). Alleen zichtbaar voor super-admins.</p>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Paketten') }}</h1>
+        <p class="text-sm text-muted-foreground">{{ __('Maandpakketten voor nexasuite.nl én NEXA-facturatie, inclusief de functies die de software afdwingt en aanvullende modules (GPS, extra contractklanten, Vloot). Alleen zichtbaar voor super-admins.') }}</p>
         <div class="pt-3 flex flex-wrap gap-2">
             <a href="{{ $websitePageUrl }}" class="kt-btn kt-btn-outline" target="_blank" rel="noopener">
                 <i class="ki-filled ki-exit-right-corner me-2"></i>
-                Bekijk /prijzen
+                {{ __('Bekijk /prijzen') }}
             </a>
         </div>
     </div>
@@ -90,47 +90,47 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Teksten boven de pakketten</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Teksten boven de pakketten') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Boventitel</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Boventitel') }}</td>
                                 <td class="min-w-48 w-full">
                                     <input class="kt-input w-full" type="text" name="eyebrow" value="{{ old('eyebrow', $pricing['eyebrow'] ?? '') }}">
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Titel</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Titel') }}</td>
                                 <td>
                                     <input class="kt-input w-full" type="text" name="title" value="{{ old('title', $pricing['title'] ?? '') }}">
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Subtitel</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Subtitel') }}</td>
                                 <td>
                                     <textarea class="kt-input w-full" name="subtitle" rows="3">{{ old('subtitle', $pricing['subtitle'] ?? '') }}</textarea>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Voetnoot (btw / termijn)</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Voetnoot (btw / termijn)') }}</td>
                                 <td>
                                     <input class="kt-input w-full" type="text" name="vat_note" value="{{ old('vat_note', $pricing['vat_note'] ?? '') }}">
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Pakketten-intro titel</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Pakketten-intro titel') }}</td>
                                 <td>
-                                    <input class="kt-input w-full" type="text" name="packages_intro_title" value="{{ old('packages_intro_title', $pricing['packages_intro_title'] ?? 'Wat zit erin') }}" placeholder="Wat zit erin">
-                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Links in de vergelijkingstabel en als eerste deel van de mobiele caption.</p>
+                                    <input class="kt-input w-full" type="text" name="packages_intro_title" value="{{ old('packages_intro_title', $pricing['packages_intro_title'] ?? 'Wat zit erin') }}" placeholder="{{ __('Wat zit erin') }}">
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Links in de vergelijkingstabel en als eerste deel van de mobiele caption.') }}</p>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Pakketten-intro ondertitel</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Pakketten-intro ondertitel') }}</td>
                                 <td>
-                                    <textarea class="kt-input w-full" name="packages_intro_subtitle" rows="3" placeholder="excl. btw · maandelijks opzegbaar">{{ old('packages_intro_subtitle', $pricing['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar') }}</textarea>
-                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Onder de titel in de tabel. Enter = nieuwe regel op /prijzen. Op mobiel worden regels met · gecombineerd.</p>
+                                    <textarea class="kt-input w-full" name="packages_intro_subtitle" rows="3" placeholder="{{ __('excl. btw · maandelijks opzegbaar') }}">{{ old('packages_intro_subtitle', $pricing['packages_intro_subtitle'] ?? 'excl. btw · maandelijks opzegbaar') }}</textarea>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Onder de titel in de tabel. Enter = nieuwe regel op /prijzen. Op mobiel worden regels met · gecombineerd.') }}</p>
                                 </td>
                             </tr>
                         </table>
@@ -140,7 +140,7 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Contract &amp; proeftijd</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Contract & proeftijd') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-5 min-w-0">
@@ -149,25 +149,25 @@
                         @endphp
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal align-top">Contracttermijn</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Contracttermijn') }}</td>
                                 <td class="min-w-48 w-full">
                                     <select name="commitment_months" class="kt-select admin-field-fit" data-kt-select="true">
-                                        <option value="0" @selected($commitmentMonths === 0)>Maandelijks opzegbaar</option>
-                                        <option value="3" @selected($commitmentMonths === 3)>3 maanden</option>
-                                        <option value="6" @selected($commitmentMonths === 6)>6 maanden</option>
-                                        <option value="12" @selected($commitmentMonths === 12)>12 maanden (jaarcontract)</option>
+                                        <option value="0" @selected($commitmentMonths === 0)>{{ __('Maandelijks opzegbaar') }}</option>
+                                        <option value="3" @selected($commitmentMonths === 3)>{{ __('3 maanden') }}</option>
+                                        <option value="6" @selected($commitmentMonths === 6)>{{ __('6 maanden') }}</option>
+                                        <option value="12" @selected($commitmentMonths === 12)>{{ __('12 maanden (jaarcontract)') }}</option>
                                     </select>
-                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Bepaalt wanneer klanten mogen opzeggen of downgraden. Facturatie blijft altijd maandelijks. Standaard: maandelijks opzegbaar.</p>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Bepaalt wanneer klanten mogen opzeggen of downgraden. Facturatie blijft altijd maandelijks. Standaard: maandelijks opzegbaar.') }}</p>
                                     @error('commitment_months')
                                         <div class="text-xs text-destructive mt-1" role="alert">{{ $message }}</div>
                                     @enderror
                                 </td>
                             </tr>
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal align-top">Aankondiging (dagen)</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Aankondiging (dagen)') }}</td>
                                 <td class="min-w-48 w-full">
                                     <input class="kt-input w-28 tabular-nums" type="number" name="trial_notice_days" value="{{ old('trial_notice_days', $pricing['trial_notice_days'] ?? 5) }}" min="1" max="30" step="1" inputmode="numeric" required>
-                                    <p class="text-xs text-muted-foreground mt-1 mb-0">Aantal dagen vóór het einde van de gratis maanden waarop NEXA de klant mailt: het abonnement gaat beginnen en de eerste incasso volgt. Zonder reactie gaat het abonnement in (inclusief de proefperiode). Standaard 5.</p>
+                                    <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Aantal dagen vóór het einde van de gratis maanden waarop NEXA de klant mailt: het abonnement gaat beginnen en de eerste incasso volgt. Zonder reactie gaat het abonnement in (inclusief de proefperiode). Standaard 5.') }}</p>
                                     @error('trial_notice_days')
                                         <div class="text-xs text-destructive mt-1" role="alert">{{ $message }}</div>
                                     @enderror
@@ -181,10 +181,10 @@
             <div class="space-y-5">
                 <div class="kt-card w-full min-w-0" id="nexa-pricing-summary">
                     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                        <h3 class="kt-card-title mb-0">Overzicht prijzen</h3>
+                        <h3 class="kt-card-title mb-0">{{ __('Overzicht prijzen') }}</h3>
                     </div>
                     <div class="kt-card-content p-5">
-                        <p class="text-sm text-muted-foreground mb-4">Deze prijzen gelden voor NEXA-facturatie. Wijzigingen in de pakketten hieronder verschijnen hier direct.</p>
+                        <p class="text-sm text-muted-foreground mb-4">{{ __('Deze prijzen gelden voor NEXA-facturatie. Wijzigingen in de pakketten hieronder verschijnen hier direct.') }}</p>
                         <div id="nexa-pricing-summary-body" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
                     </div>
                 </div>
@@ -193,50 +193,50 @@
                     @include('admin.nexa-pricing.partials.package-card', ['i' => $i, 'package' => $package, 'featureCatalog' => $featureCatalog])
                     @endforeach
                 </div>
-                <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="nexa-pricing-package-add">+ Pakket toevoegen</button>
+                <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="nexa-pricing-package-add">{{ __('+ Pakket toevoegen') }}</button>
             </div>
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title mb-0">Website (eenmalig)</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Website (eenmalig)') }}</h3>
                 </div>
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pb-3 min-w-0">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-56 text-secondary-foreground font-normal">Titel</td>
+                                <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Titel') }}</td>
                                 <td class="min-w-48 w-full">
                                     <input class="kt-input w-full" type="text" name="website[title]" value="{{ $website['title'] ?? '' }}">
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Prijs <span class="text-destructive">*</span></td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Prijs') }} <span class="text-destructive">*</span></td>
                                 <td>
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <input class="kt-input w-28" type="text" name="website[price_prefix]" value="{{ $website['price_prefix'] ?? 'vanaf' }}" placeholder="vanaf">
+                                        <input class="kt-input w-28" type="text" name="website[price_prefix]" value="{{ $website['price_prefix'] ?? 'vanaf' }}" placeholder="{{ __('vanaf') }}">
                                         <span class="text-sm">€</span>
                                         <input class="kt-input w-28 tabular-nums" type="text" name="website[price_label]" value="{{ $website['price_label'] ?? '' }}" required>
-                                        <input class="kt-input w-36" type="text" name="website[period]" value="{{ $website['period'] ?? 'eenmalig' }}" placeholder="eenmalig">
+                                        <input class="kt-input w-36" type="text" name="website[period]" value="{{ $website['period'] ?? 'eenmalig' }}" placeholder="{{ __('eenmalig') }}">
                                     </div>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Aanbiedingsprijs</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Aanbiedingsprijs') }}</td>
                                 <td>
-                                    <input class="kt-input w-40" type="text" name="website[offer]" value="{{ $website['offer'] ?? '' }}" placeholder="bijv. 499">
-                                    <p class="text-xs text-muted-foreground mt-1">Optionele lagere prijs. Leeg = de normale eenmalige prijs. Een getal wordt als € …,- getoond.</p>
+                                    <input class="kt-input w-40" type="text" name="website[offer]" value="{{ $website['offer'] ?? '' }}" placeholder="{{ __('bijv. 499') }}">
+                                    <p class="text-xs text-muted-foreground mt-1">{{ __('Optionele lagere prijs. Leeg = de normale eenmalige prijs. Een getal wordt als € …,- getoond.') }}</p>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Toelichting</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Toelichting') }}</td>
                                 <td>
                                     <textarea class="kt-input w-full" name="website[subtitle]" rows="3">{{ $website['subtitle'] ?? '' }}</textarea>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal align-top">Kenmerken</td>
+                                <td class="text-secondary-foreground font-normal align-top">{{ __('Kenmerken') }}</td>
                                 <td>
-                                    <p class="text-xs text-muted-foreground mb-2">Aangevinkte regels krijgen een vinkje op de website.</p>
+                                    <p class="text-xs text-muted-foreground mb-2">{{ __('Aangevinkte regels krijgen een vinkje op de website.') }}</p>
                                     @php
                                         $websiteFeatures = $website['features'] ?? [];
                                         if (! empty($website['features_text']) && is_string($website['features_text'])) {
@@ -255,14 +255,14 @@
                                             @include('admin.nexa-pricing.partials.feature-row', ['name' => 'website[features][]', 'value' => $feature])
                                         @endforeach
                                     </div>
-                                    <button type="button" class="nexa-pricing-feature-add kt-btn kt-btn-sm kt-btn-outline mt-2">+ Kenmerk toevoegen</button>
+                                    <button type="button" class="nexa-pricing-feature-add kt-btn kt-btn-sm kt-btn-outline mt-2">{{ __('+ Kenmerk toevoegen') }}</button>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Knop</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Knop') }}</td>
                                 <td>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        <input class="kt-input w-full" type="text" name="website[cta_text]" value="{{ $website['cta_text'] ?? '' }}" placeholder="Knoptekst">
+                                        <input class="kt-input w-full" type="text" name="website[cta_text]" value="{{ $website['cta_text'] ?? '' }}" placeholder="{{ __('Knoptekst') }}">
                                         <input class="kt-input w-full" type="text" name="website[cta_url]" value="{{ $website['cta_url'] ?? '/contact' }}" placeholder="/contact">
                                     </div>
                                 </td>
@@ -274,10 +274,10 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Aanvullende modules</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Aanvullende modules') }}</h3>
                 </div>
                 <div class="kt-card-content p-5 lg:p-6">
-                    <p class="text-sm text-muted-foreground mb-0">Vaste modules die je per bedrijf bij het abonnement kunt zetten. GPS-trackers geven een live kaart in de admin. Extra contractklanten verhogen het Business-limiet met 10 per bundel. Vloot maakt contractklanten onbeperkt.</p>
+                    <p class="text-sm text-muted-foreground mb-0">{{ __('Vaste modules die je per bedrijf bij het abonnement kunt zetten. GPS-trackers geven een live kaart in de admin. Extra contractklanten verhogen het Business-limiet met 10 per bundel. Vloot maakt contractklanten onbeperkt.') }}</p>
                 </div>
             </div>
 
@@ -290,26 +290,26 @@
                 @endphp
                 <div class="kt-card w-full min-w-0">
                     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                        <h3 class="kt-card-title mb-0">{{ $module['label'] }}</h3>
+                        <h3 class="kt-card-title mb-0">{{ __($module['label']) }}</h3>
                         <code class="text-[11px] text-muted-foreground">{{ $module['code'] }}</code>
                     </div>
                     <div class="kt-card-content p-5 lg:p-6">
                         <input type="hidden" name="modules[{{ $module['key'] }}][key]" value="{{ $module['key'] }}">
                         <div class="grid grid-cols-1 md:grid-cols-[1fr_8rem_1.6fr] gap-3">
                             <div>
-                                <label class="mb-1 block text-sm text-muted-foreground">Naam</label>
-                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][name]" value="{{ $moduleName }}" placeholder="Naam">
+                                <label class="mb-1 block text-sm text-muted-foreground">{{ __('Naam') }}</label>
+                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][name]" value="{{ $moduleName }}" placeholder="{{ __('Naam') }}">
                             </div>
                             <div>
-                                <label class="mb-1 block text-sm text-muted-foreground">Prijs</label>
+                                <label class="mb-1 block text-sm text-muted-foreground">{{ __('Prijs') }}</label>
                                 <div class="flex items-center gap-1">
                                     <span class="text-sm text-muted-foreground">€</span>
                                     <input class="kt-input w-full tabular-nums" type="number" name="modules[{{ $module['key'] }}][price]" value="{{ $modulePrice }}" min="0" max="9999" step="1" inputmode="numeric">
                                 </div>
                             </div>
                             <div>
-                                <label class="mb-1 block text-sm text-muted-foreground">Toelichting</label>
-                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][description]" value="{{ $moduleDescription }}" placeholder="Toelichting">
+                                <label class="mb-1 block text-sm text-muted-foreground">{{ __('Toelichting') }}</label>
+                                <input class="kt-input w-full" type="text" name="modules[{{ $module['key'] }}][description]" value="{{ $moduleDescription }}" placeholder="{{ __('Toelichting') }}">
                             </div>
                         </div>
                     </div>
@@ -318,25 +318,25 @@
 
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Extra opties</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Extra opties') }}</h3>
                 </div>
                 <div class="kt-card-content p-5 lg:p-6 flex flex-col gap-3" id="nexa-pricing-addons">
                     @foreach($addons as $i => $addon)
                     <div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start">
-                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][name]" value="{{ $addon['name'] ?? '' }}" placeholder="Naam">
-                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][price]" value="{{ $addon['price'] ?? '' }}" placeholder="Prijs">
-                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][description]" value="{{ $addon['description'] ?? '' }}" placeholder="Toelichting">
-                        <button type="button" class="nexa-pricing-addon-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Verwijderen" aria-label="Optie verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][name]" value="{{ $addon['name'] ?? '' }}" placeholder="{{ __('Naam') }}">
+                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][price]" value="{{ $addon['price'] ?? '' }}" placeholder="{{ __('Prijs') }}">
+                        <input class="kt-input w-full" type="text" name="addons[{{ $i }}][description]" value="{{ $addon['description'] ?? '' }}" placeholder="{{ __('Toelichting') }}">
+                        <button type="button" class="nexa-pricing-addon-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Optie verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                     </div>
                     @endforeach
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary self-end" id="nexa-pricing-addon-add">+ Optie toevoegen</button>
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary self-end" id="nexa-pricing-addon-add">{{ __('+ Optie toevoegen') }}</button>
                 </div>
             </div>
         </div>
 
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
-            <a href="{{ $websitePageUrl }}" class="kt-btn kt-btn-outline" target="_blank" rel="noopener">Website bekijken</a>
-            <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+            <a href="{{ $websitePageUrl }}" class="kt-btn kt-btn-outline" target="_blank" rel="noopener">{{ __('Website bekijken') }}</a>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
         </div>
     </form>
 </div>
@@ -349,10 +349,10 @@
 </template>
 <template id="nexa-pricing-addon-template">
 <div class="nexa-pricing-addon grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-start">
-    <input class="kt-input w-full" type="text" name="addons[__INDEX__][name]" value="" placeholder="Naam">
-    <input class="kt-input w-full" type="text" name="addons[__INDEX__][price]" value="" placeholder="Prijs">
-    <input class="kt-input w-full" type="text" name="addons[__INDEX__][description]" value="" placeholder="Toelichting">
-    <button type="button" class="nexa-pricing-addon-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Verwijderen" aria-label="Optie verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+    <input class="kt-input w-full" type="text" name="addons[__INDEX__][name]" value="" placeholder="{{ __('Naam') }}">
+    <input class="kt-input w-full" type="text" name="addons[__INDEX__][price]" value="" placeholder="{{ __('Prijs') }}">
+    <input class="kt-input w-full" type="text" name="addons[__INDEX__][description]" value="" placeholder="{{ __('Toelichting') }}">
+    <button type="button" class="nexa-pricing-addon-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Optie verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
 </div>
 </template>
 
@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!card) return;
         var title = card.querySelector('[data-package-title]');
         if (!title) return;
-        title.textContent = (card.querySelector('[data-package-name]')?.value || '').trim() || 'Pakket';
+        title.textContent = (card.querySelector('[data-package-name]')?.value || '').trim() || @json(__('Pakket'));
     }
 
     function syncPackageRemoveButtons() {
@@ -579,12 +579,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var tiles = [];
         var badgePalette = ['kt-badge-info', 'kt-badge-primary', 'kt-badge-warning', 'kt-badge-yellow'];
         packagesRoot.querySelectorAll('.nexa-pricing-package').forEach(function (card, index) {
-            var name = (card.querySelector('[data-package-name]')?.value || '').trim() || 'Naamloos pakket';
+            var name = (card.querySelector('[data-package-name]')?.value || '').trim() || @json(__('Naamloos pakket'));
             var price = formatMonthlyAmount(card.querySelector('[data-package-price]')?.value || '');
-            var period = (card.querySelector('[data-package-period]')?.value || '').trim() || 'per maand';
+            var period = (card.querySelector('[data-package-period]')?.value || '').trim() || @json(__('per maand'));
             var badge = (card.querySelector('[data-package-badge]')?.value || '').trim();
             var highlighted = !!card.querySelector('[data-package-highlighted]:checked');
-            var meta = badge || (highlighted ? 'Aanbevolen' : '');
+            var meta = badge || (highlighted ? @json(__('Aanbevolen')) : '');
             var badgeTone = highlighted ? 'kt-badge-success' : badgePalette[index % badgePalette.length];
             tiles.push(
                 '<article class="nexa-pricing-summary-tile' + (highlighted ? ' is-highlighted' : '') + '">' +
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '</article>'
             );
         });
-        body.innerHTML = tiles.join('') || '<p class="text-sm text-muted-foreground mb-0">Nog geen pakketten</p>';
+        body.innerHTML = tiles.join('') || '<p class="text-sm text-muted-foreground mb-0">' + @json(__('Nog geen pakketten')) + '</p>';
     }
 
     packagesRoot?.addEventListener('input', function (e) {

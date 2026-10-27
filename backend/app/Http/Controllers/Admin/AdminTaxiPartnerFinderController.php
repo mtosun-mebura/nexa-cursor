@@ -111,7 +111,7 @@ class AdminTaxiPartnerFinderController extends Controller
 
         return redirect()
             ->route('admin.taxi-partner-finder.show', $prospect)
-            ->with('success', 'Prospect bijgewerkt.');
+            ->with('success', __('Prospect bijgewerkt.'));
     }
 
     public function syncKnv(Request $request): RedirectResponse
@@ -128,7 +128,7 @@ class AdminTaxiPartnerFinderController extends Controller
 
             return redirect()
                 ->route('admin.taxi-partner-finder.index')
-                ->with('success', 'KNV-synchronisatie staat in de wachtrij.');
+                ->with('success', __('KNV-synchronisatie staat in de wachtrij.'));
         }
 
         $result = $this->discovery->syncKnv($request->user()?->id, $push);
@@ -137,13 +137,12 @@ class AdminTaxiPartnerFinderController extends Controller
             ->route('admin.taxi-partner-finder.index')
             ->with(
                 'success',
-                sprintf(
-                    'KNV-sync klaar: %d nieuw, %d bijgewerkt, %d duplicaat/fuzzy, %d mislukt.',
-                    $result['created'],
-                    $result['updated'],
-                    $result['duplicates'],
-                    $result['failed']
-                )
+                __('KNV-sync klaar: :created nieuw, :updated bijgewerkt, :duplicates duplicaat/fuzzy, :failed mislukt.', [
+                    'created' => $result['created'],
+                    'updated' => $result['updated'],
+                    'duplicates' => $result['duplicates'],
+                    'failed' => $result['failed'],
+                ])
             );
     }
 
@@ -159,7 +158,7 @@ class AdminTaxiPartnerFinderController extends Controller
         if ($contents === false || trim($contents) === '') {
             return redirect()
                 ->route('admin.taxi-partner-finder.index')
-                ->with('error', 'CSV-bestand is leeg.');
+                ->with('error', __('CSV-bestand is leeg.'));
         }
 
         $result = $this->discovery->importKnvCsv(
@@ -172,13 +171,12 @@ class AdminTaxiPartnerFinderController extends Controller
             ->route('admin.taxi-partner-finder.index')
             ->with(
                 'success',
-                sprintf(
-                    'CSV-import klaar: %d nieuw, %d bijgewerkt, %d duplicaat/fuzzy, %d mislukt.',
-                    $result['created'],
-                    $result['updated'],
-                    $result['duplicates'],
-                    $result['failed']
-                )
+                __('CSV-import klaar: :created nieuw, :updated bijgewerkt, :duplicates duplicaat/fuzzy, :failed mislukt.', [
+                    'created' => $result['created'],
+                    'updated' => $result['updated'],
+                    'duplicates' => $result['duplicates'],
+                    'failed' => $result['failed'],
+                ])
             );
     }
 
@@ -189,12 +187,12 @@ class AdminTaxiPartnerFinderController extends Controller
         if (! $row) {
             return redirect()
                 ->back()
-                ->with('error', 'Geen geldig e-mailadres of prospect is afgemeld.');
+                ->with('error', __('Geen geldig e-mailadres of prospect is afgemeld.'));
         }
 
         return redirect()
             ->back()
-            ->with('success', 'Toegevoegd aan nieuwsbrief-klantenlijst: '.$row->email);
+            ->with('success', __('Toegevoegd aan nieuwsbrief-klantenlijst: :email', ['email' => $row->email]));
     }
 
     public function prepareInvitations(Request $request): RedirectResponse
@@ -229,7 +227,7 @@ class AdminTaxiPartnerFinderController extends Controller
 
         return redirect()
             ->route('admin.taxi-partner-finder.index')
-            ->with('success', $count.' uitnodiging(en) als concept voorbereid (geen automatische e-mail).');
+            ->with('success', __(':count uitnodiging(en) als concept voorbereid (geen automatische e-mail).', ['count' => $count]));
     }
 
     public function optOut(Request $request, TaxiProspect $prospect): RedirectResponse
@@ -247,7 +245,7 @@ class AdminTaxiPartnerFinderController extends Controller
 
         return redirect()
             ->route('admin.taxi-partner-finder.show', $prospect)
-            ->with('success', 'Prospect gemarkeerd als opted-out.');
+            ->with('success', __('Prospect gemarkeerd als opted-out.'));
     }
 
     public function exportCsv(Request $request): StreamedResponse

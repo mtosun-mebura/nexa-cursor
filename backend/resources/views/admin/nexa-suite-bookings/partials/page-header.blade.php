@@ -1,5 +1,5 @@
 @php
-    $title = $title ?? 'NEXA Suite ritten';
+    $title = $title ?? __('NEXA Suite ritten');
     $subtitle = $subtitle ?? '';
 @endphp
 <div class="admin-nexa-suite-page-header flex flex-wrap items-center lg:items-end justify-between gap-x-5 gap-y-3 pb-7.5">

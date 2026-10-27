@@ -1,19 +1,19 @@
 {{-- Database backups (Configuraties → Systeem configuraties) --}}
 <div class="kt-card min-w-full settings-collapsible-card settings-collapsible-card--collapsed mb-8" id="database-backups">
-    @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-shield-tick me-2"></i> Database backups'])
+    @include('admin.settings.partials.collapsible-header', ['titleHtml' => '<i class="ki-filled ki-shield-tick me-2"></i> ' . __('Database backups')])
     <div class="settings-collapsible-body">
         <div class="kt-card-content px-3 sm:px-6 pb-4 pt-3 sm:pt-4 space-y-6">
             <p class="settings-section-intro">
-                Maak periodieke backups van de applicatiedatabase. Optioneel kopieer je dumps naar een doel-omgeving uit Omgeving-sync (SSH).
-                Oude backups worden automatisch verwijderd na de ingestelde bewaartermijn.
+                {{ __('Maak periodieke backups van de applicatiedatabase. Optioneel kopieer je dumps naar een doel-omgeving uit Omgeving-sync (SSH).') }}
+                {{ __('Oude backups worden automatisch verwijderd na de ingestelde bewaartermijn.') }}
             </p>
 
             <form method="POST" action="{{ route('admin.settings.database-backups.update') }}" id="database-backup-settings-form" class="space-y-4">
                 @csrf
                 <div class="flex items-center justify-between gap-3 rounded-md border border-border p-4">
                     <div>
-                        <div class="text-sm font-medium text-foreground">Automatische backups</div>
-                        <div class="text-xs text-muted-foreground mt-0.5">Scheduler voert backups uit op het ingestelde tijdstip.</div>
+                        <div class="text-sm font-medium text-foreground">{{ __('Automatische backups') }}</div>
+                        <div class="text-xs text-muted-foreground mt-0.5">{{ __('Scheduler voert backups uit op het ingestelde tijdstip.') }}</div>
                     </div>
                     <label class="kt-label gap-2 mb-0">
                         <input type="hidden" name="database_backup_enabled" value="0">
@@ -24,32 +24,32 @@
 
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <label for="database_backup_frequency" class="text-sm text-secondary-foreground block mb-1">Frequentie</label>
+                        <label for="database_backup_frequency" class="text-sm text-secondary-foreground block mb-1">{{ __('Frequentie') }}</label>
                         <select name="database_backup_frequency" id="database_backup_frequency" class="kt-select w-full text-sm">
-                            <option value="daily" @selected(old('database_backup_frequency', $databaseBackupSettings['database_backup_frequency'] ?? 'daily') === 'daily')>Dagelijks</option>
-                            <option value="weekly" @selected(old('database_backup_frequency', $databaseBackupSettings['database_backup_frequency'] ?? 'daily') === 'weekly')>Wekelijks (maandag)</option>
+                            <option value="daily" @selected(old('database_backup_frequency', $databaseBackupSettings['database_backup_frequency'] ?? 'daily') === 'daily')>{{ __('Dagelijks') }}</option>
+                            <option value="weekly" @selected(old('database_backup_frequency', $databaseBackupSettings['database_backup_frequency'] ?? 'daily') === 'weekly')>{{ __('Wekelijks (maandag)') }}</option>
                         </select>
                         @error('database_backup_frequency')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                         @enderror
                     </div>
                     <div>
-                        <label for="database_backup_time" class="text-sm text-secondary-foreground block mb-1">Tijdstip (Nederlandse tijd)</label>
+                        <label for="database_backup_time" class="text-sm text-secondary-foreground block mb-1">{{ __('Tijdstip (Nederlandse tijd)') }}</label>
                         <input type="time" name="database_backup_time" id="database_backup_time" class="kt-input w-full text-sm" step="60"
                                value="{{ old('database_backup_time', $databaseBackupSettings['database_backup_time'] ?? '03:00') }}" required>
                         <div class="text-xs text-muted-foreground mt-1">
-                            {{ $databaseBackupSettings['database_backup_next_run_hint'] ?? 'Europe/Amsterdam. De planner controleert elke minuut.' }}
+                            {{ $databaseBackupSettings['database_backup_next_run_hint'] ?? __('Europe/Amsterdam. De planner controleert elke minuut.') }}
                         </div>
                         @error('database_backup_time')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                         @enderror
                     </div>
                     <div>
-                        <label for="database_backup_retention_days" class="text-sm text-secondary-foreground block mb-1">Bewaren (dagen)</label>
+                        <label for="database_backup_retention_days" class="text-sm text-secondary-foreground block mb-1">{{ __('Bewaren (dagen)') }}</label>
                         <input type="number" name="database_backup_retention_days" id="database_backup_retention_days" class="kt-input w-full text-sm"
                                min="1" max="3650" required
                                value="{{ old('database_backup_retention_days', $databaseBackupSettings['database_backup_retention_days'] ?? 30) }}">
-                        <div class="text-xs text-muted-foreground mt-1">Backups ouder dan dit aantal dagen worden verwijderd.</div>
+                        <div class="text-xs text-muted-foreground mt-1">{{ __('Backups ouder dan dit aantal dagen worden verwijderd.') }}</div>
                         @error('database_backup_retention_days')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                         @enderror
@@ -57,9 +57,9 @@
                 </div>
 
                 <div>
-                    <label for="database_backup_sync_target_id" class="text-sm text-secondary-foreground block mb-1">Kopie naar sync-doel (optioneel)</label>
+                    <label for="database_backup_sync_target_id" class="text-sm text-secondary-foreground block mb-1">{{ __('Kopie naar sync-doel (optioneel)') }}</label>
                     <select name="database_backup_sync_target_id" id="database_backup_sync_target_id" class="kt-select w-full text-sm max-w-xl">
-                        <option value="0">— Alleen lokaal opslaan —</option>
+                        <option value="0">{{ __('— Alleen lokaal opslaan —') }}</option>
                         @foreach(($tenantSyncTargets ?? collect()) as $target)
                             <option value="{{ $target->id }}"
                                 @selected((int) old('database_backup_sync_target_id', $databaseBackupSettings['database_backup_sync_target_id'] ?? 0) === (int) $target->id)>
@@ -67,12 +67,12 @@
                             </option>
                         @endforeach
                     </select>
-                    <div class="text-xs text-muted-foreground mt-1">Gebruikt dezelfde doel-omgevingen als Omgeving-sync. Offsite-kopie vereist SSH.</div>
+                    <div class="text-xs text-muted-foreground mt-1">{{ __('Gebruikt dezelfde doel-omgevingen als Omgeving-sync. Offsite-kopie vereist SSH.') }}</div>
                 </div>
 
                 <div class="flex flex-wrap gap-2 pt-1">
                     <button type="submit" class="kt-btn kt-btn-primary">
-                        <i class="ki-filled ki-check me-2"></i> Instellingen opslaan
+                        <i class="ki-filled ki-check me-2"></i> {{ __('Instellingen opslaan') }}
                     </button>
                 </div>
             </form>
@@ -80,7 +80,7 @@
             <form method="POST" action="{{ route('admin.settings.database-backups.run') }}" id="database-backup-run-form" class="m-0 mb-4" data-no-cmd-s>
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline" id="database-backup-run-btn">
-                    <i class="ki-filled ki-cloud-add me-2"></i> Nu backup maken
+                    <i class="ki-filled ki-cloud-add me-2"></i> {{ __('Nu backup maken') }}
                 </button>
             </form>
 
@@ -92,23 +92,23 @@
                             class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                             hidden
                             data-url="{{ route('admin.settings.database-backups.bulk-delete') }}"
-                            aria-label="Geselecteerde backups verwijderen"
-                            title="Verwijderen"
+                            aria-label="{{ __('Geselecteerde backups verwijderen') }}"
+                            title="{{ __('Verwijderen') }}"
                             disabled>
                         <i class="ki-filled ki-trash" aria-hidden="true"></i>
                         <span class="admin-bulk-delete__count">(<span id="database-backups-bulk-count">0</span>)</span>
                     </button>
                     <div class="flex flex-wrap items-center justify-between gap-3">
-                        <h4 class="text-sm font-medium text-foreground mb-0">Beschikbare backups</h4>
+                        <h4 class="text-sm font-medium text-foreground mb-0">{{ __('Beschikbare backups') }}</h4>
                         <div class="flex items-center gap-2 shrink-0">
                             <button type="button"
                                     id="database-backups-refresh"
                                     class="kt-btn kt-btn-sm kt-btn-outline shrink-0"
                                     data-url="{{ route('admin.settings.database-backups.table') }}"
-                                    aria-label="Lijst vernieuwen"
-                                    title="Lijst vernieuwen">
+                                    aria-label="{{ __('Lijst vernieuwen') }}"
+                                    title="{{ __('Lijst vernieuwen') }}">
                                 <i class="ki-filled ki-arrows-circle" aria-hidden="true"></i>
-                                <span class="ms-1.5 hidden sm:inline">Vernieuwen</span>
+                                <span class="ms-1.5 hidden sm:inline">{{ __('Vernieuwen') }}</span>
                             </button>
                         </div>
                     </div>
@@ -116,7 +116,7 @@
                          data-admin-live-filter="off">
                         <label class="kt-input w-full sm:w-56 min-w-0">
                             <i class="ki-filled ki-magnifier"></i>
-                            <input placeholder="Zoek bestand, database, datum…"
+                            <input placeholder="{{ __('Zoek bestand, database, datum…') }}"
                                    type="text"
                                    name="search"
                                    autocomplete="off"
@@ -125,22 +125,22 @@
                         <select class="kt-select w-full sm:w-40"
                                 name="status"
                                 data-admin-datatable-filter="status">
-                            <option value="">Alle statussen</option>
-                            <option value="completed">Gereed</option>
-                            <option value="pending">Bezig</option>
-                            <option value="failed">Mislukt</option>
+                            <option value="">{{ __('Alle statussen') }}</option>
+                            <option value="completed">{{ __('Gereed') }}</option>
+                            <option value="pending">{{ __('Bezig') }}</option>
+                            <option value="failed">{{ __('Mislukt') }}</option>
                         </select>
                         <select class="kt-select w-full sm:w-40"
                                 name="trigger"
                                 data-admin-datatable-filter="trigger">
-                            <option value="">Alle bronnen</option>
-                            <option value="scheduled">Gepland</option>
-                            <option value="manual">Handmatig</option>
+                            <option value="">{{ __('Alle bronnen') }}</option>
+                            <option value="scheduled">{{ __('Gepland') }}</option>
+                            <option value="manual">{{ __('Handmatig') }}</option>
                         </select>
                         <button type="button"
                                 data-admin-datatable-reset
                                 class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
-                                title="Filters resetten">
+                                title="{{ __('Filters resetten') }}">
                             <i class="ki-filled ki-arrows-circle text-base"></i>
                         </button>
                     </div>
@@ -154,7 +154,7 @@
                     @include('admin.settings.partials.database-backups-table')
                     <div class="admin-datatable-footer text-secondary-foreground text-sm font-medium px-3 sm:px-4 py-3 min-w-0">
                         <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" name="perpage">
                                 <option value="5" selected>5</option>
                                 <option value="10">10</option>
@@ -162,7 +162,7 @@
                                 <option value="50">50</option>
                                 <option value="100">100</option>
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -528,7 +528,7 @@
             })
             .catch(function () {
                 if (!opts.silent) {
-                    window.alert('Lijst vernieuwen mislukt.');
+                    window.alert(@json(__('Lijst vernieuwen mislukt.')));
                 }
                 return false;
             })
@@ -581,8 +581,8 @@
                 return;
             }
             const label = ids.length === 1
-                ? 'Deze backup permanent verwijderen?'
-                : 'Deze ' + ids.length + ' backups permanent verwijderen?';
+                ? @json(__('Deze backup permanent verwijderen?'))
+                : @json(__('Deze :count backups permanent verwijderen?')).replace(':count', ids.length);
             const runDelete = function () {
                 bulkDeleteBtn.disabled = true;
                 fetch(url, {
@@ -600,23 +600,23 @@
                         return response.json().then(function (data) {
                             return { ok: response.ok, data: data };
                         }).catch(function () {
-                            return { ok: false, data: { message: 'Verwijderen mislukt.' } };
+                            return { ok: false, data: { message: @json(__('Verwijderen mislukt.')) } };
                         });
                     })
                     .then(function (result) {
                         if (!result.ok || (result.data && result.data.ok === false)) {
-                            throw new Error((result.data && result.data.message) || 'Verwijderen mislukt.');
+                            throw new Error((result.data && result.data.message) || @json(__('Verwijderen mislukt.')));
                         }
-                        showFlash((result.data && result.data.message) || 'Backups verwijderd.', false);
+                        showFlash((result.data && result.data.message) || @json(__('Backups verwijderd.')), false);
                         return refreshBackupTable({ force: true, silent: true });
                     })
                     .catch(function (err) {
-                        showFlash(err.message || 'Verwijderen mislukt.', true);
+                        showFlash(err.message || @json(__('Verwijderen mislukt.')), true);
                         syncBulkUi();
                     });
             };
             if (typeof window.showAdminConfirm === 'function') {
-                window.showAdminConfirm({ title: 'Backup verwijderen', message: label, confirmLabel: 'Verwijderen' }).then(function (ok) {
+                window.showAdminConfirm({ title: @json(__('Backup verwijderen')), message: label, confirmLabel: @json(__('Verwijderen')) }).then(function (ok) {
                     if (ok) {
                         runDelete();
                     }
@@ -688,7 +688,7 @@
                 if (runBtn) {
                     runBtn.disabled = true;
                 }
-                showFlash('Backup wordt gemaakt…', false);
+                showFlash(@json(__('Backup wordt gemaakt…')), false);
                 startFastPoll(180000);
                 setTimeout(function () {
                     refreshBackupTable({ force: true, silent: true });
@@ -708,14 +708,14 @@
                     return response.json().then(function (data) {
                         return { ok: response.ok, data: data };
                     }).catch(function () {
-                        return { ok: false, data: { message: 'Backup mislukt.' } };
+                        return { ok: false, data: { message: @json(__('Backup mislukt.')) } };
                     });
                 })
                 .then(function (result) {
                     if (!result.ok || (result.data && result.data.ok === false)) {
-                        throw new Error((result.data && result.data.message) || 'Backup mislukt.');
+                        throw new Error((result.data && result.data.message) || @json(__('Backup mislukt.')));
                     }
-                    showFlash((result.data && result.data.message) || 'Backup voltooid.', false);
+                    showFlash((result.data && result.data.message) || @json(__('Backup voltooid.')), false);
                     startFastPoll(15000);
                     return refreshBackupTable({ force: true, silent: true }).then(function (updated) {
                         if (updated) {
@@ -729,7 +729,7 @@
                     });
                 })
                 .catch(function (err) {
-                    showFlash(err.message || 'Backup mislukt.', true);
+                    showFlash(err.message || @json(__('Backup mislukt.')), true);
                     startFastPoll(15000);
                     refreshBackupTable({ force: true, silent: true });
                 })
@@ -741,9 +741,9 @@
             };
             if (typeof window.showAdminConfirm === 'function') {
                 window.showAdminConfirm({
-                    title: 'Backup maken',
-                    message: 'Nu een handmatige database-backup starten?',
-                    confirmLabel: 'Starten',
+                    title: @json(__('Backup maken')),
+                    message: @json(__('Nu een handmatige database-backup starten?')),
+                    confirmLabel: @json(__('Starten')),
                     destructive: false
                 }).then(function (ok) {
                     if (ok) {
@@ -752,7 +752,7 @@
                 });
                 return;
             }
-            if (!window.confirm('Nu een handmatige database-backup starten?')) {
+            if (!window.confirm(@json(__('Nu een handmatige database-backup starten?')))) {
                 return;
             }
             startBackup();

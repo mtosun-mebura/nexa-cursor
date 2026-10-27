@@ -43,16 +43,16 @@ class AdminCompanyWizardController extends AdminCompanyController
     public static function stepMeta(): array
     {
         return [
-            1 => ['label' => 'Bedrijf & logo', 'short' => 'Bedrijf', 'icon' => 'ki-notepad'],
-            2 => ['label' => 'Vestigingen', 'short' => 'Vestigingen', 'icon' => 'ki-geolocation'],
-            3 => ['label' => 'Domein', 'short' => 'Domein', 'icon' => 'ki-cloud'],
-            4 => ['label' => 'Modules', 'short' => 'Modules', 'icon' => 'ki-element-11'],
-            5 => ['label' => 'Gebruikers', 'short' => 'Gebruikers', 'icon' => 'ki-users'],
-            6 => ['label' => 'Website', 'short' => 'Website', 'icon' => 'ki-screen'],
-            7 => ['label' => 'Mailserver', 'short' => 'Mail', 'icon' => 'ki-sms'],
-            8 => ['label' => 'Google SEO & reviews', 'short' => 'Google', 'icon' => 'ki-abstract-26'],
-            9 => ['label' => 'WhatsApp & Mollie', 'short' => 'Integraties', 'icon' => 'ki-setting-2'],
-            10 => ['label' => 'Afronden', 'short' => 'Afronden', 'icon' => 'ki-verify'],
+            1 => ['label' => __('Bedrijf & logo'), 'short' => __('Bedrijf'), 'icon' => 'ki-notepad'],
+            2 => ['label' => __('Vestigingen'), 'short' => __('Vestigingen'), 'icon' => 'ki-geolocation'],
+            3 => ['label' => __('Domein'), 'short' => __('Domein'), 'icon' => 'ki-cloud'],
+            4 => ['label' => __('Modules'), 'short' => __('Modules'), 'icon' => 'ki-element-11'],
+            5 => ['label' => __('Gebruikers'), 'short' => __('Gebruikers'), 'icon' => 'ki-users'],
+            6 => ['label' => __('Website'), 'short' => __('Website'), 'icon' => 'ki-screen'],
+            7 => ['label' => __('Mailserver'), 'short' => __('Mail'), 'icon' => 'ki-sms'],
+            8 => ['label' => __('Google SEO & reviews'), 'short' => __('Google'), 'icon' => 'ki-abstract-26'],
+            9 => ['label' => __('WhatsApp & Mollie'), 'short' => __('Integraties'), 'icon' => 'ki-setting-2'],
+            10 => ['label' => __('Afronden'), 'short' => __('Afronden'), 'icon' => 'ki-verify'],
         ];
     }
 
@@ -108,7 +108,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             report($e);
 
             throw ValidationException::withMessages([
-                'name' => 'Er bestaat al een bedrijf met deze of een sterk gelijkende naam. Kies een andere bedrijfsnaam.',
+                'name' => __('Er bestaat al een bedrijf met deze of een sterk gelijkende naam. Kies een andere bedrijfsnaam.'),
             ]);
         }
 
@@ -117,7 +117,7 @@ class AdminCompanyWizardController extends AdminCompanyController
 
         return redirect()
             ->route('admin.companies.wizard.step', [$company, 2])
-            ->with('success', 'Stap 1 opgeslagen. Vul nu vestigingen in of ga verder.');
+            ->with('success', __('Stap 1 opgeslagen. Vul nu vestigingen in of ga verder.'));
     }
 
     public function step(Request $request, Company $company, int $step): View|RedirectResponse
@@ -282,18 +282,18 @@ class AdminCompanyWizardController extends AdminCompanyController
 
         $this->setMaxReachable($company, max(2, $this->getMaxReachable($company)));
 
-        return $this->continueWizard($company, 1, 'Bedrijfsgegevens bijgewerkt.');
+        return $this->continueWizard($company, 1, __('Bedrijfsgegevens bijgewerkt.'));
     }
 
     private function submitStep2(Request $request, Company $company): RedirectResponse
     {
         if ($request->boolean('skip_locations')) {
-            return $this->continueWizard($company, 2, 'Stap overgeslagen. Ga verder met het stappenplan.');
+            return $this->continueWizard($company, 2, __('Stap overgeslagen. Ga verder met het stappenplan.'));
         }
 
         $locationsIn = $request->input('locations', []);
         if (empty($locationsIn[0]['name'] ?? '')) {
-            return $this->continueWizard($company, 2, 'Geen vestiging toegevoegd. Ga verder met het stappenplan.');
+            return $this->continueWizard($company, 2, __('Geen vestiging toegevoegd. Ga verder met het stappenplan.'));
         }
 
         $request->validate([
@@ -331,13 +331,13 @@ class AdminCompanyWizardController extends AdminCompanyController
             }
         }
 
-        return $this->continueWizard($company, 2, 'Vestigingen opgeslagen.');
+        return $this->continueWizard($company, 2, __('Vestigingen opgeslagen.'));
     }
 
     private function submitStep3(Request $request, Company $company): RedirectResponse
     {
         if ($request->boolean('skip_domain')) {
-            return $this->continueWizard($company, 3, 'Domein overgeslagen. Ga verder met het stappenplan.');
+            return $this->continueWizard($company, 3, __('Domein overgeslagen. Ga verder met het stappenplan.'));
         }
 
         $request->merge([
@@ -355,8 +355,8 @@ class AdminCompanyWizardController extends AdminCompanyController
                 ],
                 'is_primary' => 'sometimes|boolean',
             ], [
-                'host.regex' => 'Voer een geldige hostnaam in.',
-                'host.unique' => 'Deze hostnaam is al gekoppeld.',
+                'host.regex' => __('Voer een geldige hostnaam in.'),
+                'host.unique' => __('Deze hostnaam is al gekoppeld.'),
             ]);
 
             $isPrimary = $request->boolean('is_primary');
@@ -376,7 +376,7 @@ class AdminCompanyWizardController extends AdminCompanyController
         return $this->continueWizard(
             $company,
             3,
-            $request->filled('host') ? 'Domein opgeslagen. Ga verder met het stappenplan.' : 'Ga verder met het stappenplan.'
+            $request->filled('host') ? __('Domein opgeslagen. Ga verder met het stappenplan.') : __('Ga verder met het stappenplan.')
         );
     }
 
@@ -411,21 +411,21 @@ class AdminCompanyWizardController extends AdminCompanyController
             } catch (\Throwable $e) {
                 return redirect()
                     ->route('admin.companies.wizard.step', [$company, 4])
-                    ->with('error', 'Module: '.$name.' — '.$e->getMessage());
+                    ->with('error', __('Module: :name — :error', ['name' => $name, 'error' => $e->getMessage()]));
             }
         }
 
-        return $this->continueWizard($company, 4, 'Modules gekoppeld.');
+        return $this->continueWizard($company, 4, __('Modules gekoppeld.'));
     }
 
     private function submitStep5(Company $company): RedirectResponse
     {
-        return $this->continueWizard($company, 5, 'Gebruikersstap opgeslagen.');
+        return $this->continueWizard($company, 5, __('Gebruikersstap opgeslagen.'));
     }
 
     private function submitStep6(Company $company): RedirectResponse
     {
-        return $this->continueWizard($company, 6, 'Website-stap opgeslagen.');
+        return $this->continueWizard($company, 6, __('Website-stap opgeslagen.'));
     }
 
     private function submitStep7(Request $request, Company $company): RedirectResponse
@@ -444,12 +444,12 @@ class AdminCompanyWizardController extends AdminCompanyController
                     'MAIL_FROM_NAME' => 'required|string|max:255',
                 ];
                 $request->validate($rules, [
-                    'MAIL_MAILER.in' => 'Ongeldige mailer geselecteerd.',
-                    'MAIL_HOST.required_if' => 'SMTP host is verplicht wanneer SMTP is geselecteerd.',
-                    'MAIL_PORT.required_if' => 'SMTP poort is verplicht wanneer SMTP is geselecteerd.',
-                    'MAIL_FROM_ADDRESS.required' => 'From adres is verplicht.',
-                    'MAIL_FROM_ADDRESS.email' => 'From adres moet een geldig e-mailadres zijn.',
-                    'MAIL_FROM_NAME.required' => 'From naam is verplicht.',
+                    'MAIL_MAILER.in' => __('Ongeldige mailer geselecteerd.'),
+                    'MAIL_HOST.required_if' => __('SMTP host is verplicht wanneer SMTP is geselecteerd.'),
+                    'MAIL_PORT.required_if' => __('SMTP poort is verplicht wanneer SMTP is geselecteerd.'),
+                    'MAIL_FROM_ADDRESS.required' => __('From adres is verplicht.'),
+                    'MAIL_FROM_ADDRESS.email' => __('From adres moet een geldig e-mailadres zijn.'),
+                    'MAIL_FROM_NAME.required' => __('From naam is verplicht.'),
                 ]);
 
                 $mailSettings = [
@@ -474,8 +474,8 @@ class AdminCompanyWizardController extends AdminCompanyController
             $company,
             7,
             $request->boolean('skip_config') || trim((string) $request->input('MAIL_MAILER', '')) === ''
-                ? 'NEXA Suite-mailserver blijft van toepassing. Ga verder met het stappenplan.'
-                : 'Mailserver opgeslagen. Ga verder met het stappenplan.'
+                ? __('NEXA Suite-mailserver blijft van toepassing. Ga verder met het stappenplan.')
+                : __('Mailserver opgeslagen. Ga verder met het stappenplan.')
         );
     }
 
@@ -512,7 +512,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             GeneralSetting::set('google_reviews_section_title', trim((string) $request->input('google_reviews_section_title', '')), $company->id);
         }
 
-        return $this->continueWizard($company, 8, 'Google-instellingen bijgewerkt. Ga verder met het stappenplan.');
+        return $this->continueWizard($company, 8, __('Google-instellingen bijgewerkt. Ga verder met het stappenplan.'));
     }
 
     private function submitStep9(Request $request, Company $company): RedirectResponse
@@ -538,7 +538,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             ]);
 
             if ($canWhatsapp) {
-                $phoneError = 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).';
+                $phoneError = __('Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).');
                 $normalizedClickToChat = DutchPhoneNumber::normalizeOptionalNlToInternational(
                     trim((string) $request->input('WHATSAPP_CLICK_TO_CHAT_NUMBER', ''))
                 );
@@ -595,7 +595,7 @@ class AdminCompanyWizardController extends AdminCompanyController
             }
         }
 
-        return $this->continueWizard($company, 9, 'Integraties bijgewerkt. Controleer de samenvatting en rond af.');
+        return $this->continueWizard($company, 9, __('Integraties bijgewerkt. Controleer de samenvatting en rond af.'));
     }
 
     private function submitStep10(Company $company): RedirectResponse
@@ -611,13 +611,13 @@ class AdminCompanyWizardController extends AdminCompanyController
         session()->forget($this->sessionKey($company));
         session()->forget(self::SESSION_ACTIVE_ONBOARDING_COMPANY_ID);
 
-        $message = 'Tenant-onboarding afgerond.';
+        $message = __('Tenant-onboarding afgerond.');
         if ($result['created'] && $result['mailed']) {
-            $message .= ' De company-admin ('.$result['user']->email.') ontvangt de welkomstmail met uitleg voor de eerste login via een eenmalige code.';
+            $message .= ' '.__('De company-admin (:email) ontvangt de welkomstmail met uitleg voor de eerste login via een eenmalige code.', ['email' => $result['user']->email]);
         } elseif ($result['created'] && ! $result['mailed']) {
-            $message .= ' De company-admin ('.$result['user']->email.') is aangemaakt, maar de welkomstmail kon niet worden verstuurd. Controleer de mailserver.';
+            $message .= ' '.__('De company-admin (:email) is aangemaakt, maar de welkomstmail kon niet worden verstuurd. Controleer de mailserver.', ['email' => $result['user']->email]);
         } elseif (! $result['created']) {
-            $message .= ' Bestaande gebruiker '.$result['user']->email.' is als company-admin gekoppeld.';
+            $message .= ' '.__('Bestaande gebruiker :email is als company-admin gekoppeld.', ['email' => $result['user']->email]);
         }
 
         return redirect()
@@ -700,7 +700,7 @@ class AdminCompanyWizardController extends AdminCompanyController
     private function authorizeWizard(): void
     {
         if (! auth()->user()->canCreateCompanies()) {
-            abort(403, 'Je hebt geen rechten om bedrijven aan te maken.');
+            abort(403, __('Je hebt geen rechten om bedrijven aan te maken.'));
         }
     }
 
@@ -767,30 +767,30 @@ class AdminCompanyWizardController extends AdminCompanyController
     private function validationMessagesForWizardStep1(): array
     {
         return [
-            'name.required' => 'Bedrijfsnaam is verplicht.',
-            'name.min' => 'Bedrijfsnaam moet minimaal 2 tekens bevatten.',
-            'email.required' => 'E-mailadres is verplicht.',
-            'email.email' => 'Voer een geldig e-mailadres in.',
-            'phone.required' => 'Telefoonnummer is verplicht.',
-            'phone.regex' => 'Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).',
-            'street.required' => 'Straat is verplicht.',
-            'street.min' => 'Straat moet minimaal 2 tekens bevatten.',
-            'house_number.required' => 'Huisnummer is verplicht.',
-            'house_number.min' => 'Huisnummer is verplicht.',
-            'postal_code.required' => 'Postcode is verplicht.',
-            'postal_code.regex' => 'Voer een geldige Nederlandse postcode in (bijv. 1234AB).',
-            'city.required' => 'Plaats is verplicht.',
-            'city.min' => 'Plaats moet minimaal 2 tekens bevatten.',
-            'kvk_number.required' => 'KVK-nummer is verplicht.',
-            'kvk_number.regex' => 'KVK nummer moet 8 cijfers bevatten (bijv. 12345678).',
-            'contact_first_name.required' => 'Voornaam van de contactpersoon is verplicht.',
-            'contact_last_name.required' => 'Achternaam van de contactpersoon is verplicht.',
-            'industry.required' => 'Branche is verplicht.',
-            'package_key.required' => 'Kies een abonnementspakket.',
-            'package_key.in' => 'Kies een bestaand pakket.',
-            'website.url' => 'Voer een geldige URL in (bijv. https://www.voorbeeld.nl).',
-            'logo.max' => 'Het logo mag maximaal 2MB groot zijn.',
-            'logo_dark.max' => 'Het logo voor donkere modus mag maximaal 2MB groot zijn.',
+            'name.required' => __('Bedrijfsnaam is verplicht.'),
+            'name.min' => __('Bedrijfsnaam moet minimaal 2 tekens bevatten.'),
+            'email.required' => __('E-mailadres is verplicht.'),
+            'email.email' => __('Voer een geldig e-mailadres in.'),
+            'phone.required' => __('Telefoonnummer is verplicht.'),
+            'phone.regex' => __('Voer een geldig Nederlands telefoonnummer in (bijv. 0612345678 of +31612345678).'),
+            'street.required' => __('Straat is verplicht.'),
+            'street.min' => __('Straat moet minimaal 2 tekens bevatten.'),
+            'house_number.required' => __('Huisnummer is verplicht.'),
+            'house_number.min' => __('Huisnummer is verplicht.'),
+            'postal_code.required' => __('Postcode is verplicht.'),
+            'postal_code.regex' => __('Voer een geldige Nederlandse postcode in (bijv. 1234AB).'),
+            'city.required' => __('Plaats is verplicht.'),
+            'city.min' => __('Plaats moet minimaal 2 tekens bevatten.'),
+            'kvk_number.required' => __('KVK-nummer is verplicht.'),
+            'kvk_number.regex' => __('KVK nummer moet 8 cijfers bevatten (bijv. 12345678).'),
+            'contact_first_name.required' => __('Voornaam van de contactpersoon is verplicht.'),
+            'contact_last_name.required' => __('Achternaam van de contactpersoon is verplicht.'),
+            'industry.required' => __('Branche is verplicht.'),
+            'package_key.required' => __('Kies een abonnementspakket.'),
+            'package_key.in' => __('Kies een bestaand pakket.'),
+            'website.url' => __('Voer een geldige URL in (bijv. https://www.voorbeeld.nl).'),
+            'logo.max' => __('Het logo mag maximaal 2MB groot zijn.'),
+            'logo_dark.max' => __('Het logo voor donkere modus mag maximaal 2MB groot zijn.'),
         ];
     }
 
@@ -948,14 +948,14 @@ class AdminCompanyWizardController extends AdminCompanyController
         }
 
         if ((int) $user->company_id !== (int) $company->id) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         if ($user->can('view-companies') || $user->isTenantAdmin()) {
             return;
         }
 
-        abort(403, 'Je hebt geen rechten om bedrijven te bekijken.');
+        abort(403, __('Je hebt geen rechten om bedrijven te bekijken.'));
     }
 
     private function assertCanEditWizardCompany(Company $company): void
@@ -972,14 +972,14 @@ class AdminCompanyWizardController extends AdminCompanyController
         }
 
         if ((int) $user->company_id !== (int) $company->id) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         if ($user->can('edit-companies') || $user->isTenantAdmin()) {
             return;
         }
 
-        abort(403, 'Je hebt geen rechten om bedrijven te bewerken.');
+        abort(403, __('Je hebt geen rechten om bedrijven te bewerken.'));
     }
 
     /**

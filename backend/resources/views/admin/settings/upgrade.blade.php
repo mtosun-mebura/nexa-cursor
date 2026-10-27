@@ -6,42 +6,42 @@
 <div class="kt-container-fixed min-w-0">
     <div class="flex items-center flex-wrap justify-between gap-3 mb-6 mt-5">
         <div>
-            <h1 class="text-2xl lg:text-3xl font-bold text-mono">Upgrade</h1>
+            <h1 class="text-2xl lg:text-3xl font-bold text-mono">{{ __('Upgrade') }}</h1>
             <p class="text-sm text-secondary-foreground mt-1">
-                Platformbrede Nexa-versie en software-stack bijwerken met live voortgang en tests.
-                Geldt voor de volledige installatie, niet per tenant.
+                {{ __('Platformbrede Nexa-versie en software-stack bijwerken met live voortgang en tests.') }}
+                {{ __('Geldt voor de volledige installatie, niet per tenant.') }}
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <span class="kt-badge kt-badge-secondary kt-badge-sm">Platform-breed</span>
-            <span class="kt-badge kt-badge-primary text-base px-3 py-1.5">Huidige release: {{ $releaseVersion }}</span>
+            <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Platform-breed') }}</span>
+            <span class="kt-badge kt-badge-primary text-base px-3 py-1.5">{{ __('Huidige release: :version', ['version' => $releaseVersion]) }}</span>
         </div>
     </div>
     <p class="text-sm text-secondary-foreground -mt-3 mb-6">
-        Git-deploy installeert de code in de repo, maar start Laravel- of PHP-upgrades niet automatisch.
-        De Nexa-release gaat één patch omhoog na een geslaagde web-upgrade (Laravel, PHP of overige packages).
+        {{ __('Git-deploy installeert de code in de repo, maar start Laravel- of PHP-upgrades niet automatisch.') }}
+        {{ __('De Nexa-release gaat één patch omhoog na een geslaagde web-upgrade (Laravel, PHP of overige packages).') }}
     </p>
 
     <div class="kt-card w-full min-w-0 mb-5 overflow-hidden" id="coolify-vps-ip-card">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
             <div>
-                <h3 class="kt-card-title mb-0">Coolify VPS-IP</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Coolify VPS-IP') }}</h3>
                 <p class="text-xs text-muted-foreground mb-0 mt-1">
-                    Publiek IP voor tenant A-records (DNS). Wordt getoond in
-                    <a href="{{ route('admin.tenant-setup-checklist') }}" class="text-primary hover:underline">Tenant configureren</a>.
+                    {{ __('Publiek IP voor tenant A-records (DNS). Wordt getoond in') }}
+                    <a href="{{ route('admin.tenant-setup-checklist') }}" class="text-primary hover:underline">{{ __('Tenant configureren') }}</a>.
                 </p>
             </div>
         </div>
         <div class="kt-card-content p-5">
             @php $vpsIpEditOpen = $errors->has('coolify_vps_public_ip'); @endphp
             <div id="coolify-vps-ip-view" class="flex flex-wrap items-center gap-2 {{ $vpsIpEditOpen ? 'hidden' : '' }}">
-                <span class="text-sm text-muted-foreground">Publiek VPS-IP</span>
+                <span class="text-sm text-muted-foreground">{{ __('Publiek VPS-IP') }}</span>
                 <code id="coolify-vps-ip-display" class="text-sm font-mono text-foreground">{{ $coolifyVpsPublicIp }}</code>
                 <button type="button"
                         id="coolify-vps-ip-edit-btn"
                         class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
-                        aria-label="VPS-IP bewerken"
-                        title="Bewerken">
+                        aria-label="{{ __('VPS-IP bewerken') }}"
+                        title="{{ __('Bewerken') }}">
                     <i class="ki-filled ki-pencil" aria-hidden="true"></i>
                 </button>
             </div>
@@ -51,7 +51,7 @@
                   class="flex flex-wrap items-end gap-3 {{ $vpsIpEditOpen ? '' : 'hidden' }}">
                 @csrf
                 <div class="flex flex-col gap-1.5 min-w-0">
-                    <label for="coolify_vps_public_ip" class="kt-form-label mb-0">Publiek VPS-IP</label>
+                    <label for="coolify_vps_public_ip" class="kt-form-label mb-0">{{ __('Publiek VPS-IP') }}</label>
                     <input
                         type="text"
                         name="coolify_vps_public_ip"
@@ -66,8 +66,8 @@
                         <div class="text-xs text-destructive">{{ $message }}</div>
                     @enderror
                 </div>
-                <button type="submit" class="kt-btn kt-btn-primary shrink-0">Opslaan</button>
-                <button type="button" id="coolify-vps-ip-cancel-btn" class="kt-btn kt-btn-outline shrink-0">Annuleren</button>
+                <button type="submit" class="kt-btn kt-btn-primary shrink-0">{{ __('Opslaan') }}</button>
+                <button type="button" id="coolify-vps-ip-cancel-btn" class="kt-btn kt-btn-outline shrink-0">{{ __('Annuleren') }}</button>
             </form>
         </div>
     </div>
@@ -104,7 +104,7 @@
     <div class="flex flex-col gap-5 mb-5" id="upgrade-collapsible-root">
         <div class="kt-card min-w-0 settings-collapsible-card settings-collapsible-card--collapsed" id="upgrade-installed-stack">
             @include('admin.settings.partials.collapsible-header', [
-                'titleHtml' => 'Geïnstalleerde stack',
+                'titleHtml' => __('Geïnstalleerde stack'),
                 'headerClass' => 'px-5 py-5',
             ])
             <div class="settings-collapsible-body">
@@ -113,15 +113,15 @@
                         <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                             <thead>
                                 <tr>
-                                    <th data-label="Component">Component</th>
-                                    <th data-label="Versie">Versie</th>
+                                    <th data-label="{{ __('Component') }}">{{ __('Component') }}</th>
+                                    <th data-label="{{ __('Versie') }}">{{ __('Versie') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($stack as $item)
                                     <tr>
-                                        <td data-label="Component">{{ $item['label'] }}</td>
-                                        <td data-label="Versie" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
+                                        <td data-label="{{ __('Component') }}">{{ $item['label'] }}</td>
+                                        <td data-label="{{ __('Versie') }}" class="font-mono text-xs sm:text-sm break-all">{{ $item['value'] }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -133,18 +133,18 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Laravel bijwerken</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Laravel bijwerken') }}</h3>
             </div>
             <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
-                <p class="text-sm text-secondary-foreground mb-0" id="laravel-upgrade-status-text">Beschikbare Laravel-updates ophalen…</p>
+                <p class="text-sm text-secondary-foreground mb-0" id="laravel-upgrade-status-text">{{ __('Beschikbare Laravel-updates ophalen…') }}</p>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-laravel-minor" class="kt-btn kt-btn-primary hidden" @disabled(!$webUpgradeEnabled) disabled>
                         <i class="ki-filled ki-laravel me-1" aria-hidden="true"></i>
-                        Minor-update
+                        {{ __('Minor-update') }}
                     </button>
                     <button type="button" id="btn-laravel-major" class="kt-btn kt-btn-success hidden" @disabled(!$webUpgradeEnabled) disabled>
                         <i class="ki-filled ki-laravel me-1" aria-hidden="true"></i>
-                        Major-update
+                        {{ __('Major-update') }}
                     </button>
                 </div>
                 <div id="laravel-upgrade-progress" class="hidden"></div>
@@ -154,14 +154,13 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">PHP in Docker bijwerken</h3>
+                <h3 class="kt-card-title mb-0">{{ __('PHP in Docker bijwerken') }}</h3>
             </div>
             <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
                 <p class="text-sm text-secondary-foreground mb-0">
-                    Werkt de PHP-basisimage in de Dockerfiles bij naar de nieuwste officiële <code>php:X.Y-cli</code>,
-                    tuigt daarna de hele Docker-stack opnieuw op (build waar de image is veranderd) en draait de testdoorloop.
+                    {!! __('Werkt de PHP-basisimage in de Dockerfiles bij naar de nieuwste officiële <code>php:X.Y-cli</code>, tuigt daarna de hele Docker-stack opnieuw op (build waar de image is veranderd) en draait de testdoorloop.') !!}
                 </p>
-                <p class="text-sm text-secondary-foreground mb-0" id="php-upgrade-status-text">Status ophalen…</p>
+                <p class="text-sm text-secondary-foreground mb-0" id="php-upgrade-status-text">{{ __('Status ophalen…') }}</p>
                 @php
                     $hasPhpCriticalRuntime = false;
                     foreach ($phpCriticalUpdates ?? [] as $phpCriticalUpdateRow) {
@@ -175,7 +174,7 @@
                 <div id="php-critical-alert" class="kt-alert kt-alert-danger mt-4 flex flex-wrap items-center justify-between gap-3 {{ empty($phpCriticalUpdates) ? 'hidden' : '' }}" role="alert">
                     <div class="kt-alert-content" id="php-critical-alert-text">
                         @foreach($phpCriticalUpdates ?? [] as $phpCriticalUpdate)
-                            <div>{{ $phpCriticalUpdate['message'] ?? 'Er is een kritieke PHP-update.' }}</div>
+                            <div>{{ $phpCriticalUpdate['message'] ?? __('Er is een kritieke PHP-update.') }}</div>
                         @endforeach
                     </div>
                     <button type="button"
@@ -183,7 +182,7 @@
                             class="kt-btn kt-btn-primary shrink-0{{ $hasPhpCriticalRuntime ? '' : ' hidden' }}"
                             @disabled(!$webUpgradeEnabled)
                             disabled>
-                        Security-release uitvoeren
+                        {{ __('Security-release uitvoeren') }}
                     </button>
                 </div>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
@@ -192,7 +191,7 @@
                             <ellipse class="upgrade-php-icon-shape" cx="12" cy="7" rx="11" ry="6.2"/>
                             <text class="upgrade-php-icon-word" x="12" y="9.7" text-anchor="middle" font-size="7.4" font-weight="700" font-style="italic" font-family="Georgia, 'Times New Roman', serif">php</text>
                         </svg>
-                        PHP in Docker bijwerken
+                        {{ __('PHP in Docker bijwerken') }}
                     </button>
                 </div>
                 <div id="php-upgrade-progress" class="hidden"></div>
@@ -202,23 +201,21 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">PostgreSQL in Docker bijwerken</h3>
+                <h3 class="kt-card-title mb-0">{{ __('PostgreSQL in Docker bijwerken') }}</h3>
             </div>
             <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
                 <p class="text-sm text-secondary-foreground mb-0">
-                    Minor pullt de nieuwste <code>pgvector/pgvector</code>-image van de huidige major.
-                    Major zet een nieuwe major (bijv. pg16 → pg17) op een <strong>nieuw datavolume</strong> na een
-                    <code>pg_dumpall</code>-backup. Bij een fout gaan de compose-bestanden terug en start de oude versie weer.
+                    {!! __('Minor pullt de nieuwste <code>pgvector/pgvector</code>-image van de huidige major. Major zet een nieuwe major (bijv. pg16 → pg17) op een <strong>nieuw datavolume</strong> na een <code>pg_dumpall</code>-backup. Bij een fout gaan de compose-bestanden terug en start de oude versie weer.') !!}
                 </p>
-                <p class="text-sm text-secondary-foreground mb-0" id="postgres-upgrade-status-text">Status ophalen…</p>
+                <p class="text-sm text-secondary-foreground mb-0" id="postgres-upgrade-status-text">{{ __('Status ophalen…') }}</p>
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-postgres-minor" class="kt-btn kt-btn-primary" @disabled(!$webUpgradeEnabled) disabled>
                         <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
-                        Minor-update
+                        {{ __('Minor-update') }}
                     </button>
                     <button type="button" id="btn-postgres-major" class="kt-btn kt-btn-success" @disabled(!$webUpgradeEnabled) disabled>
                         <span class="upgrade-pg-icon me-1" aria-hidden="true"><span class="upgrade-pg-icon-word">PG</span></span>
-                        Major-update
+                        {{ __('Major-update') }}
                     </button>
                 </div>
                 <div id="postgres-upgrade-progress" class="hidden"></div>
@@ -228,17 +225,17 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Docker-containers</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Docker-containers') }}</h3>
             </div>
             <div class="kt-card-body space-y-4 px-5 pt-5 pb-3 lg:px-6 lg:pt-6">
                 <p class="text-sm text-secondary-foreground mb-0">
-                    Herstart de stack of bouw images opnieuw. De admin is kort even niet bereikbaar.
-                    Na opkomst verschijnt een groene melding in de header.
+                    {{ __('Herstart de stack of bouw images opnieuw. De admin is kort even niet bereikbaar.') }}
+                    {{ __('Na opkomst verschijnt een groene melding in de header.') }}
                 </p>
                 <p class="text-sm text-secondary-foreground mb-0">
-                    Dit wijzigt Laravel, PHP of de Nexa-release niet.
+                    {{ __('Dit wijzigt Laravel, PHP of de Nexa-release niet.') }}
                 </p>
-                <p class="text-sm text-secondary-foreground mb-0 pt-4" id="docker-upgrade-status-text">Status ophalen…</p>
+                <p class="text-sm text-secondary-foreground mb-0 pt-4" id="docker-upgrade-status-text">{{ __('Status ophalen…') }}</p>
                 <div id="docker-container-table" class="kt-scrollable-x-auto admin-table-scroll-wrap hidden">
                     <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full mb-0">
                         <colgroup>
@@ -255,33 +252,33 @@
                                         <input type="checkbox"
                                                class="kt-checkbox"
                                                id="docker-container-select-all"
-                                               title="Alle containers selecteren"
-                                               aria-label="Alle containers selecteren">
+                                               title="{{ __('Alle containers selecteren') }}"
+                                               aria-label="{{ __('Alle containers selecteren') }}">
                                     </label>
                                 </th>
-                                <th data-label="Service">Service</th>
-                                <th data-label="Container">Container</th>
-                                <th data-label="Image">Image</th>
-                                <th data-label="Status">Status</th>
+                                <th data-label="{{ __('Service') }}">{{ __('Service') }}</th>
+                                <th data-label="{{ __('Container') }}">{{ __('Container') }}</th>
+                                <th data-label="{{ __('Image') }}">{{ __('Image') }}</th>
+                                <th data-label="{{ __('Status') }}">{{ __('Status') }}</th>
                             </tr>
                         </thead>
                         <tbody id="docker-container-rows"></tbody>
                     </table>
                 </div>
                 <div class="space-y-3 pt-5">
-                    <p class="text-sm font-medium text-mono mb-0">Commando op container</p>
+                    <p class="text-sm font-medium text-mono mb-0">{{ __('Commando op container') }}</p>
                     <p class="text-sm text-secondary-foreground mb-0">
-                        Voert <code>docker exec</code> uit op één container van deze stack, bijvoorbeeld <code>php -v</code> of <code>psql --version</code>.
+                        {!! __('Voert <code>docker exec</code> uit op één container van deze stack, bijvoorbeeld <code>php -v</code> of <code>psql --version</code>.') !!}
                     </p>
                     <div class="flex flex-wrap items-end gap-2">
                         <div class="min-w-[11rem]">
-                            <label for="docker-exec-service" class="mb-1 block text-xs text-muted-foreground">Container</label>
-                            <select id="docker-exec-service" class="kt-input w-full" disabled aria-label="Container voor commando">
-                                <option value="">Kies een container</option>
+                            <label for="docker-exec-service" class="mb-1 block text-xs text-muted-foreground">{{ __('Container') }}</label>
+                            <select id="docker-exec-service" class="kt-input w-full" disabled aria-label="{{ __('Container voor commando') }}">
+                                <option value="">{{ __('Kies een container') }}</option>
                             </select>
                         </div>
                         <div class="min-w-[14rem] flex-1">
-                            <label for="docker-exec-command" class="mb-1 block text-xs text-muted-foreground">Commando</label>
+                            <label for="docker-exec-command" class="mb-1 block text-xs text-muted-foreground">{{ __('Commando') }}</label>
                             <input type="text"
                                    id="docker-exec-command"
                                    class="kt-input w-full font-mono"
@@ -292,7 +289,7 @@
                         </div>
                         <button type="button" id="btn-docker-exec" class="kt-btn kt-btn-outline" disabled>
                             <i class="ki-filled ki-code me-1" aria-hidden="true"></i>
-                            Uitvoeren
+                            {{ __('Uitvoeren') }}
                         </button>
                     </div>
                     <pre id="docker-exec-output" class="upgrade-exec-output hidden mb-0" hidden></pre>
@@ -300,11 +297,11 @@
                 <div class="flex flex-wrap gap-2 pt-5 pb-0">
                     <button type="button" id="btn-docker-restart" class="kt-btn kt-btn-primary" disabled>
                         <i class="ki-filled ki-arrows-circle me-1"></i>
-                        Containers herstarten
+                        {{ __('Containers herstarten') }}
                     </button>
                     <button type="button" id="btn-docker-rebuild" class="kt-btn kt-btn-outline" @disabled(!$webUpgradeEnabled) disabled>
                         <i class="ki-filled ki-setting-2 me-1"></i>
-                        Images opnieuw bouwen
+                        {{ __('Images opnieuw bouwen') }}
                     </button>
                 </div>
                 <div id="docker-upgrade-progress" class="hidden"></div>
@@ -314,46 +311,41 @@
 
         <div class="kt-card min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Overige packages bijwerken</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Overige packages bijwerken') }}</h3>
             </div>
             <div class="kt-card-body space-y-4 p-5 lg:p-6">
                 <p class="text-sm text-secondary-foreground">
-                    Bekijk eerst welke overige packages bijgewerkt kunnen worden (Composer, NPM, migraties).
-                    Laravel en PHP hebben eigen knoppen hierboven. Bij succes wordt de platform-release verhoogd.
+                    {{ __('Bekijk eerst welke overige packages bijgewerkt kunnen worden (Composer, NPM, migraties).') }}
+                    {{ __('Laravel en PHP hebben eigen knoppen hierboven. Bij succes wordt de platform-release verhoogd.') }}
                 </p>
                 @unless($webUpgradeEnabled)
                     <div class="kt-alert kt-alert-warning">
-                        <div class="kt-alert-content">Web-upgrades zijn uitgeschakeld via <code>NEXA_WEB_UPGRADE_ENABLED</code>.</div>
+                        <div class="kt-alert-content">{!! __('Web-upgrades zijn uitgeschakeld via <code>NEXA_WEB_UPGRADE_ENABLED</code>.') !!}</div>
                     </div>
                 @endunless
 
                 <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
                     <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
                         <i class="ki-filled ki-code text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                        <span class="flex-1 min-w-0">Laravel: minor vs major</span>
+                        <span class="flex-1 min-w-0">{{ __('Laravel: minor vs major') }}</span>
                         <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
                     </summary>
                     <div class="mt-3 space-y-4 text-secondary-foreground">
                         <p class="mb-0">
-                            Gebruik de knoppen <strong>Minor-update</strong> en <strong>Major-update</strong> hierboven.
-                            Beide draaien daarna automatisch migraties, tests en het opnieuw optuigen van de Docker-stack.
+                            {!! __('Gebruik de knoppen <strong>Minor-update</strong> en <strong>Major-update</strong> hierboven.') !!}
+                            {{ __('Beide draaien daarna automatisch migraties, tests en het opnieuw optuigen van de Docker-stack.') }}
                         </p>
                         <div>
-                            <p class="mb-1 font-semibold text-mono">Minor (binnen de huidige major)</p>
+                            <p class="mb-1 font-semibold text-mono">{{ __('Minor (binnen de huidige major)') }}</p>
                             <p class="mb-0">
-                                Voert <code>composer update laravel/framework --with-all-dependencies</code> uit binnen de
-                                huidige constraint. Geen sprong naar een nieuwe major.
+                                {!! __('Voert <code>composer update laravel/framework --with-all-dependencies</code> uit binnen de huidige constraint. Geen sprong naar een nieuwe major.') !!}
                             </p>
                         </div>
                         <div>
-                            <p class="mb-1 font-semibold text-mono">Major (nieuwe Laravel-versie)</p>
+                            <p class="mb-1 font-semibold text-mono">{{ __('Major (nieuwe Laravel-versie)') }}</p>
                             <p class="mb-0">
-                                Controleert eerst of bestaande packages Laravel-major ondersteunen.
-                                Constraints van incompatibele packages (zoals <code>laravel/tinker</code>)
-                                worden meegenomen in <strong>één</strong> Composer-update samen met Laravel,
-                                eerst als dry-run, daarna zonder Artisan-scripts (die draaien pas als vendor
-                                consistent is). Ontbreekt een compatible versie, dan stopt de upgrade voordat
-                                vendor wordt aangepast. Bij falen gaan de Composer-bestanden terug.
+                                {{ __('Controleert eerst of bestaande packages Laravel-major ondersteunen.') }}
+                                {!! __('Constraints van incompatibele packages (zoals <code>laravel/tinker</code>) worden meegenomen in <strong>één</strong> Composer-update samen met Laravel, eerst als dry-run, daarna zonder Artisan-scripts (die draaien pas als vendor consistent is). Ontbreekt een compatible versie, dan stopt de upgrade voordat vendor wordt aangepast. Bij falen gaan de Composer-bestanden terug.') !!}
                             </p>
                         </div>
                     </div>
@@ -362,34 +354,27 @@
                 <details class="upgrade-docker-note rounded-md border border-border bg-background/60 p-3 lg:p-4 text-sm">
                     <summary class="upgrade-docker-note-summary flex cursor-pointer items-center gap-2 font-medium text-mono select-none">
                         <i class="ki-filled ki-docker text-base text-secondary-foreground shrink-0" aria-hidden="true"></i>
-                        <span class="flex-1 min-w-0">PHP &amp; PostgreSQL bijwerken (via Docker)</span>
+                        <span class="flex-1 min-w-0">{{ __('PHP & PostgreSQL bijwerken (via Docker)') }}</span>
                         <i class="ki-filled ki-down upgrade-docker-chevron text-sm text-secondary-foreground shrink-0" aria-hidden="true"></i>
                     </summary>
                     <div class="mt-3 space-y-4 text-secondary-foreground">
                         <p class="mb-0">
-                            PHP kun je automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.
-                            PostgreSQL heeft eigen knoppen <strong>Minor-update</strong> en <strong>Major-update</strong>:
-                            eerst een <code>pg_dumpall</code>-backup, daarna image/volume-wissel. Bij een fout start de oude versie weer.
+                            {!! __('PHP kun je automatisch bijwerken met de knop <strong>PHP in Docker bijwerken</strong> hierboven.') !!}
+                            {!! __('PostgreSQL heeft eigen knoppen <strong>Minor-update</strong> en <strong>Major-update</strong>: eerst een <code>pg_dumpall</code>-backup, daarna image/volume-wissel. Bij een fout start de oude versie weer.') !!}
                         </p>
 
                         <div>
-                            <p class="mb-1 font-semibold text-mono">1. PHP (automatisch via de knop)</p>
+                            <p class="mb-1 font-semibold text-mono">{{ __('1. PHP (automatisch via de knop)') }}</p>
                             <p class="mb-0">
-                                De knop haalt de nieuwste stabiele PHP 8-lijn op, schrijft <code>backend/Dockerfile</code>
-                                en <code>backend/Dockerfile.prod</code>, voert <code>docker compose up -d --build</code>
-                                uit en rondt daarna <code>php artisan test</code> af. Een eenmalige
-                                <code>docker compose up -d</code> is nodig zodat de Docker-socket in de container hangt.
+                                {!! __('De knop haalt de nieuwste stabiele PHP 8-lijn op, schrijft <code>backend/Dockerfile</code> en <code>backend/Dockerfile.prod</code>, voert <code>docker compose up -d --build</code> uit en rondt daarna <code>php artisan test</code> af. Een eenmalige <code>docker compose up -d</code> is nodig zodat de Docker-socket in de container hangt.') !!}
                             </p>
                         </div>
 
                         <div>
-                            <p class="mb-1 font-semibold text-mono">2. PostgreSQL (automatisch via de knoppen)</p>
+                            <p class="mb-1 font-semibold text-mono">{{ __('2. PostgreSQL (automatisch via de knoppen)') }}</p>
                             <p class="mb-0">
-                                <strong>Minor</strong> pullt de huidige tag (bijv. <code>pg16</code>) opnieuw.
-                                <strong>Major</strong> schrijft <code>pgvector/pgvector:pg17</code> (of de volgende major) in
-                                <code>docker-compose.postgres.yml</code> en <code>docker-compose.deploy.yml</code>,
-                                zet een nieuw volume <code>…_postgres_data_pg17</code> in, herstelt de dump en laat het oude
-                                volume staan. Mislukt de restore, dan gaan de compose-bestanden terug en komt de oude database weer online.
+                                {!! __('<strong>Minor</strong> pullt de huidige tag (bijv. <code>pg16</code>) opnieuw.') !!}
+                                {!! __('<strong>Major</strong> schrijft <code>pgvector/pgvector:pg17</code> (of de volgende major) in <code>docker-compose.postgres.yml</code> en <code>docker-compose.deploy.yml</code>, zet een nieuw volume <code>…_postgres_data_pg17</code> in, herstelt de dump en laat het oude volume staan. Mislukt de restore, dan gaan de compose-bestanden terug en komt de oude database weer online.') !!}
                             </p>
                         </div>
                     </div>
@@ -397,26 +382,26 @@
 
                 <button type="button" id="btn-run-upgrade" class="kt-btn kt-btn-primary" @disabled(!$webUpgradeEnabled)>
                     <i class="ki-filled ki-arrow-up me-1"></i>
-                    Upgrade naar nieuwste versies
+                    {{ __('Upgrade naar nieuwste versies') }}
                 </button>
 
                 <div id="upgrade-preview" class="hidden rounded-md border border-border bg-muted/10 p-4 lg:p-5 space-y-4">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p class="font-medium mb-1">Beschikbare updates</p>
+                            <p class="font-medium mb-1">{{ __('Beschikbare updates') }}</p>
                             <p class="text-sm text-secondary-foreground mb-0">
-                                Release na succesvolle upgrade:
+                                {{ __('Release na succesvolle upgrade:') }}
                                 <span class="font-mono" id="upgrade-release-current">{{ $releaseVersion }}</span>
                                 →
                                 <span class="font-mono" id="upgrade-release-target">—</span>
                             </p>
                         </div>
-                        <button type="button" id="btn-preview-cancel" class="kt-btn kt-btn-light kt-btn-sm">Annuleren</button>
+                        <button type="button" id="btn-preview-cancel" class="kt-btn kt-btn-light kt-btn-sm">{{ __('Annuleren') }}</button>
                     </div>
 
                     <div id="upgrade-preview-loading" class="hidden text-sm text-secondary-foreground flex items-center gap-2">
                         <i class="ki-filled ki-arrows-circle animate-spin" aria-hidden="true"></i>
-                        <span>Updates controleren…</span>
+                        <span>{{ __('Updates controleren…') }}</span>
                     </div>
 
                     <div id="upgrade-preview-error" class="hidden kt-alert kt-alert-danger">
@@ -431,15 +416,15 @@
                                         <th class="upgrade-selection-col" id="upgrade-selection-header">
                                             <div class="upgrade-selection-cell">
                                                 <span id="upgrade-select-all-wrap" class="upgrade-select-all-wrap">
-                                                    <label class="upgrade-selection-checkbox" title="Alles selecteren">
+                                                    <label class="upgrade-selection-checkbox" title="{{ __('Alles selecteren') }}">
                                                         <input type="checkbox" id="upgrade-select-all" class="kt-checkbox">
                                                     </label>
                                                 </span>
                                             </div>
                                         </th>
-                                        <th data-label="Component">Component</th>
-                                        <th data-label="Huidig">Huidig</th>
-                                        <th data-label="Nieuw">Nieuw</th>
+                                        <th data-label="{{ __('Component') }}">{{ __('Component') }}</th>
+                                        <th data-label="{{ __('Huidig') }}">{{ __('Huidig') }}</th>
+                                        <th data-label="{{ __('Nieuw') }}">{{ __('Nieuw') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody id="upgrade-selection-body"></tbody>
@@ -448,13 +433,13 @@
 
                         <label class="upgrade-confirm-label flex items-start gap-2.5 text-sm">
                             <input type="checkbox" id="upgrade-confirm" class="kt-checkbox shrink-0">
-                            <span>Ik begrijp dat de geselecteerde onderdelen worden bijgewerkt.</span>
+                            <span>{{ __('Ik begrijp dat de geselecteerde onderdelen worden bijgewerkt.') }}</span>
                         </label>
 
                         <div class="flex flex-wrap gap-2">
                             <button type="button" id="btn-start-upgrade" class="kt-btn kt-btn-primary" disabled>
                                 <i class="ki-filled ki-rocket me-1"></i>
-                                Upgrade starten
+                                {{ __('Upgrade starten') }}
                             </button>
                         </div>
                     </div>
@@ -474,13 +459,13 @@
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
                         hidden
                         data-url="{{ route('admin.settings.upgrade.history.destroy') }}"
-                        title="Verwijderen"
-                        aria-label="Geselecteerde regels verwijderen (0)"
+                        title="{{ __('Verwijderen') }}"
+                        aria-label="{{ __('Geselecteerde regels verwijderen (0)') }}"
                         @disabled($upgradeHistory->isEmpty())>
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count" aria-hidden="true">(<span id="upgrade-history-selected-count">0</span>)</span>
                 </button>
-                <h3 class="kt-card-title mb-0">Upgradegeschiedenis</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Upgradegeschiedenis') }}</h3>
             </div>
         </div>
         <div class="kt-card-body p-5 lg:p-6 min-w-0">
@@ -501,16 +486,16 @@
                                     <input type="checkbox"
                                            class="kt-checkbox"
                                            id="upgrade-history-select-all"
-                                           title="Alle regels selecteren"
-                                           aria-label="Alle regels selecteren"
+                                           title="{{ __('Alle regels selecteren') }}"
+                                           aria-label="{{ __('Alle regels selecteren') }}"
                                            @disabled($upgradeHistory->isEmpty())>
                                 </label>
                             </th>
-                            <th data-label="Datum">Datum</th>
-                            <th data-label="Van">Van</th>
-                            <th data-label="Naar">Naar</th>
-                            <th data-label="Status">Status</th>
-                            <th data-label="Door">Door</th>
+                            <th data-label="{{ __('Datum') }}">{{ __('Datum') }}</th>
+                            <th data-label="{{ __('Van') }}">{{ __('Van') }}</th>
+                            <th data-label="{{ __('Naar') }}">{{ __('Naar') }}</th>
+                            <th data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                            <th data-label="{{ __('Door') }}">{{ __('Door') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -524,28 +509,28 @@
                                         <input type="checkbox"
                                                class="kt-checkbox upgrade-history-row-check"
                                                value="{{ $log->id }}"
-                                               aria-label="Selecteer upgrade van {{ $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}"
+                                               aria-label="{{ __('Selecteer upgrade van :date', ['date' => $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i')]) }}"
                                                @disabled($isRunning)
-                                               @if($isRunning) title="Upgrade is nog bezig" @endif>
+                                               @if($isRunning) title="{{ __('Upgrade is nog bezig') }}" @endif>
                                     </label>
                                 </td>
-                                <td data-label="Datum">{{ $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
-                                <td data-label="Van" class="font-mono">{{ $log->from_release }}</td>
-                                <td data-label="Naar" class="font-mono">{{ $log->to_release ?? '—' }}</td>
-                                <td data-label="Status">
+                                <td data-label="{{ __('Datum') }}">{{ $log->started_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
+                                <td data-label="{{ __('Van') }}" class="font-mono">{{ $log->from_release }}</td>
+                                <td data-label="{{ __('Naar') }}" class="font-mono">{{ $log->to_release ?? '—' }}</td>
+                                <td data-label="{{ __('Status') }}">
                                     @if($log->status === 'success')
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Geslaagd</span>
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Geslaagd') }}</span>
                                     @elseif($log->status === 'failed')
-                                        <span class="kt-badge kt-badge-danger kt-badge-sm" title="{{ $log->error_message }}">Mislukt</span>
+                                        <span class="kt-badge kt-badge-danger kt-badge-sm" title="{{ $log->error_message }}">{{ __('Mislukt') }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-warning kt-badge-sm">Bezig</span>
+                                        <span class="kt-badge kt-badge-warning kt-badge-sm">{{ __('Bezig') }}</span>
                                     @endif
                                 </td>
-                                <td data-label="Door">{{ $log->triggeredBy?->first_name ?? $log->triggeredBy?->email ?? '—' }}</td>
+                                <td data-label="{{ __('Door') }}">{{ $log->triggeredBy?->first_name ?? $log->triggeredBy?->email ?? '—' }}</td>
                             </tr>
                         @empty
                             <tr class="upgrade-history-empty">
-                                <td colspan="6" class="text-center text-secondary-foreground py-6">Nog geen upgrades uitgevoerd.</td>
+                                <td colspan="6" class="text-center text-secondary-foreground py-6">{{ __('Nog geen upgrades uitgevoerd.') }}</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -927,6 +912,134 @@
 
 @push('scripts')
 <script>
+var upgradeI18n = {!! json_encode([
+    'Kwaliteit' => __('Kwaliteit'),
+    'Actueel' => __('Actueel'),
+    'Geen openstaande' => __('Geen openstaande'),
+    'Geïnstalleerd' => __('Geïnstalleerd'),
+    'Via Docker' => __('Via Docker'),
+    'Eigen knop' => __('Eigen knop'),
+    'Niet nodig' => __('Niet nodig'),
+    'Niet beschikbaar' => __('Niet beschikbaar'),
+    'Selectie' => __('Selectie'),
+    'Component' => __('Component'),
+    'Huidig' => __('Huidig'),
+    'Nieuw' => __('Nieuw'),
+    'Kon updates niet ophalen.' => __('Kon updates niet ophalen.'),
+    'Upgrade bezig…' => __('Upgrade bezig…'),
+    'Selecteer minimaal één item om te upgraden.' => __('Selecteer minimaal één item om te upgraden.'),
+    'Vink de bevestiging aan om de upgrade te starten.' => __('Vink de bevestiging aan om de upgrade te starten.'),
+    'Upgrade kon niet worden gestart.' => __('Upgrade kon niet worden gestart.'),
+    'Stap' => __('Stap'),
+    'Upgrade is succesvol verwerkt.' => __('Upgrade is succesvol verwerkt.'),
+    'Upgrade mislukt.' => __('Upgrade mislukt.'),
+    'Starten' => __('Starten'),
+    'De Docker-stack is herstart. De Laravel-upgrade wordt nu afgerond.' => __('De Docker-stack is herstart. De Laravel-upgrade wordt nu afgerond.'),
+    'Er is een nieuwe minor-versie: Laravel :current → :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).' => __('Er is een nieuwe minor-versie: Laravel :current → :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).'),
+    'Er is een nieuwe major-versie: Laravel :current → :target.' => __('Er is een nieuwe major-versie: Laravel :current → :target.'),
+    'Incompatibele packages (:packages) gaan in dezelfde Composer-update mee als Laravel, eerst als dry-run en zonder Artisan-scripts tijdens het schrijven van vendor.' => __('Incompatibele packages (:packages) gaan in dezelfde Composer-update mee als Laravel, eerst als dry-run en zonder Artisan-scripts tijdens het schrijven van vendor.'),
+    'Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).' => __('Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).'),
+    'Bij falen gaan composer.json en composer.lock terug.' => __('Bij falen gaan composer.json en composer.lock terug.'),
+    'Laravel :current heeft geen nieuwere minor. Major naar :target is nog niet mogelijk: :reason' => __('Laravel :current heeft geen nieuwere minor. Major naar :target is nog niet mogelijk: :reason'),
+    'Laravel :current is actueel. Er is geen nieuwere minor of major.' => __('Laravel :current is actueel. Er is geen nieuwere minor of major.'),
+    'Kon Laravel-status niet laden.' => __('Kon Laravel-status niet laden.'),
+    'Minor-update naar :target' => __('Minor-update naar :target'),
+    'Minor-update' => __('Minor-update'),
+    'Major-update naar :target' => __('Major-update naar :target'),
+    'Major-update' => __('Major-update'),
+    'Draaiend:' => __('Draaiend:'),
+    'Kon PHP-status niet laden.' => __('Kon PHP-status niet laden.'),
+    'Image:' => __('Image:'),
+    'Kon PostgreSQL-status niet laden.' => __('Kon PostgreSQL-status niet laden.'),
+    'Kon status niet ophalen.' => __('Kon status niet ophalen.'),
+    'Container wordt herstart. De pagina wacht tot de admin weer online is…' => __('Container wordt herstart. De pagina wacht tot de admin weer online is…'),
+    'De admin is weer online. Log opnieuw in om verder te gaan.' => __('De admin is weer online. Log opnieuw in om verder te gaan.'),
+    'De admin is weer online. Vernieuw de pagina om de status af te ronden.' => __('De admin is weer online. Vernieuw de pagina om de status af te ronden.'),
+    'De admin kwam niet terug na de herstart. Controleer docker compose logs.' => __('De admin kwam niet terug na de herstart. Controleer docker compose logs.'),
+    'Admin antwoordt, status nog niet klaar… (:count)' => __('Admin antwoordt, status nog niet klaar… (:count)'),
+    'Wachten op herstart… (:count)' => __('Wachten op herstart… (:count)'),
+    'Laravel major-update' => __('Laravel major-update'),
+    'Laravel minor-update' => __('Laravel minor-update'),
+    'de volgende major' => __('de volgende major'),
+    'Laravel wordt naar :target gezet. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan de Composer-bestanden terug. Doorgaan?' => __('Laravel wordt naar :target gezet. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan de Composer-bestanden terug. Doorgaan?'),
+    'de nieuwste patch' => __('de nieuwste patch'),
+    'Laravel wordt binnen de huidige major bijgewerkt naar :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Doorgaan?' => __('Laravel wordt binnen de huidige major bijgewerkt naar :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Doorgaan?'),
+    'Upgraden' => __('Upgraden'),
+    'Laravel-upgrade bezig…' => __('Laravel-upgrade bezig…'),
+    'Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…' => __('Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…'),
+    'Docker-stack afronden' => __('Docker-stack afronden'),
+    'Laravel-upgrade is afgerond; de stack is weer online.' => __('Laravel-upgrade is afgerond; de stack is weer online.'),
+    'Klaar.' => __('Klaar.'),
+    'Laravel-upgrade is succesvol verwerkt.' => __('Laravel-upgrade is succesvol verwerkt.'),
+    'Laravel-upgrade mislukt.' => __('Laravel-upgrade mislukt.'),
+    'Security-release :version' => __('Security-release :version'),
+    'PHP in Docker bijwerken' => __('PHP in Docker bijwerken'),
+    'Deze pull installeert security-release :version (:image). Daarna wordt de hele Docker-stack opnieuw opgetuigd. De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?' => __('Deze pull installeert security-release :version (:image). Daarna wordt de hele Docker-stack opnieuw opgetuigd. De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?'),
+    'De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?' => __('De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?'),
+    'PHP-upgrade bezig…' => __('PHP-upgrade bezig…'),
+    'Stabiliteitstests starten' => __('Stabiliteitstests starten'),
+    'onbekend' => __('onbekend'),
+    'Security-release :version is niet actief. De container draait nog PHP :running.' => __('Security-release :version is niet actief. De container draait nog PHP :running.'),
+    'PHP-container is weer online.' => __('PHP-container is weer online.'),
+    'PHP-upgrade mislukt.' => __('PHP-upgrade mislukt.'),
+    'PHP-upgrade is succesvol verwerkt.' => __('PHP-upgrade is succesvol verwerkt.'),
+    'Kon Docker-status niet laden.' => __('Kon Docker-status niet laden.'),
+    'Selecteer :service' => __('Selecteer :service'),
+    'Service' => __('Service'),
+    'Container' => __('Container'),
+    'Image' => __('Image'),
+    'Status' => __('Status'),
+    'Kies een container' => __('Kies een container'),
+    'Geen containers' => __('Geen containers'),
+    'gestopt' => __('gestopt'),
+    'Selecteer minstens één container om te herstarten.' => __('Selecteer minstens één container om te herstarten.'),
+    'Docker-images opnieuw bouwen' => __('Docker-images opnieuw bouwen'),
+    'Docker-containers herstarten' => __('Docker-containers herstarten'),
+    'Container :service' => __('Container :service'),
+    'Containers :services' => __('Containers :services'),
+    'Alle Docker-containers van deze stack' => __('Alle Docker-containers van deze stack'),
+    'Images worden opnieuw gebouwd en de hele stack start daarna opnieuw. De admin is kort even niet bereikbaar. Doorgaan?' => __('Images worden opnieuw gebouwd en de hele stack start daarna opnieuw. De admin is kort even niet bereikbaar. Doorgaan?'),
+    ':scope wordt herstart. De admin is kort even niet bereikbaar. Doorgaan?' => __(':scope wordt herstart. De admin is kort even niet bereikbaar. Doorgaan?'),
+    ':scope worden herstart. De admin is kort even niet bereikbaar. Doorgaan?' => __(':scope worden herstart. De admin is kort even niet bereikbaar. Doorgaan?'),
+    'Docker-stack is opnieuw gebouwd en herstart.' => __('Docker-stack is opnieuw gebouwd en herstart.'),
+    'Docker-containers zijn herstart.' => __('Docker-containers zijn herstart.'),
+    'Docker-container :service is herstart.' => __('Docker-container :service is herstart.'),
+    'Docker-containers :services zijn herstart.' => __('Docker-containers :services zijn herstart.'),
+    'Opnieuw bouwen' => __('Opnieuw bouwen'),
+    'Herstarten' => __('Herstarten'),
+    'Docker-stack opnieuw bouwen…' => __('Docker-stack opnieuw bouwen…'),
+    'Docker-containers herstarten…' => __('Docker-containers herstarten…'),
+    'Verbinding verbroken tijdens herstart — wachten tot de stack weer online is…' => __('Verbinding verbroken tijdens herstart — wachten tot de stack weer online is…'),
+    'Docker-actie mislukt.' => __('Docker-actie mislukt.'),
+    'PostgreSQL major-update' => __('PostgreSQL major-update'),
+    'PostgreSQL minor-update' => __('PostgreSQL minor-update'),
+    'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als :target. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?' => __('Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als :target. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?'),
+    'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image :target opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?' => __('Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image :target opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?'),
+    'PostgreSQL-upgrade bezig…' => __('PostgreSQL-upgrade bezig…'),
+    'PostgreSQL-upgrade mislukt.' => __('PostgreSQL-upgrade mislukt.'),
+    'PostgreSQL-upgrade is succesvol verwerkt.' => __('PostgreSQL-upgrade is succesvol verwerkt.'),
+    'Kies een container en voer een commando in.' => __('Kies een container en voer een commando in.'),
+    'Bezig…' => __('Bezig…'),
+    'Geen uitvoer.' => __('Geen uitvoer.'),
+    'Commando mislukt.' => __('Commando mislukt.'),
+    'Nog geen upgrades uitgevoerd.' => __('Nog geen upgrades uitgevoerd.'),
+    'Geselecteerde regels verwijderen (:count)' => __('Geselecteerde regels verwijderen (:count)'),
+    '1 geselecteerde regel verwijderen' => __('1 geselecteerde regel verwijderen'),
+    ':count geselecteerde regels verwijderen' => __(':count geselecteerde regels verwijderen'),
+    'Deze regel uit de upgradegeschiedenis verwijderen?' => __('Deze regel uit de upgradegeschiedenis verwijderen?'),
+    'Deze :count regels uit de upgradegeschiedenis verwijderen?' => __('Deze :count regels uit de upgradegeschiedenis verwijderen?'),
+    'Verwijderen mislukt.' => __('Verwijderen mislukt.'),
+    'Regels verwijderen' => __('Regels verwijderen'),
+    'Verwijderen' => __('Verwijderen'),
+], JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) !!};
+function upgradeT(key) {
+    return Object.prototype.hasOwnProperty.call(upgradeI18n, key) ? upgradeI18n[key] : key;
+}
+function upgradeFmt(key, vars) {
+    return upgradeT(key).replace(/:([a-z_]+)/g, function (match, name) {
+        return Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : match;
+    });
+}
 function announceUpgradeSuccess(message) {
     if (typeof window.queueAdminHeaderFlash === 'function') {
         window.queueAdminHeaderFlash('success', message);
@@ -959,7 +1072,7 @@ function announceUpgradeSuccess(message) {
         npm: 'NPM / Frontend',
         build: 'Build',
         database: 'Database',
-        quality: 'Kwaliteit',
+        quality: upgradeT('Kwaliteit'),
     };
 
     function csrfToken() {
@@ -1076,14 +1189,14 @@ function announceUpgradeSuccess(message) {
                     (item.default_selected ? ' checked' : '') + '>' +
                     '</label></div>'
                 : '<div class="upgrade-selection-cell"><span class="kt-badge kt-badge-sm upgrade-status-badge ' +
-                    statusBadgeClass(item.status || '') + '" title="' + escapeHtml(item.status || '') + '">' +
-                    escapeHtml(item.status || '—') + '</span></div>';
+                    statusBadgeClass(item.status || '') + '" title="' + escapeHtml(upgradeT(item.status || '')) + '">' +
+                    escapeHtml(upgradeT(item.status || '—')) + '</span></div>';
 
             html += '<tr>' +
-                '<td data-label="Selectie" class="upgrade-selection-col">' + firstCol + '</td>' +
-                '<td data-label="Component">' + escapeHtml(item.label) + '</td>' +
-                '<td data-label="Huidig" class="font-mono text-xs sm:text-sm">' + escapeHtml(item.current) + '</td>' +
-                '<td data-label="Nieuw" class="' + targetClass + '">' + escapeHtml(target) + '</td>' +
+                '<td data-label="' + escapeHtml(upgradeT('Selectie')) + '" class="upgrade-selection-col">' + firstCol + '</td>' +
+                '<td data-label="' + escapeHtml(upgradeT('Component')) + '">' + escapeHtml(item.label) + '</td>' +
+                '<td data-label="' + escapeHtml(upgradeT('Huidig')) + '" class="font-mono text-xs sm:text-sm">' + escapeHtml(item.current) + '</td>' +
+                '<td data-label="' + escapeHtml(upgradeT('Nieuw')) + '" class="' + targetClass + '">' + escapeHtml(target) + '</td>' +
                 '</tr>';
         });
 
@@ -1117,7 +1230,7 @@ function announceUpgradeSuccess(message) {
         }).then(function (response) {
             return response.json().then(function (payload) {
                 if (!response.ok || !payload.success) {
-                    throw new Error(payload.message || 'Kon updates niet ophalen.');
+                    throw new Error(payload.message || upgradeT('Kon updates niet ophalen.'));
                 }
                 return payload.data;
             });
@@ -1128,7 +1241,7 @@ function announceUpgradeSuccess(message) {
             previewLoadingEl.classList.add('hidden');
             previewErrorEl.classList.remove('hidden');
             if (previewErrorTextEl) {
-                previewErrorTextEl.textContent = err.message || 'Kon updates niet ophalen.';
+                previewErrorTextEl.textContent = err.message || upgradeT('Kon updates niet ophalen.');
             }
         }).finally(function () {
             btnPreview.disabled = false;
@@ -1142,7 +1255,7 @@ function announceUpgradeSuccess(message) {
             '<div class="upgrade-progress">' +
             '<p class="font-medium flex items-center gap-2 mb-0">' +
             '<i class="ki-filled ki-arrows-circle animate-spin" aria-hidden="true"></i>' +
-            '<span>Upgrade bezig…</span></p>' +
+            '<span>' + escapeHtml(upgradeT('Upgrade bezig…')) + '</span></p>' +
             '<ul class="upgrade-progress-list" id="upgrade-progress-list" aria-live="polite"></ul>' +
             '</div>';
         return document.getElementById('upgrade-progress-list');
@@ -1179,12 +1292,12 @@ function announceUpgradeSuccess(message) {
 
     function runUpgrade(selections) {
         if (!selections.length) {
-            alert('Selecteer minimaal één item om te upgraden.');
+            alert(upgradeT('Selecteer minimaal één item om te upgraden.'));
             return;
         }
 
         if (!confirmEl || !confirmEl.checked) {
-            alert('Vink de bevestiging aan om de upgrade te starten.');
+            alert(upgradeT('Vink de bevestiging aan om de upgrade te starten.'));
             return;
         }
 
@@ -1209,9 +1322,9 @@ function announceUpgradeSuccess(message) {
         }).then(function (response) {
             if (!response.ok || !response.body) {
                 return response.json().catch(function () {
-                    throw new Error('Upgrade kon niet worden gestart.');
+                    throw new Error(upgradeT('Upgrade kon niet worden gestart.'));
                 }).then(function (payload) {
-                    throw new Error(payload.message || 'Upgrade kon niet worden gestart.');
+                    throw new Error(payload.message || upgradeT('Upgrade kon niet worden gestart.'));
                 });
             }
 
@@ -1231,13 +1344,13 @@ function announceUpgradeSuccess(message) {
                         try {
                             var event = JSON.parse(line);
                             if (event.type === 'step') {
-                                appendStep(list, event.label || 'Stap', event.status || 'done');
+                                appendStep(list, event.label || upgradeT('Stap'), event.status || 'done');
                             } else if (event.type === 'note') {
                                 appendNote(list, event.note);
                             } else if (event.type === 'complete') {
                                 showResult(!!event.success, event.message || '');
                                 if (event.success) {
-                                    announceUpgradeSuccess(event.message || 'Upgrade is succesvol verwerkt.');
+                                    announceUpgradeSuccess(event.message || upgradeT('Upgrade is succesvol verwerkt.'));
                                     setTimeout(function () { window.location.reload(); }, 1200);
                                 }
                             }
@@ -1249,7 +1362,7 @@ function announceUpgradeSuccess(message) {
 
             return pump();
         }).catch(function (err) {
-            showResult(false, err.message || 'Upgrade mislukt.');
+            showResult(false, err.message || upgradeT('Upgrade mislukt.'));
         }).finally(function () {
             btnStart.disabled = false;
             btnPreview.disabled = false;
@@ -1361,7 +1474,7 @@ function announceUpgradeSuccess(message) {
             return window.showAdminConfirm({
                 title: title,
                 message: message,
-                confirmLabel: label || 'Starten',
+                confirmLabel: label || upgradeT('Starten'),
                 destructive: false,
             });
         }
@@ -1459,34 +1572,27 @@ function announceUpgradeSuccess(message) {
 
     function laravelCopyHtml(data) {
         if (data.pending_finalize) {
-            return escapeText(data.message || 'De Docker-stack is herstart. De Laravel-upgrade wordt nu afgerond.');
+            return escapeText(data.message || upgradeT('De Docker-stack is herstart. De Laravel-upgrade wordt nu afgerond.'));
         }
         var current = versionMark(data.current);
         if (data.can_minor && data.minor_target) {
-            return 'Er is een nieuwe minor-versie: Laravel ' + current +
-                ' → ' + versionMark(data.minor_target) +
-                '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).';
+            return upgradeFmt('Er is een nieuwe minor-versie: Laravel :current → :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).', { current: current, target: versionMark(data.minor_target) });
         }
         if (data.can_major && data.major_target) {
-            var html = 'Er is een nieuwe major-versie: Laravel ' + current +
-                ' → ' + versionMark(data.major_target) + '.';
+            var html = upgradeFmt('Er is een nieuwe major-versie: Laravel :current → :target.', { current: current, target: versionMark(data.major_target) });
             var pkgs = Array.isArray(data.incompatible_packages) ? data.incompatible_packages : [];
             if (pkgs.length) {
-                html += ' Incompatibele packages (' +
-                    pkgs.map(escapeText).join(', ') +
-                    ') gaan in dezelfde Composer-update mee als Laravel, eerst als dry-run en zonder Artisan-scripts tijdens het schrijven van vendor.';
+                html += ' ' + upgradeFmt('Incompatibele packages (:packages) gaan in dezelfde Composer-update mee als Laravel, eerst als dry-run en zonder Artisan-scripts tijdens het schrijven van vendor.', { packages: pkgs.map(escapeText).join(', ') });
             } else {
-                html += ' Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).';
+                html += ' ' + upgradeT('Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig).');
             }
-            html += ' Bij falen gaan composer.json en composer.lock terug.';
+            html += ' ' + upgradeT('Bij falen gaan composer.json en composer.lock terug.');
             return html;
         }
         if (data.major_target && data.major_blocked_reason) {
-            return 'Laravel ' + current + ' heeft geen nieuwere minor. Major naar ' +
-                versionMark(data.major_target) + ' is nog niet mogelijk: ' +
-                escapeText(data.major_blocked_reason);
+            return upgradeFmt('Laravel :current heeft geen nieuwere minor. Major naar :target is nog niet mogelijk: :reason', { current: current, target: versionMark(data.major_target), reason: escapeText(data.major_blocked_reason) });
         }
-        return 'Laravel ' + current + ' is actueel. Er is geen nieuwere minor of major.';
+        return upgradeFmt('Laravel :current is actueel. Er is geen nieuwere minor of major.', { current: current });
     }
 
     function applyLaravelStatus(data) {
@@ -1495,22 +1601,22 @@ function announceUpgradeSuccess(message) {
             if (data) {
                 laravelStatusEl.innerHTML = laravelCopyHtml(data);
             } else {
-                laravelStatusEl.textContent = 'Kon Laravel-status niet laden.';
+                laravelStatusEl.textContent = upgradeT('Kon Laravel-status niet laden.');
             }
         }
         if (btnLaravelMinor) {
             var showMinor = !!(data && data.can_minor && data.minor_target);
             btnLaravelMinor.classList.toggle('hidden', !showMinor);
             btnLaravelMinor.innerHTML = showMinor
-                ? laravelIconHtml() + 'Minor-update naar ' + escapeText(data.minor_target)
-                : laravelIconHtml() + 'Minor-update';
+                ? laravelIconHtml() + upgradeFmt('Minor-update naar :target', { target: escapeText(data.minor_target) })
+                : laravelIconHtml() + upgradeT('Minor-update');
         }
         if (btnLaravelMajor) {
             var showMajor = !!(data && data.can_major && data.major_target);
             btnLaravelMajor.classList.toggle('hidden', !showMajor);
             btnLaravelMajor.innerHTML = (data && data.major_target)
-                ? laravelIconHtml() + 'Major-update naar ' + escapeText(data.major_target)
-                : laravelIconHtml() + 'Major-update';
+                ? laravelIconHtml() + upgradeFmt('Major-update naar :target', { target: escapeText(data.major_target) })
+                : laravelIconHtml() + upgradeT('Major-update');
         }
         setBusy(false);
     }
@@ -1519,8 +1625,8 @@ function announceUpgradeSuccess(message) {
         phpStatus = data || null;
         if (phpStatusEl) {
             phpStatusEl.textContent = data && data.message
-                ? ('Draaiend: ' + (data.current_php || '—') + (data.dockerfile_tag ? ' (image php:' + data.dockerfile_tag + ')' : '') + '. ' + data.message)
-                : 'Kon PHP-status niet laden.';
+                ? (upgradeT('Draaiend:') + ' ' + (data.current_php || '—') + (data.dockerfile_tag ? ' (image php:' + data.dockerfile_tag + ')' : '') + '. ' + data.message)
+                : upgradeT('Kon PHP-status niet laden.');
         }
         if (btnPhp && data && data.button_label) {
             btnPhp.innerHTML = phpIconHtml() + escapeText(data.button_label);
@@ -1551,14 +1657,14 @@ function announceUpgradeSuccess(message) {
         postgresStatus = data || null;
         if (postgresStatusEl) {
             postgresStatusEl.innerHTML = data && data.message
-                ? ('Image: ' + versionMark(data.current_tag || '—') + '. ' + escapeText(data.message))
-                : 'Kon PostgreSQL-status niet laden.';
+                ? (upgradeT('Image:') + ' ' + versionMark(data.current_tag || '—') + '. ' + escapeText(data.message))
+                : upgradeT('Kon PostgreSQL-status niet laden.');
         }
         if (btnPostgresMinor) {
-            btnPostgresMinor.innerHTML = pgIconHtml() + escapeText((data && data.minor_label) || 'Minor-update');
+            btnPostgresMinor.innerHTML = pgIconHtml() + escapeText((data && data.minor_label) || upgradeT('Minor-update'));
         }
         if (btnPostgresMajor) {
-            btnPostgresMajor.innerHTML = pgIconHtml() + escapeText((data && data.major_label) || 'Major-update');
+            btnPostgresMajor.innerHTML = pgIconHtml() + escapeText((data && data.major_label) || upgradeT('Major-update'));
         }
         setBusy(false);
     }
@@ -1572,7 +1678,7 @@ function announceUpgradeSuccess(message) {
         }).then(function (response) {
             return response.json().then(function (payload) {
                 if (!response.ok || !payload.success) {
-                    throw new Error(payload.message || 'Kon status niet ophalen.');
+                    throw new Error(payload.message || upgradeT('Kon status niet ophalen.'));
                 }
                 return payload.data;
             });
@@ -1582,9 +1688,9 @@ function announceUpgradeSuccess(message) {
     function consumeNdjson(response, list) {
         if (!response.ok || !response.body) {
             return response.json().catch(function () {
-                throw new Error('Upgrade kon niet worden gestart.');
+                throw new Error(upgradeT('Upgrade kon niet worden gestart.'));
             }).then(function (payload) {
-                throw new Error(payload.message || 'Upgrade kon niet worden gestart.');
+                throw new Error(payload.message || upgradeT('Upgrade kon niet worden gestart.'));
             });
         }
 
@@ -1606,12 +1712,12 @@ function announceUpgradeSuccess(message) {
                     try {
                         var event = JSON.parse(line);
                         if (event.type === 'step') {
-                            appendStep(list, event.label || 'Stap', event.status || 'done');
+                            appendStep(list, event.label || upgradeT('Stap'), event.status || 'done');
                         } else if (event.type === 'note') {
                             appendNote(list, event.note);
                         } else if (event.type === 'reconnect') {
                             sawReconnect = true;
-                            appendNote(list, 'Container wordt herstart. De pagina wacht tot de admin weer online is…');
+                            appendNote(list, upgradeT('Container wordt herstart. De pagina wacht tot de admin weer online is…'));
                         } else if (event.type === 'complete') {
                             complete = event;
                         }
@@ -1652,10 +1758,10 @@ function announceUpgradeSuccess(message) {
 
     function adminCameBackMessage(status, fallback) {
         if (status && status.needs_login) {
-            return 'De admin is weer online. Log opnieuw in om verder te gaan.';
+            return upgradeT('De admin is weer online. Log opnieuw in om verder te gaan.');
         }
         if (status && status.status_unavailable) {
-            return 'De admin is weer online. Vernieuw de pagina om de status af te ronden.';
+            return upgradeT('De admin is weer online. Vernieuw de pagina om de status af te ronden.');
         }
         return fallback;
     }
@@ -1711,7 +1817,7 @@ function announceUpgradeSuccess(message) {
         function tick() {
             attempts += 1;
             if (attempts > 90) {
-                return Promise.reject(new Error('De admin kwam niet terug na de herstart. Controleer docker compose logs.'));
+                return Promise.reject(new Error(upgradeT('De admin kwam niet terug na de herstart. Controleer docker compose logs.')));
             }
             return probeAdminUp().then(function () {
                 return readUpgradeStatus(statusUrl, applyFn).catch(function (err) {
@@ -1720,7 +1826,7 @@ function announceUpgradeSuccess(message) {
                     if (statusFailures >= 5) {
                         return { online: true, status_unavailable: true };
                     }
-                    appendNote(list, 'Admin antwoordt, status nog niet klaar… (' + statusFailures + ')');
+                    appendNote(list, upgradeFmt('Admin antwoordt, status nog niet klaar… (:count)', { count: statusFailures }));
                     return sleep(2000).then(tick);
                 });
             }).catch(function (err) {
@@ -1728,7 +1834,7 @@ function announceUpgradeSuccess(message) {
                     return { online: true, status_unavailable: true };
                 }
                 if (attempts === 1 || attempts % 3 === 0) {
-                    appendNote(list, 'Wachten op herstart… (' + attempts + ')');
+                    appendNote(list, upgradeFmt('Wachten op herstart… (:count)', { count: attempts }));
                 }
                 return sleep(4000).then(tick);
             });
@@ -1740,19 +1846,19 @@ function announceUpgradeSuccess(message) {
         var target = channel === 'major'
             ? (laravelStatus && laravelStatus.major_target)
             : (laravelStatus && laravelStatus.minor_target);
-        var title = channel === 'major' ? 'Laravel major-update' : 'Laravel minor-update';
+        var title = channel === 'major' ? upgradeT('Laravel major-update') : upgradeT('Laravel minor-update');
         var message = channel === 'major'
-            ? 'Laravel wordt naar ' + (target || 'de volgende major') + ' gezet. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan de Composer-bestanden terug. Doorgaan?'
-            : 'Laravel wordt binnen de huidige major bijgewerkt naar ' + (target || 'de nieuwste patch') + '. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Doorgaan?';
+            ? upgradeFmt('Laravel wordt naar :target gezet. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Bij falen gaan de Composer-bestanden terug. Doorgaan?', { target: target || upgradeT('de volgende major') })
+            : upgradeFmt('Laravel wordt binnen de huidige major bijgewerkt naar :target. Daarna volgen migraties, tests en het opnieuw optuigen van de Docker-stack (build indien nodig). Doorgaan?', { target: target || upgradeT('de nieuwste patch') });
 
-        confirmUpgrade(title, message, 'Upgraden').then(function (ok) {
+        confirmUpgrade(title, message, upgradeT('Upgraden')).then(function (ok) {
             if (!ok) return;
             setBusy(true);
             if (laravelResultEl) {
                 laravelResultEl.classList.add('hidden');
                 laravelResultEl.textContent = '';
             }
-            var list = initProgress(laravelProgressEl, 'Laravel-upgrade bezig…');
+            var list = initProgress(laravelProgressEl, upgradeT('Laravel-upgrade bezig…'));
             var start = laravelStatus && laravelStatus.pending_finalize
                 ? postStream(laravelFinalizeUrl, {}, list)
                 : postStream(laravelRunUrl, { channel: channel }, list);
@@ -1761,24 +1867,24 @@ function announceUpgradeSuccess(message) {
                 if (outcome && outcome.complete && !outcome.reconnect) {
                     return outcome;
                 }
-                appendNote(list, 'Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…');
+                appendNote(list, upgradeT('Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…'));
                 return waitForAdmin(laravelStatusUrl, applyLaravelStatus, list).then(function (status) {
                     if (status && status.pending_finalize) {
-                        appendStep(list, 'Docker-stack afronden', 'running');
+                        appendStep(list, upgradeT('Docker-stack afronden'), 'running');
                         return postStream(laravelFinalizeUrl, {}, list);
                     }
-                    return { complete: { success: true, message: adminCameBackMessage(status, 'Laravel-upgrade is afgerond; de stack is weer online.') } };
+                    return { complete: { success: true, message: adminCameBackMessage(status, upgradeT('Laravel-upgrade is afgerond; de stack is weer online.')) } };
                 });
             }).then(function (outcome) {
                 var event = outcome && outcome.complete;
                 var success = !!(event && event.success);
-                showPanelResult(laravelResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'Upgrade mislukt.'));
+                showPanelResult(laravelResultEl, success, (event && event.message) || (success ? upgradeT('Klaar.') : upgradeT('Upgrade mislukt.')));
                 if (success) {
-                    announceUpgradeSuccess((event && event.message) || 'Laravel-upgrade is succesvol verwerkt.');
+                    announceUpgradeSuccess((event && event.message) || upgradeT('Laravel-upgrade is succesvol verwerkt.'));
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
-                showPanelResult(laravelResultEl, false, err.message || 'Laravel-upgrade mislukt.');
+                showPanelResult(laravelResultEl, false, err.message || upgradeT('Laravel-upgrade mislukt.'));
             }).finally(function () {
                 setBusy(false);
                 loadLaravelStatus();
@@ -1812,20 +1918,20 @@ function announceUpgradeSuccess(message) {
         }
         var image = (phpStatus && phpStatus.security_image) || ('php:' + version + '-cli');
         var label = security
-            ? ('Security-release ' + version)
-            : ((phpStatus && phpStatus.button_label) || 'PHP in Docker bijwerken');
+            ? upgradeFmt('Security-release :version', { version: version })
+            : ((phpStatus && phpStatus.button_label) || upgradeT('PHP in Docker bijwerken'));
         var message = security
-            ? ('Deze pull installeert security-release ' + version + ' (' + image + '). Daarna wordt de hele Docker-stack opnieuw opgetuigd. De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?')
-            : 'De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?';
+            ? upgradeFmt('Deze pull installeert security-release :version (:image). Daarna wordt de hele Docker-stack opnieuw opgetuigd. De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?', { version: version, image: image })
+            : upgradeT('De PHP-image in Docker wordt bijgewerkt. Daarna wordt de hele Docker-stack opnieuw opgetuigd (build indien nodig). De admin is kort even niet bereikbaar; daarna volgen tests. Doorgaan?');
 
-        confirmUpgrade(label, message, 'Upgraden').then(function (ok) {
+        confirmUpgrade(label, message, upgradeT('Upgraden')).then(function (ok) {
             if (!ok) return;
             setBusy(true);
             if (phpResultEl) {
                 phpResultEl.classList.add('hidden');
                 phpResultEl.textContent = '';
             }
-            var list = initProgress(phpProgressEl, 'PHP-upgrade bezig…');
+            var list = initProgress(phpProgressEl, upgradeT('PHP-upgrade bezig…'));
             var start = phpStatus && phpStatus.pending_finalize
                 ? postStream(phpFinalizeUrl, {}, list)
                 : postStream(phpRunUrl, {}, list);
@@ -1834,28 +1940,28 @@ function announceUpgradeSuccess(message) {
                 if (outcome && outcome.complete && !outcome.reconnect) {
                     return outcome;
                 }
-                appendNote(list, 'Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…');
+                appendNote(list, upgradeT('Verbinding verbroken tijdens herbouw — wachten tot de stack weer online is…'));
                 return waitForAdmin(phpStatusUrl, applyPhpStatus, list).then(function (status) {
                     if (status && status.pending_finalize) {
-                        appendStep(list, 'Stabiliteitstests starten', 'running');
+                        appendStep(list, upgradeT('Stabiliteitstests starten'), 'running');
                         return postStream(phpFinalizeUrl, {}, list);
                     }
                     if (security && !phpVersionAtLeast(status && status.current_php, version)) {
-                        var running = status && status.current_php ? status.current_php : 'onbekend';
-                        return { complete: { success: false, message: 'Security-release ' + version + ' is niet actief. De container draait nog PHP ' + running + '.' } };
+                        var running = status && status.current_php ? status.current_php : upgradeT('onbekend');
+                        return { complete: { success: false, message: upgradeFmt('Security-release :version is niet actief. De container draait nog PHP :running.', { version: version, running: running }) } };
                     }
-                    return { complete: { success: true, message: adminCameBackMessage(status, 'PHP-container is weer online.') } };
+                    return { complete: { success: true, message: adminCameBackMessage(status, upgradeT('PHP-container is weer online.')) } };
                 });
             }).then(function (outcome) {
                 var event = outcome && outcome.complete;
                 var success = !!(event && event.success);
-                showPanelResult(phpResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PHP-upgrade mislukt.'));
+                showPanelResult(phpResultEl, success, (event && event.message) || (success ? upgradeT('Klaar.') : upgradeT('PHP-upgrade mislukt.')));
                 if (success) {
-                    announceUpgradeSuccess((event && event.message) || 'PHP-upgrade is succesvol verwerkt.');
+                    announceUpgradeSuccess((event && event.message) || upgradeT('PHP-upgrade is succesvol verwerkt.'));
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
-                showPanelResult(phpResultEl, false, err.message || 'PHP-upgrade mislukt.');
+                showPanelResult(phpResultEl, false, err.message || upgradeT('PHP-upgrade mislukt.'));
             }).finally(function () {
                 setBusy(false);
                 loadPhpStatus();
@@ -1865,7 +1971,7 @@ function announceUpgradeSuccess(message) {
 
     function loadLaravelStatus() {
         return fetchJson(laravelStatusUrl).then(applyLaravelStatus).catch(function (err) {
-            if (laravelStatusEl) laravelStatusEl.textContent = err.message || 'Kon Laravel-status niet laden.';
+            if (laravelStatusEl) laravelStatusEl.textContent = err.message || upgradeT('Kon Laravel-status niet laden.');
             if (btnLaravelMinor) btnLaravelMinor.classList.add('hidden');
             if (btnLaravelMajor) btnLaravelMajor.classList.add('hidden');
             laravelStatus = null;
@@ -1875,7 +1981,7 @@ function announceUpgradeSuccess(message) {
 
     function loadPhpStatus() {
         return fetchJson(phpStatusUrl).then(applyPhpStatus).catch(function (err) {
-            if (phpStatusEl) phpStatusEl.textContent = err.message || 'Kon PHP-status niet laden.';
+            if (phpStatusEl) phpStatusEl.textContent = err.message || upgradeT('Kon PHP-status niet laden.');
             phpStatus = null;
             setBusy(false);
         });
@@ -1886,7 +1992,7 @@ function announceUpgradeSuccess(message) {
         if (dockerStatusEl) {
             dockerStatusEl.innerHTML = data
                 ? escapeText(data.message || '')
-                : 'Kon Docker-status niet laden.';
+                : upgradeT('Kon Docker-status niet laden.');
         }
         if (data && data.flash) {
             announceUpgradeSuccess(data.flash);
@@ -1916,12 +2022,12 @@ function announceUpgradeSuccess(message) {
                 '<td class="admin-table__check-col text-center" data-no-row-link data-label="">' +
                 '<label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">' +
                 '<input type="checkbox" class="kt-checkbox docker-container-check" value="' + escapeText(service) + '"' +
-                ' checked aria-label="Selecteer ' + escapeText(service) + '">' +
+                ' checked aria-label="' + escapeText(upgradeFmt('Selecteer :service', { service: service })) + '">' +
                 '</label></td>' +
-                '<td data-label="Service">' + escapeText(service) + '</td>' +
-                '<td data-label="Container" class="font-mono text-xs">' + escapeText(row.name) + '</td>' +
-                '<td data-label="Image" class="font-mono text-xs break-all">' + escapeText(row.image) + '</td>' +
-                '<td data-label="Status">' +
+                '<td data-label="' + escapeText(upgradeT('Service')) + '">' + escapeText(service) + '</td>' +
+                '<td data-label="' + escapeText(upgradeT('Container')) + '" class="font-mono text-xs">' + escapeText(row.name) + '</td>' +
+                '<td data-label="' + escapeText(upgradeT('Image')) + '" class="font-mono text-xs break-all">' + escapeText(row.image) + '</td>' +
+                '<td data-label="' + escapeText(upgradeT('Status')) + '">' +
                 '<span class="kt-badge ' + (running ? 'kt-badge-success' : 'kt-badge-destructive') + '">' +
                 escapeText(row.status || row.state) + '</span></td>';
             dockerRowsEl.appendChild(tr);
@@ -1939,13 +2045,13 @@ function announceUpgradeSuccess(message) {
         dockerExecServiceEl.innerHTML = '';
         var placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = containers.length ? 'Kies een container' : 'Geen containers';
+        placeholder.textContent = containers.length ? upgradeT('Kies een container') : upgradeT('Geen containers');
         dockerExecServiceEl.appendChild(placeholder);
         containers.forEach(function (row) {
             var option = document.createElement('option');
             option.value = String(row.service || '');
             var running = String(row.state || '').toLowerCase() === 'running';
-            option.textContent = (row.service || row.name || '—') + (running ? '' : ' (gestopt)');
+            option.textContent = (row.service || row.name || '—') + (running ? '' : ' (' + upgradeT('gestopt') + ')');
             option.disabled = !running || !option.value;
             dockerExecServiceEl.appendChild(option);
         });
@@ -1985,7 +2091,7 @@ function announceUpgradeSuccess(message) {
 
     function loadDockerStatus() {
         return fetchJson(dockerStatusUrl).then(applyDockerStatus).catch(function (err) {
-            if (dockerStatusEl) dockerStatusEl.textContent = err.message || 'Kon Docker-status niet laden.';
+            if (dockerStatusEl) dockerStatusEl.textContent = err.message || upgradeT('Kon Docker-status niet laden.');
             dockerStatus = null;
             setBusy(false);
         });
@@ -1993,7 +2099,7 @@ function announceUpgradeSuccess(message) {
 
     function loadPostgresStatus() {
         return fetchJson(postgresStatusUrl).then(applyPostgresStatus).catch(function (err) {
-            if (postgresStatusEl) postgresStatusEl.textContent = err.message || 'Kon PostgreSQL-status niet laden.';
+            if (postgresStatusEl) postgresStatusEl.textContent = err.message || upgradeT('Kon PostgreSQL-status niet laden.');
             postgresStatus = null;
             setBusy(false);
         });
@@ -2007,42 +2113,42 @@ function announceUpgradeSuccess(message) {
         checks.forEach(function (el) { if (el.checked) selectedCount++; });
         if (!isRebuild && (checks.length === 0 || selectedCount === 0)) {
             if (typeof window.showAdminHeaderFlash === 'function') {
-                window.showAdminHeaderFlash('warning', 'Selecteer minstens één container om te herstarten.');
+                window.showAdminHeaderFlash('warning', upgradeT('Selecteer minstens één container om te herstarten.'));
             } else {
-                alert('Selecteer minstens één container om te herstarten.');
+                alert(upgradeT('Selecteer minstens één container om te herstarten.'));
             }
             return;
         }
-        var title = isRebuild ? 'Docker-images opnieuw bouwen' : 'Docker-containers herstarten';
+        var title = isRebuild ? upgradeT('Docker-images opnieuw bouwen') : upgradeT('Docker-containers herstarten');
         var restartScope = services.length
-            ? (services.length === 1 ? 'Container ' + services[0] : 'Containers ' + services.join(', '))
-            : 'Alle Docker-containers van deze stack';
+            ? (services.length === 1 ? upgradeFmt('Container :service', { service: services[0] }) : upgradeFmt('Containers :services', { services: services.join(', ') }))
+            : upgradeT('Alle Docker-containers van deze stack');
         var message = isRebuild
-            ? 'Images worden opnieuw gebouwd en de hele stack start daarna opnieuw. De admin is kort even niet bereikbaar. Doorgaan?'
-            : restartScope + ' ' + (services.length === 1 ? 'wordt' : 'worden') + ' herstart. De admin is kort even niet bereikbaar. Doorgaan?';
+            ? upgradeT('Images worden opnieuw gebouwd en de hele stack start daarna opnieuw. De admin is kort even niet bereikbaar. Doorgaan?')
+            : upgradeFmt(services.length === 1 ? ':scope wordt herstart. De admin is kort even niet bereikbaar. Doorgaan?' : ':scope worden herstart. De admin is kort even niet bereikbaar. Doorgaan?', { scope: restartScope });
         var successMessage = isRebuild
-            ? 'Docker-stack is opnieuw gebouwd en herstart.'
+            ? upgradeT('Docker-stack is opnieuw gebouwd en herstart.')
             : (services.length === 0
-                ? 'Docker-containers zijn herstart.'
+                ? upgradeT('Docker-containers zijn herstart.')
                 : (services.length === 1
-                    ? 'Docker-container ' + services[0] + ' is herstart.'
-                    : 'Docker-containers ' + services.join(', ') + ' zijn herstart.'));
+                    ? upgradeFmt('Docker-container :service is herstart.', { service: services[0] })
+                    : upgradeFmt('Docker-containers :services zijn herstart.', { services: services.join(', ') })));
 
-        confirmUpgrade(title, message, isRebuild ? 'Opnieuw bouwen' : 'Herstarten').then(function (ok) {
+        confirmUpgrade(title, message, isRebuild ? upgradeT('Opnieuw bouwen') : upgradeT('Herstarten')).then(function (ok) {
             if (!ok) return;
             setBusy(true);
             if (dockerResultEl) {
                 dockerResultEl.classList.add('hidden');
                 dockerResultEl.textContent = '';
             }
-            var list = initProgress(dockerProgressEl, isRebuild ? 'Docker-stack opnieuw bouwen…' : 'Docker-containers herstarten…');
+            var list = initProgress(dockerProgressEl, isRebuild ? upgradeT('Docker-stack opnieuw bouwen…') : upgradeT('Docker-containers herstarten…'));
             var payload = { action: action };
             if (!isRebuild) payload.services = services;
             postStream(dockerRunUrl, payload, list).then(function (outcome) {
                 if (outcome && outcome.complete && !outcome.reconnect) {
                     return outcome;
                 }
-                appendNote(list, 'Verbinding verbroken tijdens herstart — wachten tot de stack weer online is…');
+                appendNote(list, upgradeT('Verbinding verbroken tijdens herstart — wachten tot de stack weer online is…'));
                 return waitForAdmin(dockerStatusUrl, applyDockerStatus, list).then(function (status) {
                     return {
                         complete: {
@@ -2054,14 +2160,14 @@ function announceUpgradeSuccess(message) {
             }).then(function (outcome) {
                 var event = outcome && outcome.complete;
                 var success = !!(event && event.success);
-                var text = (event && event.message) || (success ? successMessage : 'Docker-actie mislukt.');
+                var text = (event && event.message) || (success ? successMessage : upgradeT('Docker-actie mislukt.'));
                 showPanelResult(dockerResultEl, success, text);
                 if (success) {
                     announceUpgradeSuccess(text);
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
-                showPanelResult(dockerResultEl, false, err.message || 'Docker-actie mislukt.');
+                showPanelResult(dockerResultEl, false, err.message || upgradeT('Docker-actie mislukt.'));
             }).finally(function () {
                 setBusy(false);
                 loadDockerStatus();
@@ -2079,29 +2185,29 @@ function announceUpgradeSuccess(message) {
         var target = channel === 'major'
             ? (postgresStatus && postgresStatus.major_target)
             : (postgresStatus && postgresStatus.minor_target);
-        var title = channel === 'major' ? 'PostgreSQL major-update' : 'PostgreSQL minor-update';
+        var title = channel === 'major' ? upgradeT('PostgreSQL major-update') : upgradeT('PostgreSQL minor-update');
         var message = channel === 'major'
-            ? 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als ' + (target || 'de volgende major') + '. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?'
-            : 'Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image ' + (target || 'pgvector') + ' opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?';
+            ? upgradeFmt('Er wordt eerst een pg_dumpall-backup gemaakt. Daarna start PostgreSQL op een nieuw volume als :target. Bij een fout gaat de oude versie weer aan. De admin kan kort haperen. Doorgaan?', { target: target || upgradeT('de volgende major') })
+            : upgradeFmt('Er wordt eerst een pg_dumpall-backup gemaakt. Daarna wordt image :target opnieuw gepulld. Bij een fout blijft de huidige data staan. Doorgaan?', { target: target || 'pgvector' });
 
-        confirmUpgrade(title, message, 'Upgraden').then(function (ok) {
+        confirmUpgrade(title, message, upgradeT('Upgraden')).then(function (ok) {
             if (!ok) return;
             setBusy(true);
             if (postgresResultEl) {
                 postgresResultEl.classList.add('hidden');
                 postgresResultEl.textContent = '';
             }
-            var list = initProgress(postgresProgressEl, 'PostgreSQL-upgrade bezig…');
+            var list = initProgress(postgresProgressEl, upgradeT('PostgreSQL-upgrade bezig…'));
             postStream(postgresRunUrl, { channel: channel }, list).then(function (outcome) {
                 var event = outcome && outcome.complete;
                 var success = !!(event && event.success);
-                showPanelResult(postgresResultEl, success, (event && event.message) || (success ? 'Klaar.' : 'PostgreSQL-upgrade mislukt.'));
+                showPanelResult(postgresResultEl, success, (event && event.message) || (success ? upgradeT('Klaar.') : upgradeT('PostgreSQL-upgrade mislukt.')));
                 if (success) {
-                    announceUpgradeSuccess((event && event.message) || 'PostgreSQL-upgrade is succesvol verwerkt.');
+                    announceUpgradeSuccess((event && event.message) || upgradeT('PostgreSQL-upgrade is succesvol verwerkt.'));
                     setTimeout(function () { window.location.reload(); }, 1200);
                 }
             }).catch(function (err) {
-                showPanelResult(postgresResultEl, false, err.message || 'PostgreSQL-upgrade mislukt.');
+                showPanelResult(postgresResultEl, false, err.message || upgradeT('PostgreSQL-upgrade mislukt.'));
             }).finally(function () {
                 setBusy(false);
                 loadPostgresStatus();
@@ -2123,12 +2229,12 @@ function announceUpgradeSuccess(message) {
         var command = dockerExecCommandEl ? dockerExecCommandEl.value.trim() : '';
         if (!service || !command) {
             if (typeof window.showAdminHeaderFlash === 'function') {
-                window.showAdminHeaderFlash('warning', 'Kies een container en voer een commando in.');
+                window.showAdminHeaderFlash('warning', upgradeT('Kies een container en voer een commando in.'));
             }
             return;
         }
         setBusy(true);
-        showDockerExecOutput('Bezig…', true);
+        showDockerExecOutput(upgradeT('Bezig…'), true);
         fetch(dockerExecUrl, {
             method: 'POST',
             headers: {
@@ -2145,14 +2251,14 @@ function announceUpgradeSuccess(message) {
         }).then(function (result) {
             var payload = result.payload || {};
             var data = payload.data || {};
-            var output = data.output || payload.message || 'Geen uitvoer.';
+            var output = data.output || payload.message || upgradeT('Geen uitvoer.');
             var header = (data.service || service) + ' · exit ' + (data.exit_code == null ? '?' : data.exit_code) + '\n';
             showDockerExecOutput(header + output, payload.success !== false && result.ok);
             if (payload.success === false && !data.output) {
-                showDockerExecOutput(payload.message || 'Commando mislukt.', false);
+                showDockerExecOutput(payload.message || upgradeT('Commando mislukt.'), false);
             }
         }).catch(function (err) {
-            showDockerExecOutput(err.message || 'Commando mislukt.', false);
+            showDockerExecOutput(err.message || upgradeT('Commando mislukt.'), false);
         }).finally(function () {
             setBusy(false);
         });
@@ -2229,10 +2335,10 @@ function announceUpgradeSuccess(message) {
             if (countEl) {
                 countEl.textContent = String(n);
             }
-            deleteBtn.setAttribute('aria-label', 'Geselecteerde regels verwijderen (' + n + ')');
+            deleteBtn.setAttribute('aria-label', upgradeFmt('Geselecteerde regels verwijderen (:count)', { count: n }));
             deleteBtn.setAttribute('title', n === 1
-                ? '1 geselecteerde regel verwijderen'
-                : n + ' geselecteerde regels verwijderen');
+                ? upgradeT('1 geselecteerde regel verwijderen')
+                : upgradeFmt(':count geselecteerde regels verwijderen', { count: n }));
         }
 
         function syncHistorySelection() {
@@ -2250,7 +2356,7 @@ function announceUpgradeSuccess(message) {
         }
 
         function showEmptyHistory() {
-            tbody.innerHTML = '<tr class="upgrade-history-empty"><td colspan="6" class="text-center text-secondary-foreground py-6">Nog geen upgrades uitgevoerd.</td></tr>';
+            tbody.innerHTML = '<tr class="upgrade-history-empty"><td colspan="6" class="text-center text-secondary-foreground py-6">' + escapeText(upgradeT('Nog geen upgrades uitgevoerd.')) + '</td></tr>';
             if (selectAll) {
                 selectAll.checked = false;
                 selectAll.indeterminate = false;
@@ -2286,8 +2392,8 @@ function announceUpgradeSuccess(message) {
                 return;
             }
             var message = ids.length === 1
-                ? 'Deze regel uit de upgradegeschiedenis verwijderen?'
-                : 'Deze ' + ids.length + ' regels uit de upgradegeschiedenis verwijderen?';
+                ? upgradeT('Deze regel uit de upgradegeschiedenis verwijderen?')
+                : upgradeFmt('Deze :count regels uit de upgradegeschiedenis verwijderen?', { count: ids.length });
             var runDelete = function () {
                 deleteBtn.disabled = true;
                 fetch(url, {
@@ -2305,12 +2411,12 @@ function announceUpgradeSuccess(message) {
                         return response.json().then(function (data) {
                             return { ok: response.ok, data: data };
                         }).catch(function () {
-                            return { ok: false, data: { message: 'Verwijderen mislukt.' } };
+                            return { ok: false, data: { message: upgradeT('Verwijderen mislukt.') } };
                         });
                     })
                     .then(function (result) {
                         if (!result.ok || !(result.data && result.data.success)) {
-                            throw new Error((result.data && result.data.message) || 'Verwijderen mislukt.');
+                            throw new Error((result.data && result.data.message) || upgradeT('Verwijderen mislukt.'));
                         }
                         ids.forEach(function (id) {
                             var row = tbody.querySelector('tr[data-id="' + id + '"]');
@@ -2329,7 +2435,7 @@ function announceUpgradeSuccess(message) {
                     })
                     .catch(function (err) {
                         if (typeof window.showAdminHeaderFlash === 'function') {
-                            window.showAdminHeaderFlash('error', err.message || 'Verwijderen mislukt.');
+                            window.showAdminHeaderFlash('error', err.message || upgradeT('Verwijderen mislukt.'));
                         }
                         syncHistorySelection();
                     });
@@ -2337,9 +2443,9 @@ function announceUpgradeSuccess(message) {
 
             if (typeof window.showAdminConfirm === 'function') {
                 window.showAdminConfirm({
-                    title: 'Regels verwijderen',
+                    title: upgradeT('Regels verwijderen'),
                     message: message,
-                    confirmLabel: 'Verwijderen',
+                    confirmLabel: upgradeT('Verwijderen'),
                     destructive: true,
                 }).then(function (ok) {
                     if (ok) {

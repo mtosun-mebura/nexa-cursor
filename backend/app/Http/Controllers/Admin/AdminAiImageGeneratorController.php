@@ -44,7 +44,7 @@ class AdminAiImageGeneratorController extends Controller
         if ($uploaded !== null && $uploaded->isValid()) {
             $binary = file_get_contents($uploaded->getRealPath());
             if ($binary === false || $binary === '') {
-                return response()->json(['message' => 'Het geüploade plaatje kon niet worden gelezen.'], 422);
+                return response()->json(['message' => __('Het geüploade plaatje kon niet worden gelezen.')], 422);
             }
             $sourceUpload = [
                 'binary' => $binary,
@@ -60,7 +60,7 @@ class AdminAiImageGeneratorController extends Controller
         try {
             $image = $this->service->generate($validated['prompt'], $request->user()?->id, $source, $sourceUpload);
         } catch (RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
+            return response()->json(['message' => __($e->getMessage())], 422);
         }
 
         return response()->json([

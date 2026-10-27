@@ -8,9 +8,9 @@
 <div class="kt-card mb-6 overflow-hidden">
     <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
         <div>
-            <h2 class="kt-card-title mb-0">Stappenplan</h2>
+            <h2 class="kt-card-title mb-0">{{ __('Stappenplan') }}</h2>
             <p class="text-sm text-muted-foreground mt-1 mb-0">
-                Stap {{ $current }} van {{ $total }}
+                {{ __('Stap :current van :total', ['current' => $current, 'total' => $total]) }}
                 @if(isset($steps[$current]))
                     — {{ $steps[$current]['label'] }}
                 @endif
@@ -18,14 +18,14 @@
         </div>
         <p class="text-xs text-muted-foreground mb-0 max-w-md text-end">
             @if(! empty($wizardBrowse))
-                Klik een stap om die onderdelen te bewerken. Configuratiestappen zonder toestemming blijven afgeschermd.
+                {{ __('Klik een stap om die onderdelen te bewerken. Configuratiestappen zonder toestemming blijven afgeschermd.') }}
             @else
-                Volgende stappen openen pas na <strong>Volgende</strong>. Configuraties zonder toestemming blijven afgeschermd.
+                {!! __('Volgende stappen openen pas na :next. Configuraties zonder toestemming blijven afgeschermd.', ['next' => '<strong>'.e(__('Volgende')).'</strong>']) !!}
             @endif
         </p>
     </div>
     <div class="kt-card-content p-5 lg:p-6">
-        <nav aria-label="Tenant onboarding stappen">
+        <nav aria-label="{{ __('Tenant onboarding stappen') }}">
             <ol class="wizard-stepper m-0 p-0 list-none flex w-full">
                 @foreach($steps as $num => $meta)
                     @php
@@ -48,30 +48,30 @@
                             @if($canClick)
                                 <a href="{{ route('admin.companies.wizard.step', [$company, $num]) }}"
                                    class="wizard-stepper-marker {{ $isDone ? 'wizard-stepper-marker--done' : 'wizard-stepper-marker--available' }}"
-                                   title="Ga naar {{ $meta['label'] }}">
+                                   title="{{ __('Ga naar :meta', ['meta' => $meta['label']]) }}">
                                     @if($isDone)
                                         <i class="ki-filled ki-check text-sm"></i>
-                                        <span class="sr-only">{{ $meta['label'] }} (voltooid)</span>
+                                        <span class="sr-only">{{ __(':meta (voltooid)', ['meta' => $meta['label']]) }}</span>
                                     @else
                                         {{ $num }}
                                     @endif
                                 </a>
                             @elseif($isCurrent && $isAccessLocked)
-                                <span class="wizard-stepper-marker wizard-stepper-marker--access-locked" aria-current="step" title="Geen toegang tot deze configuratie">
+                                <span class="wizard-stepper-marker wizard-stepper-marker--access-locked" aria-current="step" title="{{ __('Geen toegang tot deze configuratie') }}">
                                     <i class="ki-filled ki-lock text-sm"></i>
-                                    <span class="sr-only">{{ $meta['label'] }} (geen toegang)</span>
+                                    <span class="sr-only">{{ __(':meta (geen toegang)', ['meta' => $meta['label']]) }}</span>
                                 </span>
                             @elseif($isCurrent)
                                 <span class="wizard-stepper-marker wizard-stepper-marker--current" aria-current="step">
                                     {{ $num }}
                                 </span>
                             @elseif($isAccessLocked)
-                                <span class="wizard-stepper-marker wizard-stepper-marker--access-locked" title="Geen toegang tot deze configuratie">
+                                <span class="wizard-stepper-marker wizard-stepper-marker--access-locked" title="{{ __('Geen toegang tot deze configuratie') }}">
                                     <i class="ki-filled ki-lock text-sm"></i>
-                                    <span class="sr-only">{{ $meta['label'] }} (geen toegang)</span>
+                                    <span class="sr-only">{{ __(':meta (geen toegang)', ['meta' => $meta['label']]) }}</span>
                                 </span>
                             @elseif($isLocked)
-                                <span class="wizard-stepper-marker wizard-stepper-marker--locked" title="Voltooi eerst de vorige stappen">
+                                <span class="wizard-stepper-marker wizard-stepper-marker--locked" title="{{ __('Voltooi eerst de vorige stappen') }}">
                                     {{ $num }}
                                 </span>
                             @else

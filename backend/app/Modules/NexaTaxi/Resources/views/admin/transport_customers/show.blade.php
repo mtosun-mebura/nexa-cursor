@@ -44,12 +44,12 @@
                 <div class="flex gap-1.25 items-center">
                     <x-heroicon-o-building-office-2 class="w-4 h-4 text-muted-foreground" />
                     <span class="font-medium {{ $customer->active ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                        {{ $customer->active ? 'Actief' : 'Inactief' }}
+                        {{ $customer->active ? __('Actief') : __('Inactief') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-notepad text-muted-foreground text-sm"></i>
-                    <span class="text-secondary-foreground font-medium">{{ $customer->organizationTypeLabel() }}</span>
+                    <span class="text-secondary-foreground font-medium">{{ __($customer->organizationTypeLabel()) }}</span>
                 </div>
                 @if($heroCity !== '')
                     <div class="flex gap-1.25 items-center">
@@ -73,14 +73,14 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.taxi.transport_customers.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
             @can('rides.update')
             <a href="{{ route('admin.taxi.transport_customers.edit', $customer->id) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endcan
             @can('rides.create')
@@ -88,7 +88,7 @@
                 <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                 </svg>
-                Nieuw abonnement
+                {{ __('Nieuw abonnement') }}
             </a>
             @endcan
         </div>
@@ -96,16 +96,16 @@
 
     <div class="grid gap-5 lg:gap-7.5">
 
-        <nav class="customer-section-nav grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4 w-full min-w-0" aria-label="Klantonderdelen" data-customer-sections>
+        <nav class="customer-section-nav grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-4 w-full min-w-0" aria-label="{{ __('Klantonderdelen') }}" data-customer-sections>
             <a
                 href="{{ $customerSectionUrl('abonnementen') }}"
                 class="customer-section-tile{{ $customerSection === 'abonnementen' ? ' is-active' : '' }}"
                 data-customer-section="abonnementen"
                 @if($customerSection === 'abonnementen') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Abonnementen</span>
+                <span class="customer-section-tile__label">{{ __('Abonnementen') }}</span>
                 <span class="customer-section-tile__value">{{ $contractCount }}</span>
-                <span class="customer-section-tile__meta">Open een abonnement voor passagiers, groepen en facturen</span>
+                <span class="customer-section-tile__meta">{{ __('Open een abonnement voor passagiers, groepen en facturen') }}</span>
             </a>
             <a
                 href="{{ $customerSectionUrl('portaal') }}"
@@ -113,9 +113,9 @@
                 data-customer-section="portaal"
                 @if($customerSection === 'portaal') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Contractportaal</span>
+                <span class="customer-section-tile__label">{{ __('Contractportaal') }}</span>
                 <span class="customer-section-tile__value">{{ $portalCount }}</span>
-                <span class="customer-section-tile__meta">{{ $portalCount === 1 ? 'gebruiker' : 'gebruikers' }} · toegang tot de contract-app</span>
+                <span class="customer-section-tile__meta">{{ $portalCount === 1 ? __('gebruiker · toegang tot de contract-app') : __('gebruikers · toegang tot de contract-app') }}</span>
             </a>
             <a
                 href="{{ $customerSectionUrl('meldingen') }}"
@@ -123,9 +123,9 @@
                 data-customer-section="meldingen"
                 @if($customerSection === 'meldingen') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Meldingen</span>
+                <span class="customer-section-tile__label">{{ __('Meldingen') }}</span>
                 <span class="customer-section-tile__value">{{ $announcementCount }}</span>
-                <span class="customer-section-tile__meta">Verstoringenbanners in de app</span>
+                <span class="customer-section-tile__meta">{{ __('Verstoringenbanners in de app') }}</span>
             </a>
             <a
                 href="{{ $customerSectionUrl('gegevens') }}"
@@ -133,9 +133,9 @@
                 data-customer-section="gegevens"
                 @if($customerSection === 'gegevens') aria-current="page" @endif
             >
-                <span class="customer-section-tile__label">Klantgegevens</span>
+                <span class="customer-section-tile__label">{{ __('Klantgegevens') }}</span>
                 <span class="customer-section-tile__value">···</span>
-                <span class="customer-section-tile__meta">Contact, adres en notities</span>
+                <span class="customer-section-tile__meta">{{ __('Contact, adres en notities') }}</span>
             </a>
         </nav>
 
@@ -144,9 +144,9 @@
         <div class="kt-card kt-card-grid w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
                 <div class="min-w-0">
-                    <h3 class="kt-card-title mb-0">Abonnementen</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Abonnementen') }}</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
-                        Kies een abonnement om passagiers, groepen, individuele ritten of facturen te beheren.
+                        {{ __('Kies een abonnement om passagiers, groepen, individuele ritten of facturen te beheren.') }}
                     </p>
                 </div>
             </div>
@@ -155,11 +155,11 @@
                     <table id="transport-customer-contracts-table" class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
                         <thead>
                             <tr>
-                                <th data-label="Naam">Naam</th>
-                                <th data-label="Facturatiemodel">Facturatie</th>
-                                <th data-label="Periode">Periode</th>
-                                <th data-label="Status">Status</th>
-                                <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
+                                <th data-label="{{ __('Naam') }}">{{ __('Naam') }}</th>
+                                <th data-label="{{ __('Facturatiemodel') }}">{{ __('Facturatie') }}</th>
+                                <th data-label="{{ __('Periode') }}">{{ __('Periode') }}</th>
+                                <th data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                <th class="transport-customers-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -169,36 +169,36 @@
                                 class="cursor-pointer hover:bg-muted/40"
                                 tabindex="0"
                                 role="link"
-                                aria-label="Bekijk abonnement {{ $contract->name }}"
+                                aria-label="{{ __('Bekijk abonnement :name', ['name' => $contract->name]) }}"
                             >
                                 <td>
                                     <span class="font-medium text-foreground">{{ $contract->name }}</span>
                                 </td>
                                 <td class="text-muted-foreground">
                                     @if($contract->billing_model === 'fixed_monthly')
-                                        Vast maandbedrag
+                                        {{ __('Vast maandbedrag') }}
                                     @elseif($contract->billing_model === 'per_ride')
-                                        Per rit
+                                        {{ __('Per rit') }}
                                     @else
-                                        Hybride
+                                        {{ __('Hybride') }}
                                     @endif
                                 </td>
                                 <td class="text-muted-foreground">
                                     {{ $contract->start_date ? \Carbon\Carbon::parse($contract->start_date)->format('d-m-Y') : '—' }}
                                     &rarr;
-                                    {{ $contract->end_date ? \Carbon\Carbon::parse($contract->end_date)->format('d-m-Y') : 'doorlopend' }}
+                                    {{ $contract->end_date ? \Carbon\Carbon::parse($contract->end_date)->format('d-m-Y') : __('doorlopend') }}
                                 </td>
                                 <td>
                                     @if($contract->status === 'active')
-                                        <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                        <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                     @elseif($contract->status === 'paused')
-                                        <span class="kt-badge kt-badge-warning kt-badge-sm">Gepauzeerd</span>
+                                        <span class="kt-badge kt-badge-warning kt-badge-sm">{{ __('Gepauzeerd') }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">Beëindigd</span>
+                                        <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Beëindigd') }}</span>
                                     @endif
                                 </td>
                                 <td class="transport-customers-table__actions-col" data-no-row-link onclick="event.stopPropagation();">
-                                    <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken" aria-label="Bekijken">
+                                    <a href="{{ route('admin.taxi.transport_customers.contract_show', [$customer->id, $contract->id]) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bekijken') }}" aria-label="{{ __('Bekijken') }}">
                                         <i class="ki-filled ki-eye"></i>
                                     </a>
                                 </td>
@@ -206,7 +206,7 @@
                             @empty
                             <tr>
                                 <td colspan="5" class="text-center text-muted-foreground py-8">
-                                    Nog geen abonnementen. <a href="{{ route('admin.taxi.transport_customers.contract_create', $customer->id) }}" class="text-primary hover:underline">Nieuw abonnement aanmaken</a>.
+                                    {{ __('Nog geen abonnementen.') }} <a href="{{ route('admin.taxi.transport_customers.contract_create', $customer->id) }}" class="text-primary hover:underline">{{ __('Nieuw abonnement aanmaken') }}</a>.
                                 </td>
                             </tr>
                             @endforelse
@@ -225,9 +225,9 @@
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
                 <div class="min-w-0">
-                    <h3 class="kt-card-title mb-0">Contractportaal</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Contractportaal') }}</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
-                        App voor schoolcontact / ouders:
+                        {{ __('App voor schoolcontact / ouders:') }}
                         <a href="{{ url('/taxi/contract') }}" target="_blank" rel="noopener" class="text-primary hover:underline break-all">/taxi/contract</a>
                     </p>
                 </div>
@@ -244,7 +244,7 @@
                     <svg class="w-4 h-4 me-2 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                     </svg>
-                    Gebruiker toevoegen
+                    {{ __('Gebruiker toevoegen') }}
                 </button>
                 @endcan
             </div>
@@ -255,8 +255,8 @@
                             @php
                                 $u = ($portalUserModels ?? collect())->get($portalUser->user_id);
                                 $linkedPassengers = collect($guardianMap ?? [])->get((int) $portalUser->user_id, []);
-                                $portalName = $u ? trim($u->first_name.' '.$u->last_name) : 'Gebruiker #'.$portalUser->user_id;
-                                $portalRoleLabel = ($portalUser->portal_role === 'contractant') ? 'Contractant' : 'Contractouder';
+                                $portalName = $u ? trim($u->first_name.' '.$u->last_name) : __('Gebruiker #:id', ['id' => $portalUser->user_id]);
+                                $portalRoleLabel = ($portalUser->portal_role === 'contractant') ? __('Contractant') : __('Contractouder');
                             @endphp
                             <div class="portal-user-block portal-user-block--collapsed rounded-xl min-w-0" data-portal-user-block>
                                 <button
@@ -271,9 +271,9 @@
                                     </span>
                                     <span class="flex items-center gap-2 shrink-0 pt-0.5">
                                         @if($portalUser->active)
-                                            <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                            <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                         @else
-                                            <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                            <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                         @endif
                                         <span class="portal-user-block-chevron text-muted-foreground" aria-hidden="true">
                                             <i class="ki-filled ki-down text-base"></i>
@@ -287,29 +287,29 @@
                                     @method('PUT')
                                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                                         <tr>
-                                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-normal align-top pt-3">Rol</td>
+                                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Rol') }}</td>
                                             <td class="min-w-0 w-full">
                                                 <select name="portal_role" class="kt-select w-full" required>
-                                                    <option value="contractant" @selected($portalUser->portal_role === 'contractant')>Contractant (alle cliënten)</option>
-                                                    <option value="contractouder" @selected($portalUser->portal_role === 'contractouder')>Contractouder (gekoppelde cliënten)</option>
+                                                    <option value="contractant" @selected($portalUser->portal_role === 'contractant')>{{ __('Contractant (alle cliënten)') }}</option>
+                                                    <option value="contractouder" @selected($portalUser->portal_role === 'contractouder')>{{ __('Contractouder (gekoppelde cliënten)') }}</option>
                                                 </select>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td class="text-secondary-foreground font-normal">Status</td>
+                                            <td class="text-secondary-foreground font-normal">{{ __('Status') }}</td>
                                             <td>
                                                 <input type="hidden" name="active" value="0">
                                                 <label class="kt-label flex items-center gap-2 mb-0">
                                                     <input type="checkbox" name="active" value="1" class="kt-switch kt-switch-sm shrink-0" @checked($portalUser->active)>
-                                                    <span class="text-sm text-muted-foreground">Actief</span>
+                                                    <span class="text-sm text-muted-foreground">{{ __('Actief') }}</span>
                                                 </label>
                                             </td>
                                         </tr>
                                         @if(($passengers ?? collect())->isNotEmpty())
                                         <tr>
-                                            <td class="text-secondary-foreground font-normal align-top pt-3">Cliënten</td>
+                                            <td class="text-secondary-foreground font-normal align-top pt-3">{{ __('Cliënten') }}</td>
                                             <td class="min-w-0">
-                                                <p class="text-xs text-muted-foreground mb-2">Bij Contractouder bepalen deze vinkjes de toegang. Bij Contractant heeft de gebruiker sowieso toegang tot alle cliënten.</p>
+                                                <p class="text-xs text-muted-foreground mb-2">{{ __('Bij Contractouder bepalen deze vinkjes de toegang. Bij Contractant heeft de gebruiker sowieso toegang tot alle cliënten.') }}</p>
                                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     @foreach($passengers as $passenger)
                                                         <label class="kt-label flex items-start gap-2 mb-0 min-w-0">
@@ -330,13 +330,13 @@
                                     </table>
                                     @can('rides.update')
                                     <div class="flex flex-wrap items-center justify-end gap-2 mt-4">
-                                        <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">Opslaan</button>
+                                        <button type="submit" class="kt-btn kt-btn-primary kt-btn-sm">{{ __('Opslaan') }}</button>
                                         <button
                                             type="submit"
                                             form="portal-user-destroy-{{ $portalUser->id }}"
                                             class="kt-btn kt-btn-outline kt-btn-sm"
-                                            onclick="return confirm('Portaalgebruiker ontkoppelen?');"
-                                        >Ontkoppelen</button>
+                                            onclick="return confirm({{ Js::from(__('Portaalgebruiker ontkoppelen?')) }});"
+                                        >{{ __('Ontkoppelen') }}</button>
                                     </div>
                                     @endcan
                                 </form>
@@ -356,7 +356,7 @@
                             </div>
                         @endforeach
                     @else
-                        <p class="text-sm text-muted-foreground mb-0">Nog geen portaalgebruikers gekoppeld.</p>
+                        <p class="text-sm text-muted-foreground mb-0">{{ __('Nog geen portaalgebruikers gekoppeld.') }}</p>
                     @endif
                 </div>
             </div>
@@ -369,14 +369,14 @@
             @unless($openPortalAddForm) hidden @endunless
         >
             <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
-                <h3 class="kt-card-title mb-0">Gebruiker toevoegen</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Gebruiker toevoegen') }}</h3>
                 <button
                     type="button"
                     class="kt-btn kt-btn-outline kt-btn-sm shrink-0"
                     id="portal-user-add-cancel"
                     data-portal-add-close
                 >
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </button>
             </div>
             <div class="kt-card-content p-0 min-w-0">
@@ -400,22 +400,22 @@
                         @endphp
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                             <tr>
-                                <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-normal align-top pt-3">Gebruiker</td>
+                                <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Gebruiker') }}</td>
                                 <td class="min-w-0 w-full">
                                     <div class="flex flex-col sm:flex-row gap-3 sm:gap-5">
                                         <label class="kt-label flex items-center gap-2 mb-0">
                                             <input type="radio" name="user_mode" value="new" class="kt-radio shrink-0" id="portal-mode-new" @checked($manualMode)>
-                                            <span class="text-sm text-foreground">Nieuwe gebruiker</span>
+                                            <span class="text-sm text-foreground">{{ __('Nieuwe gebruiker') }}</span>
                                         </label>
                                         <label class="kt-label flex items-center gap-2 mb-0">
                                             <input type="radio" name="user_mode" value="existing" class="kt-radio shrink-0" id="portal-mode-existing" @checked(! $manualMode)>
-                                            <span class="text-sm text-foreground">Bestaande gebruiker</span>
+                                            <span class="text-sm text-foreground">{{ __('Bestaande gebruiker') }}</span>
                                         </label>
                                     </div>
                                 </td>
                             </tr>
                             <tr class="portal-existing-fields" @if($manualMode) hidden @endif>
-                                <td class="text-secondary-foreground font-normal align-top pt-3">Kies gebruiker <span class="text-danger">*</span></td>
+                                <td class="text-secondary-foreground font-normal align-top pt-3">{{ __('Kies gebruiker') }} <span class="text-danger">*</span></td>
                                 <td class="min-w-0 w-full">
                                     <select
                                         id="portal-existing-user"
@@ -423,18 +423,18 @@
                                         class="kt-select"
                                         data-kt-select="true"
                                         data-kt-select-enable-search="true"
-                                        data-kt-select-placeholder="Selecteer een gebruiker"
-                                        data-kt-select-search-placeholder="Zoek op naam of e-mail…"
+                                        data-kt-select-placeholder="{{ __('Selecteer een gebruiker') }}"
+                                        data-kt-select-search-placeholder="{{ __('Zoek op naam of e-mail…') }}"
                                         data-kt-select-dropdown-strategy="fixed"
-                                        data-kt-select-config='{"placeholder":"Selecteer een gebruiker","searchPlaceholder":"Zoek op naam of e-mail…","height":256,"dropdownStrategy":"fixed","dropdownWidth":"28rem","dropdownZindex":200,"closeOnEnter":true}'
-                                        aria-label="Kies bestaande gebruiker"
+                                        data-kt-select-config="{{ json_encode(['placeholder' => __('Selecteer een gebruiker'), 'searchPlaceholder' => __('Zoek op naam of e-mail…'), 'height' => 256, 'dropdownStrategy' => 'fixed', 'dropdownWidth' => '28rem', 'dropdownZindex' => 200, 'closeOnEnter' => true], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
+                                        aria-label="{{ __('Kies bestaande gebruiker') }}"
                                         @if($manualMode) disabled @endif
                                     >
-                                        <option value="">— Selecteer —</option>
+                                        <option value="">{{ __('— Selecteer —') }}</option>
                                         @foreach(($tenantUsers ?? collect()) as $tenantUser)
                                             @php
                                                 $tenantLabel = trim(($tenantUser->first_name ?? '').' '.($tenantUser->last_name ?? ''));
-                                                $tenantLabel = $tenantLabel !== '' ? $tenantLabel : 'Gebruiker #'.$tenantUser->id;
+                                                $tenantLabel = $tenantLabel !== '' ? $tenantLabel : __('Gebruiker #:id', ['id' => $tenantUser->id]);
                                             @endphp
                                             <option
                                                 value="{{ $tenantUser->id }}"
@@ -450,7 +450,7 @@
                                 </td>
                             </tr>
                             <tr class="portal-manual-fields" @if(! $manualMode) hidden @endif>
-                                <td class="text-secondary-foreground font-normal">Voornaam <span class="text-danger">*</span></td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Voornaam') }} <span class="text-danger">*</span></td>
                                 <td>
                                     <input id="portal-first-name" type="text" name="first_name" class="kt-input w-full" value="{{ old('first_name') }}" maxlength="100" autocomplete="given-name" @if(! $manualMode) disabled @endif>
                                     @error('first_name')
@@ -459,39 +459,39 @@
                                 </td>
                             </tr>
                             <tr class="portal-manual-fields" @if(! $manualMode) hidden @endif>
-                                <td class="text-secondary-foreground font-normal">Achternaam</td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Achternaam') }}</td>
                                 <td>
                                     <input id="portal-last-name" type="text" name="last_name" class="kt-input w-full" value="{{ old('last_name') }}" maxlength="100" autocomplete="family-name" @if(! $manualMode) disabled @endif>
                                 </td>
                             </tr>
                             <tr class="portal-manual-fields" @if(! $manualMode) hidden @endif>
-                                <td class="text-secondary-foreground font-normal">E-mail <span class="text-danger">*</span></td>
+                                <td class="text-secondary-foreground font-normal">{{ __('E-mail') }} <span class="text-danger">*</span></td>
                                 <td>
                                     <input id="portal-email" type="email" name="email" class="kt-input w-full" value="{{ old('email') }}" maxlength="200" autocomplete="email" @if(! $manualMode) disabled @endif>
                                     @error('email')
                                         <p class="text-xs text-danger mt-1.5 mb-0">{{ $message }}</p>
                                     @enderror
-                                    <p class="text-xs text-muted-foreground mt-1.5 mb-0">Er gaat een welkomstmail uit zonder wachtwoord. De gebruiker vraagt in het contractportaal een eenmalige inlogcode aan.</p>
+                                    <p class="text-xs text-muted-foreground mt-1.5 mb-0">{{ __('Er gaat een welkomstmail uit zonder wachtwoord. De gebruiker vraagt in het contractportaal een eenmalige inlogcode aan.') }}</p>
                                 </td>
                             </tr>
                             <tr>
-                                <td class="text-secondary-foreground font-normal">Rol <span class="text-danger">*</span></td>
+                                <td class="text-secondary-foreground font-normal">{{ __('Rol') }} <span class="text-danger">*</span></td>
                                 <td>
                                     <select id="portal-role" name="portal_role" class="kt-select w-full" required>
-                                        <option value="contractant" @selected(old('portal_role') === 'contractant')>Contractant (alle cliënten)</option>
-                                        <option value="contractouder" @selected(old('portal_role', 'contractouder') === 'contractouder')>Contractouder (gekoppelde cliënten)</option>
+                                        <option value="contractant" @selected(old('portal_role') === 'contractant')>{{ __('Contractant (alle cliënten)') }}</option>
+                                        <option value="contractouder" @selected(old('portal_role', 'contractouder') === 'contractouder')>{{ __('Contractouder (gekoppelde cliënten)') }}</option>
                                     </select>
                                 </td>
                             </tr>
                             @if(($passengers ?? collect())->isNotEmpty())
                             <tr id="portal-new-passengers">
-                                <td class="text-secondary-foreground font-normal align-top pt-3">Cliënten</td>
+                                <td class="text-secondary-foreground font-normal align-top pt-3">{{ __('Cliënten') }}</td>
                                 <td class="min-w-0">
-                                    <p class="text-xs text-muted-foreground mb-2">Bij Contractouder bepalen deze vinkjes de toegang. Bij Contractant heeft de gebruiker sowieso toegang tot alle cliënten.</p>
+                                    <p class="text-xs text-muted-foreground mb-2">{{ __('Bij Contractouder bepalen deze vinkjes de toegang. Bij Contractant heeft de gebruiker sowieso toegang tot alle cliënten.') }}</p>
                                     <div class="portal-passenger-picker space-y-2" data-portal-passengers>
                                         <label class="kt-label flex items-center gap-2 mb-3">
-                                            <input type="checkbox" class="kt-checkbox shrink-0 portal-passenger-select-all" aria-label="Selecteer alle cliënten">
-                                            <span class="text-sm font-medium text-foreground">Selecteer allemaal</span>
+                                            <input type="checkbox" class="kt-checkbox shrink-0 portal-passenger-select-all" aria-label="{{ __('Selecteer alle cliënten') }}">
+                                            <span class="text-sm font-medium text-foreground">{{ __('Selecteer allemaal') }}</span>
                                         </label>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             @foreach($passengers as $passenger)
@@ -507,7 +507,7 @@
                             @endif
                         </table>
                         <div class="flex flex-wrap items-center justify-end gap-2 mt-4">
-                            <button type="submit" class="kt-btn kt-btn-primary">Toevoegen / koppelen</button>
+                            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Toevoegen / koppelen') }}</button>
                         </div>
                     </form>
                 </div>
@@ -520,43 +520,43 @@
         <div class="customer-section-panel{{ $customerSection === 'gegevens' ? ' is-active' : '' }}" data-customer-section-panel="gegevens" id="customer-section-gegevens">
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Klantgegevens</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Klantgegevens') }}</h3>
             </div>
             <div class="kt-card-content p-0">
                 <div class="px-3 sm:px-5 pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table customer-detail-table w-full">
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Status</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Status') }}</td>
                             <td class="min-w-0">
                                 @if($customer->active)
-                                    <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                    <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                 @endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Type organisatie</td>
-                            <td class="min-w-0">{{ $customer->organizationTypeLabel() }}</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Type organisatie') }}</td>
+                            <td class="min-w-0">{{ __($customer->organizationTypeLabel()) }}</td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Contactpersoon</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Contactpersoon') }}</td>
                             <td class="min-w-0">{{ $customer->contact_name ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">E-mail</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('E-mail') }}</td>
                             <td class="min-w-0">{{ $customer->contact_email ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Telefoon</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Telefoon') }}</td>
                             <td class="min-w-0">{{ $customer->contact_phone ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Debiteurnummer</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Debiteurnummer') }}</td>
                             <td class="min-w-0">{{ $customer->debtor_number ?: '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Factuuradres</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Factuuradres') }}</td>
                             <td class="min-w-0">
                                 @if($customer->billing_address)
                                     {{ $customer->billing_address }}<br>
@@ -569,7 +569,7 @@
                         </tr>
                         @if($customer->notes)
                         <tr>
-                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">Notities</td>
+                            <td class="min-w-40 sm:min-w-56 text-secondary-foreground font-medium">{{ __('Notities') }}</td>
                             <td class="min-w-0 whitespace-pre-wrap">{{ $customer->notes }}</td>
                         </tr>
                         @endif
@@ -584,9 +584,9 @@
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
                 <div class="min-w-0">
-                    <h3 class="kt-card-title mb-0">Verstoringen &amp; meldingen</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Verstoringen & meldingen') }}</h3>
                     <p class="text-sm text-muted-foreground mt-1.5 mb-0">
-                        Zichtbaar als banner in de contract-app voor deze klant.
+                        {{ __('Zichtbaar als banner in de contract-app voor deze klant.') }}
                     </p>
                 </div>
             </div>
@@ -604,56 +604,56 @@
                                             <div class="font-medium text-foreground">{{ $announcement->title }}</div>
                                             <div class="text-sm text-muted-foreground">
                                                 @if($announcement->is_active)
-                                                    <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                                    <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                                 @else
-                                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Uit</span>
+                                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Uit') }}</span>
                                                 @endif
                                                 <span class="ml-1">{{ strtoupper($announcement->severity) }}</span>
                                             </div>
                                         </div>
-                                        <button type="submit" form="announcement-delete-{{ $announcement->id }}" class="kt-btn kt-btn-sm kt-btn-ghost text-danger" onclick="return confirm('Melding verwijderen?');">Verwijderen</button>
+                                        <button type="submit" form="announcement-delete-{{ $announcement->id }}" class="kt-btn kt-btn-sm kt-btn-ghost text-danger" onclick="return confirm({{ Js::from(__('Melding verwijderen?')) }});">{{ __('Verwijderen') }}</button>
                                     </div>
                                     <div class="grid gap-3 sm:grid-cols-2">
                                         <div>
-                                            <label class="text-sm text-muted-foreground">Titel</label>
+                                            <label class="text-sm text-muted-foreground">{{ __('Titel') }}</label>
                                             <input type="text" name="title" class="kt-input w-full" value="{{ old('title', $announcement->title) }}" required maxlength="200">
                                         </div>
                                         <div>
-                                            <label class="text-sm text-muted-foreground">Ernst</label>
+                                            <label class="text-sm text-muted-foreground">{{ __('Ernst') }}</label>
                                             <select name="severity" class="kt-select w-full" required>
-                                                <option value="info" @selected($announcement->severity === 'info')>Info</option>
-                                                <option value="warning" @selected($announcement->severity === 'warning')>Waarschuwing</option>
-                                                <option value="critical" @selected($announcement->severity === 'critical')>Kritiek</option>
+                                                <option value="info" @selected($announcement->severity === 'info')>{{ __('Info') }}</option>
+                                                <option value="warning" @selected($announcement->severity === 'warning')>{{ __('Waarschuwing') }}</option>
+                                                <option value="critical" @selected($announcement->severity === 'critical')>{{ __('Kritiek') }}</option>
                                             </select>
                                         </div>
                                         <div class="sm:col-span-2">
-                                            <label class="text-sm text-muted-foreground">Tekst</label>
+                                            <label class="text-sm text-muted-foreground">{{ __('Tekst') }}</label>
                                             <textarea name="body" class="kt-textarea w-full" rows="2" maxlength="2000">{{ old('body', $announcement->body) }}</textarea>
                                         </div>
                                         <div>
-                                            <label class="text-sm text-muted-foreground">Start</label>
+                                            <label class="text-sm text-muted-foreground">{{ __('Start') }}</label>
                                             @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
                                                 'name' => 'starts_at',
                                                 'value' => old('starts_at', $announcement->starts_at),
-                                                'placeholder' => 'Selecteer datum en tijd',
+                                                'placeholder' => __('Selecteer datum en tijd'),
                                             ])
                                         </div>
                                         <div>
-                                            <label class="text-sm text-muted-foreground">Einde</label>
+                                            <label class="text-sm text-muted-foreground">{{ __('Einde') }}</label>
                                             @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
                                                 'name' => 'ends_at',
                                                 'value' => old('ends_at', $announcement->ends_at),
-                                                'placeholder' => 'Selecteer datum en tijd',
+                                                'placeholder' => __('Selecteer datum en tijd'),
                                             ])
                                         </div>
                                     </div>
                                     <label class="inline-flex items-center gap-2 text-sm">
                                         <input type="hidden" name="is_active" value="0">
                                         <input type="checkbox" name="is_active" value="1" class="kt-checkbox" @checked($announcement->is_active)>
-                                        Actief
+                                        {{ __('Actief') }}
                                     </label>
                                     <div>
-                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Opslaan</button>
+                                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">{{ __('Opslaan') }}</button>
                                     </div>
                                 </form>
                                 <form id="announcement-delete-{{ $announcement->id }}" method="POST" action="{{ route('admin.taxi.transport_customers.announcements.destroy', [$customer->id, $announcement->id]) }}" class="hidden">
@@ -666,56 +666,56 @@
                     </div>
                 @else
                     <div class="px-3 sm:px-5 py-4">
-                        <p class="text-sm text-muted-foreground mb-0">Nog geen verstoringen of meldingen.</p>
+                        <p class="text-sm text-muted-foreground mb-0">{{ __('Nog geen verstoringen of meldingen.') }}</p>
                     </div>
                 @endif
 
                 <div class="px-3 sm:px-5 py-4 border-t border-border min-w-0">
-                    <h4 class="font-medium text-foreground mb-3">Nieuwe melding</h4>
+                    <h4 class="font-medium text-foreground mb-3">{{ __('Nieuwe melding') }}</h4>
                     <form method="POST" action="{{ route('admin.taxi.transport_customers.announcements.store', $customer->id) }}" class="space-y-3">
                         @csrf
                         <input type="hidden" name="section" value="meldingen">
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div>
-                                <label class="text-sm text-muted-foreground">Titel</label>
+                                <label class="text-sm text-muted-foreground">{{ __('Titel') }}</label>
                                 <input type="text" name="title" class="kt-input w-full" required maxlength="200" value="{{ old('title') }}">
                             </div>
                             <div>
-                                <label class="text-sm text-muted-foreground">Ernst</label>
+                                <label class="text-sm text-muted-foreground">{{ __('Ernst') }}</label>
                                 <select name="severity" class="kt-select w-full" required>
-                                    <option value="info" @selected(old('severity', 'warning') === 'info')>Info</option>
-                                    <option value="warning" @selected(old('severity', 'warning') === 'warning')>Waarschuwing</option>
-                                    <option value="critical" @selected(old('severity') === 'critical')>Kritiek</option>
+                                    <option value="info" @selected(old('severity', 'warning') === 'info')>{{ __('Info') }}</option>
+                                    <option value="warning" @selected(old('severity', 'warning') === 'warning')>{{ __('Waarschuwing') }}</option>
+                                    <option value="critical" @selected(old('severity') === 'critical')>{{ __('Kritiek') }}</option>
                                 </select>
                             </div>
                             <div class="sm:col-span-2">
-                                <label class="text-sm text-muted-foreground">Tekst</label>
-                                <textarea name="body" class="kt-textarea w-full" rows="2" maxlength="2000" placeholder="Bijv. vertraging door wegwerkzaamheden…">{{ old('body') }}</textarea>
+                                <label class="text-sm text-muted-foreground">{{ __('Tekst') }}</label>
+                                <textarea name="body" class="kt-textarea w-full" rows="2" maxlength="2000" placeholder="{{ __('Bijv. vertraging door wegwerkzaamheden…') }}">{{ old('body') }}</textarea>
                             </div>
                             <div>
-                                <label class="text-sm text-muted-foreground">Start (optioneel)</label>
+                                <label class="text-sm text-muted-foreground">{{ __('Start (optioneel)') }}</label>
                                 @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
                                     'name' => 'starts_at',
                                     'value' => old('starts_at'),
-                                    'placeholder' => 'Selecteer datum en tijd',
+                                    'placeholder' => __('Selecteer datum en tijd'),
                                 ])
                             </div>
                             <div>
-                                <label class="text-sm text-muted-foreground">Einde (optioneel)</label>
+                                <label class="text-sm text-muted-foreground">{{ __('Einde (optioneel)') }}</label>
                                 @include('taxi::admin.transport_customers.partials.datetime-picker-input', [
                                     'name' => 'ends_at',
                                     'value' => old('ends_at'),
-                                    'placeholder' => 'Selecteer datum en tijd',
+                                    'placeholder' => __('Selecteer datum en tijd'),
                                 ])
                             </div>
                         </div>
                         <label class="inline-flex items-center gap-2 text-sm">
                             <input type="hidden" name="is_active" value="0">
                             <input type="checkbox" name="is_active" value="1" class="kt-checkbox" @checked(old('is_active', true))>
-                            Direct actief
+                            {{ __('Direct actief') }}
                         </label>
                         <div>
-                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Plaatsen</button>
+                            <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">{{ __('Plaatsen') }}</button>
                         </div>
                     </form>
                 </div>
@@ -1243,14 +1243,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (isExisting) {
                 if (!existingSelect || !existingSelect.value) {
-                    messages.push('Kies een bestaande gebruiker.');
+                    messages.push(@json(__('Kies een bestaande gebruiker.')));
                 }
             } else {
                 if (!firstNameInput || !String(firstNameInput.value || '').trim()) {
-                    messages.push('Voornaam is verplicht.');
+                    messages.push(@json(__('Voornaam is verplicht.')));
                 }
                 if (!emailInput || !String(emailInput.value || '').trim()) {
-                    messages.push('E-mailadres is verplicht.');
+                    messages.push(@json(__('E-mailadres is verplicht.')));
                 }
             }
 

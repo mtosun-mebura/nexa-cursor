@@ -1,15 +1,15 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Planning uitzonderingen')
+@section('title', __('Planning uitzonderingen'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div>
-            <h1 class="text-xl font-medium leading-none text-mono">Feestdagen &amp; uitzonderingen</h1>
-            <p class="text-sm text-muted-foreground pt-2">Dagen waarop geen groepsritten worden gegenereerd.</p>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Feestdagen & uitzonderingen') }}</h1>
+            <p class="text-sm text-muted-foreground pt-2">{{ __('Dagen waarop geen groepsritten worden gegenereerd.') }}</p>
         </div>
-        <a href="{{ route('admin.taxi.transport_planning.index') }}" class="kt-btn kt-btn-outline shrink-0">Naar planning</a>
+        <a href="{{ route('admin.taxi.transport_planning.index') }}" class="kt-btn kt-btn-outline shrink-0">{{ __('Naar planning') }}</a>
     </div>
 
     @if($errors->any())
@@ -25,13 +25,13 @@
     @can('rides.create')
     <div class="kt-card mb-5">
         <div class="kt-card-header">
-            <h3 class="kt-card-title mb-0">Nieuwe uitzonderingsdag</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Nieuwe uitzonderingsdag') }}</h3>
         </div>
         <div class="kt-card-content p-4">
             <form method="POST" action="{{ route('admin.taxi.transport_schedule_exceptions.store') }}" class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-3 w-full min-w-0">
                 @csrf
                 <div class="w-full min-w-0 sm:w-fit shrink-0">
-                    <label class="text-sm text-secondary-foreground block mb-1">Datum</label>
+                    <label class="text-sm text-secondary-foreground block mb-1">{{ __('Datum') }}</label>
                     @include('taxi::admin.transport_customers.partials.date-picker-input', [
                         'name' => 'exception_date',
                         'value' => old('exception_date'),
@@ -40,19 +40,19 @@
                     ])
                 </div>
                 <div class="w-full min-w-0 max-w-lg">
-                    <label class="text-sm text-secondary-foreground block mb-1">Omschrijving</label>
-                    <input type="text" name="name" value="{{ old('name') }}" class="kt-input w-full min-w-0 max-w-full" maxlength="200" placeholder="Bijv. Hemelvaartsdag" required>
+                    <label class="text-sm text-secondary-foreground block mb-1">{{ __('Omschrijving') }}</label>
+                    <input type="text" name="name" value="{{ old('name') }}" class="kt-input w-full min-w-0 max-w-full" maxlength="200" placeholder="{{ __('Bijv. Hemelvaartsdag') }}" required>
                 </div>
                 <div class="w-full min-w-0 sm:w-fit sm:min-w-[10rem]">
-                    <label class="text-sm text-secondary-foreground block mb-1">Scope</label>
+                    <label class="text-sm text-secondary-foreground block mb-1">{{ __('Scope') }}</label>
                     <select name="transport_contract_id" class="kt-select w-full min-w-0">
-                        <option value="">Hele bedrijf</option>
+                        <option value="">{{ __('Hele bedrijf') }}</option>
                         @foreach($contracts as $contract)
                             <option value="{{ $contract->id }}" @selected(old('transport_contract_id') == $contract->id)>{{ $contract->name }}</option>
                         @endforeach
                     </select>
                 </div>
-                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary w-full sm:w-auto shrink-0">Toevoegen</button>
+                <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary w-full sm:w-auto shrink-0">{{ __('Toevoegen') }}</button>
             </form>
         </div>
     </div>
@@ -60,22 +60,22 @@
 
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header">
-            <h3 class="kt-card-title mb-0">Overzicht</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Overzicht') }}</h3>
         </div>
         <div class="kt-card-content p-0 min-w-0">
             @if($exceptions->isEmpty())
-                <p class="p-5 text-sm text-muted-foreground mb-0">Geen uitzonderingsdagen ingesteld.</p>
+                <p class="p-5 text-sm text-muted-foreground mb-0">{{ __('Geen uitzonderingsdagen ingesteld.') }}</p>
             @else
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap transport-schedule-exceptions-table-wrap">
                 <table id="transport-schedule-exceptions-table" class="kt-table kt-table-border align-middle text-sm w-full min-w-0">
                     <thead>
                         <tr>
-                            <th>Datum</th>
-                            <th>Omschrijving</th>
-                            <th>Scope</th>
-                            <th>Status</th>
+                            <th>{{ __('Datum') }}</th>
+                            <th>{{ __('Omschrijving') }}</th>
+                            <th>{{ __('Scope') }}</th>
+                            <th>{{ __('Status') }}</th>
                             @can('rides.delete')
-                            <th class="transport-schedule-exceptions-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties"></th>
+                            <th class="transport-schedule-exceptions-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}"></th>
                             @endcan
                         </tr>
                     </thead>
@@ -84,20 +84,20 @@
                         <tr>
                             <td class="whitespace-nowrap">{{ $exception->exception_date?->format('d-m-Y') }}</td>
                             <td>{{ $exception->name }}</td>
-                            <td class="text-muted-foreground">{{ $exception->contract?->name ?? 'Hele bedrijf' }}</td>
+                            <td class="text-muted-foreground">{{ $exception->contract?->name ?? __('Hele bedrijf') }}</td>
                             <td>
                                 @if($exception->active)
-                                    <span class="kt-badge kt-badge-success kt-badge-sm">Actief</span>
+                                    <span class="kt-badge kt-badge-success kt-badge-sm">{{ __('Actief') }}</span>
                                 @else
-                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">Inactief</span>
+                                    <span class="kt-badge kt-badge-secondary kt-badge-sm">{{ __('Inactief') }}</span>
                                 @endif
                             </td>
                             @can('rides.delete')
                             <td class="transport-schedule-exceptions-table__actions-col">
                                 <button type="button"
                                         class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost text-destructive"
-                                        title="Verwijderen"
-                                        aria-label="Verwijderen"
+                                        title="{{ __('Verwijderen') }}"
+                                        aria-label="{{ __('Verwijderen') }}"
                                         data-schedule-exception-delete
                                         data-action="{{ route('admin.taxi.transport_schedule_exceptions.destroy', $exception->id) }}"
                                         data-label="{{ $exception->name }} ({{ $exception->exception_date?->format('d-m-Y') }})">
@@ -135,18 +135,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('[data-schedule-exception-delete]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var label = btn.getAttribute('data-label') || 'deze uitzonderingsdag';
+            var label = btn.getAttribute('data-label') || @json(__('deze uitzonderingsdag'));
             var action = btn.getAttribute('data-action') || '';
-            var message = 'Weet je zeker dat je ' + label + ' wilt verwijderen?';
+            var message = @json(__('Weet je zeker dat je :label wilt verwijderen?')).replace(':label', label);
             var runDelete = function () {
                 form.action = action;
                 form.submit();
             };
             if (typeof window.showAdminConfirm === 'function') {
                 window.showAdminConfirm({
-                    title: 'Uitzonderingsdag verwijderen',
+                    title: @json(__('Uitzonderingsdag verwijderen')),
                     message: message,
-                    confirmLabel: 'Verwijderen'
+                    confirmLabel: @json(__('Verwijderen'))
                 }).then(function (ok) {
                     if (ok) {
                         runDelete();

@@ -22,7 +22,7 @@ class AdminIncidentController extends Controller
     public function index()
     {
         $user = auth()->user();
-        abort_unless($this->canAccessIncidents($user), 403, 'Je hebt geen toegang tot incidenten.');
+        abort_unless($this->canAccessIncidents($user), 403, __('Je hebt geen toegang tot incidenten.'));
 
         return view('admin.incidents.index', [
             'bootstrap' => $this->bootstrapPayload($user),
@@ -138,7 +138,7 @@ class AdminIncidentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = auth()->user();
-        abort_unless($this->canCreateIncident($user), 403, 'Je hebt geen toegang om een incident in te dienen.');
+        abort_unless($this->canCreateIncident($user), 403, __('Je hebt geen toegang om een incident in te dienen.'));
 
         $validated = $request->validate([
             'kind' => ['required', Rule::in(IncidentCatalog::kinds())],
@@ -155,7 +155,7 @@ class AdminIncidentController extends Controller
             ? ($validated['company_id'] ?? null)
             : $user->company_id;
 
-        abort_unless($user->isSuperAdmin() || (int) $companyId > 0, 403, 'Dit account is niet aan een bedrijf gekoppeld.');
+        abort_unless($user->isSuperAdmin() || (int) $companyId > 0, 403, __('Dit account is niet aan een bedrijf gekoppeld.'));
 
         $incident = new Incident([
             'company_id' => $companyId,
@@ -180,7 +180,7 @@ class AdminIncidentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Je incident is verstuurd. We nemen het zo snel mogelijk op.',
+            'message' => __('Je incident is verstuurd. We nemen het zo snel mogelijk op.'),
             'incident' => $this->serializeIncident($incident->fresh(['company', 'reporter']), true),
         ], 201);
     }
@@ -203,7 +203,7 @@ class AdminIncidentController extends Controller
         }
 
         $incidents = $query->get();
-        abort_unless($incidents->count() === count($ids), 403, 'Je kunt niet alle geselecteerde incidenten wijzigen.');
+        abort_unless($incidents->count() === count($ids), 403, __('Je kunt niet alle geselecteerde incidenten wijzigen.'));
 
         $archivedAt = $validated['archived'] ? now() : null;
         foreach ($incidents as $incident) {
@@ -220,7 +220,7 @@ class AdminIncidentController extends Controller
     public function update(Request $request, Incident $incident): JsonResponse
     {
         $user = auth()->user();
-        abort_unless($user->isSuperAdmin(), 403, 'Alleen een super-admin kan incidenten afhandelen.');
+        abort_unless($user->isSuperAdmin(), 403, __('Alleen een super-admin kan incidenten afhandelen.'));
 
         $validated = $request->validate([
             'status' => ['sometimes', Rule::in(IncidentCatalog::statuses())],
@@ -229,7 +229,7 @@ class AdminIncidentController extends Controller
 
         if (! array_key_exists('status', $validated) && ! array_key_exists('resolution_note', $validated)) {
             throw ValidationException::withMessages([
-                'status' => 'Geen wijziging ontvangen.',
+                'status' => __('Geen wijziging ontvangen.'),
             ]);
         }
 
@@ -269,8 +269,8 @@ class AdminIncidentController extends Controller
         return response()->json([
             'success' => true,
             'message' => array_key_exists('status', $validated) && $incident->isHandled() && ! $wasHandled
-                ? 'Incident afgehandeld. De klant is op de hoogte gebracht.'
-                : 'Opgeslagen.',
+                ? __('Incident afgehandeld. De klant is op de hoogte gebracht.')
+                : __('Opgeslagen.'),
             'patch' => $patch,
         ]);
     }
@@ -278,7 +278,7 @@ class AdminIncidentController extends Controller
     public function storeComment(Request $request, Incident $incident): JsonResponse
     {
         $user = auth()->user();
-        abort_unless($user->isSuperAdmin(), 403, 'Alleen een super-admin kan intern commentaar plaatsen.');
+        abort_unless($user->isSuperAdmin(), 403, __('Alleen een super-admin kan intern commentaar plaatsen.'));
         $this->assertCanView($incident);
 
         $validated = $request->validate([
@@ -300,7 +300,7 @@ class AdminIncidentController extends Controller
     public function destroyComment(Incident $incident, IncidentComment $comment): JsonResponse
     {
         $user = auth()->user();
-        abort_unless($user->isSuperAdmin(), 403, 'Alleen een super-admin kan intern commentaar verwijderen.');
+        abort_unless($user->isSuperAdmin(), 403, __('Alleen een super-admin kan intern commentaar verwijderen.'));
         $this->assertCanView($incident);
         abort_unless((int) $comment->incident_id === (int) $incident->id, 404);
 
@@ -344,7 +344,7 @@ class AdminIncidentController extends Controller
      */
     private function bootstrapPayload($user): array
     {
-        return [
+        $payload = [
             'is_super_admin' => $user->isSuperAdmin(),
             'can_create' => $this->canCreateIncident($user),
             'user_name' => trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: $user->email,
@@ -358,9 +358,10 @@ class AdminIncidentController extends Controller
                 'update' => url('/admin/incidents'),
                 'comments' => url('/admin/incidents'),
             ],
-            'kinds' => IncidentCatalog::kindOptions(),
-            'statuses' => IncidentCatalog::statusOptions(),
-            'priorities' => IncidentCatalog::priorityOptions(),
+            'locale' => app()->getLocale(),
+            'kinds' => $this->translateOptions(IncidentCatalog::kindOptions()),
+            'statuses' => $this->translateOptions(IncidentCatalog::statusOptions()),
+            'priorities' => $this->translateOptions(IncidentCatalog::priorityOptions()),
             'companies' => $user->isSuperAdmin()
                 ? Company::query()->orderBy('name')->get(['id', 'name'])->map(fn (Company $company) => [
                     'id' => $company->id,
@@ -368,6 +369,32 @@ class AdminIncidentController extends Controller
                 ])->values()->all()
                 : [],
         ];
+
+        if (app()->getLocale() !== 'nl') {
+            $keys = IncidentCatalog::uiStrings();
+            $payload['translations'] = array_combine($keys, array_map(fn (string $key) => __($key), $keys));
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Catalogus blijft Nederlands (ook gebruikt in mails); alleen de getoonde labels/hints vertalen.
+     *
+     * @param  list<array<string, string>>  $options
+     * @return list<array<string, string>>
+     */
+    private function translateOptions(array $options): array
+    {
+        return array_map(function (array $option) {
+            foreach (['label', 'hint'] as $field) {
+                if (isset($option[$field])) {
+                    $option[$field] = __($option[$field]);
+                }
+            }
+
+            return $option;
+        }, $options);
     }
 
     /**
@@ -429,7 +456,7 @@ class AdminIncidentController extends Controller
 
         if (filter_var($url, FILTER_VALIDATE_URL) === false) {
             throw ValidationException::withMessages([
-                'page_url' => 'Vul een geldige URL in, of laat het veld leeg.',
+                'page_url' => __('Vul een geldige URL in, of laat het veld leeg.'),
             ]);
         }
 
@@ -464,12 +491,12 @@ class AdminIncidentController extends Controller
             'id' => $incident->id,
             'reference' => $incident->reference,
             'kind' => $incident->kind,
-            'kind_label' => IncidentCatalog::kindLabel((string) $incident->kind),
+            'kind_label' => __(IncidentCatalog::kindLabel((string) $incident->kind)),
             'title' => $incident->title,
             'priority' => $incident->priority,
-            'priority_label' => IncidentCatalog::priorityLabel((string) $incident->priority),
+            'priority_label' => __(IncidentCatalog::priorityLabel((string) $incident->priority)),
             'status' => $incident->status,
-            'status_label' => IncidentCatalog::statusLabel((string) $incident->status),
+            'status_label' => __(IncidentCatalog::statusLabel((string) $incident->status)),
             'is_handled' => $incident->isHandled(),
             'company' => $incident->company ? [
                 'id' => $incident->company->id,
@@ -516,7 +543,7 @@ class AdminIncidentController extends Controller
     {
         return [
             'status' => $incident->status,
-            'status_label' => IncidentCatalog::statusLabel((string) $incident->status),
+            'status_label' => __(IncidentCatalog::statusLabel((string) $incident->status)),
             'is_handled' => $incident->isHandled(),
             'resolved_at' => $incident->resolved_at?->toIso8601String(),
             'resolved_at_formatted' => $incident->resolved_at?->format('d-m-Y H:i'),

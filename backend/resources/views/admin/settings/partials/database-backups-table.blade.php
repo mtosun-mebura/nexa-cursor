@@ -16,28 +16,28 @@
                         <input type="checkbox"
                                class="kt-checkbox"
                                id="database-backups-select-all"
-                               title="Alle backups selecteren"
-                               aria-label="Alle backups selecteren"
+                               title="{{ __('Alle backups selecteren') }}"
+                               aria-label="{{ __('Alle backups selecteren') }}"
                                @disabled(count($databaseBackups ?? []) === 0)>
                     </label>
                 </th>
-                <th data-label="Bestand">Bestand</th>
-                <th data-label="Database">Database</th>
-                <th data-label="Grootte">Grootte</th>
-                <th data-label="Status">Status</th>
-                <th data-label="Datum">Datum</th>
-                <th class="text-center admin-table__actions-col" data-label="Acties">Acties</th>
+                <th data-label="{{ __('Bestand') }}">{{ __('Bestand') }}</th>
+                <th data-label="{{ __('Database') }}">{{ __('Database') }}</th>
+                <th data-label="{{ __('Grootte') }}">{{ __('Grootte') }}</th>
+                <th data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                <th data-label="{{ __('Datum') }}">{{ __('Datum') }}</th>
+                <th class="text-center admin-table__actions-col" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
             </tr>
         </thead>
         <tbody>
             @forelse($databaseBackups ?? [] as $backup)
                 @php
                     $isPending = $backup->status === \App\Models\DatabaseBackup::STATUS_PENDING;
-                    $triggerLabel = $backup->trigger === 'scheduled' ? 'gepland' : 'handmatig';
+                    $triggerLabel = $backup->trigger === 'scheduled' ? __('gepland') : __('handmatig');
                     $statusLabel = match ($backup->status) {
-                        \App\Models\DatabaseBackup::STATUS_COMPLETED => 'Gereed',
-                        \App\Models\DatabaseBackup::STATUS_FAILED => 'Mislukt',
-                        \App\Models\DatabaseBackup::STATUS_PENDING => 'Bezig',
+                        \App\Models\DatabaseBackup::STATUS_COMPLETED => __('Gereed'),
+                        \App\Models\DatabaseBackup::STATUS_FAILED => __('Mislukt'),
+                        \App\Models\DatabaseBackup::STATUS_PENDING => __('Bezig'),
                         default => (string) $backup->status,
                     };
                     $createdAt = $backup->localCreatedAt();
@@ -62,32 +62,32 @@
                                    class="kt-checkbox database-backup-checkbox"
                                    name="backup_ids[]"
                                    value="{{ $backup->id }}"
-                                   aria-label="Selecteer {{ $backup->filename }}"
+                                   aria-label="{{ __('Selecteer :file', ['file' => $backup->filename]) }}"
                                    @disabled($isPending)
-                                   @if($isPending) title="Backup is nog bezig" @endif>
+                                   @if($isPending) title="{{ __('Backup is nog bezig') }}" @endif>
                         </label>
                     </td>
-                    <td class="database-backups-col-file font-mono text-xs min-w-0" data-label="Bestand" title="{{ $backup->filename }}">{{ $backup->filename }}</td>
-                    <td class="database-backups-col-db min-w-0" data-label="Database" title="{{ $backup->database_name }}">{{ $backup->database_name }}</td>
-                    <td class="database-backups-col-size tabular-nums" data-label="Grootte">
+                    <td class="database-backups-col-file font-mono text-xs min-w-0" data-label="{{ __('Bestand') }}" title="{{ $backup->filename }}">{{ $backup->filename }}</td>
+                    <td class="database-backups-col-db min-w-0" data-label="{{ __('Database') }}" title="{{ $backup->database_name }}">{{ $backup->database_name }}</td>
+                    <td class="database-backups-col-size tabular-nums" data-label="{{ __('Grootte') }}">
                         <div>{{ $backup->humanSize() }}</div>
                         <div class="text-xs text-muted-foreground">({{ $backup->humanSizeMegabytes() }})</div>
                     </td>
-                    <td class="database-backups-col-status" data-label="Status">
+                    <td class="database-backups-col-status" data-label="{{ __('Status') }}">
                         <div class="database-backups-status">
                             @if($backup->status === \App\Models\DatabaseBackup::STATUS_COMPLETED)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Gereed</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Gereed') }}</span>
                             @elseif($backup->status === \App\Models\DatabaseBackup::STATUS_FAILED)
-                                <span class="kt-badge kt-badge-sm kt-badge-danger" title="{{ $backup->error_message }}">Mislukt</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-danger" title="{{ $backup->error_message }}">{{ __('Mislukt') }}</span>
                             @elseif($isPending)
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Bezig</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Bezig') }}</span>
                             @else
                                 <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ $backup->status }}</span>
                             @endif
                             <span class="database-backups-status__trigger">{{ $triggerLabel }}</span>
                         </div>
                     </td>
-                    <td class="database-backups-col-date tabular-nums" data-label="Datum">
+                    <td class="database-backups-col-date tabular-nums" data-label="{{ __('Datum') }}">
                         @if($createdAt)
                             <div class="whitespace-nowrap">{{ $createdAt->format('d-m-Y') }}</div>
                             <div class="text-xs text-muted-foreground whitespace-nowrap">{{ $createdAt->format('H:i') }}</div>
@@ -95,10 +95,10 @@
                             —
                         @endif
                     </td>
-                    <td class="text-center admin-table__actions-col" data-no-row-link data-label="Acties">
+                    <td class="text-center admin-table__actions-col" data-no-row-link data-label="{{ __('Acties') }}">
                         <div class="kt-menu flex justify-center" data-kt-menu="true">
                             <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                     <i class="ki-filled ki-dots-vertical text-lg"></i>
                                 </button>
                                 <div class="kt-menu-dropdown kt-menu-default w-full max-w-[200px]" data-kt-menu-dismiss="true">
@@ -106,17 +106,17 @@
                                         <div class="kt-menu-item">
                                             <a class="kt-menu-link" href="{{ route('admin.settings.database-backups.download', $backup) }}">
                                                 <span class="kt-menu-icon"><i class="ki-filled ki-file-down"></i></span>
-                                                <span class="kt-menu-title">Downloaden</span>
+                                                <span class="kt-menu-title">{{ __('Downloaden') }}</span>
                                             </a>
                                         </div>
                                         <div class="kt-menu-item">
                                             <form method="POST" action="{{ route('admin.settings.database-backups.restore', $backup) }}"
-                                                  onsubmit="return confirm('WAARSCHUWING: dit overschrijft de huidige database met deze backup. Weet je het zeker?');">
+                                                  onsubmit="return confirm(@js(__('WAARSCHUWING: dit overschrijft de huidige database met deze backup. Weet je het zeker?')));">
                                                 @csrf
                                                 <input type="hidden" name="confirm_restore" value="1">
                                                 <button type="submit" class="kt-menu-link w-full text-left text-amber-600 dark:text-amber-400">
                                                     <span class="kt-menu-icon"><i class="ki-filled ki-arrows-circle"></i></span>
-                                                    <span class="kt-menu-title">Herstellen</span>
+                                                    <span class="kt-menu-title">{{ __('Herstellen') }}</span>
                                                 </button>
                                             </form>
                                         </div>
@@ -124,12 +124,12 @@
                                     @unless($isPending)
                                         <div class="kt-menu-item">
                                             <form method="POST" action="{{ route('admin.settings.database-backups.destroy', $backup) }}"
-                                                  onsubmit="return confirm('Deze backup permanent verwijderen?');">
+                                                  onsubmit="return confirm(@js(__('Deze backup permanent verwijderen?')));">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="kt-menu-link w-full text-left text-destructive">
                                                     <span class="kt-menu-icon"><i class="ki-filled ki-trash"></i></span>
-                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                 </button>
                                             </form>
                                         </div>
@@ -141,12 +141,12 @@
                 </tr>
             @empty
                 <tr class="database-backups-empty-row">
-                    <td colspan="7" class="text-center text-muted-foreground py-8">Nog geen backups. Sla de instellingen op en maak een backup, of wacht op de planner.</td>
+                    <td colspan="7" class="text-center text-muted-foreground py-8">{{ __('Nog geen backups. Sla de instellingen op en maak een backup, of wacht op de planner.') }}</td>
                 </tr>
             @endforelse
             @if(count($databaseBackups ?? []) > 0)
                 <tr class="database-backups-filter-empty" hidden>
-                    <td colspan="7" class="text-center text-muted-foreground py-8">Geen backups gevonden voor deze filters.</td>
+                    <td colspan="7" class="text-center text-muted-foreground py-8">{{ __('Geen backups gevonden voor deze filters.') }}</td>
                 </tr>
             @endif
         </tbody>

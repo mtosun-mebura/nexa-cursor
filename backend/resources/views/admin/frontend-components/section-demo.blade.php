@@ -1,18 +1,18 @@
 @php
     $type = trim((string) ($sectionType ?? ''));
-    $name = trim((string) ($sectionName ?? 'Sectie demo'));
+    $name = trim((string) ($sectionName ?? __('Sectie demo')));
 @endphp
 
 <div class="p-6 space-y-4 bg-background">
     <div class="rounded-lg border border-border bg-muted/30 p-4">
         <h3 class="text-lg font-semibold text-foreground">{{ $name }}</h3>
-        <p class="text-sm text-muted-foreground mt-1">Voorbeeldweergave van ingebouwde sectie <code>section.{{ $type }}</code>.</p>
+        <p class="text-sm text-muted-foreground mt-1">{{ __('Voorbeeldweergave van ingebouwde sectie') }} <code>section.{{ $type }}</code>.</p>
     </div>
 
     @if($type === 'hero')
         <section class="rounded-xl border border-border p-8 bg-gradient-to-r from-blue-700 to-indigo-700 text-white section-demo-reveal">
             <h2 class="text-3xl font-bold mb-3">Vind je droombaan met AI</h2>
-            <p class="opacity-90 mb-5">Volledige hero-demo met CTA's zoals op de website-homepage.</p>
+            <p class="opacity-90 mb-5">{!! __("Volledige hero-demo met CTA's zoals op de website-homepage.") !!}</p>
             <div class="flex gap-3">
                 <span class="px-4 py-2 rounded-md bg-white text-blue-700 font-medium">Primair</span>
                 <span class="px-4 py-2 rounded-md border border-white/70">Secundair</span>
@@ -76,14 +76,14 @@
     @elseif($type === 'cta')
         <section class="rounded-xl border border-border bg-background p-8 text-center section-demo-reveal">
             <h2 class="text-2xl font-bold text-foreground">Klaar om te starten?</h2>
-            <p class="text-muted-foreground mt-2 mb-5">Demo van een call-to-action sectie.</p>
+            <p class="text-muted-foreground mt-2 mb-5">{{ __('Demo van een call-to-action sectie.') }}</p>
             <span class="inline-flex px-5 py-2 rounded-md bg-primary text-primary-foreground">Bekijk mogelijkheden</span>
         </section>
     @elseif($type === 'carousel')
         <section class="space-y-4">
             <div class="rounded-lg border border-border bg-muted/30 p-4">
                 <h3 class="text-lg font-semibold text-foreground">Natuur carousel demo</h3>
-                <p class="text-sm text-muted-foreground mt-1">Voorbeeld met dummy natuurfoto's.</p>
+                <p class="text-sm text-muted-foreground mt-1">{!! __("Voorbeeld met dummy natuurfoto's.") !!}</p>
             </div>
             <div class="relative rounded-xl border border-border bg-background shadow-sm overflow-hidden section-demo-reveal" data-carousel-demo>
                 <div class="relative h-64 md:h-80">
@@ -146,7 +146,7 @@
     @elseif($type === 'email_template')
         <section class="rounded-xl border border-border bg-background p-8 section-demo-reveal">
             <h2 class="text-2xl font-bold text-foreground mb-2">Informatie aanvragen</h2>
-            <p class="text-sm text-muted-foreground mb-6">Dummy formulier zoals een e-mailtemplate-sectie op de website.</p>
+            <p class="text-sm text-muted-foreground mb-6">{{ __('Dummy formulier zoals een e-mailtemplate-sectie op de website.') }}</p>
             <form class="grid grid-cols-1 md:grid-cols-2 gap-4" data-email-template-demo-form>
                 <div>
                     <label class="block text-sm font-medium text-foreground mb-1">Naam</label>
@@ -165,8 +165,8 @@
                     <textarea class="kt-input w-full" rows="4">Graag ontvang ik meer informatie over de mogelijkheden voor ons team.</textarea>
                 </div>
                 <div class="md:col-span-2 flex items-center gap-3">
-                    <button type="submit" class="kt-btn kt-btn-primary">Verzenden (demo)</button>
-                    <span class="text-sm text-green-600 hidden" data-email-template-demo-success>Demo verzonden: formulier werkt in preview.</span>
+                    <button type="submit" class="kt-btn kt-btn-primary">{{ __('Verzenden (demo)') }}</button>
+                    <span class="text-sm text-green-600 hidden" data-email-template-demo-success>{{ __('Demo verzonden: formulier werkt in preview.') }}</span>
                 </div>
             </form>
         </section>
@@ -190,8 +190,8 @@
         </section>
     @else
         <section class="rounded-xl border border-border bg-background p-8">
-            <div class="text-foreground font-medium">Demo beschikbaar</div>
-            <p class="text-sm text-muted-foreground mt-2">Deze sectie heeft een basisvoorbeeld zodat je het type kunt testen op de demo-pagina.</p>
+            <div class="text-foreground font-medium">{{ __('Demo beschikbaar') }}</div>
+            <p class="text-sm text-muted-foreground mt-2">{{ __('Deze sectie heeft een basisvoorbeeld zodat je het type kunt testen op de demo-pagina.') }}</p>
         </section>
     @endif
 </div>

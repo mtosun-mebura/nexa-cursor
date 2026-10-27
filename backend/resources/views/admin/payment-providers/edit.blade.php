@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Betalingsprovider Bewerken')
+@section('title', __('Betalingsprovider Bewerken'))
 
 @section('content')
 
@@ -30,13 +30,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Betalingsprovider Bewerken
+                {{ __('Betalingsprovider Bewerken') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.payment-providers.show', $paymentProvider) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -58,14 +58,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Basis &amp; API
+                        {{ __('Basis & API') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle">
-                                Naam *
+                                {{ __('Naam *') }}
                             </td>
                             <td class="min-w-48 w-full align-middle">
                                 <input type="text" 
@@ -80,14 +80,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle">
-                                Provider Type *
+                                {{ __('Provider Type *') }}
                             </td>
                             <td class="align-middle">
                                 <select class="kt-select @error('provider_type') border-destructive @enderror" 
                                         name="provider_type" 
                                         data-kt-select="true"
                                         required>
-                                    <option value="">Selecteer provider type</option>
+                                    <option value="">{{ __('Selecteer provider type') }}</option>
                                     @foreach($providerTypes as $key => $name)
                                         <option value="{{ $key }}" {{ old('provider_type', $paymentProvider->provider_type) == $key ? 'selected' : '' }}>
                                             {{ $name }}
@@ -101,7 +101,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                API-sleutel *
+                                {{ __('API-sleutel *') }}
                             </td>
                             <td class="min-w-48 w-full align-middle">
                                 <input type="password" 
@@ -109,7 +109,7 @@
                                        name="api_key" 
                                        value="{{ old('api_key', $decryptedConfig['api_key'] ?? '') }}"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Wordt veilig versleuteld opgeslagen.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Wordt veilig versleuteld opgeslagen.') }}</div>
                                 @error('api_key')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -117,14 +117,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                API-secret
+                                {{ __('API-secret') }}
                             </td>
                             <td class="align-middle">
                                 <input type="password" 
                                        class="kt-input @error('api_secret') border-destructive @enderror" 
                                        name="api_secret" 
                                        value="{{ old('api_secret', $decryptedConfig['api_secret'] ?? '') }}">
-                                <div class="text-xs text-muted-foreground mt-1">Alleen nodig bij providers die een secret vereisen (bijv. PayPal).</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Alleen nodig bij providers die een secret vereisen (bijv. PayPal).') }}</div>
                                 @error('api_secret')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -132,7 +132,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle payment-provider-label-cell">
-                                Webhook-URL
+                                {{ __('Webhook-URL') }}
                             </td>
                             <td class="align-middle">
                                 <input type="url" 
@@ -141,7 +141,7 @@
                                        value="{{ old('webhook_url', $paymentProvider->getConfigValue('webhook_url')) }}"
                                        placeholder="{{ $defaultTaxiWebhookUrl ?? 'https://example.com/webhook' }}">
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Publieke URL waar Mollie statusupdates naartoe stuurt. Voor Nexa Taxi: <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
+                                    {{ __('Publieke URL waar Mollie statusupdates naartoe stuurt. Voor Nexa Taxi:') }} <code class="text-xs break-all">{{ $defaultTaxiWebhookUrl ?? url('/api/taxi/webhooks/mollie') }}</code>
                                 </div>
                                 @error('webhook_url')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -150,13 +150,13 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle">
-                                Beschrijving
+                                {{ __('Beschrijving') }}
                             </td>
                             <td class="align-middle">
                                 <textarea class="kt-input @error('description') border-destructive @enderror" 
                                           name="description" 
                                           rows="4"
-                                          placeholder="Korte toelichting, bijv. waar deze Mollie-koppeling voor gebruikt wordt.">{{ old('description', $paymentProvider->getConfigValue('description')) }}</textarea>
+                                          placeholder="{{ __('Korte toelichting, bijv. waar deze Mollie-koppeling voor gebruikt wordt.') }}">{{ old('description', $paymentProvider->getConfigValue('description')) }}</textarea>
                                 @error('description')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -170,14 +170,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Instellingen
+                        {{ __('Instellingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-middle">
-                                Status
+                                {{ __('Status') }}
                             </td>
                             <td class="min-w-48 w-full align-middle">
                                 <label class="kt-label flex items-center">
@@ -186,14 +186,14 @@
                                            name="is_active" 
                                            value="1" 
                                            {{ old('is_active', $paymentProvider->is_active) ? 'checked' : '' }}>
-                                    <span class="ms-2">Actief</span>
+                                    <span class="ms-2">{{ __('Actief') }}</span>
                                 </label>
-                                <div class="text-xs text-muted-foreground mt-1">Deze provider is beschikbaar voor betalingen.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Deze provider is beschikbaar voor betalingen.') }}</div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-middle">
-                                Modus
+                                {{ __('Modus') }}
                             </td>
                             <td class="align-middle">
                                 <label class="kt-label flex items-center">
@@ -202,9 +202,9 @@
                                            name="test_mode" 
                                            value="1" 
                                            {{ old('test_mode', $paymentProvider->getConfigValue('test_mode')) ? 'checked' : '' }}>
-                                    <span class="ms-2">Test Modus</span>
+                                    <span class="ms-2">{{ __('Test Modus') }}</span>
                                 </label>
-                                <div class="text-xs text-muted-foreground mt-1">Gebruik test API keys in plaats van live keys.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Gebruik test API keys in plaats van live keys.') }}</div>
                             </td>
                         </tr>
                     </table>
@@ -216,15 +216,15 @@
                 <div class="kt-card-header">
                     <h3 class="kt-card-title flex items-center gap-2">
                         <i class="ki-filled ki-information text-info"></i>
-                        Provider-specifieke Informatie
+                        {{ __('Provider-specifieke Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-content">
                     <ul class="mt-2 mb-0 text-sm space-y-1.5">
-                        <li><strong>Mollie:</strong> Gebruik je Mollie API key (begint met 'test_' of 'live_')</li>
-                        <li><strong>Stripe:</strong> Gebruik je Stripe Secret Key (begint met 'sk_test_' of 'sk_live_')</li>
-                        <li><strong>PayPal:</strong> Gebruik je PayPal Client ID en Secret</li>
-                        <li><strong>Adyen:</strong> Gebruik je Adyen API Key</li>
+                        <li><strong>Mollie:</strong> {{ __("Gebruik je Mollie API key (begint met 'test_' of 'live_')") }}</li>
+                        <li><strong>Stripe:</strong> {{ __("Gebruik je Stripe Secret Key (begint met 'sk_test_' of 'sk_live_')") }}</li>
+                        <li><strong>PayPal:</strong> {{ __('Gebruik je PayPal Client ID en Secret') }}</li>
+                        <li><strong>Adyen:</strong> {{ __('Gebruik je Adyen API Key') }}</li>
                     </ul>
                 </div>
             </div>
@@ -233,11 +233,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.payment-providers.show', $paymentProvider) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Bijwerken
+                    {{ __('Bijwerken') }}
                 </button>
             </div>
         </div>

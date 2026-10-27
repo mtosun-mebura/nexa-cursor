@@ -69,7 +69,7 @@ class AdminSystemPhpLaravelUpgradeTest extends TestCase
             ->assertSee('runPhp(true)', false)
             ->assertSee('Deze pull installeert security-release ', false)
             ->assertSee('De PHP-image in Docker wordt bijgewerkt.', false)
-            ->assertSee("('Security-release ' + version)", false)
+            ->assertSee("upgradeFmt('Security-release :version', { version: version })", false)
             ->assertSee('PostgreSQL in Docker bijwerken', false)
             ->assertSee('btn-postgres-minor', false)
             ->assertSee('btn-postgres-major', false)

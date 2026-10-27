@@ -57,7 +57,7 @@ class AdminPlatformBillingLineItemController extends Controller
         PlatformBillingLineItem::query()->create($this->validated($request));
 
         return redirect()->route('admin.platform-billing.line-items.index')
-            ->with('success', 'Factuurregel aangemaakt.');
+            ->with('success', __('Factuurregel aangemaakt.'));
     }
 
     public function edit(PlatformBillingLineItem $lineItem): View
@@ -73,7 +73,7 @@ class AdminPlatformBillingLineItemController extends Controller
         $lineItem->update($this->validated($request));
 
         return redirect()->route('admin.platform-billing.line-items.index')
-            ->with('success', 'Factuurregel bijgewerkt.');
+            ->with('success', __('Factuurregel bijgewerkt.'));
     }
 
     public function destroy(PlatformBillingLineItem $lineItem): RedirectResponse
@@ -82,7 +82,7 @@ class AdminPlatformBillingLineItemController extends Controller
         $lineItem->delete();
 
         return redirect()->route('admin.platform-billing.line-items.index')
-            ->with('success', 'Factuurregel verwijderd.');
+            ->with('success', __('Factuurregel verwijderd.'));
     }
 
     public function toggleStatus(PlatformBillingLineItem $lineItem): RedirectResponse
@@ -91,7 +91,7 @@ class AdminPlatformBillingLineItemController extends Controller
         $lineItem->update(['is_active' => ! $lineItem->is_active]);
 
         return redirect()->route('admin.platform-billing.line-items.index')
-            ->with('success', $lineItem->is_active ? 'Factuurregel geactiveerd.' : 'Factuurregel gedeactiveerd.');
+            ->with('success', $lineItem->is_active ? __('Factuurregel geactiveerd.') : __('Factuurregel gedeactiveerd.'));
     }
 
     private function validated(Request $request): array

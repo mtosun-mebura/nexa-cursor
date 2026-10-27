@@ -4,31 +4,31 @@
     $forceDelete = (bool) ($forceDelete ?? false);
     $tenantName = trim((string) ($carrierCompany->name ?? ''));
     if ($tenantName === '') {
-        $tenantName = 'NEXA Taxi';
+        $tenantName = __('NEXA Taxi');
     }
     $typeKey = $customer->organizationTypeKey();
     $typeLabel = $customer->organizationTypeLabel();
     $addressLines = $customer->billingAddressLines();
     $isArchived = $customer->isArchived();
     $isActive = ! $isArchived && (bool) $customer->active;
-    $period = 'Nog geen abonnement';
-    $contractTitle = 'Vervoersovereenkomst';
+    $period = __('Nog geen abonnement');
+    $contractTitle = __('Vervoersovereenkomst');
     if ($latestContract) {
         $contractTitle = trim((string) $latestContract->name) !== ''
             ? (string) $latestContract->name
             : $contractTitle;
         $from = $latestContract->start_date?->format('d-m-Y');
         $until = $latestContract->end_date?->format('d-m-Y');
-        $period = ($from ?: 'n.t.b.').' – '.($until ?: 'open einde');
+        $period = ($from ?: __('n.t.b.')).' – '.($until ?: __('open einde'));
     }
     $showHref = route('admin.taxi.transport_customers.show', $customer->id);
-    $statusLabel = $isArchived ? 'Gearchiveerd' : ($isActive ? 'Actief contract' : 'Inactief contract');
+    $statusLabel = $isArchived ? __('Gearchiveerd') : ($isActive ? __('Actief contract') : __('Inactief contract'));
     $docClass = $isArchived ? 'is-archived' : ($isActive ? 'is-active' : 'is-inactive');
     $deleteAction = $forceDelete
         ? route('admin.taxi.transport_customers.force_destroy', $customer->id)
         : route('admin.taxi.transport_customers.destroy', $customer->id);
     $deleteMode = $forceDelete ? 'force' : 'archive';
-    $deleteTitle = $forceDelete ? 'Definitief verwijderen' : 'Naar archief';
+    $deleteTitle = $forceDelete ? __('Definitief verwijderen') : __('Naar archief');
 @endphp
 <article
     class="transport-contract-doc-wrap"
@@ -38,36 +38,36 @@
     <a
         href="{{ $showHref }}"
         class="transport-contract-doc {{ $docClass }}"
-        aria-label="Bekijk contract van {{ $customer->name }}"
+        aria-label="{{ __('Bekijk contract van :name', ['name' => $customer->name]) }}"
     >
         <div class="transport-contract-doc__banner" aria-hidden="true">
             <span class="transport-contract-doc__status">
                 <span class="transport-contract-doc__status-dot"></span>
                 {{ $statusLabel }}
             </span>
-            <span class="transport-contract-doc__ref">Nr. {{ $customer->debtor_number ?: $customer->id }}</span>
+            <span class="transport-contract-doc__ref">{{ __('Nr. :id', ['id' => $customer->debtor_number ?: $customer->id]) }}</span>
         </div>
         <div class="transport-contract-doc__body">
             <div class="transport-contract-doc__letterhead">
-                <p class="transport-contract-doc__kicker">Officiële overeenkomst</p>
-                <span class="transport-contract-doc__type transport-contract-doc__type--{{ $typeKey }}">{{ $typeLabel }}</span>
+                <p class="transport-contract-doc__kicker">{{ __('Officiële overeenkomst') }}</p>
+                <span class="transport-contract-doc__type transport-contract-doc__type--{{ $typeKey }}">{{ __($typeLabel) }}</span>
             </div>
             <h3 class="transport-contract-doc__title">{{ $customer->name }}</h3>
             <p class="transport-contract-doc__subtitle">{{ $contractTitle }}</p>
 
             <dl class="transport-contract-doc__parties">
                 <div>
-                    <dt>Opdrachtgever</dt>
+                    <dt>{{ __('Opdrachtgever') }}</dt>
                     <dd>{{ $customer->name }}</dd>
                 </div>
                 <div>
-                    <dt>Vervoerder</dt>
+                    <dt>{{ __('Vervoerder') }}</dt>
                     <dd>{{ $tenantName }}</dd>
                 </div>
             </dl>
 
             @if($addressLines !== [])
-                <p class="transport-contract-doc__section-label">Vestigingsgegevens</p>
+                <p class="transport-contract-doc__section-label">{{ __('Vestigingsgegevens') }}</p>
                 <p class="transport-contract-doc__address">
                     @foreach($addressLines as $line)
                         {{ $line }}@if(! $loop->last)<br>@endif
@@ -76,7 +76,7 @@
             @endif
 
             <div class="transport-contract-doc__contact">
-                <p class="transport-contract-doc__section-label">Contactpersoon</p>
+                <p class="transport-contract-doc__section-label">{{ __('Contactpersoon') }}</p>
                 <p class="transport-contract-doc__contact-name">{{ $customer->contact_name ?: '—' }}</p>
                 @if($customer->contact_email)
                     <p>{{ $customer->contact_email }}</p>
@@ -86,9 +86,9 @@
                 @endif
             </div>
 
-            <p class="transport-contract-doc__meta">Looptijd: {{ $period }}</p>
+            <p class="transport-contract-doc__meta">{{ __('Looptijd: :period', ['period' => $period]) }}</p>
             @if($isArchived && $customer->archived_at)
-                <p class="transport-contract-doc__meta">Gearchiveerd: {{ $customer->archived_at->format('d-m-Y') }}</p>
+                <p class="transport-contract-doc__meta">{{ __('Gearchiveerd: :date', ['date' => $customer->archived_at->format('d-m-Y')]) }}</p>
             @endif
 
             <div class="transport-contract-doc__sign">
@@ -97,15 +97,15 @@
                         <path d="M4 26c12-18 22-4 28-8 8-5 10-14 22-12 9 2 8 16 18 16 11 0 12-14 24-13 10 1 9 14 20 13 8-1 12-10 22-9 6 .6 10 6 16 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                         <path d="M38 30h86" fill="none" stroke="currentColor" stroke-width="0.8" opacity="0.45"/>
                     </svg>
-                    <span>Namens opdrachtgever</span>
+                    <span>{{ __('Namens opdrachtgever') }}</span>
                     <strong>{{ $customer->contact_name ?: $customer->name }}</strong>
                 </div>
                 <div class="transport-contract-doc__sign-col transport-contract-doc__sign-col--seal">
                     <span class="transport-contract-doc__seal" aria-hidden="true">
-                        <span>{{ $isArchived ? 'Archief' : ($isActive ? 'Getekend' : 'Inactief') }}</span>
+                        <span>{{ $isArchived ? __('Archief') : ($isActive ? __('Getekend') : __('Inactief')) }}</span>
                     </span>
-                    <span>Namens {{ $tenantName }}</span>
-                    <strong>Vervoerder</strong>
+                    <span>{{ __('Namens :tenant', ['tenant' => $tenantName]) }}</span>
+                    <strong>{{ __('Vervoerder') }}</strong>
                 </div>
             </div>
         </div>
@@ -124,13 +124,13 @@
                     <button
                         type="submit"
                         class="transport-contract-doc__action-btn transport-contract-doc__restore"
-                        title="Contract herstellen en activeren"
-                        aria-label="Contract herstellen en activeren: {{ $customer->name }}"
+                        title="{{ __('Contract herstellen en activeren') }}"
+                        aria-label="{{ __('Contract herstellen en activeren: :name', ['name' => $customer->name]) }}"
                     >
                         <i class="ki-filled ki-arrows-circle" aria-hidden="true"></i>
                     </button>
                 </form>
-                <span class="transport-contract-doc__action-label">Herstellen</span>
+                <span class="transport-contract-doc__action-label">{{ __('Herstellen') }}</span>
             </div>
             <div class="transport-contract-doc__action-col">
                 <label class="transport-contract-doc__keep-past">
@@ -142,11 +142,11 @@
                         @checked($customer->archive_keep_past_rides)
                         data-archive-keep-past
                         data-action="{{ route('admin.taxi.transport_customers.archive_keep_past_rides', $customer->id) }}"
-                        aria-label="Verleden ritten zichtbaar houden in planning en agenda"
-                        title="Verleden ritten zichtbaar houden in planning/agenda (alleen vóór vandaag)"
+                        aria-label="{{ __('Verleden ritten zichtbaar houden in planning en agenda') }}"
+                        title="{{ __('Verleden ritten zichtbaar houden in planning/agenda (alleen vóór vandaag)') }}"
                     >
                 </label>
-                <span class="transport-contract-doc__action-label">Verleden ritten</span>
+                <span class="transport-contract-doc__action-label">{{ __('Verleden ritten') }}</span>
             </div>
             @endcan
         @endif
@@ -164,7 +164,7 @@
             >
                 <i class="ki-filled ki-trash" aria-hidden="true"></i>
             </button>
-            <span class="transport-contract-doc__action-label">{{ $forceDelete ? 'Verwijderen' : 'Archiveren' }}</span>
+            <span class="transport-contract-doc__action-label">{{ $forceDelete ? __('Verwijderen') : __('Archiveren') }}</span>
         </div>
         @endcan
     </div>

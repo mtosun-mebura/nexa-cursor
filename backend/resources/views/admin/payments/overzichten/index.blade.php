@@ -1,16 +1,16 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Overzichten')
+@section('title', __('Overzichten'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div class="min-w-0 flex-1">
-            <h1 class="text-xl font-medium leading-none text-mono">Overzichten</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Overzichten') }}</h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed">
-                Download facturen, inkomsten of belastingoverzichten voor een maand, kwartaal, halfjaar of jaar.
+                {{ __('Download facturen, inkomsten of belastingoverzichten voor een maand, kwartaal, halfjaar of jaar.') }}
                 @if($company)
-                    Geldt voor <strong>{{ $company->name }}</strong>.
+                    {{ __('Geldt voor') }} <strong>{{ $company->name }}</strong>.
                 @endif
             </p>
         </div>
@@ -18,7 +18,7 @@
 
     @if(! $company)
         <div class="kt-alert kt-alert-warning mb-5">
-            Selecteer eerst een tenant in de zijbalk om overzichten te downloaden.
+            {{ __('Selecteer eerst een tenant in de zijbalk om overzichten te downloaden.') }}
         </div>
     @endif
 
@@ -27,7 +27,7 @@
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Type overzicht</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Type overzicht') }}</h3>
             </div>
             <div class="kt-card-content p-5">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -36,8 +36,8 @@
                             <input type="radio" class="kt-radio mt-0.5" name="report_type" value="{{ $key }}"
                                    {{ $selectedReport === $key ? 'checked' : '' }}>
                             <span>
-                                <span class="block text-sm font-medium text-foreground">{{ $meta['label'] }}</span>
-                                <span class="block text-xs text-muted-foreground mt-1">{{ $meta['description'] }}</span>
+                                <span class="block text-sm font-medium text-foreground">{{ __($meta['label']) }}</span>
+                                <span class="block text-xs text-muted-foreground mt-1">{{ __($meta['description']) }}</span>
                             </span>
                         </label>
                     @endforeach
@@ -47,22 +47,22 @@
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title mb-0">Periode</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Periode') }}</h3>
             </div>
             <div class="kt-card-content p-5 min-w-0">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                     <tr>
-                        <td class="min-w-40 text-secondary-foreground font-normal">Indeling</td>
+                        <td class="min-w-40 text-secondary-foreground font-normal">{{ __('Indeling') }}</td>
                         <td>
                             <select name="period_type" id="overview-period-type" class="kt-select w-full max-w-md">
                                 @foreach($periodTypes as $value => $label)
-                                    <option value="{{ $value }}" {{ $selectedPeriodType === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    <option value="{{ $value }}" {{ $selectedPeriodType === $value ? 'selected' : '' }}>{{ __($label) }}</option>
                                 @endforeach
                             </select>
                         </td>
                     </tr>
                     <tr class="overview-row-year">
-                        <td class="text-secondary-foreground font-normal">Jaar</td>
+                        <td class="text-secondary-foreground font-normal">{{ __('Jaar') }}</td>
                         <td>
                             <select name="year" id="overview-year" class="kt-select w-full max-w-xs">
                                 @foreach($years as $year)
@@ -72,37 +72,37 @@
                         </td>
                     </tr>
                     <tr class="overview-row-month">
-                        <td class="text-secondary-foreground font-normal">Maand</td>
+                        <td class="text-secondary-foreground font-normal">{{ __('Maand') }}</td>
                         <td>
                             <select name="month" id="overview-month" class="kt-select w-full max-w-xs">
                                 @foreach($months as $num => $label)
-                                    <option value="{{ $num }}" {{ (int) $selectedMonth === (int) $num ? 'selected' : '' }}>{{ $label }}</option>
+                                    <option value="{{ $num }}" {{ (int) $selectedMonth === (int) $num ? 'selected' : '' }}>{{ __($label) }}</option>
                                 @endforeach
                             </select>
                         </td>
                     </tr>
                     <tr class="overview-row-quarter">
-                        <td class="text-secondary-foreground font-normal">Kwartaal</td>
+                        <td class="text-secondary-foreground font-normal">{{ __('Kwartaal') }}</td>
                         <td>
                             <select name="quarter" id="overview-quarter" class="kt-select w-full max-w-md">
-                                <option value="1" {{ (int) $selectedQuarter === 1 ? 'selected' : '' }}>1e kwartaal (januari–maart)</option>
-                                <option value="2" {{ (int) $selectedQuarter === 2 ? 'selected' : '' }}>2e kwartaal (april–juni)</option>
-                                <option value="3" {{ (int) $selectedQuarter === 3 ? 'selected' : '' }}>3e kwartaal (juli–september)</option>
-                                <option value="4" {{ (int) $selectedQuarter === 4 ? 'selected' : '' }}>4e kwartaal (oktober–december)</option>
+                                <option value="1" {{ (int) $selectedQuarter === 1 ? 'selected' : '' }}>{{ __('1e kwartaal (januari–maart)') }}</option>
+                                <option value="2" {{ (int) $selectedQuarter === 2 ? 'selected' : '' }}>{{ __('2e kwartaal (april–juni)') }}</option>
+                                <option value="3" {{ (int) $selectedQuarter === 3 ? 'selected' : '' }}>{{ __('3e kwartaal (juli–september)') }}</option>
+                                <option value="4" {{ (int) $selectedQuarter === 4 ? 'selected' : '' }}>{{ __('4e kwartaal (oktober–december)') }}</option>
                             </select>
                         </td>
                     </tr>
                     <tr class="overview-row-half">
-                        <td class="text-secondary-foreground font-normal">Halfjaar</td>
+                        <td class="text-secondary-foreground font-normal">{{ __('Halfjaar') }}</td>
                         <td>
                             <select name="half" id="overview-half" class="kt-select w-full max-w-md">
-                                <option value="1" {{ (int) $selectedHalf === 1 ? 'selected' : '' }}>1e helft (januari–juni)</option>
-                                <option value="2" {{ (int) $selectedHalf === 2 ? 'selected' : '' }}>2e helft (juli–december)</option>
+                                <option value="1" {{ (int) $selectedHalf === 1 ? 'selected' : '' }}>{{ __('1e helft (januari–juni)') }}</option>
+                                <option value="2" {{ (int) $selectedHalf === 2 ? 'selected' : '' }}>{{ __('2e helft (juli–december)') }}</option>
                             </select>
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-secondary-foreground font-normal align-top pt-4">Van</td>
+                        <td class="text-secondary-foreground font-normal align-top pt-4">{{ __('Van') }}</td>
                         <td class="pt-4">
                             @include('admin.partials.date-picker-input', [
                                 'name' => 'start_date',
@@ -114,7 +114,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="text-secondary-foreground font-normal align-top pt-4">Tot</td>
+                        <td class="text-secondary-foreground font-normal align-top pt-4">{{ __('Tot') }}</td>
                         <td class="pt-4">
                             @include('admin.partials.date-picker-input', [
                                 'name' => 'end_date',
@@ -124,7 +124,7 @@
                                 'required' => true,
                             ])
                             <p class="text-xs text-muted-foreground mt-2 mb-0 max-w-xl">
-                                Bij maand, kwartaal, halfjaar en jaar worden deze datums automatisch gezet. Bij een vrije periode kies je ze zelf.
+                                {{ __('Bij maand, kwartaal, halfjaar en jaar worden deze datums automatisch gezet. Bij een vrije periode kies je ze zelf.') }}
                             </p>
                         </td>
                     </tr>
@@ -134,13 +134,13 @@
                     <p id="overview-period-summary" class="text-sm text-secondary-foreground mt-4 mb-0"
                        data-overview-preview-url="{{ route('admin.payments.overzichten.preview') }}">
                         @if($period)
-                            Geselecteerde periode: <strong>{{ $period->label }}</strong>
-                            ({{ $period->start->format('d-m-Y') }} t/m {{ $period->end->format('d-m-Y') }}).
+                            {{ __('Geselecteerde periode:') }} <strong>{{ $period->label }}</strong>
+                            ({{ $period->start->format('d-m-Y') }} {{ __('t/m') }} {{ $period->end->format('d-m-Y') }}).
                             @if(!empty($counts))
-                                Facturen: {{ $counts['invoices'] ?? 0 }} ·
-                                Inkomstenposten: {{ $counts['income'] ?? 0 }}
+                                {{ __('Facturen:') }} {{ $counts['invoices'] ?? 0 }} ·
+                                {{ __('Inkomstenposten:') }} {{ $counts['income'] ?? 0 }}
                                 (€ {{ number_format((float) ($counts['income_amount'] ?? 0), 2, ',', '.') }}) ·
-                                Factuurregister: {{ $counts['audit'] ?? 0 }}.
+                                {{ __('Factuurregister:') }} {{ $counts['audit'] ?? 0 }}.
                             @endif
                         @endif
                     </p>
@@ -150,10 +150,10 @@
 
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5">
             <button type="submit" class="kt-btn kt-btn-outline" formmethod="GET" formaction="{{ route('admin.payments.overzichten') }}" {{ $company ? '' : 'disabled' }}>
-                Periode tonen
+                {{ __('Periode tonen') }}
             </button>
             <button type="submit" class="kt-btn kt-btn-primary" {{ $company ? '' : 'disabled' }}>
-                Downloaden
+                {{ __('Downloaden') }}
             </button>
         </div>
     </form>
@@ -218,16 +218,16 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderSummary(data) {
         if (!summaryEl || !data) return;
         summaryEl.replaceChildren();
-        summaryEl.append('Geselecteerde periode: ');
+        summaryEl.append(@json(__('Geselecteerde periode:')) + ' ');
         var strong = document.createElement('strong');
         strong.textContent = data.label || '';
         summaryEl.append(strong);
         summaryEl.append(
-            ' (' + (data.start || '') + ' t/m ' + (data.end || '') + '). ' +
-            'Facturen: ' + (data.invoices ?? 0) + ' · ' +
-            'Inkomstenposten: ' + (data.income ?? 0) +
+            ' (' + (data.start || '') + ' ' + @json(__('t/m')) + ' ' + (data.end || '') + '). ' +
+            @json(__('Facturen:')) + ' ' + (data.invoices ?? 0) + ' · ' +
+            @json(__('Inkomstenposten:')) + ' ' + (data.income ?? 0) +
             ' (€ ' + (data.income_amount || '0,00') + ') · ' +
-            'Factuurregister: ' + (data.audit ?? 0) + '.'
+            @json(__('Factuurregister:')) + ' ' + (data.audit ?? 0) + '.'
         );
     }
 

@@ -63,20 +63,20 @@
     // Zelfde titelnamen als in het "Sectie toevoegen" menu (getAvailableHomeSectionTypesForTheme)
     $sectionTypeLabels = [];
     foreach (\App\Models\WebsitePage::getAvailableHomeSectionTypesForTheme($themeSlugForOrder) as $st) {
-        $sectionTypeLabels[$st['type']] = $st['label'];
+        $sectionTypeLabels[$st['type']] = __($st['label']);
     }
     $sectionLabel = function($base) use ($sectionTypeLabels) {
         return $sectionTypeLabels[$base] ?? match($base) {
-            'hero' => 'Hero (banner)',
-            'stats' => 'Stats (4 cijfers)',
-            'why_nexa' => 'Waarom Nexa',
-            'features' => 'Kenmerken',
+            'hero' => __('Hero (banner)'),
+            'stats' => __('Stats (4 cijfers)'),
+            'why_nexa' => __('Waarom Nexa'),
+            'features' => __('Kenmerken'),
             'cta' => 'CTA',
             'carousel' => 'Carousel',
-            'cards_ronde_hoeken' => 'Cards ronde hoeken',
-            'featured_services' => 'Dienstenblok (icoon-uitvouw)',
-            'email_template' => 'E-mailtemplate (informatieaanvraag)',
-            'text_block' => 'Tekstblok (rich text + component)',
+            'cards_ronde_hoeken' => __('Cards ronde hoeken'),
+            'featured_services' => __('Dienstenblok (icoon-uitvouw)'),
+            'email_template' => __('E-mailtemplate (informatieaanvraag)'),
+            'text_block' => __('Tekstblok (rich text + component)'),
             default => $base,
         };
     };
@@ -131,9 +131,9 @@
 <input type="hidden" name="home_sections[admin_collapsed]" id="admin-collapsed-input" value="{{ implode(',', $adminCollapsed) }}">
 <div id="home-sections-meta" class="hidden" data-section-card-url="{{ route('admin.website-pages.section-card-html') }}" data-component-section-url="{{ route('admin.website-pages.component-section-html') }}" data-theme-slug="{{ $themeSlugForOrder }}" data-section-labels="{{ json_encode($sectionTypeLabels) }}" data-website-page-company-id="{{ $websitePageCompanyIdForTaxiVehicles !== null ? (string) $websitePageCompanyIdForTaxiVehicles : '' }}" data-website-media-delete-url="{{ url('/admin/website-media') }}" data-website-media-serve-base="{{ url('/website-media') }}"></div>
 {{-- Carousel slide: thumbnail groot bekijken --}}
-<div id="carousel-slide-preview-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Carousel-afbeelding groot">
+<div id="carousel-slide-preview-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="{{ __('Carousel-afbeelding groot') }}">
     <div class="relative max-h-[90vh] max-w-[90vw] p-4" id="carousel-slide-preview-modal-inner">
-        <button type="button" id="carousel-slide-preview-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
+        <button type="button" id="carousel-slide-preview-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="{{ __('Sluiten') }}">
             <i class="ki-filled ki-cross text-xl"></i>
         </button>
         <img id="carousel-slide-preview-modal-img" src="" alt="Carousel-afbeelding" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
@@ -152,21 +152,21 @@
     @if($base === 'hero')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--hero flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('hero') }}{{ $sectionKey !== 'hero' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($vis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -175,9 +175,9 @@
             <div class="row-visibility-row flex flex-col gap-3">
                 <div class="w-full">
                     <div class="flex items-center gap-2 mb-1">
-                        <label class="text-sm font-medium text-secondary-foreground">Titel</label>
+                        <label class="text-sm font-medium text-secondary-foreground">{{ __('Titel') }}</label>
                         <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
-                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" title="Zichtbaar op website" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" title="{{ __('Zichtbaar op website') }}" aria-label="{{ __('Titel tonen/verbergen') }}">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
                     <textarea name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-4xl" rows="3" placeholder="Vind je droombaan met AI">{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Vind je droombaan met AI') }}</textarea>
                 </div>
@@ -191,21 +191,21 @@
                         }
                         $titleHighlightColorPicker = $titleHighlightColor !== '' ? $titleHighlightColor : $titleHighlightColorDefault;
                     @endphp
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight">Woord benadrukt</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight">{{ __('Woord benadrukt') }}</label>
                     <input type="text"
                            name="home_sections[{{ $sectionKey }}][title_highlight]"
                            id="hero-{{ $sectionKey }}-title_highlight"
                            class="kt-input w-full max-w-md"
                            value="{{ old('home_sections.'.$sectionKey.'.title_highlight', $sectionData['title_highlight'] ?? 'droombaan') }}"
                            placeholder="zelf boeken | boek">
-                    <p class="text-xs text-muted-foreground mt-1 mb-3">Meerdere woorden: scheid met | — bijvoorbeeld zelf boeken | boek</p>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight_color">Kleur benadrukking</label>
+                    <p class="text-xs text-muted-foreground mt-1 mb-3">{{ __('Meerdere woorden: scheid met | — bijvoorbeeld zelf boeken | boek') }}</p>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1" for="hero-{{ $sectionKey }}-title_highlight_color">{{ __('Kleur benadrukking') }}</label>
                     <div class="flex items-center gap-2 max-w-md">
                         <input type="color"
                                id="hero-{{ $sectionKey }}-title_highlight_color_color"
                                class="hero-title-highlight-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
                                value="{{ $titleHighlightColorPicker }}"
-                               title="Kleur kiezen"
+                               title="{{ __('Kleur kiezen') }}"
                                data-target-input="hero-{{ $sectionKey }}-title_highlight_color">
                         <div class="home-section-hex-input-wrap shrink-0">
                         <input type="text"
@@ -218,15 +218,15 @@
                                data-skip-validation-wrapper="1">
                         </div>
                     </div>
-                    <p class="text-xs text-muted-foreground mt-1">Het woord uit de titel dat in deze kleur wordt getoond. Leeg = standaard themakleur.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Het woord uit de titel dat in deze kleur wordt getoond. Leeg = standaard themakleur.') }}</p>
                 </div>
             </div>
             @if(($themeSlugForOrder ?? '') === 'atom-v2')
             <div class="row-visibility-row flex flex-wrap items-center gap-2">
-                <label class="block text-sm font-medium text-secondary-foreground">Donker overlay over hero</label>
+                <label class="block text-sm font-medium text-secondary-foreground">{{ __('Donker overlay over hero') }}</label>
                 <input type="hidden" name="home_sections[{{ $sectionKey }}][overlay]" value="0">
                 <input type="checkbox" name="home_sections[{{ $sectionKey }}][overlay]" class="kt-switch kt-switch-sm" value="1" {{ (old('home_sections.'.$sectionKey.'.overlay', $sectionData['overlay'] ?? true)) ? 'checked' : '' }}>
-                <span class="text-xs text-muted-foreground">De laag over de gradient (bg-black/10) die tekst beter leesbaar maakt.</span>
+                <span class="text-xs text-muted-foreground">{{ __('De laag over de gradient (bg-black/10) die tekst beter leesbaar maakt.') }}</span>
             </div>
             @endif
             {{-- Hero-afbeeldingen: per thema andere velden --}}
@@ -243,15 +243,15 @@
             @endphp
             <div class="row-visibility-row">
                 <label class="block text-sm font-medium text-secondary-foreground mb-1">Hero-afbeelding</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding naast of achter de titel.</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Afbeelding naast of achter de titel.') }}</p>
                 <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Hero afbeelding" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Hero afbeelding') }}" id="hero-{{ $sectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $heroPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($heroPreviewSrc) }}" data-default-src="{{ $defaultHeroImg ?? '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
@@ -262,16 +262,16 @@
             @if(($themeSlugForOrder ?? '') === 'modern')
             {{-- Metronic thema: alleen achtergrond --}}
             <div class="row-visibility-row">
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrond banner</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de hero. (Metronic thema)</p>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Achtergrond banner') }}</label>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Afbeelding achter de hero. (Metronic thema)') }}</p>
                 <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Hero achtergrond') }}" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
@@ -282,32 +282,32 @@
             {{-- Atom-v2 e.d.: achtergrond + ronde foto --}}
             <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="min-w-0 flex flex-col gap-2">
-                    <label class="block text-sm font-medium text-secondary-foreground">Achtergrond banner</label>
-                    <p class="text-xs text-muted-foreground">Afbeelding achter de gradient. (Atom-v2 thema)</p>
+                    <label class="block text-sm font-medium text-secondary-foreground">{{ __('Achtergrond banner') }}</label>
+                    <p class="text-xs text-muted-foreground">{{ __('Afbeelding achter de gradient. (Atom-v2 thema)') }}</p>
                     <div class="flex flex-wrap items-stretch gap-3">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Hero achtergrond" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <img alt="{{ __('Hero achtergrond') }}" id="hero-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_url" data-preview-id="hero-{{ $sectionKey }}-bg-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
-                            <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                            <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                            <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                            <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                         </div>
                     </div>
                     <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image_url">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image_url]" id="hero-{{ $sectionKey }}-background_image_url" value="{{ old('home_sections.'.$sectionKey.'.background_image_url', $sectionData['background_image_url'] ?? '') }}">
                 </div>
                 <div class="min-w-0 flex flex-col gap-2">
-                    <label class="block text-sm font-medium text-secondary-foreground">Foto in banner (ronde afbeelding)</label>
-                    <p class="text-xs text-muted-foreground">Ronde foto naast de titel. (Atom-v2 thema)</p>
+                    <label class="block text-sm font-medium text-secondary-foreground">{{ __('Foto in banner (ronde afbeelding)') }}</label>
+                    <p class="text-xs text-muted-foreground">{{ __('Ronde foto naast de titel. (Atom-v2 thema)') }}</p>
                     <div class="flex flex-wrap items-stretch gap-3">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Hero foto" id="hero-{{ $sectionKey }}-author-preview" class="w-20 h-20 rounded-full object-cover border border-border {{ !empty($sectionData['author_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['author_image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <img alt="{{ __('Hero foto') }}" id="hero-{{ $sectionKey }}-author-preview" class="w-20 h-20 rounded-full object-cover border border-border {{ !empty($sectionData['author_image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['author_image_url'] ?? '') }}">
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-author_image_url" data-preview-id="hero-{{ $sectionKey }}-author-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
-                            <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                            <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                            <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                            <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                         </div>
                     </div>
                     <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="author_image_url">
@@ -320,24 +320,24 @@
             @if(in_array($themeSlugForOrder ?? '', ['modern', 'atom-v2'], true))
             <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-border hero-overlay-row" data-section-key="{{ $sectionKey }}">
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur van</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Overloop kleur van') }}</label>
                     <div class="flex items-center gap-2">
-                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_from_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_from">
+                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_from_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" title="{{ __('Kleur kiezen') }}" data-target-input="hero-{{ $sectionKey }}-overlay_color_from">
                         <div class="home-section-hex-input-wrap shrink-0">
                         <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_from]" id="hero-{{ $sectionKey }}-overlay_color_from" class="kt-input w-full font-mono text-sm home-section-hex-input hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_from', $sectionData['overlay_color_from'] ?? '#1e3a8a') }}" placeholder="#1e3a8a" maxlength="7" data-skip-validation-wrapper="1">
                         </div>
                     </div>
-                    <p class="text-xs text-muted-foreground mt-1">Startkleur van de gradient over de afbeelding.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Startkleur van de gradient over de afbeelding.') }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Overloop kleur naar</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Overloop kleur naar') }}</label>
                     <div class="flex items-center gap-2">
-                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_to_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-overlay_color_to">
+                        <input type="color" id="hero-{{ $sectionKey }}-overlay_color_to_color" class="hero-overlay-color-picker h-10 w-14 rounded border border-input cursor-pointer" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" title="{{ __('Kleur kiezen') }}" data-target-input="hero-{{ $sectionKey }}-overlay_color_to">
                         <div class="home-section-hex-input-wrap shrink-0">
                         <input type="text" name="home_sections[{{ $sectionKey }}][overlay_color_to]" id="hero-{{ $sectionKey }}-overlay_color_to" class="kt-input w-full font-mono text-sm home-section-hex-input hero-overlay-hex-input" value="{{ old('home_sections.'.$sectionKey.'.overlay_color_to', $sectionData['overlay_color_to'] ?? '#312e81') }}" placeholder="#312e81" maxlength="7" data-skip-validation-wrapper="1">
                         </div>
                     </div>
-                    <p class="text-xs text-muted-foreground mt-1">Eindkleur van de gradient.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Eindkleur van de gradient.') }}</p>
                 </div>
                 <div class="md:col-span-2">
                     @php
@@ -345,13 +345,13 @@
                         $overlayOpacityVal = max(0, min(100, $overlayOpacityVal));
                     @endphp
                     <div class="flex items-center justify-between gap-2 mb-1">
-                        <label class="text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-overlay_opacity">Helderheid overloop</label>
+                        <label class="text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-overlay_opacity">{{ __('Helderheid overloop') }}</label>
                         <span id="hero-{{ $sectionKey }}-overlay_opacity-value"
                               class="hero-overlay-opacity-value inline-flex items-center justify-center min-w-[3.25rem] rounded-md bg-muted px-2 py-0.5 text-sm font-semibold tabular-nums text-foreground"
                               aria-live="polite">{{ $overlayOpacityVal }}%</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="text-xs text-muted-foreground shrink-0">Lichter (afbeelding duidelijker)</span>
+                        <span class="text-xs text-muted-foreground shrink-0">{{ __('Lichter (afbeelding duidelijker)') }}</span>
                         <div class="hero-overlay-opacity-slider flex-1 min-w-0">
                             <input type="range"
                                    name="home_sections[{{ $sectionKey }}][overlay_opacity]"
@@ -366,17 +366,17 @@
                                    aria-valuenow="{{ $overlayOpacityVal }}"
                                    aria-describedby="hero-{{ $sectionKey }}-overlay_opacity-value">
                         </div>
-                        <span class="text-xs text-muted-foreground shrink-0">Donkerder</span>
+                        <span class="text-xs text-muted-foreground shrink-0">{{ __('Donkerder') }}</span>
                     </div>
-                    <p class="text-xs text-muted-foreground mt-1">0 = overloop bijna transparant (achtergrond goed zichtbaar), 100 = donkerste overloop.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('0 = overloop bijna transparant (achtergrond goed zichtbaar), 100 = donkerste overloop.') }}</p>
                 </div>
             </div>
             @endif
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Ondertitel') }}</label>
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" title="Zichtbaar op website" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" title="{{ __('Zichtbaar op website') }}" aria-label="{{ __('Ondertitel tonen/verbergen') }}">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                                 @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#bfdbfe'])
                 @php
@@ -384,104 +384,104 @@
                     $heroSubtitleWidthPct = max(30, min(100, $heroSubtitleWidthPct));
                 @endphp
                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                    <label class="text-sm font-medium text-secondary-foreground shrink-0" for="hero-{{ $sectionKey }}-subtitle_width_percent">Breedte ondertitel</label>
-                    <select name="home_sections[{{ $sectionKey }}][subtitle_width_percent]" id="hero-{{ $sectionKey }}-subtitle_width_percent" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte ondertitel (%)">
+                    <label class="text-sm font-medium text-secondary-foreground shrink-0" for="hero-{{ $sectionKey }}-subtitle_width_percent">{{ __('Breedte ondertitel') }}</label>
+                    <select name="home_sections[{{ $sectionKey }}][subtitle_width_percent]" id="hero-{{ $sectionKey }}-subtitle_width_percent" class="kt-input text-sm w-full max-w-[8rem]" title="{{ __('Breedte ondertitel (%)') }}">
                         @foreach ([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
                             <option value="{{ $pct }}" @selected($heroSubtitleWidthPct === $pct)>{{ $pct }}%</option>
                         @endforeach
                     </select>
-                    <span class="text-xs text-muted-foreground">Percentage van de bannerbreedte</span>
+                    <span class="text-xs text-muted-foreground">{{ __('Percentage van de bannerbreedte') }}</span>
                 </div>
                 @include('admin.website-pages.partials.hero-text-bg-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ons geavanceerde AI-platform...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-sm font-medium text-secondary-foreground">Knoppen (CTA)</span>
+                    <span class="text-sm font-medium text-secondary-foreground">{{ __('Knoppen (CTA)') }}</span>
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_cta]" id="visibility-{{ $sectionKey }}_cta" value="{{ $vis('_cta') ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_cta" title="Zichtbaar op website" aria-label="Knoppen tonen/verbergen">@if($vis('_cta'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_cta" title="{{ __('Zichtbaar op website') }}" aria-label="{{ __('Knoppen tonen/verbergen') }}">@if($vis('_cta'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 tekst</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 1 tekst') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? 'Gratis account aanmaken') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 URL</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 1 URL') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 tekst</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 2 tekst') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? 'Vacatures bekijken') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 URL</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 2 URL') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
                 <div class="space-y-2">
-                    <label class="block text-sm font-medium text-secondary-foreground">Knop 1 kleuren</label>
+                    <label class="block text-sm font-medium text-secondary-foreground">{{ __('Knop 1 kleuren') }}</label>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Achtergrond') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
+                                <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#ffffff' }}" title="{{ __('Achtergrond') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Tekstkleur') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#1e3a8a' }}" title="Tekstkleur">
+                                <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#1e3a8a' }}" title="{{ __('Tekstkleur') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e3a8a"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#1e3a8a"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Border') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
+                                <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#1e40af' }}" title="{{ __('Borderkleur') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         @include('admin.website-pages.partials.home-section-cta-hover-colors', ['hoverPrefix' => 'cta_primary', 'hoverDefaults' => ['bg' => '#ffffff', 'text' => '#1e3a8a', 'border' => '#1e40af']])
                     </div>
                 </div>
                 <div class="space-y-2">
-                    <label class="block text-sm font-medium text-secondary-foreground">Knop 2 kleuren</label>
+                    <label class="block text-sm font-medium text-secondary-foreground">{{ __('Knop 2 kleuren') }}</label>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Achtergrond') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
+                                <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="{{ __('Achtergrond') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Tekstkleur') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#1e40af' }}" title="Tekstkleur">
+                                <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#1e40af' }}" title="{{ __('Tekstkleur') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Border') }}</label>
                             <div class="flex items-center gap-2">
-                                <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1e40af' }}" title="Borderkleur">
+                                <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1e40af' }}" title="{{ __('Borderkleur') }}">
                                 <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
-                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#1e40af"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                             </div>
                         </div>
                         @include('admin.website-pages.partials.home-section-cta-hover-colors', ['hoverPrefix' => 'cta_secondary', 'hoverDefaults' => ['bg' => '#ffffff', 'text' => '#1e40af', 'border' => '#1e40af']])
                     </div>
                 </div>
             </div>
-            <p class="text-xs text-muted-foreground mt-2">Achtergrond, tekstkleur, border en hoverkleuren per knop. Lege hoverkleur = dezelfde kleur als de knop. Gebruik hex (bijv. #2563eb).</p>
+            <p class="text-xs text-muted-foreground mt-2">{{ __('Achtergrond, tekstkleur, border en hoverkleuren per knop. Lege hoverkleur = dezelfde kleur als de knop. Gebruik hex (bijv. #2563eb).') }}</p>
             </div>
         </div>
     </div>
@@ -492,21 +492,21 @@
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--stats flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('stats') }}{{ $sectionKey !== 'stats' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($vis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -515,11 +515,11 @@
             @foreach([0, 1, 2, 3] as $i)
             <div class="row-visibility-row flex flex-wrap items-start gap-2 space-y-2">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_{{ $i }}]" id="visibility-{{ $sectionKey }}_{{ $i }}" value="{{ ($visibility[$sectionKey.'_'.$i] ?? $visibility['stats_'.$i] ?? true) ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0 mt-8" data-target="visibility-{{ $sectionKey }}_{{ $i }}" title="Stat {{ $i + 1 }} tonen/verbergen" aria-label="Stat {{ $i + 1 }}">@if($visibility[$sectionKey.'_'.$i] ?? $visibility['stats_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0 mt-8" data-target="visibility-{{ $sectionKey }}_{{ $i }}" title="{{ __('Stat :n tonen/verbergen', ['n' => $i + 1]) }}" aria-label="{{ __('Stat :n', ['n' => $i + 1]) }}">@if($visibility[$sectionKey.'_'.$i] ?? $visibility['stats_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 <div class="flex-1 min-w-0 space-y-2">
                     <div class="grid grid-cols-2 gap-3">
                         <div class="space-y-2">
-                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Waarde {{ $i + 1 }}</label>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Waarde :n', ['n' => $i + 1]) }}</label>
                             <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value]" class="kt-input home-section-input-400" value="{{ old("home_sections.{$sectionKey}.{$i}.value", ($statsItems[$i]['value'] ?? '')) }}" placeholder="10,000+">
                             @php
                                 $statsDefaultColors = ['#2563eb', '#16a34a', '#111827', '#ea580c'];
@@ -527,12 +527,12 @@
                             @endphp
                             <div class="flex flex-wrap items-center gap-3 pt-1">
                                 <div class="flex items-center gap-1.5">
-                                    <label class="text-xs text-muted-foreground shrink-0">Kleur waarde</label>
-                                    <input type="color" id="stats_value_color_picker_{{ $sectionKey }}_{{ $i }}" class="h-8 w-10 cursor-pointer rounded border border-input bg-background p-0.5 shrink-0" value="{{ $statsPickerColor }}" title="Kleur waarde" aria-label="Kleur waarde">
+                                    <label class="text-xs text-muted-foreground shrink-0">{{ __('Kleur waarde') }}</label>
+                                    <input type="color" id="stats_value_color_picker_{{ $sectionKey }}_{{ $i }}" class="h-8 w-10 cursor-pointer rounded border border-input bg-background p-0.5 shrink-0" value="{{ $statsPickerColor }}" title="{{ __('Kleur waarde') }}" aria-label="{{ __('Kleur waarde') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][value_color]" class="kt-input text-xs font-mono home-section-hex-input" value="{{ old("home_sections.{$sectionKey}.{$i}.value_color", $statsItems[$i]['value_color'] ?? '') }}" placeholder="#hex" maxlength="7">
                                 </div>
                                 <div class="flex items-center gap-1.5">
-                                    <label class="text-xs text-muted-foreground shrink-0">Grootte waarde</label>
+                                    <label class="text-xs text-muted-foreground shrink-0">{{ __('Grootte waarde') }}</label>
                                     @php
                                         $currentValueSize = $statsItems[$i]['value_size'] ?? '22';
                                         $currentValueSize = in_array($currentValueSize, ['small', 'medium', 'large'], true) ? (match($currentValueSize) { 'small' => 18, 'large' => 28, default => 22 }) : (int) $currentValueSize;
@@ -547,10 +547,10 @@
                             </div>
                         </div>
                         <div class="space-y-2">
-                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Label {{ $i + 1 }}</label>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Label :n', ['n' => $i + 1]) }}</label>
                             <input type="text" name="home_sections[{{ $sectionKey }}][{{ $i }}][label]" class="kt-input home-section-input-400" value="{{ old("home_sections.{$sectionKey}.{$i}.label", ($statsItems[$i]['label'] ?? '')) }}" placeholder="Actieve vacatures">
                             <div class="flex items-center gap-1.5 pt-1">
-                                <label class="text-xs text-muted-foreground shrink-0">Grootte label</label>
+                                <label class="text-xs text-muted-foreground shrink-0">{{ __('Grootte label') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][{{ $i }}][label_size]" class="kt-input text-sm w-auto min-w-[5rem]">
                                     @php
                                         $currentLabelSize = $statsItems[$i]['label_size'] ?? '16';
@@ -569,30 +569,30 @@
             @endforeach
             <div class="row-visibility-row space-y-2 pt-2 border-t border-border">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Achtergrondplaatje</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Achtergrondplaatje') }}</label>
                 </div>
-                <p class="text-xs text-muted-foreground mb-2">Leeg = geen achtergrondafbeelding.</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Leeg = geen achtergrondafbeelding.') }}</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Stats achtergrond" id="hero-{{ $sectionKey }}-background_image-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image" data-preview-id="hero-{{ $sectionKey }}-background_image-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Stats achtergrond') }}" id="hero-{{ $sectionKey }}-background_image-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image" data-preview-id="hero-{{ $sectionKey }}-background_image-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image" style="width: 500px; min-width: 500px; height: 130px;">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image">
                 <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image]" id="hero-{{ $sectionKey }}-background_image" value="{{ old('home_sections.'.$sectionKey.'.background_image', $sectionData['background_image'] ?? '') }}">
             </div>
             <div class="space-y-2 pt-2 border-t border-border">
-                <label class="block text-sm font-medium text-secondary-foreground">Achtergrondkleur sectie</label>
+                <label class="block text-sm font-medium text-secondary-foreground">{{ __('Achtergrondkleur sectie') }}</label>
                 <div class="flex items-center gap-2 w-full">
-                    <input type="color" id="stats_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#f3f4f6' }}" title="Kies kleur" aria-label="Achtergrondkleur">
+                    <input type="color" id="stats_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#f3f4f6' }}" title="{{ __('Kies kleur') }}" aria-label="{{ __('Achtergrondkleur') }}">
                     <div class="home-section-hex-input-wrap shrink-0">
                     <input type="text" name="home_sections[{{ $sectionKey }}][background]" id="stats_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.background', $sectionData['background'] ?? '') }}" placeholder="#f3f4f6" maxlength="7" data-skip-validation-wrapper="1">
                     </div>
-                    <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="stats_bg_picker_{{ $sectionKey }}" data-input-id="stats_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
+                    <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="{{ __('Terugzetten naar standaard') }}" aria-label="{{ __('Achtergrondkleur resetten') }}" data-picker-id="stats_bg_picker_{{ $sectionKey }}" data-input-id="stats_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
         </div>
@@ -600,21 +600,21 @@
     @elseif($base === 'why_nexa')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--why flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('why_nexa') }}{{ $sectionKey !== 'why_nexa' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($vis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -622,34 +622,34 @@
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Titel</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Titel') }}</label>
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="{{ __('Titel tonen/verbergen') }}">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Waarom kiezen voor Nexa?') }}">
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Ondertitel') }}</label>
                     <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="{{ __('Ondertitel tonen/verbergen') }}">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                                 @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#4b5563'])
-                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => 'Ondertitel...', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'hero-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => __('Ondertitel...'), 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row space-y-2 pt-2 border-t border-border">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Achtergrond light mode</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Achtergrond light mode') }}</label>
                 </div>
-                <p class="text-xs text-muted-foreground mb-2">Voor de lichte weergave. Wordt over de volle paginabreedte getoond.</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Voor de lichte weergave. Wordt over de volle paginabreedte getoond.') }}</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Waarom Nexa achtergrond light" id="hero-{{ $sectionKey }}-background_image-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image" data-preview-id="hero-{{ $sectionKey }}-background_image-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Waarom Nexa achtergrond light') }}" id="hero-{{ $sectionKey }}-background_image-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image" data-preview-id="hero-{{ $sectionKey }}-background_image-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image" style="width: 500px; min-width: 500px; height: 130px;">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image">
@@ -657,31 +657,31 @@
             </div>
             <div class="row-visibility-row space-y-2 pt-2 border-t border-border">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Achtergrond dark mode</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Achtergrond dark mode') }}</label>
                 </div>
-                <p class="text-xs text-muted-foreground mb-2">Voor de donkere weergave. Leeg = het light-mode plaatje.</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Voor de donkere weergave. Leeg = het light-mode plaatje.') }}</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Waarom Nexa achtergrond dark" id="hero-{{ $sectionKey }}-background_image_dark-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_dark']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_dark'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_dark" data-preview-id="hero-{{ $sectionKey }}-background_image_dark-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Waarom Nexa achtergrond dark') }}" id="hero-{{ $sectionKey }}-background_image_dark-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($sectionData['background_image_dark']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($sectionData['background_image_dark'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-background_image_dark" data-preview-id="hero-{{ $sectionKey }}-background_image_dark-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="background_image_dark" style="width: 500px; min-width: 500px; height: 130px;">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="background_image_dark">
                 <input type="hidden" name="home_sections[{{ $sectionKey }}][background_image_dark]" id="hero-{{ $sectionKey }}-background_image_dark" value="{{ old('home_sections.'.$sectionKey.'.background_image_dark', $sectionData['background_image_dark'] ?? '') }}">
             </div>
             <div class="space-y-2 pt-2 border-t border-border">
-                <label class="block text-sm font-medium text-secondary-foreground">Achtergrondkleur</label>
-                <p class="text-xs text-muted-foreground mb-2">Wordt over de volle paginabreedte getoond. Leeg = standaard.</p>
+                <label class="block text-sm font-medium text-secondary-foreground">{{ __('Achtergrondkleur') }}</label>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Wordt over de volle paginabreedte getoond. Leeg = standaard.') }}</p>
                 <div class="flex items-center gap-2 w-full">
-                    <input type="color" id="why_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#ffffff' }}" title="Kies kleur" aria-label="Achtergrondkleur">
+                    <input type="color" id="why_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1 shrink-0" value="{{ !empty($sectionData['background']) ? $sectionData['background'] : '#ffffff' }}" title="{{ __('Kies kleur') }}" aria-label="{{ __('Achtergrondkleur') }}">
                     <div class="home-section-hex-input-wrap shrink-0">
                     <input type="text" name="home_sections[{{ $sectionKey }}][background]" id="why_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.background', $sectionData['background'] ?? '') }}" placeholder="#ffffff" maxlength="7" data-skip-validation-wrapper="1">
                     </div>
-                    <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="why_bg_picker_{{ $sectionKey }}" data-input-id="why_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
+                    <button type="button" class="stats-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="{{ __('Terugzetten naar standaard') }}" aria-label="{{ __('Achtergrondkleur resetten') }}" data-picker-id="why_bg_picker_{{ $sectionKey }}" data-input-id="why_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
             @php
@@ -693,14 +693,14 @@
                 $whyTitleColorPicker = $whyTitleColor !== '' ? $whyTitleColor : '#111827';
             @endphp
             <div class="space-y-2 pt-2 border-t border-border max-w-md">
-                <label class="block text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-title_color">Titelkleur</label>
+                <label class="block text-sm font-medium text-secondary-foreground" for="hero-{{ $sectionKey }}-title_color">{{ __('Titelkleur') }}</label>
                 <div class="flex items-center gap-2">
-                    <input type="color" id="hero-{{ $sectionKey }}-title_color_color" class="hero-subtitle-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="{{ $whyTitleColorPicker }}" title="Kleur kiezen" data-target-input="hero-{{ $sectionKey }}-title_color">
+                    <input type="color" id="hero-{{ $sectionKey }}-title_color_color" class="hero-subtitle-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="{{ $whyTitleColorPicker }}" title="{{ __('Kleur kiezen') }}" data-target-input="hero-{{ $sectionKey }}-title_color">
                     <div class="home-section-hex-input-wrap shrink-0">
                         <input type="text" name="home_sections[{{ $sectionKey }}][title_color]" id="hero-{{ $sectionKey }}-title_color" class="kt-input w-full font-mono text-sm home-section-hex-input hero-subtitle-color-hex-input" value="{{ $whyTitleColor }}" placeholder="#111827" maxlength="7" data-skip-validation-wrapper="1">
                     </div>
                 </div>
-                <p class="text-xs text-muted-foreground">Handig bij een donkere achtergrond. Leeg = standaard.</p>
+                <p class="text-xs text-muted-foreground">{{ __('Handig bij een donkere achtergrond. Leeg = standaard.') }}</p>
             </div>
         </div>
     </div>
@@ -719,21 +719,21 @@
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--features flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('features') }}{{ $sectionKey !== 'features' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}]" id="visibility-{{ $featureSectionKey }}" value="{{ $featureVis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $featureSectionKey }}" title="{{ $featureVis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $featureSectionKey }}" title="{{ $featureVis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($featureVis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -745,16 +745,16 @@
                 $featuresPreviewSrc = !empty($featureSectionData['illustration_url']) ? $featureSectionData['illustration_url'] : $defaultFeaturesImg;
             @endphp
             <div class="row-visibility-row">
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Illustratie Kenmerken-sectie</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding naast de kenmerken. Standaard: Illustration2.png.</p>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Illustratie Kenmerken-sectie') }}</label>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Afbeelding naast de kenmerken. Standaard: Illustration2.png.') }}</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Kenmerken illustratie" id="hero-{{ $featureSectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $featuresPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($featuresPreviewSrc) }}" data-default-src="{{ $defaultFeaturesImg ?? '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $featureSectionKey }}-illustration_url" data-preview-id="hero-{{ $featureSectionKey }}-author-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Kenmerken illustratie') }}" id="hero-{{ $featureSectionKey }}-author-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $featuresPreviewSrc ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($featuresPreviewSrc) }}" data-default-src="{{ $defaultFeaturesImg ?? '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $featureSectionKey }}-illustration_url" data-preview-id="hero-{{ $featureSectionKey }}-author-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $featureSectionKey }}" data-field="illustration_url" style="width: 500px; min-width: 500px; height: 130px;">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $featureSectionKey }}" data-field="illustration_url">
@@ -763,34 +763,34 @@
             @endif
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Sectietitel</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Sectietitel') }}</label>
                     <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}_section_title]" id="visibility-{{ $featureSectionKey }}_section_title" value="{{ ($visibility[$featureSectionKey.'_section_title'] ?? $visibility['features_section_title'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_section_title" aria-label="Sectietitel tonen/verbergen">@if($visibility[$featureSectionKey.'_section_title'] ?? $visibility['features_section_title'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_section_title" aria-label="{{ __('Sectietitel tonen/verbergen') }}">@if($visibility[$featureSectionKey.'_section_title'] ?? $visibility['features_section_title'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <input type="text" name="home_sections[{{ $featureSectionKey }}][section_title]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$featureSectionKey.'.section_title', $featureSectionData['section_title'] ?? 'Kenmerken') }}">
             </div>
             <div class="features-items-sortable space-y-4" data-section-key="{{ $featureSectionKey }}" data-icon-options="{{ json_encode($heroiconList) }}" data-size-options="{{ json_encode(collect($heroiconSizes)->map(fn($v) => $v['label'] ?? '')->all()) }}">
             @foreach($featureItems as $i => $item)
             <div class="features-item-row row-visibility-row border border-border rounded-lg p-4 space-y-3 flex gap-3" data-features-index="{{ $i }}">
-                <span class="features-item-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 mt-1 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+                <span class="features-item-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 mt-1 p-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
                 <div class="flex-1 min-w-0 space-y-3">
                     <div class="flex items-center gap-2 mb-1 flex-wrap">
-                        <p class="text-sm font-medium text-secondary-foreground">Kaart <span class="features-item-num">{{ $i + 1 }}</span></p>
+                        <p class="text-sm font-medium text-secondary-foreground">{{ __('Kaart') }} <span class="features-item-num">{{ $i + 1 }}</span></p>
                         <input type="hidden" name="home_sections[visibility][{{ $featureSectionKey }}_item_{{ $i }}]" id="visibility-{{ $featureSectionKey }}_item_{{ $i }}" value="{{ ($visibility[$featureSectionKey.'_item_'.$i] ?? $visibility['features_item_'.$i] ?? true) ? '1' : '0' }}">
-                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_item_{{ $i }}" aria-label="Kaart tonen/verbergen">@if($visibility[$featureSectionKey.'_item_'.$i] ?? $visibility['features_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                        <button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $featureSectionKey }}_item_{{ $i }}" aria-label="{{ __('Kaart tonen/verbergen') }}">@if($visibility[$featureSectionKey.'_item_'.$i] ?? $visibility['features_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                        <button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Kaart verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div>
-                        <label class="block text-xs text-muted-foreground mb-1">Titel</label>
+                        <label class="block text-xs text-muted-foreground mb-1">{{ __('Titel') }}</label>
                         <input type="text" name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][title]" class="kt-input home-section-input-400 features-item-title" value="{{ old("home_sections.".$featureSectionKey.".items.{$i}.title", $item['title'] ?? '') }}">
                     </div>
                     <div>
-                        <label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>
+                        <label class="block text-xs text-muted-foreground mb-1">{{ __('Beschrijving') }}</label>
                         @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-'.$featureSectionKey.'-item-'.$i.'-description', 'name' => 'home_sections['.$featureSectionKey.'][items]['.$i.'][description]', 'value' => old('home_sections.'.$featureSectionKey.'.items.'.$i.'.description', $item['description'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-'.$featureSectionKey.'-item-'.$i.'-description'])
                     </div>
                     <div class="flex flex-col gap-2">
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">{{ __('Icoon (Heroicon)') }}</label>
                             <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon]" class="kt-input w-44 shrink-0 features-item-icon">
                                 @foreach($heroiconList as $iconId => $iconLabel)
                                 <option value="{{ $iconId }}" {{ ($item['icon'] ?? ($i === 0 ? 'light-bulb' : 'bolt')) === $iconId ? 'selected' : '' }}>{{ $iconLabel }}</option>
@@ -798,19 +798,19 @@
                             </select>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">{{ __('Grootte icoon') }}</label>
                             <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">
                                 @foreach($heroiconSizes as $sizeId => $sizeData)
-                                <option value="{{ $sizeId }}" {{ ($item['icon_size'] ?? 'medium') === $sizeId ? 'selected' : '' }}>{{ $sizeData['label'] ?? $sizeId }}</option>
+                                <option value="{{ $sizeId }}" {{ ($item['icon_size'] ?? 'medium') === $sizeId ? 'selected' : '' }}>{{ __($sizeData['label'] ?? $sizeId) }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label>
+                            <label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">{{ __('Positie titel en icoon') }}</label>
                             <select name="home_sections[{{ $featureSectionKey }}][items][{{ $i }}][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align">
-                                <option value="left" {{ ($item['icon_align'] ?? 'center') === 'left' ? 'selected' : '' }}>Links</option>
-                                <option value="center" {{ ($item['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
-                                <option value="right" {{ ($item['icon_align'] ?? 'center') === 'right' ? 'selected' : '' }}>Rechts</option>
+                                <option value="left" {{ ($item['icon_align'] ?? 'center') === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                                <option value="center" {{ ($item['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                                <option value="right" {{ ($item['icon_align'] ?? 'center') === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                             </select>
                         </div>
                     </div>
@@ -819,7 +819,7 @@
             @endforeach
             </div>
             <div class="mt-4">
-                <button type="button" class="features-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $featureSectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Kaart toevoegen</button>
+                <button type="button" class="features-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $featureSectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{{ __('Kaart toevoegen') }}</button>
             </div>
         </div>
     </div>
@@ -829,27 +829,27 @@
         if (empty($cardsItems)) {
             $cardsItems = [['image_url' => '', 'text' => '', 'font_size' => 14, 'font_style' => 'normal', 'card_size' => 'normal', 'text_align' => 'left']];
         }
-        $cardsFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
-        $cardsCardSizes = ['small' => 'Klein (300px)', 'normal' => 'Normaal (400px)', 'large' => 'Groot (600px)', 'xlarge' => 'Extra groot (800px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
-        $cardsTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
+        $cardsFontStyles = ['normal' => __('Normaal'), 'bold' => __('Vet'), 'italic' => __('Cursief')];
+        $cardsCardSizes = ['small' => __('Klein (300px)'), 'normal' => __('Normaal (400px)'), 'large' => __('Groot (600px)'), 'xlarge' => __('Extra groot (800px)'), 'max' => __('Maximaal (volledige breedte)'), 'total_width' => __('Totaalformaat cards')];
+        $cardsTextAligns = ['left' => __('Links'), 'center' => __('Midden'), 'right' => __('Rechts')];
         $cardsImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--cards flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('cards_ronde_hoeken') }}{{ $sectionKey !== 'cards_ronde_hoeken' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <div class="flex flex-col gap-2">
-                <p class="text-sm text-muted-foreground">Kaarten met afbeelding en tekst eronder. Tekst per kaart kan met het oogje uitgeschakeld worden.</p>
+                <p class="text-sm text-muted-foreground">{{ __('Kaarten met afbeelding en tekst eronder. Tekst per kaart kan met het oogje uitgeschakeld worden.') }}</p>
                 <div class="flex items-center gap-2">
-                    <label class="text-sm text-muted-foreground shrink-0">Kaarten per regel:</label>
+                    <label class="text-sm text-muted-foreground shrink-0">{{ __('Kaarten per regel:') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][cards_per_row]" class="kt-input w-20 text-sm">
                         @foreach([1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6'] as $val => $label)
                         <option value="{{ $val }}" {{ (int)($sectionData['cards_per_row'] ?? 4) === (int)$val ? 'selected' : '' }}>{{ $label }}</option>
@@ -864,30 +864,30 @@
                 @endphp
                 <div class="cards-ronde-hoeken-item border border-border rounded-lg p-4 space-y-3" style="--card-fs: {{ $cardBodyFontPx }}px;" data-cards-index="{{ $i }}">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-sm font-medium">Kaart {{ $i + 1 }}</span>
-                        <button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <span class="text-sm font-medium">{{ __('Kaart :n', ['n' => $i + 1]) }}</span>
+                        <button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Kaart verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
-                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <img alt="{{ __('Kaart :n', ['n' => $i + 1]) }}" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ !empty($cardItem['image_url']) ? '' : 'hidden' }}" src="{{ $imagePreviewUrl($cardItem['image_url'] ?? '') }}">
+                            <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url" data-url-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" data-file-input-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-file" data-preview-id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-preview" style="width: 500px; min-width: 500px; height: 130px;">
-                            <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
-                            <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                            <span class="text-xs text-muted-foreground">{{ __('Klik of sleep afbeelding') }}</span>
+                            <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                         </div>
                     </div>
                     <input type="file" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url-file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="items_{{ $i }}_image_url">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" id="hero-{{ $sectionKey }}-items_{{ $i }}_image_url" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_url', $cardItem['image_url'] ?? '') }}">
                     <div class="space-y-2 mt-3">
                         <div class="flex flex-wrap items-center gap-4">
-                            <label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label>
+                            <label class="text-sm font-medium text-secondary-foreground shrink-0">{{ __('Tekst onder afbeelding') }}</label>
                             <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_item_{{ $i }}]" id="visibility-{{ $sectionKey }}_item_{{ $i }}" value="{{ ($visibility[$sectionKey.'_item_'.$i] ?? true) ? '1' : '0' }}">
-                            <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_item_{{ $i }}" aria-label="Tekst tonen/verbergen">@if($visibility[$sectionKey.'_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                            <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_item_{{ $i }}" aria-label="{{ __('Tekst tonen/verbergen') }}">@if($visibility[$sectionKey.'_item_'.$i] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                         </div>
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Kaartgrootte') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
                                     @foreach($cardsCardSizes as $val => $label)
                                     <option value="{{ $val }}" {{ ($cardItem['card_size'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -895,7 +895,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Stijl') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_style]" class="kt-input w-28 text-sm">
                                     @foreach($cardsFontStyles as $val => $label)
                                     <option value="{{ $val }}" {{ ($cardItem['font_style'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -904,7 +904,7 @@
                             </div>
                             <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_size]" value="{{ $cardBodyFontPx }}">
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Uitlijning') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
                                     @foreach($cardsTextAligns as $val => $label)
                                     <option value="{{ $val }}" {{ ($cardItem['text_align'] ?? 'left') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -913,7 +913,7 @@
                             </div>
                             @php $cardImagePadding = isset($cardItem['image_padding']) ? max(0, min(30, (int) $cardItem['image_padding'])) : 2; $cardImagePadding = (int) (round($cardImagePadding / 2) * 2); @endphp
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Padding afbeelding') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_padding]" class="kt-input w-24 text-sm">
                                     @foreach($cardsImagePaddings as $px => $label)
                                     <option value="{{ $px }}" {{ $cardImagePadding === (int)$px ? 'selected' : '' }}>{{ $label }}</option>
@@ -921,31 +921,31 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Achtergrondkleur afbeelding') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $cardItem['image_bg_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="{{ __('Achtergrondkleur') }}">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $cardItem['image_bg_color'] ?? '') }}" placeholder="{{ __('#hex of leeg') }}" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-image-bg">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Tekstkleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
-                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $cardItem['text_color'] ?? '') }}" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-text-color">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <input type="color" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($cardItem['text_color'] ?? '') ?: '#374151' }}" title="{{ __('Tekstkleur') }}">
+                                    <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="cards-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $cardItem['text_color'] ?? '') }}" placeholder="{{ __('#hex of leeg') }}" maxlength="7" data-sync-from="cards-{{ $sectionKey }}-item-{{ $i }}-text-color">
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
                         <div class="w-full min-w-0">
-                            @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][text]', 'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? ''), 'placeholder' => 'Tekst onder de afbeelding (rich text)', 'textareaId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'contentMinHeightPx' => 200, 'contentMaxHeightPx' => 220])
+                            @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][text]', 'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.text', $cardItem['text'] ?? ''), 'placeholder' => __('Tekst onder de afbeelding (rich text)'), 'textareaId' => 'home-cards-'.$sectionKey.'-item-'.$i.'-text', 'contentMinHeightPx' => 200, 'contentMaxHeightPx' => 220])
                         </div>
                     </div>
                 </div>
                 @endforeach
             </div>
             <div class="mt-4">
-                <button type="button" class="cards-ronde-hoeken-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Card toevoegen</button>
+                <button type="button" class="cards-ronde-hoeken-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{{ __('Card toevoegen') }}</button>
             </div>
         </div>
     </div>
@@ -976,87 +976,87 @@
     @endphp
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--featured-services flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('featured_services') }}{{ $sectionKey !== 'featured_services' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-6">
-            <p class="text-sm text-muted-foreground">Dienstenblok met scroll-animatie. Titel, ondertitel en per blok icoon, titel en beschrijving bewerkbaar.</p>
+            <p class="text-sm text-muted-foreground">{{ __('Dienstenblok met scroll-animatie. Titel, ondertitel en per blok icoon, titel en beschrijving bewerkbaar.') }}</p>
             <div class="grid gap-x-4" style="grid-template-columns: 11rem minmax(18rem, 1fr); row-gap: 1rem;">
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Blokken per regel</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Blokken per regel') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][blocks_per_row]" class="kt-input text-sm w-full">
                     @foreach([2 => '2', 3 => '3', 4 => '4'] as $val => $label)
                     <option value="{{ $val }}" {{ (int)($sectionData['blocks_per_row'] ?? 3) === (int)$val ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Grootte blokken</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Grootte blokken') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][block_size]" class="kt-input text-sm w-full">
-                    <option value="small" {{ ($sectionData['block_size'] ?? 'medium') === 'small' ? 'selected' : '' }}>Klein (300px)</option>
-                    <option value="medium" {{ ($sectionData['block_size'] ?? 'medium') === 'medium' ? 'selected' : '' }}>Middel (500px)</option>
-                    <option value="large" {{ ($sectionData['block_size'] ?? 'medium') === 'large' ? 'selected' : '' }}>Groot (700px)</option>
-                    <option value="full" {{ ($sectionData['block_size'] ?? 'medium') === 'full' ? 'selected' : '' }}>Hele breedte</option>
+                    <option value="small" {{ ($sectionData['block_size'] ?? 'medium') === 'small' ? 'selected' : '' }}>{{ __('Klein (300px)') }}</option>
+                    <option value="medium" {{ ($sectionData['block_size'] ?? 'medium') === 'medium' ? 'selected' : '' }}>{{ __('Middel (500px)') }}</option>
+                    <option value="large" {{ ($sectionData['block_size'] ?? 'medium') === 'large' ? 'selected' : '' }}>{{ __('Groot (700px)') }}</option>
+                    <option value="full" {{ ($sectionData['block_size'] ?? 'medium') === 'full' ? 'selected' : '' }}>{{ __('Hele breedte') }}</option>
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Uitlijning</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Uitlijning') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][block_align]" class="kt-input text-sm w-full">
-                    <option value="left" {{ ($sectionData['block_align'] ?? 'center') === 'left' ? 'selected' : '' }}>Links</option>
-                    <option value="center" {{ ($sectionData['block_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
-                    <option value="right" {{ ($sectionData['block_align'] ?? 'center') === 'right' ? 'selected' : '' }}>Rechts</option>
+                    <option value="left" {{ ($sectionData['block_align'] ?? 'center') === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                    <option value="center" {{ ($sectionData['block_align'] ?? 'center') === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                    <option value="right" {{ ($sectionData['block_align'] ?? 'center') === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-start gap-1 self-start">Breedte blokkenrij <span class="font-normal text-muted-foreground">(%)</span></label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-start gap-1 self-start">{{ __('Breedte blokkenrij') }} <span class="font-normal text-muted-foreground">(%)</span></label>
                 <div class="w-full">
-                    <input type="number" name="home_sections[{{ $sectionKey }}][blocks_row_width_percent]" class="kt-input text-sm w-full" min="1" max="100" step="1" value="{{ old('home_sections.'.$sectionKey.'.blocks_row_width_percent', (int)($sectionData['blocks_row_width_percent'] ?? 100)) }}" title="Ten opzichte van de inhoudscontainer op de website (100 = volle breedte)">
-                    <p class="text-xs text-muted-foreground mt-1">Beperkt de breedte van het raster met de dienstblokken; uitlijning hierboven bepaalt de positie.</p>
+                    <input type="number" name="home_sections[{{ $sectionKey }}][blocks_row_width_percent]" class="kt-input text-sm w-full" min="1" max="100" step="1" value="{{ old('home_sections.'.$sectionKey.'.blocks_row_width_percent', (int)($sectionData['blocks_row_width_percent'] ?? 100)) }}" title="{{ __('Ten opzichte van de inhoudscontainer op de website (100 = volle breedte)') }}">
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Beperkt de breedte van het raster met de dienstblokken; uitlijning hierboven bepaalt de positie.') }}</p>
                 </div>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Icoon grootte</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Icoon grootte') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][icon_size]" class="kt-input text-sm w-full">
-                    <option value="small" {{ ($sectionData['icon_size'] ?? 'medium') === 'small' ? 'selected' : '' }}>Klein (20px)</option>
-                    <option value="medium" {{ ($sectionData['icon_size'] ?? 'medium') === 'medium' ? 'selected' : '' }}>Midden (30px)</option>
-                    <option value="large" {{ ($sectionData['icon_size'] ?? 'medium') === 'large' ? 'selected' : '' }}>Groot (40px)</option>
+                    <option value="small" {{ ($sectionData['icon_size'] ?? 'medium') === 'small' ? 'selected' : '' }}>{{ __('Klein (20px)') }}</option>
+                    <option value="medium" {{ ($sectionData['icon_size'] ?? 'medium') === 'medium' ? 'selected' : '' }}>{{ __('Midden (30px)') }}</option>
+                    <option value="large" {{ ($sectionData['icon_size'] ?? 'medium') === 'large' ? 'selected' : '' }}>{{ __('Groot (40px)') }}</option>
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Icoon uitlijning</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Icoon uitlijning') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][icon_align]" class="kt-input text-sm w-full">
-                    <option value="top" {{ ($sectionData['icon_align'] ?? 'center') === 'top' ? 'selected' : '' }}>Boven</option>
-                    <option value="center" {{ ($sectionData['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>Midden</option>
-                    <option value="bottom" {{ ($sectionData['icon_align'] ?? 'center') === 'bottom' ? 'selected' : '' }}>Onder</option>
+                    <option value="top" {{ ($sectionData['icon_align'] ?? 'center') === 'top' ? 'selected' : '' }}>{{ __('Boven') }}</option>
+                    <option value="center" {{ ($sectionData['icon_align'] ?? 'center') === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                    <option value="bottom" {{ ($sectionData['icon_align'] ?? 'center') === 'bottom' ? 'selected' : '' }}>{{ __('Onder') }}</option>
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Animatiesnelheid</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Animatiesnelheid') }}</label>
                 <select name="home_sections[{{ $sectionKey }}][animation_speed]" class="kt-input text-sm w-full">
-                    <option value="fast" {{ ($sectionData['animation_speed'] ?? 'slow') === 'fast' ? 'selected' : '' }}>Snel (0,4 s)</option>
-                    <option value="normal" {{ ($sectionData['animation_speed'] ?? 'slow') === 'normal' ? 'selected' : '' }}>Normaal (0,6 s)</option>
-                    <option value="slow" {{ ($sectionData['animation_speed'] ?? 'slow') === 'slow' ? 'selected' : '' }}>Langzaam (0,9 s)</option>
-                    <option value="slower" {{ ($sectionData['animation_speed'] ?? 'slow') === 'slower' ? 'selected' : '' }}>Zeer langzaam (1,2 s)</option>
+                    <option value="fast" {{ ($sectionData['animation_speed'] ?? 'slow') === 'fast' ? 'selected' : '' }}>{{ __('Snel (0,4 s)') }}</option>
+                    <option value="normal" {{ ($sectionData['animation_speed'] ?? 'slow') === 'normal' ? 'selected' : '' }}>{{ __('Normaal (0,6 s)') }}</option>
+                    <option value="slow" {{ ($sectionData['animation_speed'] ?? 'slow') === 'slow' ? 'selected' : '' }}>{{ __('Langzaam (0,9 s)') }}</option>
+                    <option value="slower" {{ ($sectionData['animation_speed'] ?? 'slow') === 'slower' ? 'selected' : '' }}>{{ __('Zeer langzaam (1,2 s)') }}</option>
                 </select>
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Achtergrondkleur kaarten</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Achtergrondkleur kaarten') }}</label>
                 <div class="flex items-center gap-2 w-full">
-                    <input type="color" id="featured_services_card_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($sectionData['card_bg_color']) ? $sectionData['card_bg_color'] : '#ffffff' }}" title="Kies kleur" aria-label="Kies achtergrondkleur">
+                    <input type="color" id="featured_services_card_bg_picker_{{ $sectionKey }}" class="h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($sectionData['card_bg_color']) ? $sectionData['card_bg_color'] : '#ffffff' }}" title="{{ __('Kies kleur') }}" aria-label="{{ __('Kies achtergrondkleur') }}">
                     <div class="home-section-hex-input-wrap shrink-0">
                     <input type="text" name="home_sections[{{ $sectionKey }}][card_bg_color]" id="featured_services_card_bg_input_{{ $sectionKey }}" class="kt-input text-sm w-full font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.card_bg_color', $sectionData['card_bg_color'] ?? '') }}" placeholder="#f3f4f6" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$" data-skip-validation-wrapper="1">
                     </div>
-                    <button type="button" class="featured-services-card-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="Terugzetten naar standaard" aria-label="Achtergrondkleur resetten" data-picker-id="featured_services_card_bg_picker_{{ $sectionKey }}" data-input-id="featured_services_card_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
+                    <button type="button" class="featured-services-card-bg-reset kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" title="{{ __('Terugzetten naar standaard') }}" aria-label="{{ __('Achtergrondkleur resetten') }}" data-picker-id="featured_services_card_bg_picker_{{ $sectionKey }}" data-input-id="featured_services_card_bg_input_{{ $sectionKey }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg></button>
                 </div>
             </div>
             <div class="space-y-2 max-w-xl mt-3">
                 <div>
-                    <label class="text-sm font-medium text-secondary-foreground block mb-1">Sectietitel</label>
+                    <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Sectietitel') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Diensten') }}" placeholder="Bijv. Diensten">
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
                     <div>
-                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Tekstgrootte titel</label>
-                        <select name="home_sections[{{ $sectionKey }}][title_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Tekstgrootte titel') }}</label>
+                        <select name="home_sections[{{ $sectionKey }}][title_font_size_px]" class="kt-input text-sm w-full" title="{{ __('Pixelgrootte op de website') }}">
                             @foreach(range(10, 40, 2) as $fsPx)
                             <option value="{{ $fsPx }}" {{ $fsTitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
-                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Tekstgrootte ondertitel</label>
-                        <select name="home_sections[{{ $sectionKey }}][subtitle_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Tekstgrootte ondertitel') }}</label>
+                        <select name="home_sections[{{ $sectionKey }}][subtitle_font_size_px]" class="kt-input text-sm w-full" title="{{ __('Pixelgrootte op de website') }}">
                             @foreach(range(10, 40, 2) as $fsPx)
                             <option value="{{ $fsPx }}" {{ $fsSubtitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
                             @endforeach
@@ -1064,24 +1064,24 @@
                     </div>
                 </div>
                 <div>
-                    <label class="text-sm font-medium text-secondary-foreground block mb-1">Ondertitel</label>
-                    <textarea name="home_sections[{{ $sectionKey }}][subtitle]" class="kt-input w-full min-h-[52px]" rows="2" placeholder="Korte ondertitel">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
+                    <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Ondertitel') }}</label>
+                    <textarea name="home_sections[{{ $sectionKey }}][subtitle]" class="kt-input w-full min-h-[52px]" rows="2" placeholder="{{ __('Korte ondertitel') }}">{{ old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? '') }}</textarea>
                 </div>
             </div>
             <div class="space-y-2 max-w-xl mt-4 pt-3 border-t border-border">
-                <p class="text-sm font-medium text-secondary-foreground">Tekst in de kaarten <span class="font-normal text-muted-foreground">(geldt voor alle blokken)</span></p>
+                <p class="text-sm font-medium text-secondary-foreground">{{ __('Tekst in de kaarten') }} <span class="font-normal text-muted-foreground">{{ __('(geldt voor alle blokken)') }}</span></p>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
                     <div>
-                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Titel per blok</label>
-                        <select name="home_sections[{{ $sectionKey }}][item_title_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Titel per blok') }}</label>
+                        <select name="home_sections[{{ $sectionKey }}][item_title_font_size_px]" class="kt-input text-sm w-full" title="{{ __('Pixelgrootte op de website') }}">
                             @foreach(range(10, 40, 2) as $fsPx)
                             <option value="{{ $fsPx }}" {{ $fsItemTitlePxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
-                        <label class="text-sm font-medium text-secondary-foreground block mb-1">Beschrijving per blok</label>
-                        <select name="home_sections[{{ $sectionKey }}][item_description_font_size_px]" class="kt-input text-sm w-full" title="Pixelgrootte op de website">
+                        <label class="text-sm font-medium text-secondary-foreground block mb-1">{{ __('Beschrijving per blok') }}</label>
+                        <select name="home_sections[{{ $sectionKey }}][item_description_font_size_px]" class="kt-input text-sm w-full" title="{{ __('Pixelgrootte op de website') }}">
                             @foreach(range(10, 40, 2) as $fsPx)
                             <option value="{{ $fsPx }}" {{ $fsItemDescPxSel === (int) $fsPx ? 'selected' : '' }}>{{ $fsPx }} px</option>
                             @endforeach
@@ -1093,11 +1093,11 @@
                 @foreach($fsItems as $i => $fsItem)
                 <div class="featured-services-item border border-border rounded-lg p-3 space-y-2">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-sm font-medium">Blok {{ $i + 1 }}</span>
-                        <button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Blok verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <span class="text-sm font-medium">{{ __('Blok :n', ['n' => $i + 1]) }}</span>
+                        <button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Blok verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex gap-2 items-center">
-                        <label class="text-sm text-muted-foreground shrink-0 w-24">Icoon</label>
+                        <label class="text-sm text-muted-foreground shrink-0 w-24">{{ __('Icoon') }}</label>
                         <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">
                             @foreach($heroiconListFs as $ic => $lbl)
                                 <option value="{{ $ic }}" {{ ($fsItem['icon'] ?? 'light-bulb') === $ic ? 'selected' : '' }}>{{ $lbl }}</option>
@@ -1105,44 +1105,44 @@
                         </select>
                     </div>
                     <div class="flex gap-2 items-center">
-                        <label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label>
+                        <label class="text-sm text-muted-foreground shrink-0 w-24">{{ __('Icoonkleur') }}</label>
                         <div class="flex items-center gap-2">
-                            <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($fsItem['icon_color']) ? $fsItem['icon_color'] : '#2563eb' }}" title="Kies icoonkleur" aria-label="Icoonkleur">
+                            <input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="{{ !empty($fsItem['icon_color']) ? $fsItem['icon_color'] : '#2563eb' }}" title="{{ __('Kies icoonkleur') }}" aria-label="{{ __('Icoonkleur') }}">
                             <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon_color]" class="kt-input text-sm font-mono home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.icon_color', $fsItem['icon_color'] ?? '') }}" placeholder="#hex" maxlength="7" pattern="^#?([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})?$">
                         </div>
                     </div>
                     <div>
-                        <label class="text-sm text-muted-foreground block mb-1">Titel blok</label>
-                        <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" class="kt-input w-full max-w-[50%] text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.title', $fsItem['title'] ?? '') }}" placeholder="Titel">
+                        <label class="text-sm text-muted-foreground block mb-1">{{ __('Titel blok') }}</label>
+                        <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" class="kt-input w-full max-w-[50%] text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.title', $fsItem['title'] ?? '') }}" placeholder="{{ __('Titel') }}">
                     </div>
                     <div>
-                        <label class="text-sm text-muted-foreground block mb-1">Beschrijving</label>
-                        <textarea name="home_sections[{{ $sectionKey }}][items][{{ $i }}][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="Beschrijving">{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.description', $fsItem['description'] ?? '') }}</textarea>
+                        <label class="text-sm text-muted-foreground block mb-1">{{ __('Beschrijving') }}</label>
+                        <textarea name="home_sections[{{ $sectionKey }}][items][{{ $i }}][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="{{ __('Beschrijving') }}">{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.description', $fsItem['description'] ?? '') }}</textarea>
                     </div>
                 </div>
                 @endforeach
             </div>
             <div class="mt-4">
-                <button type="button" class="featured-services-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Blok toevoegen</button>
+                <button type="button" class="featured-services-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{{ __('Blok toevoegen') }}</button>
             </div>
         </div>
     </div>
     @elseif($base === 'email_template')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--email-template flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('email_template') }}{{ $sectionKey !== 'email_template' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <p class="text-sm text-muted-foreground">Toon een formulier op de website waarmee bezoekers een e-mail kunnen versturen op basis van een gekozen template (bijv. informatieaanvraag). Kies hier het e-mailtemplate dat gebruikt wordt.</p>
+            <p class="text-sm text-muted-foreground">{{ __('Toon een formulier op de website waarmee bezoekers een e-mail kunnen versturen op basis van een gekozen template (bijv. informatieaanvraag). Kies hier het e-mailtemplate dat gebruikt wordt.') }}</p>
             <div class="grid gap-x-4" style="grid-template-columns: 10rem 1fr; row-gap: 1rem;">
-                <label class="text-sm font-medium text-secondary-foreground flex items-center">Sectietitel</label>
+                <label class="text-sm font-medium text-secondary-foreground flex items-center">{{ __('Sectietitel') }}</label>
                 <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Informatie aanvragen') }}" placeholder="Informatie aanvragen">
                 <label class="text-sm font-medium text-secondary-foreground flex items-center">E-mailtemplate</label>
                 @php
@@ -1150,7 +1150,7 @@
                 @endphp
                 <input type="hidden" name="_email_template_tid_{{ $sectionKey }}" id="email-template-tid-{{ $sectionKey }}" value="{{ $selectedTemplateId ?: '' }}" data-email-template-fallback>
                 <select name="home_sections[{{ $sectionKey }}][template_id]" id="home_sections_{{ $sectionKey }}_template_id" class="kt-input w-full max-w-xl" data-email-template-select data-fallback-input-id="email-template-tid-{{ $sectionKey }}" data-selected-template-id="{{ $selectedTemplateId ?: '' }}">
-                    <option value="">— Geen template gekozen —</option>
+                    <option value="">{{ __('— Geen template gekozen —') }}</option>
                     @foreach($emailTemplatesForSelect as $et)
                         <option value="{{ $et->id }}" {{ $selectedTemplateId === (int) $et->id ? 'selected' : '' }}>{{ $et->name }} ({{ $et->type }})</option>
                     @endforeach
@@ -1161,37 +1161,37 @@
     @elseif($base === 'text_block')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--text-block flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('text_block') }}{{ $sectionKey !== 'text_block' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <p class="text-sm text-muted-foreground">Rich-tekstblok met optioneel een component (bijv. formulier) ernaast. Kies de uitlijning van de tekst en eventueel welk component rechts of links van de tekst getoond moet worden.</p>
+            <p class="text-sm text-muted-foreground">{{ __('Rich-tekstblok met optioneel een component (bijv. formulier) ernaast. Kies de uitlijning van de tekst en eventueel welk component rechts of links van de tekst getoond moet worden.') }}</p>
             <div class="row-visibility-row">
-                <label class="block text-sm font-medium text-secondary-foreground mb-2">Tekst (rich text)</label>
-                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'text-block-' . $sectionKey . '-content', 'name' => 'home_sections['.$sectionKey.'][content]', 'value' => old('home_sections.'.$sectionKey.'.content', $sectionData['content'] ?? ''), 'placeholder' => 'Voeg hier uw tekst toe...', 'textareaId' => 'text-block-'.$sectionKey.'-content-input'])
+                <label class="block text-sm font-medium text-secondary-foreground mb-2">{{ __('Tekst (rich text)') }}</label>
+                @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'text-block-' . $sectionKey . '-content', 'name' => 'home_sections['.$sectionKey.'][content]', 'value' => old('home_sections.'.$sectionKey.'.content', $sectionData['content'] ?? ''), 'placeholder' => __('Voeg hier uw tekst toe...'), 'textareaId' => 'text-block-'.$sectionKey.'-content-input'])
             </div>
             <div class="row-visibility-row grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Tekstuitlijning op de website</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Tekstuitlijning op de website') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][alignment]" id="text-block-{{ $sectionKey }}-alignment" class="kt-input w-full max-w-xs">
                         @php $textBlockAlignment = old('home_sections.'.$sectionKey.'.alignment', $sectionData['alignment'] ?? 'left'); @endphp
-                        <option value="left" {{ $textBlockAlignment === 'left' ? 'selected' : '' }}>Links</option>
-                        <option value="center" {{ $textBlockAlignment === 'center' ? 'selected' : '' }}>Midden</option>
-                        <option value="right" {{ $textBlockAlignment === 'right' ? 'selected' : '' }}>Rechts</option>
-                        <option value="full" {{ $textBlockAlignment === 'full' ? 'selected' : '' }}>Volledige breedte</option>
+                        <option value="left" {{ $textBlockAlignment === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                        <option value="center" {{ $textBlockAlignment === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                        <option value="right" {{ $textBlockAlignment === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
+                        <option value="full" {{ $textBlockAlignment === 'full' ? 'selected' : '' }}>{{ __('Volledige breedte') }}</option>
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Links/Rechts: ruimte voor een afbeelding ernaast. Midden: tekst in het midden van het scherm.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Links/Rechts: ruimte voor een afbeelding ernaast. Midden: tekst in het midden van het scherm.') }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Component naast de tekst</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Component naast de tekst') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][side_component_key]" id="text-block-{{ $sectionKey }}-side-component" class="kt-input w-full max-w-md">
-                        <option value="">— Geen —</option>
+                        <option value="">{{ __('— Geen —') }}</option>
                         @foreach($sideComponentOptionKeys as $sk)
                             @if($sk !== $sectionKey)
                                 @php $skBase = $baseType($sk); $skLabel = $sectionLabel($skBase ?? $sk) . ($sk !== ($skBase ?? $sk) ? ' – ' . $sk : ''); @endphp
@@ -1199,10 +1199,10 @@
                             @endif
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Toon een informatieaanvraag-formulier naast de tekst. Alleen bij uitlijning Links of Rechts.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Toon een informatieaanvraag-formulier naast de tekst. Alleen bij uitlijning Links of Rechts.') }}</p>
                 </div>
                 <div id="text-block-{{ $sectionKey }}-side-template-row" class="{{ old('home_sections.'.$sectionKey.'.side_component_key', $sectionData['side_component_key'] ?? '') !== '' ? '' : 'hidden' }}">
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">E-mailtemplate voor het formulier</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('E-mailtemplate voor het formulier') }}</label>
                     @php
                         $textBlockSideTemplateId = (int) old('home_sections.'.$sectionKey.'.side_template_id', $sectionData['side_template_id'] ?? 0);
                         $textBlockSideKey = old('home_sections.'.$sectionKey.'.side_component_key', $sectionData['side_component_key'] ?? '');
@@ -1212,15 +1212,15 @@
                         }
                     @endphp
                     <select name="home_sections[{{ $sectionKey }}][side_template_id]" id="text-block-{{ $sectionKey }}-side-template-id" class="kt-input w-full max-w-xl">
-                        <option value="">— Kies een e-mailtemplate —</option>
+                        <option value="">{{ __('— Kies een e-mailtemplate —') }}</option>
                         @foreach($emailTemplatesForSelect as $et)
                             <option value="{{ $et->id }}" {{ $textBlockSideTemplateId === (int) $et->id ? 'selected' : '' }}>{{ $et->name }} ({{ $et->type }})</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Verplicht wanneer u een formulier naast de tekst toont. U hoeft geen aparte e-mailtemplate-sectie op de pagina te plaatsen.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Verplicht wanneer u een formulier naast de tekst toont. U hoeft geen aparte e-mailtemplate-sectie op de pagina te plaatsen.') }}</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Sectiebreedte op de website</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Sectiebreedte op de website') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][width_percent]" id="text-block-{{ $sectionKey }}-width-percent" class="kt-input w-full max-w-xs">
                         @php $textBlockWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $sectionData['width_percent'] ?? 100); $textBlockWidth = max(30, min(100, $textBlockWidth)); @endphp
                         <option value="100" {{ $textBlockWidth === 100 ? 'selected' : '' }}>100%</option>
@@ -1232,21 +1232,21 @@
                         <option value="40" {{ $textBlockWidth === 40 ? 'selected' : '' }}>40%</option>
                         <option value="30" {{ $textBlockWidth === 30 ? 'selected' : '' }}>30%</option>
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Breedte van de sectie ten opzichte van de pagina (in procenten).</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Breedte van de sectie ten opzichte van de pagina (in procenten).') }}</p>
                 </div>
             </div>
             <div class="row-visibility-row">
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Afbeelding naast de tekst</label>
-                <p class="text-xs text-muted-foreground mb-2">Optioneel: toon een afbeelding links of rechts van de tekst (zelfde zijde als het component). Alleen bij uitlijning Links of Rechts.</p>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Afbeelding naast de tekst') }}</label>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Optioneel: toon een afbeelding links of rechts van de tekst (zelfde zijde als het component). Alleen bij uitlijning Links of Rechts.') }}</p>
                 @php $textBlockImageUrl = old('home_sections.'.$sectionKey.'.image_url', $sectionData['image_url'] ?? ''); @endphp
                 <div class="flex flex-wrap items-stretch gap-3">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Tekstblok afbeelding" id="hero-{{ $sectionKey }}-image_url-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $textBlockImageUrl ? '' : 'hidden' }}" src="{{ $textBlockImageUrl ? $imagePreviewUrl($textBlockImageUrl) : '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-image_url" data-preview-id="hero-{{ $sectionKey }}-image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('Tekstblok afbeelding') }}" id="hero-{{ $sectionKey }}-image_url-preview" class="w-full max-w-[200px] max-h-40 object-contain border border-border rounded-lg {{ $textBlockImageUrl ? '' : 'hidden' }}" src="{{ $textBlockImageUrl ? $imagePreviewUrl($textBlockImageUrl) : '' }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-image_url" data-preview-id="hero-{{ $sectionKey }}-image_url-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" style="width: 500px; min-width: 500px; height: 130px;" data-section-key="{{ $sectionKey }}" data-field="image_url" data-url-input-id="hero-{{ $sectionKey }}-image_url" data-preview-id="hero-{{ $sectionKey }}-image_url-preview">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="image_url">
@@ -1257,21 +1257,21 @@
     @elseif($base === 'cta')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--cta flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('cta') }}{{ $sectionKey !== 'cta' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($vis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -1279,16 +1279,16 @@
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
             {{-- Achtergrondafbeelding CTA (Atom-v2 thema) --}}
             <div class="row-visibility-row">
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Achtergrondafbeelding</label>
-                <p class="text-xs text-muted-foreground mb-2">Afbeelding achter de CTA-sectie. (Atom-v2 thema)</p>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Achtergrondafbeelding') }}</label>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Afbeelding achter de CTA-sectie. (Atom-v2 thema)') }}</p>
                 <div class="flex flex-wrap items-start gap-2">
                     <div class="shrink-0 flex flex-col items-center {{ !empty($sectionData['background_image_url']) ? '' : 'hidden' }}" id="cta-{{ $sectionKey }}-bg-preview-wrapper">
-                        <img alt="CTA achtergrond" id="cta-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="cta-{{ $sectionKey }}-background_image_url" data-preview-id="cta-{{ $sectionKey }}-bg-preview" data-preview-wrapper-id="cta-{{ $sectionKey }}-bg-preview-wrapper" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <img alt="{{ __('CTA achtergrond') }}" id="cta-{{ $sectionKey }}-bg-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded" src="{{ $imagePreviewUrl($sectionData['background_image_url'] ?? '') }}">
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="cta-{{ $sectionKey }}-background_image_url" data-preview-id="cta-{{ $sectionKey }}-bg-preview" data-preview-wrapper-id="cta-{{ $sectionKey }}-bg-preview-wrapper" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="cta-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" style="width: 500px; min-width: 500px; height: 130px;">
-                        <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                        <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                        <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                        <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                     </div>
                 </div>
                 <input type="file" class="cta-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}">
@@ -1297,128 +1297,128 @@
             <div class="row-visibility-row">
                 <div class="w-full min-w-0">
                     <div class="flex items-center gap-2 mb-1">
-                        <label class="text-sm font-medium text-secondary-foreground">Titel</label>
+                        <label class="text-sm font-medium text-secondary-foreground">{{ __('Titel') }}</label>
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_title]" id="visibility-{{ $sectionKey }}_title" value="{{ $vis('_title') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="Titel tonen/verbergen">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_title" aria-label="{{ __('Titel tonen/verbergen') }}">@if($vis('_title'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input w-full max-w-4xl" value="{{ old('home_sections.'.$sectionKey.'.title', $sectionData['title'] ?? 'Klaar om je carrière te starten?') }}">
                 </div>
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Ondertitel</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Ondertitel') }}</label>
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_subtitle]" id="visibility-{{ $sectionKey }}_subtitle" value="{{ $vis('_subtitle') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="Ondertitel tonen/verbergen">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_subtitle" aria-label="{{ __('Ondertitel tonen/verbergen') }}">@if($vis('_subtitle'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                                 @include('admin.website-pages.partials.subtitle-color-fields', ['sectionKey' => $sectionKey, 'sectionData' => $sectionData, 'subtitleColorDefault' => '#e5e7eb'])
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'cta-' . $sectionKey . '-subtitle', 'name' => 'home_sections['.$sectionKey.'][subtitle]', 'value' => old('home_sections.'.$sectionKey.'.subtitle', $sectionData['subtitle'] ?? ''), 'placeholder' => '', 'textareaId' => 'home-'.$sectionKey.'-subtitle'])
             </div>
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-sm font-medium text-secondary-foreground">Knoppen</span>
+                    <span class="text-sm font-medium text-secondary-foreground">{{ __('Knoppen') }}</span>
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}_buttons]" id="visibility-{{ $sectionKey }}_buttons" value="{{ $vis('_buttons') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_buttons" aria-label="Knoppen tonen/verbergen">@if($vis('_buttons'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-{{ $sectionKey }}_buttons" aria-label="{{ __('Knoppen tonen/verbergen') }}">@if($vis('_buttons'))<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 tekst</label>
+                        <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 1 tekst') }}</label>
                         <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text', $sectionData['cta_primary_text'] ?? '') }}">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 1 URL</label>
+                        <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 1 URL') }}</label>
                         <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_url', $sectionData['cta_primary_url'] ?? '/register') }}">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 tekst</label>
+                        <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 2 tekst') }}</label>
                         <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text', $sectionData['cta_secondary_text'] ?? '') }}">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-secondary-foreground mb-1">Knop 2 URL</label>
+                        <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Knop 2 URL') }}</label>
                         <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_url]" class="kt-input home-section-input-400" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_url', $sectionData['cta_secondary_url'] ?? '/jobs') }}">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
                     <div class="space-y-2">
-                        <label class="block text-sm font-medium text-secondary-foreground">Knop 1 kleuren</label>
+                        <label class="block text-sm font-medium text-secondary-foreground">{{ __('Knop 1 kleuren') }}</label>
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Achtergrond') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#2563eb' }}" title="Achtergrond">
+                                    <input type="color" id="{{ $sectionKey }}-cta-primary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_bg'] ?? '') ?: '#2563eb' }}" title="{{ __('Achtergrond') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_bg', $sectionData['cta_primary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-bg">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#2563eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#2563eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Tekstkleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
+                                    <input type="color" id="{{ $sectionKey }}-cta-primary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_text_color'] ?? '') ?: '#ffffff' }}" title="{{ __('Tekstkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_text_color', $sectionData['cta_primary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-text-color">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Border') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#ffffff' }}" title="Borderkleur">
+                                    <input type="color" id="{{ $sectionKey }}-cta-primary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_primary_border'] ?? '') ?: '#ffffff' }}" title="{{ __('Borderkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_primary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_primary_border', $sectionData['cta_primary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-primary-border">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="space-y-2">
-                        <label class="block text-sm font-medium text-secondary-foreground">Knop 2 kleuren</label>
+                        <label class="block text-sm font-medium text-secondary-foreground">{{ __('Knop 2 kleuren') }}</label>
                         <div class="flex flex-col gap-2">
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Achtergrond</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Achtergrond') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="Achtergrond">
+                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_bg'] ?? '') ?: '#ffffff' }}" title="{{ __('Achtergrond') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_bg]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_bg', $sectionData['cta_secondary_bg'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-bg">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Tekstkleur</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Tekstkleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#ffffff' }}" title="Tekstkleur">
+                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_text_color'] ?? '') ?: '#ffffff' }}" title="{{ __('Tekstkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_text_color', $sectionData['cta_secondary_text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-text-color">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#ffffff"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">Border</label>
+                                <label class="block text-xs font-medium text-muted-foreground w-28 shrink-0">{{ __('Border') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1f2937' }}" title="Borderkleur">
+                                    <input type="color" id="{{ $sectionKey }}-cta-secondary-border" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($sectionData['cta_secondary_border'] ?? '') ?: '#1f2937' }}" title="{{ __('Borderkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][cta_secondary_border]" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.cta_secondary_border', $sectionData['cta_secondary_border'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="{{ $sectionKey }}-cta-secondary-border">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#1f2937"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" aria-label="{{ __('Leegmaken') }}" data-color-default="#1f2937"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <p class="text-xs text-muted-foreground mt-2">Achtergrond, tekstkleur en border per knop. Laat leeg voor standaardkleuren. Gebruik hex (bijv. #2563eb).</p>
+                <p class="text-xs text-muted-foreground mt-2">{{ __('Achtergrond, tekstkleur en border per knop. Laat leeg voor standaardkleuren. Gebruik hex (bijv. #2563eb).') }}</p>
             </div>
         </div>
     </div>
     @elseif($base === 'carousel')
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--carousel flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $sectionLabel('carousel') }}{{ $sectionKey !== 'carousel' ? ' – ' . $sectionKey : '' }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($vis(''))
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
-                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Sectie verwijderen" aria-label="Sectie verwijderen">
+                <button type="button" class="home-section-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Sectie verwijderen') }}" aria-label="{{ __('Sectie verwijderen') }}">
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -1436,10 +1436,10 @@
                 .carousel-slide-caption-options .carousel-slide-caption-field,
                 .carousel-slide-caption-timing-options .carousel-slide-caption-field { flex: 0 0 auto !important; width: auto !important; max-width: none !important; }
             </style>
-            <p class="text-sm text-muted-foreground mb-3">Carousel-slides (website media, versleuteld opgeslagen). Upload via de zone hieronder; per slide een omschrijving (alt-tekst). Sleep slides via het icoon links om de volgorde te wijzigen.</p>
+            <p class="text-sm text-muted-foreground mb-3">{{ __('Carousel-slides (website media, versleuteld opgeslagen). Upload via de zone hieronder; per slide een omschrijving (alt-tekst). Sleep slides via het icoon links om de volgorde te wijzigen.') }}</p>
             <div class="flex flex-wrap gap-4 max-w-2xl">
                 <div class="max-w-xs flex-1 min-w-[10rem]">
-                    <label for="carousel-interval-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Wisselinterval (seconden)</label>
+                    <label for="carousel-interval-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Wisselinterval (seconden)') }}</label>
                     <input type="number"
                            id="carousel-interval-{{ $sectionKey }}"
                            name="home_sections[{{ $sectionKey }}][interval_seconds]"
@@ -1448,10 +1448,10 @@
                            max="120"
                            step="1"
                            value="{{ $carouselIntervalSeconds }}">
-                    <p class="text-xs text-muted-foreground mt-1">Tijd tussen slides op de website. 0 = geen automatisch wisselen (alleen pijltjes/indicators).</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Tijd tussen slides op de website. 0 = geen automatisch wisselen (alleen pijltjes/indicators).') }}</p>
                 </div>
                 <div class="max-w-xs flex-1 min-w-[10rem]">
-                    <label for="carousel-max-height-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">Maximale hoogte (% scherm)</label>
+                    <label for="carousel-max-height-{{ $sectionKey }}" class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Maximale hoogte (% scherm)') }}</label>
                     <input type="number"
                            id="carousel-max-height-{{ $sectionKey }}"
                            name="home_sections[{{ $sectionKey }}][max_height_percent]"
@@ -1460,7 +1460,7 @@
                            max="100"
                            step="1"
                            value="{{ $carouselMaxHeightPercent }}">
-                    <p class="text-xs text-muted-foreground mt-1">Percentage van de schermhoogte (bijv. 45). Afbeeldingen schalen automatisch mee. 0 = geen limiet.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Percentage van de schermhoogte (bijv. 45). Afbeeldingen schalen automatisch mee. 0 = geen limiet.') }}</p>
                 </div>
             </div>
             <div class="carousel-upload-area hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 mb-3 cursor-pointer text-center"
@@ -1468,9 +1468,9 @@
                  data-upload-url="{{ route('admin.website-media.upload') }}"
                  role="button"
                  tabindex="0"
-                 aria-label="Carousel-afbeeldingen uploaden">
-                <span class="text-sm font-medium text-secondary-foreground">Klik of sleep afbeeldingen</span>
-                <span class="text-xs text-muted-foreground mt-1">JPG, PNG, WebP (max. 5MB per bestand, meerdere tegelijk)</span>
+                 aria-label="{{ __('Carousel-afbeeldingen uploaden') }}">
+                <span class="text-sm font-medium text-secondary-foreground">{{ __('Klik of sleep afbeeldingen') }}</span>
+                <span class="text-xs text-muted-foreground mt-1">{{ __('JPG, PNG, WebP (max. 5MB per bestand, meerdere tegelijk)') }}</span>
                 <span class="carousel-upload-status text-xs text-primary mt-2 hidden" aria-live="polite"></span>
             </div>
             <input type="file"
@@ -1491,17 +1491,17 @@
                         $slideTextColorPicker = $slideTextColor !== '' ? $slideTextColor : '#ffffff';
                     @endphp
                     <div class="carousel-slide-row flex flex-wrap items-start gap-3 rounded-lg border border-border p-3 bg-muted/20" data-uuid="{{ $uuid }}">
-                        <span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+                        <span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
                         @include('admin.website-pages.partials.carousel-slide-image-preview', ['uuid' => $uuid])
                         <div class="carousel-slide-row-fields flex-1 min-w-[12rem] space-y-1">
-                            <label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">{{ $idx + 1 }}</span> · tekst op carousel</label>
+                            <label class="block text-xs font-medium text-muted-foreground">{{ __('Slide') }} <span class="carousel-slide-num">{{ $idx + 1 }}</span> {{ __('· tekst op carousel') }}</label>
                             <div class="flex flex-wrap items-center gap-2">
                                 @include('admin.website-pages.partials.carousel-slide-alt-input', ['sectionKey' => $sectionKey, 'idx' => $idx, 'alt' => $alt])
                                 <input type="color"
                                        id="carousel-text-color-{{ $sectionKey }}-{{ $idx }}_color"
                                        class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
                                        value="{{ $slideTextColorPicker }}"
-                                       title="Tekstkleur op carousel"
+                                       title="{{ __('Tekstkleur op carousel') }}"
                                        data-target-input="carousel-text-color-{{ $sectionKey }}-{{ $idx }}">
                                 <div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">
                                     <input type="text"
@@ -1515,11 +1515,11 @@
                                 </div>
                             </div>
                             @include('admin.website-pages.partials.carousel-slide-text-bg-color', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
-                            <p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>
+                            <p class="text-xs text-muted-foreground">{{ __('Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.') }}</p>
                             @include('admin.website-pages.partials.carousel-slide-caption-fields', ['sectionKey' => $sectionKey, 'idx' => $idx, 'item' => $item])
                         </div>
                         <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][uuid]" value="{{ $uuid }}">
-                        <button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="Slide verwijderen" aria-label="Slide verwijderen">
+                        <button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="{{ __('Slide verwijderen') }}" aria-label="{{ __('Slide verwijderen') }}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
@@ -1534,19 +1534,19 @@
                 if (empty($tarievenItems)) {
                     $tarievenItems = [['rate_type' => '1-4', 'title' => 't/m 4 personen'], ['rate_type' => '5-8', 'title' => '5 t/m 8 personen']];
                 }
-                $tarievenRateTypes = ['1-4' => 't/m 4 personen', '5-8' => '5 t/m 8 personen', 'overige_kosten' => 'Overige kosten'];
+                $tarievenRateTypes = ['1-4' => __('t/m 4 personen'), '5-8' => __('5 t/m 8 personen'), 'overige_kosten' => __('Overige kosten')];
                 $tarievenVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect($websitePageCompanyIdForTaxiVehicles);
                 $tarievenVehiclesForJs = array_map(function($v) {
                     $url = $v['image_url'] ?? null;
                     $url = $url ? (str_starts_with($url, 'http') ? $url : asset(ltrim($url, '/'))) : null;
                     return ['id' => $v['id'], 'name' => $v['name'], 'image_url' => $url];
                 }, $tarievenVehicles);
-                $tarievenCardSizes = ['small' => 'Klein (400px)', 'normal' => 'Normaal (600px)', 'large' => 'Groot (800px)', 'max' => 'Maximaal (volledige breedte)', 'total_width' => 'Totaalformaat cards'];
-                $tarievenFontStyles = ['normal' => 'Normaal', 'bold' => 'Vet', 'italic' => 'Cursief'];
-                $tarievenFontFamilies = ['' => 'Standaard', 'sans-serif' => 'Sans-serif', 'serif' => 'Serif', 'monospace' => 'Monospace', 'Inter' => 'Inter', 'Georgia' => 'Georgia'];
-                $tarievenFontSizes = ['' => 'Standaard'];
+                $tarievenCardSizes = ['small' => __('Klein (400px)'), 'normal' => __('Normaal (600px)'), 'large' => __('Groot (800px)'), 'max' => __('Maximaal (volledige breedte)'), 'total_width' => __('Totaalformaat cards')];
+                $tarievenFontStyles = ['normal' => __('Normaal'), 'bold' => __('Vet'), 'italic' => __('Cursief')];
+                $tarievenFontFamilies = ['' => __('Standaard'), 'sans-serif' => 'Sans-serif', 'serif' => 'Serif', 'monospace' => 'Monospace', 'Inter' => 'Inter', 'Georgia' => 'Georgia'];
+                $tarievenFontSizes = ['' => __('Standaard')];
                 foreach (range(10, 40, 2) as $px) { $tarievenFontSizes[$px . 'px'] = $px . 'px'; }
-                $tarievenTextAligns = ['left' => 'Links', 'center' => 'Midden', 'right' => 'Rechts'];
+                $tarievenTextAligns = ['left' => __('Links'), 'center' => __('Midden'), 'right' => __('Rechts')];
                 $tarievenBlockTitle = old('home_sections.'.$sectionKey.'.title', $tarievenSectionData['title'] ?? 'Onze tarieven');
                 $tarievenImagePaddings = [0 => '0px'] + array_combine($a = range(2, 30, 2), array_map(fn($v) => $v . 'px', $a));
                 $tarievenRatesData = app(\App\Services\NexaTaxiPublicRatesService::class)->getRatesForDisplay($websitePageCompanyIdForTaxiVehicles);
@@ -1555,24 +1555,24 @@
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title">Nexa Taxi tarieven</h3>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">{{ __('Nexa Taxi tarieven') }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Component van pagina verwijderen') }}" aria-label="{{ __('Component verwijderen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <p class="text-sm text-muted-foreground">Per kaart: tarief, titel, afbeelding (voertuig of eigen upload), kaartgrootte, stijl en kleuren. Op de website verschijnt de titel en de prijzen voor het gekozen tarief.</p>
-            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg" data-panel-title="Blokinstellingen">
+            <p class="text-sm text-muted-foreground">{{ __('Per kaart: tarief, titel, afbeelding (voertuig of eigen upload), kaartgrootte, stijl en kleuren. Op de website verschijnt de titel en de prijzen voor het gekozen tarief.') }}</p>
+            <div class="flex flex-col gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Blokinstellingen') }}">
                 <div class="flex items-center gap-3">
-                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel</label>
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Bloktitel') }}</label>
                     <input type="text" name="home_sections[{{ $sectionKey }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $tarievenBlockTitle }}" placeholder="Onze tarieven">
                 </div>
                 <div class="flex items-center gap-3">
-                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel grootte</label>
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Bloktitel grootte') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][title_font_size]" class="kt-input w-28 text-sm">
                         @foreach($tarievenFontSizes as $val => $label)
                         <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_font_size', $tarievenSectionData['title_font_size'] ?? '')) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1580,7 +1580,7 @@
                     </select>
                 </div>
                 <div class="flex items-center gap-3">
-                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel stijl</label>
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Bloktitel stijl') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][title_font_style]" class="kt-input w-28 text-sm">
                         @foreach($tarievenFontStyles as $val => $label)
                         <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_font_style', $tarievenSectionData['title_font_style'] ?? 'normal')) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1588,7 +1588,7 @@
                     </select>
                 </div>
                 <div class="flex items-center gap-3">
-                    <label class="text-sm text-muted-foreground shrink-0 w-40">Bloktitel uitlijning</label>
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Bloktitel uitlijning') }}</label>
                     <select name="home_sections[{{ $sectionKey }}][title_align]" class="kt-input w-28 text-sm">
                         @foreach($tarievenTextAligns as $val => $label)
                         <option value="{{ $val }}" {{ (old('home_sections.'.$sectionKey.'.title_align', $tarievenSectionData['title_align'] ?? 'left')) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1598,19 +1598,19 @@
                 <div class="flex items-start gap-3">
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][price_animation]" value="0">
                     <div class="flex flex-col text-sm text-muted-foreground shrink-0 w-40">
-                        <span class="block">Telleranimatie</span>
-                        <span class="block">(prijzen tellen omhoog)</span>
+                        <span class="block">{{ __('Telleranimatie') }}</span>
+                        <span class="block">{{ __('(prijzen tellen omhoog)') }}</span>
                     </div>
                     <label class="shrink-0 cursor-pointer pt-0.5">
                         <input type="checkbox" name="home_sections[{{ $sectionKey }}][price_animation]" value="1" class="kt-switch kt-switch-sm" {{ (old('home_sections.'.$sectionKey.'.price_animation', $tarievenSectionData['price_animation'] ?? true)) ? 'checked' : '' }}>
                     </label>
                 </div>
                 <div class="flex items-center gap-3">
-                    <label class="text-sm text-muted-foreground shrink-0 w-40">Plaatjes fade-in (ms)</label>
+                    <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Plaatjes fade-in (ms)') }}</label>
                     <input type="number" name="home_sections[{{ $sectionKey }}][image_fade_duration]" value="{{ old('home_sections.'.$sectionKey.'.image_fade_duration', $tarievenSectionData['image_fade_duration'] ?? 1200) }}" min="300" max="5000" step="100" class="kt-input w-28 text-sm">
                 </div>
             </div>
-            <div id="nexataxi-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-panel-title="Tarievenkaarten" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
+            <div id="nexataxi-tarieven-items-{{ $sectionKey }}" class="space-y-4" data-panel-title="{{ __('Tarievenkaarten') }}" data-section-key="{{ $sectionKey }}" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}" data-card-sizes="{{ json_encode($tarievenCardSizes) }}" data-font-styles="{{ json_encode($tarievenFontStyles) }}" data-font-families="{{ json_encode($tarievenFontFamilies) }}" data-font-sizes="{{ json_encode($tarievenFontSizes) }}" data-text-aligns="{{ json_encode($tarievenTextAligns) }}" data-image-paddings="{{ json_encode($tarievenImagePaddings) }}" data-cleaning-1-4="{{ $tarievenCleaning1_4 !== null ? number_format($tarievenCleaning1_4, 2, ',', '.') : '' }}" data-cleaning-5-8="{{ $tarievenCleaning5_8 !== null ? number_format($tarievenCleaning5_8, 2, ',', '.') : '' }}">
                 @foreach($tarievenItems as $i => $item)
                 @php
                     $itemRateType = $item['rate_type'] ?? ($i === 1 ? '5-8' : '1-4');
@@ -1632,19 +1632,19 @@
                 @endphp
                 <div class="nexataxi-tarieven-item border border-border rounded-lg p-4 space-y-3" data-tarieven-index="{{ $i }}">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="text-sm font-medium">Kaart {{ $i + 1 }}</span>
-                        <button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <span class="text-sm font-medium">{{ __('Kaart :n', ['n' => $i + 1]) }}</span>
+                        <button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Kaart verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-wrap items-start gap-2">
                         <div class="shrink-0 flex flex-col items-center">
-                            <img alt="Kaart {{ $i + 1 }}" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\NexaTaxiVehicleDisplayService::class)->getImageUrl((int) $itemVehicleId, $websitePageCompanyIdForTaxiVehicles) ?? '') : '') }}" data-nexataxi-preview>
-                            <button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                            <img alt="{{ __('Kaart :n', ['n' => $i + 1]) }}" id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded {{ ($itemImageUrl !== '' || $itemVehicleId) ? '' : 'hidden' }}" src="{{ $itemImageUrl !== '' ? $imagePreviewUrl($itemImageUrl) : ($itemVehicleId ? (app(\App\Services\NexaTaxiVehicleDisplayService::class)->getImageUrl((int) $itemVehicleId, $websitePageCompanyIdForTaxiVehicles) ?? '') : '') }}" data-nexataxi-preview>
+                            <button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-preview-id="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" title="{{ __('Afbeelding verwijderen') }}" aria-label="{{ __('Afbeelding verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                         </div>
                         <div class="flex flex-col gap-2 flex-1 min-w-0">
                             <div class="flex items-center gap-3">
-                                <label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40 {{ ($itemImageUrl !== '' || $itemVehicleId) ? 'hidden' : '' }}">Afbeelding</label>
+                                <label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40 {{ ($itemImageUrl !== '' || $itemVehicleId) ? 'hidden' : '' }}">{{ __('Afbeelding') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url-preview" data-upload-wrap="nexataxi-{{ $sectionKey }}-items-{{ $i }}-upload-wrap" data-image-url-input="hero-{{ $sectionKey }}-taxi_items_{{ $i }}_image_url" data-vehicles="{{ json_encode($tarievenVehiclesForJs) }}">
-                                    <option value="">Geen</option>
+                                    <option value="">{{ __('Geen') }}</option>
                                     @foreach($tarievenVehicles as $v)
                                     @php
                                         $optImgUrl = $v['image_url'] ?? null;
@@ -1652,13 +1652,13 @@
                                     @endphp
                                     <option value="{{ $v['id'] }}"@if($optImgUrl) data-image-url="{{ e($optImgUrl) }}"@endif {{ $itemVehicleId == $v['id'] ? 'selected' : '' }}>{{ $v['name'] }}</option>
                                     @endforeach
-                                    <option value="custom" {{ $itemImageSource === 'custom' ? 'selected' : '' }}>Eigen afbeelding</option>
+                                    <option value="custom" {{ $itemImageSource === 'custom' ? 'selected' : '' }}>{{ __('Eigen afbeelding') }}</option>
                                 </select>
                             </div>
                             <div class="nexataxi-upload-wrap {{ $itemImageSource === 'custom' ? '' : 'hidden' }}" id="nexataxi-{{ $sectionKey }}-items-{{ $i }}-upload-wrap">
                                 <div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="{{ $sectionKey }}" data-field="taxi_items_{{ $i }}_image_url" style="width: 100%; max-width: 500px; min-height: 130px;">
-                                    <span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span>
-                                    <span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span>
+                                    <span class="text-xs text-muted-foreground">{{ __('Klik of sleep afbeelding') }}</span>
+                                    <span class="text-xs text-muted-foreground">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                                 </div>
                                 <input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="{{ $sectionKey }}" data-field="taxi_items_{{ $i }}_image_url">
                             </div>
@@ -1667,7 +1667,7 @@
                     </div>
                     <div class="flex flex-col gap-2 mt-3">
                         <div class="flex items-center gap-3">
-                            <label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label>
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Tarief') }}</label>
                             <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][rate_type]" class="kt-input w-48 text-sm">
                                 @foreach($tarievenRateTypes as $val => $label)
                                 <option value="{{ $val }}" {{ $itemRateType === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1675,23 +1675,23 @@
                             </select>
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label>
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Titel kaart') }}</label>
                             <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" class="kt-input flex-1 max-w-md text-sm" value="{{ $itemTitle }}" placeholder="bijv. t/m 4 personen">
                         </div>
                         <div class="flex items-center gap-3">
-                            <label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label>
-                            <input type="number" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][cleaning_costs]" class="kt-input w-28 text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.cleaning_costs', $item['cleaning_costs'] ?? '') }}" placeholder="leeg = uit tarief" step="0.01" min="0">
-                            <span class="text-xs text-muted-foreground">Optioneel; leeg = waarde uit gekozen tarief</span>
+                            <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Override overige kosten (€)') }}</label>
+                            <input type="number" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][cleaning_costs]" class="kt-input w-28 text-sm" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.cleaning_costs', $item['cleaning_costs'] ?? '') }}" placeholder="{{ __('leeg = uit tarief') }}" step="0.01" min="0">
+                            <span class="text-xs text-muted-foreground">{{ __('Optioneel; leeg = waarde uit gekozen tarief') }}</span>
                         </div>
                         <div class="home-section-field-panel home-section-field-panel--nested home-section-field-panel--collapsed nexataxi-tarieven-styles-panel">
                             <button type="button" class="home-section-field-panel-toggle" aria-expanded="false">
-                                <span class="home-section-field-panel-title">Stijl & opmaak</span>
+                                <span class="home-section-field-panel-title">{{ __('Stijl & opmaak') }}</span>
                                 <svg class="home-section-field-panel-chevron w-5 h-5 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>
                             </button>
                             <div class="home-section-field-panel-body" hidden>
                         <div class="flex flex-col gap-3">
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Kaartgrootte') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][card_size]" class="kt-input w-36 text-sm">
                                     @foreach($tarievenCardSizes as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['card_size'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1699,7 +1699,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Stijl') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][font_style]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenFontStyles as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['font_style'] ?? 'normal') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1707,7 +1707,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Titel lettertype') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_family]" class="kt-input w-40 text-sm">
                                     @foreach($tarievenFontFamilies as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['title_font_family'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1715,7 +1715,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Titel lettergrootte') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_size]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenFontSizes as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['title_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1723,7 +1723,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Titel stijl') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_font_style]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenFontStyles as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['title_font_style'] ?? ($item['font_style'] ?? 'normal')) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1731,7 +1731,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Titel uitlijning') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title_align]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenTextAligns as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['title_align'] ?? ($item['text_align'] ?? 'left')) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1739,7 +1739,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Label lettergrootte') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label_font_size]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenFontSizes as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['label_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1747,7 +1747,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Waarde lettergrootte') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][value_font_size]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenFontSizes as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['value_font_size'] ?? '') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1755,7 +1755,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Uitlijning') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_align]" class="kt-input w-28 text-sm">
                                     @foreach($tarievenTextAligns as $val => $label)
                                     <option value="{{ $val }}" {{ ($item['text_align'] ?? 'left') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -1763,7 +1763,7 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Padding afbeelding') }}</label>
                                 <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_padding]" class="kt-input w-24 text-sm">
                                     @foreach($tarievenImagePaddings as $px => $label)
                                     <option value="{{ $px }}" {{ $itemImagePadding === (int)$px ? 'selected' : '' }}>{{ $label }}</option>
@@ -1771,19 +1771,19 @@
                                 </select>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Achtergrondkleur afbeelding') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="Achtergrondkleur">
+                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['image_bg_color'] ?? '') ?: '#e5e7eb' }}" title="{{ __('Achtergrondkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_bg_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.image_bg_color', $item['image_bg_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-image-bg">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label>
+                                <label class="text-sm text-muted-foreground shrink-0 w-40">{{ __('Tekstkleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="Tekstkleur">
+                                    <input type="color" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="{{ $hexForPicker($item['text_color'] ?? '') ?: '#374151' }}" title="{{ __('Tekstkleur') }}">
                                     <input type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text_color]" id="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.text_color', $item['text_color'] ?? '') }}" placeholder="#hex" maxlength="7" data-sync-from="nexataxi-{{ $sectionKey }}-item-{{ $i }}-text-color">
-                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    <button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="{{ __('Leegmaken') }}" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button>
                                 </div>
                             </div>
                         </div>
@@ -1794,7 +1794,7 @@
                 @endforeach
             </div>
             <div class="mt-4 pb-4">
-                <button type="button" class="nexataxi-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Tarievenkaart toevoegen</button>
+                <button type="button" class="nexataxi-tarieven-item-add kt-btn kt-btn-sm kt-btn-outline" data-section-key="{{ $sectionKey }}"><svg class="w-4 h-4 me-1 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{{ __('Tarievenkaart toevoegen') }}</button>
             </div>
         </div>
     </div>
@@ -1803,33 +1803,33 @@
                 $bookingData = app(\App\Services\NexaTaxiBookingPricingService::class)->mergeSectionConfig($sections[$sectionKey] ?? []);
                 $bookingVehicles = app(\App\Services\NexaTaxiVehicleDisplayService::class)->getVehiclesForSelect($websitePageCompanyIdForTaxiVehicles);
                 $offerPersonRangeOptions = [
-                    '' => 'Alle personen',
-                    '1-4' => 't/m 4 personen',
-                    '5-8' => '5 t/m 8 personen',
+                    '' => __('Alle personen'),
+                    '1-4' => __('t/m 4 personen'),
+                    '5-8' => __('5 t/m 8 personen'),
                 ];
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--boekingsmodule flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title">Taxi boekingsmodule</h3>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">{{ __('Taxi boekingsmodule') }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Component van pagina verwijderen') }}" aria-label="{{ __('Component verwijderen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
-            <p class="text-sm text-muted-foreground">Meerstaps wizard voor bagage, aanbiedingen, reisgegevens en contactgegevens. Prijsberekening gebruikt route-afstand/tijd via Google Maps.</p>
+            <p class="text-sm text-muted-foreground">{{ __('Meerstaps wizard voor bagage, aanbiedingen, reisgegevens en contactgegevens. Prijsberekening gebruikt route-afstand/tijd via Google Maps.') }}</p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg" data-panel-title="Uiterlijk & titel">
-                <div><label class="text-sm text-muted-foreground">Bloktitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Uiterlijk & titel') }}">
+                <div><label class="text-sm text-muted-foreground">{{ __('Bloktitel') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $bookingData['title'] ?? '') }}"></div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Kleur titel</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Kleur titel') }}</label>
                     <input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][title_color]" value="{{ old('home_sections.'.$sectionKey.'.style.title_color', $bookingData['style']['title_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}">
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Tekstgrootte titel</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Tekstgrootte titel') }}</label>
                     @php $bookingTitleFontPx = old('home_sections.'.$sectionKey.'.style.title_font_size_px', $bookingData['style']['title_font_size_px'] ?? '24'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][title_font_size_px]">
                         @foreach(range(16, 72, 2) as $px)
@@ -1837,11 +1837,11 @@
                         @endforeach
                     </select>
                 </div>
-                <div><label class="text-sm text-muted-foreground">Subtitel</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
-                <div><label class="text-sm text-muted-foreground">Primair kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
-                <div><label class="text-sm text-muted-foreground">Actieve tab kleur</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
+                <div><label class="text-sm text-muted-foreground">{{ __('Subtitel') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $bookingData['subtitle'] ?? '') }}"></div>
+                <div><label class="text-sm text-muted-foreground">{{ __('Primair kleur') }}</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][primary_color]" value="{{ old('home_sections.'.$sectionKey.'.style.primary_color', $bookingData['style']['primary_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
+                <div><label class="text-sm text-muted-foreground">{{ __('Actieve tab kleur') }}</label><input type="color" class="kt-input mt-1 h-10 w-16 p-1" name="home_sections[{{ $sectionKey }}][style][active_tab_color]" value="{{ old('home_sections.'.$sectionKey.'.style.active_tab_color', $bookingData['style']['active_tab_color'] ?? \App\Services\NexaTaxiBookingPricingService::DEFAULT_BRAND_ACCENT_HEX) }}"></div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Tekstgrootte tabbladen</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Tekstgrootte tabbladen') }}</label>
                     @php $bookingTabFontPx = old('home_sections.'.$sectionKey.'.style.tab_font_size_px', $bookingData['style']['tab_font_size_px'] ?? '14'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][tab_font_size_px]">
                         @foreach(range(10, 24, 2) as $px)
@@ -1850,7 +1850,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Tekstgrootte stapkop (Reisgegevens e.d.)</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Tekstgrootte stapkop (Reisgegevens e.d.)') }}</label>
                     @php $bookingStepHeadingFontPx = old('home_sections.'.$sectionKey.'.style.step_heading_font_size_px', $bookingData['style']['step_heading_font_size_px'] ?? '20'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][step_heading_font_size_px]">
                         @foreach(range(16, 48, 2) as $px)
@@ -1859,7 +1859,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Tekstgrootte veldkoppen (Waar wil je heen? e.d.)</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Tekstgrootte veldkoppen (Waar wil je heen? e.d.)') }}</label>
                     @php $bookingFieldHeadingFontPx = old('home_sections.'.$sectionKey.'.style.field_heading_font_size_px', $bookingData['style']['field_heading_font_size_px'] ?? '16'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][field_heading_font_size_px]">
                         @foreach(range(12, 28, 2) as $px)
@@ -1868,7 +1868,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Zoomniveau routekaarten (reis + bevestiging)</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Zoomniveau routekaarten (reis + bevestiging)') }}</label>
                     @php $bookingRouteMapZoom = old('home_sections.'.$sectionKey.'.style.route_map_zoom', $bookingData['style']['route_map_zoom'] ?? '14'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][route_map_zoom]">
                         @for($z = 1; $z <= 21; $z++)
@@ -1877,44 +1877,44 @@
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Max breedte (%)</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Max breedte (%)') }}</label>
                     <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_max_width]" value="{{ old('home_sections.'.$sectionKey.'.style.container_max_width', $bookingData['style']['container_max_width'] ?? '100%') }}" placeholder="100%">
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Min. hoogte blok</label>
-                    <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_min_height]" value="{{ old('home_sections.'.$sectionKey.'.style.container_min_height', $bookingData['style']['container_min_height'] ?? '') }}" placeholder="auto">
-                    <p class="text-xs text-muted-foreground mt-1">Leeg of auto = geen minimum. Bijv. 600px of 80vh.</p>
+                    <label class="text-sm text-muted-foreground">{{ __('Min. hoogte blok') }}</label>
+                    <input type="text" class="kt-input mt-1 w-28 text-sm text-left" name="home_sections[{{ $sectionKey }}][style][container_min_height]" value="{{ old('home_sections.'.$sectionKey.'.style.container_min_height', $bookingData['style']['container_min_height'] ?? '') }}" placeholder="{{ __('auto') }}">
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Leeg of auto = geen minimum. Bijv. 600px of 80vh.') }}</p>
                 </div>
-                <div><label class="text-sm text-muted-foreground">Border radius (px)</label><input type="number" min="0" max="40" class="kt-input mt-1 w-28 text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
+                <div><label class="text-sm text-muted-foreground">{{ __('Border radius (px)') }}</label><input type="number" min="0" max="40" class="kt-input mt-1 w-28 text-sm" name="home_sections[{{ $sectionKey }}][style][border_radius]" value="{{ old('home_sections.'.$sectionKey.'.style.border_radius', $bookingData['style']['border_radius'] ?? 12) }}"></div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Uitlijning blok</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Uitlijning blok') }}</label>
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][style][align]">
                         @php $bookingAlign = old('home_sections.'.$sectionKey.'.style.align', $bookingData['style']['align'] ?? 'center'); @endphp
-                        <option value="left" {{ $bookingAlign === 'left' ? 'selected' : '' }}>Links</option>
-                        <option value="center" {{ $bookingAlign === 'center' ? 'selected' : '' }}>Midden</option>
-                        <option value="right" {{ $bookingAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                        <option value="left" {{ $bookingAlign === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                        <option value="center" {{ $bookingAlign === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                        <option value="right" {{ $bookingAlign === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Aanbiedingen tonen als</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Aanbiedingen tonen als') }}</label>
                     @php $offerDisplayMode = old('home_sections.'.$sectionKey.'.logic.offer_display_mode', $bookingData['logic']['offer_display_mode'] ?? 'vehicle'); @endphp
                     <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][offer_display_mode]">
-                        <option value="vehicle" {{ $offerDisplayMode === 'vehicle' ? 'selected' : '' }}>Per auto</option>
-                        <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>Per aantal personen</option>
+                        <option value="vehicle" {{ $offerDisplayMode === 'vehicle' ? 'selected' : '' }}>{{ __('Per auto') }}</option>
+                        <option value="person_range" {{ $offerDisplayMode === 'person_range' ? 'selected' : '' }}>{{ __('Per aantal personen') }}</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-3 p-2 rounded-lg">
                     @php $useEveningNightTariff = old('home_sections.'.$sectionKey.'.logic.use_evening_night_tariff', $bookingData['logic']['use_evening_night_tariff'] ?? true); @endphp
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="0">
                     <input type="checkbox" id="bookingsmodule-use-evening-night-{{ $sectionKey }}" name="home_sections[{{ $sectionKey }}][logic][use_evening_night_tariff]" value="1" class="kt-switch kt-switch-sm" {{ $useEveningNightTariff ? 'checked' : '' }}>
-                    <label for="bookingsmodule-use-evening-night-{{ $sectionKey }}" class="text-sm text-muted-foreground cursor-pointer">Avond/nacht tarief toepassen (toeslag staat bij Tarieven)</label>
+                    <label for="bookingsmodule-use-evening-night-{{ $sectionKey }}" class="text-sm text-muted-foreground cursor-pointer">{{ __('Avond/nacht tarief toepassen (toeslag staat bij Tarieven)') }}</label>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Staplabels (tabs)">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Staplabels (tabs)') }}">
                 @foreach(['step1','step2','step3','step4','step5'] as $stepKey)
                 <div>
-                    <label class="text-xs text-muted-foreground">{{ strtoupper($stepKey) }} label</label>
+                    <label class="text-xs text-muted-foreground">{{ __(':step label', ['step' => strtoupper($stepKey)]) }}</label>
                     <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][step_labels][{{ $stepKey }}]" value="{{ old('home_sections.'.$sectionKey.'.step_labels.'.$stepKey, $bookingData['step_labels'][$stepKey] ?? '') }}">
                 </div>
                 @endforeach
@@ -1926,21 +1926,21 @@
                     $bookingStepOrder = ['trip', 'baggage', 'offers', 'contact', 'confirm'];
                 }
                 $bookingStepOptions = [
-                    'trip' => 'Reisgegevens',
-                    'baggage' => 'Bagage',
-                    'offers' => 'Aanbiedingen',
-                    'contact' => 'Contactgegevens',
-                    'confirm' => 'Bevestiging',
+                    'trip' => __('Reisgegevens'),
+                    'baggage' => __('Bagage'),
+                    'offers' => __('Aanbiedingen'),
+                    'contact' => __('Contactgegevens'),
+                    'confirm' => __('Bevestiging'),
                 ];
                 $baggageStepNumber = array_search('baggage', $bookingStepOrder, true);
                 $offersStepNumber = array_search('offers', $bookingStepOrder, true);
                 $baggageStepNumber = $baggageStepNumber === false ? null : ($baggageStepNumber + 1);
                 $offersStepNumber = $offersStepNumber === false ? null : ($offersStepNumber + 1);
             @endphp
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Stapvolgorde">
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Stapvolgorde') }}">
                 @for($stepPos = 0; $stepPos < 5; $stepPos++)
                     <div>
-                        <label class="text-xs text-muted-foreground">Positie {{ $stepPos + 1 }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Positie :n', ['n' => $stepPos + 1]) }}</label>
                         <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][step_order][]">
                             @foreach($bookingStepOptions as $stepValue => $stepName)
                                 <option value="{{ $stepValue }}" {{ (($bookingStepOrder[$stepPos] ?? '') === $stepValue) ? 'selected' : '' }}>{{ $stepName }}</option>
@@ -1950,34 +1950,34 @@
                 @endfor
             </div>
 
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="Logica & passagiers">
-                <div><label class="text-xs text-muted-foreground">Min passagiers</label><input type="number" min="1" max="8" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][min_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.min_passengers', $bookingData['logic']['min_passengers'] ?? 1) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Max passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_passengers', $bookingData['logic']['max_passengers'] ?? 8) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Default passagiers</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][default_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.default_passengers', $bookingData['logic']['default_passengers'] ?? 1) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Max tussenstops</label><input type="number" min="0" max="6" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_stopovers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_stopovers', $bookingData['logic']['max_stopovers'] ?? 3) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Retour multiplier</label><input type="number" min="1" max="3" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][return_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.return_price_multiplier', $bookingData['logic']['return_price_multiplier'] ?? 2) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Standaard x prijs</label><input type="number" min="0.1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_price_multiplier', $bookingData['logic']['person_range_base_price_multiplier'] ?? 1) }}"></div>
-                <div><label class="text-xs text-muted-foreground">Standaard x oud</label><input type="number" min="1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_old_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_old_price_multiplier', $bookingData['logic']['person_range_base_old_price_multiplier'] ?? 1.2) }}"></div>
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Logica & passagiers') }}">
+                <div><label class="text-xs text-muted-foreground">{{ __('Min passagiers') }}</label><input type="number" min="1" max="8" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][min_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.min_passengers', $bookingData['logic']['min_passengers'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Max passagiers') }}</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_passengers', $bookingData['logic']['max_passengers'] ?? 8) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Default passagiers') }}</label><input type="number" min="1" max="20" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][default_passengers]" value="{{ old('home_sections.'.$sectionKey.'.logic.default_passengers', $bookingData['logic']['default_passengers'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Max tussenstops') }}</label><input type="number" min="0" max="6" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][max_stopovers]" value="{{ old('home_sections.'.$sectionKey.'.logic.max_stopovers', $bookingData['logic']['max_stopovers'] ?? 3) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Retour multiplier') }}</label><input type="number" min="1" max="3" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][return_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.return_price_multiplier', $bookingData['logic']['return_price_multiplier'] ?? 2) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Standaard x prijs') }}</label><input type="number" min="0.1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_price_multiplier', $bookingData['logic']['person_range_base_price_multiplier'] ?? 1) }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Standaard x oud') }}</label><input type="number" min="1" max="5" step="0.05" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][person_range_base_old_price_multiplier]" value="{{ old('home_sections.'.$sectionKey.'.logic.person_range_base_old_price_multiplier', $bookingData['logic']['person_range_base_old_price_multiplier'] ?? 1.2) }}"></div>
                 <div class="col-span-2 lg:col-span-5 mt-8 flex flex-nowrap items-center gap-x-6 gap-y-2">
-                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap pr-4"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][return_enabled_by_default]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.return_enabled_by_default', $bookingData['logic']['return_enabled_by_default'] ?? false) ? 'checked' : '' }}> Retour standaard aan</label>
-                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][skip_baggage_step]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.skip_baggage_step', $bookingData['logic']['skip_baggage_step'] ?? false) ? 'checked' : '' }}> Bagage overslaan</label>
+                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap pr-4"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][return_enabled_by_default]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.return_enabled_by_default', $bookingData['logic']['return_enabled_by_default'] ?? false) ? 'checked' : '' }}> {{ __('Retour standaard aan') }}</label>
+                    <label class="inline-flex items-center gap-2 text-sm whitespace-nowrap"><input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][skip_baggage_step]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.skip_baggage_step', $bookingData['logic']['skip_baggage_step'] ?? false) ? 'checked' : '' }}> {{ __('Bagage overslaan') }}</label>
                 </div>
             </div>
 
             <div class="p-3 border border-border rounded-lg space-y-3">
-                <h4 class="text-sm font-medium">Bagage → bus/van</h4>
-                <p class="text-xs text-muted-foreground">Personen bepalen de stoelen, koffers de kofferbak. Elke koffer telt als 1 stuk (handbagage niet). Meer stuks dan het maximum → bus/van.</p>
+                <h4 class="text-sm font-medium">{{ __('Bagage → bus/van') }}</h4>
+                <p class="text-xs text-muted-foreground">{{ __('Personen bepalen de stoelen, koffers de kofferbak. Elke koffer telt als 1 stuk (handbagage niet). Meer stuks dan het maximum → bus/van.') }}</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <label class="inline-flex items-center gap-2 text-sm md:col-span-2 lg:col-span-4">
                         <input type="checkbox" class="kt-switch kt-switch-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_van_upgrade_enabled]" value="1" {{ old('home_sections.'.$sectionKey.'.logic.baggage_van_upgrade_enabled', $bookingData['logic']['baggage_van_upgrade_enabled'] ?? true) ? 'checked' : '' }}>
-                        Automatisch bus/van bij te veel bagage
+                        {{ __('Automatisch bus/van bij te veel bagage') }}
                     </label>
                     <div>
-                        <label class="text-xs text-muted-foreground">Max koffers auto</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Max koffers auto') }}</label>
                         <input type="number" min="0" max="50" step="1" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_car_max_units]" value="{{ old('home_sections.'.$sectionKey.'.logic.baggage_car_max_units', $bookingData['logic']['baggage_car_max_units'] ?? 4) }}">
                     </div>
                     <div>
-                        <label class="text-xs text-muted-foreground">Personenrange bus/van</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Personenrange bus/van') }}</label>
                         <select class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][logic][baggage_upgrade_person_range]">
                             @foreach($offerPersonRangeOptions as $rangeValue => $rangeLabel)
                                 @if($rangeValue !== '')
@@ -1987,87 +1987,87 @@
                         </select>
                     </div>
                     <div class="md:col-span-2">
-                        <label class="text-xs text-muted-foreground">Melding op aanbiedingen-stap</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Melding op aanbiedingen-stap') }}</label>
                         <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][baggage_van_upgrade_message]" value="{{ old('home_sections.'.$sectionKey.'.texts.baggage_van_upgrade_message', $bookingData['texts']['baggage_van_upgrade_message'] ?? 'Vanwege de hoeveelheid bagage tonen we bus- of van-aanbiedingen.') }}">
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg" data-panel-title="Teksten & placeholders">
-                <div><label class="text-xs text-muted-foreground">Placeholder ophaaladres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
-                <div><label class="text-xs text-muted-foreground">Placeholder afzetadres</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
-                <div><label class="text-xs text-muted-foreground">Tekst personenkaart</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][person_range_feature_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.person_range_feature_text', $bookingData['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen') }}"></div>
-                <div><label class="text-xs text-muted-foreground">Submit knoptekst</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][submit_button_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.submit_button_text', $bookingData['texts']['submit_button_text'] ?? '') }}"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 p-3 border border-border rounded-lg" data-panel-title="{{ __('Teksten & placeholders') }}">
+                <div><label class="text-xs text-muted-foreground">{{ __('Placeholder ophaaladres') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][pickup_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.pickup_placeholder', $bookingData['texts']['pickup_placeholder'] ?? '') }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Placeholder afzetadres') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][dropoff_placeholder]" value="{{ old('home_sections.'.$sectionKey.'.texts.dropoff_placeholder', $bookingData['texts']['dropoff_placeholder'] ?? '') }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Tekst personenkaart') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][person_range_feature_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.person_range_feature_text', $bookingData['texts']['person_range_feature_text'] ?? 'Tarief op basis van aantal personen') }}"></div>
+                <div><label class="text-xs text-muted-foreground">{{ __('Submit knoptekst') }}</label><input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][texts][submit_button_text]" value="{{ old('home_sections.'.$sectionKey.'.texts.submit_button_text', $bookingData['texts']['submit_button_text'] ?? '') }}"></div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="Bagage-items">Bagage-items (Stap {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="baggage" data-step-heading-base="{{ __('Bagage-items') }}">{{ __('Bagage-items') }} ({{ __('Stap') }} {{ $baggageStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="baggage" data-section-key="{{ $sectionKey }}">{{ __('+ item') }}</button></div>
                 <div class="space-y-2 nexataxi-booking-list" data-list="baggage" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['baggage_items'] ?? []) as $i => $row)
                     <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) auto;">
-                        <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
-                        <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
-                        <div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
+                        <div><label class="text-xs">{{ __('Key') }}</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div><label class="text-xs">{{ __('Titel') }}</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div><label class="text-xs">{{ __('Subtitel') }}</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][subtitle]" value="{{ $row['subtitle'] ?? '' }}"></div>
                         <div>
-                            <label class="text-xs">Prijs</label>
+                            <label class="text-xs">{{ __('Prijs') }}</label>
                             <div class="relative">
                                 <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
                                 <input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}">
                             </div>
                         </div>
-                        <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="Niet gebruikt voor voertuigkeuze; die telt koffers per stuk"></div>
-                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
+                        <div><label class="text-xs">{{ __('Max') }}</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div><label class="text-xs">{{ __('Eenheden') }}</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][baggage_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}" title="{{ __('Niet gebruikt voor voertuigkeuze; die telt koffers per stuk') }}"></div>
+                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                     </div>
                     @endforeach
                 </div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">Speciale bagage</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">+ item</button></div>
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium">{{ __('Speciale bagage') }}</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="special" data-section-key="{{ $sectionKey }}">{{ __('+ item') }}</button></div>
                 <div class="space-y-2 nexataxi-booking-list" data-list="special" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['special_items'] ?? []) as $i => $row)
                     <div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.7fr) auto;">
-                        <div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
-                        <div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
+                        <div><label class="text-xs">{{ __('Key') }}</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][key]" value="{{ $row['key'] ?? '' }}"></div>
+                        <div><label class="text-xs">{{ __('Titel') }}</label><input class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div>
-                            <label class="text-xs">Prijs</label>
+                            <label class="text-xs">{{ __('Prijs') }}</label>
                             <div class="relative">
                                 <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
                                 <input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][price]" value="{{ $row['price'] ?? 0 }}">
                             </div>
                         </div>
-                        <div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
-                        <div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}"></div>
-                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
+                        <div><label class="text-xs">{{ __('Max') }}</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][max_qty]" value="{{ $row['max_qty'] ?? 4 }}"></div>
+                        <div><label class="text-xs">{{ __('Eenheden') }}</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[{{ $sectionKey }}][special_items][{{ $i }}][baggage_units]" value="{{ $row['baggage_units'] ?? 1 }}"></div>
+                        <div class="nexataxi-booking-item-remove-wrap"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
                     </div>
                     @endforeach
                 </div>
             </div>
 
             <div class="space-y-2">
-                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="offers" data-step-heading-base="Aanbiedingen">Aanbiedingen (Stap {{ $offersStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">+ kaart</button></div>
+                <div class="flex items-center justify-between"><h4 class="text-sm font-medium" data-step-heading data-step-key="offers" data-step-heading-base="{{ __('Aanbiedingen') }}">{{ __('Aanbiedingen') }} ({{ __('Stap') }} {{ $offersStepNumber ?? '—' }})</h4><button type="button" class="kt-btn kt-btn-xs kt-btn-outline nexataxi-booking-item-add" data-list="offers" data-section-key="{{ $sectionKey }}">{{ __('+ kaart') }}</button></div>
                 <div class="space-y-2 nexataxi-booking-list" data-list="offers" data-section-key="{{ $sectionKey }}">
                     @foreach(($bookingData['offers'] ?? []) as $i => $row)
                     <div class="overflow-x-auto">
                     <div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 nexataxi-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">
                         <label class="text-xs text-muted-foreground">ID</label>
-                        <label class="text-xs text-muted-foreground">Titel</label>
-                        <label class="text-xs text-muted-foreground">Badge</label>
-                        <label class="text-xs text-muted-foreground">Personen</label>
-                        <label class="text-xs text-muted-foreground">Voertuig</label>
-                        <label class="text-xs text-muted-foreground">x prijs</label>
-                        <label class="text-xs text-muted-foreground">x oud</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Titel') }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Badge') }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Personen') }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Voertuig') }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('x prijs') }}</label>
+                        <label class="text-xs text-muted-foreground">{{ __('x oud') }}</label>
                         <div class="nexataxi-booking-item-remove-spacer" aria-hidden="true"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][id]" value="{{ $row['id'] ?? '' }}"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}"></div>
                         <div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][badge]" value="{{ $row['badge'] ?? '' }}"></div>
                         <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][person_range]">@foreach($offerPersonRangeOptions as $rangeValue => $rangeLabel)<option value="{{ $rangeValue }}" {{ ($row['person_range'] ?? '') === $rangeValue ? 'selected' : '' }}>{{ $rangeLabel }}</option>@endforeach</select></div>
-                        <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">Automatisch</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" data-person-range="{{ e($vehicle['person_range'] ?? '') }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
+                        <div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][vehicle_id]"><option value="">{{ __('Automatisch') }}</option>@foreach($bookingVehicles as $vehicle)<option value="{{ $vehicle['id'] }}" data-person-range="{{ e($vehicle['person_range'] ?? '') }}" {{ (int)($row['vehicle_id'] ?? 0) === (int)$vehicle['id'] ? 'selected' : '' }}>{{ $vehicle['name'] }}</option>@endforeach</select></div>
                         <div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][price_multiplier]" value="{{ $row['price_multiplier'] ?? 1 }}"></div>
                         <div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][old_price_multiplier]" value="{{ $row['old_price_multiplier'] ?? 1.2 }}"></div>
-                        <div class="nexataxi-booking-item-remove-wrap self-end"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
-                        <div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
+                        <div class="nexataxi-booking-item-remove-wrap self-end"><button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><i class="ki-filled ki-trash" aria-hidden="true"></i></button></div>
+                        <div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">{{ __('Features (1 per regel)') }}</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[{{ $sectionKey }}][offers][{{ $i }}][features_text]">{{ implode("\n", $row['features'] ?? []) }}</textarea></div>
                     </div>
                     </div>
                     @endforeach
@@ -2094,7 +2094,7 @@
                     }
                     $nexaHeroiconOptions[] = [
                         'key' => (string) $hk,
-                        'label' => (string) ($def['label'] ?? $hk),
+                        'label' => __((string) ($def['label'] ?? $hk)),
                         'svg' => $svg,
                     ];
                 }
@@ -2156,38 +2156,38 @@
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title">NEXA modules overzicht (Algemeen)</h3>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title">{{ __('NEXA modules overzicht (Algemeen)') }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Component van pagina verwijderen') }}" aria-label="{{ __('Component verwijderen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
             </div>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                    <label class="text-sm text-muted-foreground">Boventitel</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Boventitel') }}</label>
                     <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][eyebrow]" value="{{ old('home_sections.'.$sectionKey.'.eyebrow', $modulesData['eyebrow'] ?? 'Onze modules') }}">
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Titel</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Titel') }}</label>
                     <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][title]" value="{{ old('home_sections.'.$sectionKey.'.title', $modulesData['title'] ?? 'Alles wat uw bedrijf nodig heeft') }}">
                 </div>
                 <div>
-                    <label class="text-sm text-muted-foreground">Subtitel</label>
+                    <label class="text-sm text-muted-foreground">{{ __('Subtitel') }}</label>
                     <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][subtitle]" value="{{ old('home_sections.'.$sectionKey.'.subtitle', $modulesData['subtitle'] ?? 'Elke module werkt standalone of in combinatie. Installeer alleen wat u nodig heeft.') }}">
                 </div>
                 <div>
                     @php $modulesWidth = (int) old('home_sections.'.$sectionKey.'.width_percent', $modulesData['width_percent'] ?? 100); $modulesWidth = max(30, min(100, $modulesWidth)); @endphp
-                    <label class="text-sm text-muted-foreground" for="nexa-modules-{{ $sectionKey }}-width-percent">Blokbreedte</label>
+                    <label class="text-sm text-muted-foreground" for="nexa-modules-{{ $sectionKey }}-width-percent">{{ __('Blokbreedte') }}</label>
                     <select id="nexa-modules-{{ $sectionKey }}-width-percent" name="home_sections[{{ $sectionKey }}][width_percent]" class="kt-input mt-1 w-full text-sm">
                         @foreach([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
                             <option value="{{ $pct }}" {{ $modulesWidth === $pct ? 'selected' : '' }}>{{ $pct }}%</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1">Breedte van dit blok ten opzichte van de pagina.</p>
+                    <p class="text-xs text-muted-foreground mt-1">{{ __('Breedte van dit blok ten opzichte van de pagina.') }}</p>
                 </div>
             </div>
 
@@ -2201,17 +2201,17 @@
                 @endphp
                 <div class="border border-border rounded-lg p-3 space-y-3">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h4 class="text-sm font-medium">Moduleblok {{ $i + 1 }}</h4>
+                        <h4 class="text-sm font-medium">{{ __('Moduleblok :n', ['n' => $i + 1]) }}</h4>
                         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                            <label class="text-xs text-muted-foreground whitespace-nowrap">Badge stijl</label>
+                            <label class="text-xs text-muted-foreground whitespace-nowrap">{{ __('Badge stijl') }}</label>
                             <select name="home_sections[{{ $sectionKey }}][items][{{ $i }}][badge_variant]" class="kt-input w-32 text-sm">
-                                <option value="available" {{ ($item['badge_variant'] ?? 'available') === 'available' ? 'selected' : '' }}>Beschikbaar</option>
-                                <option value="soon" {{ ($item['badge_variant'] ?? '') === 'soon' ? 'selected' : '' }}>Binnenkort</option>
+                                <option value="available" {{ ($item['badge_variant'] ?? 'available') === 'available' ? 'selected' : '' }}>{{ __('Beschikbaar') }}</option>
+                                <option value="soon" {{ ($item['badge_variant'] ?? '') === 'soon' ? 'selected' : '' }}>{{ __('Binnenkort') }}</option>
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label class="text-xs text-muted-foreground">Icoon (heroicons)</label>
+                        <label class="text-xs text-muted-foreground">{{ __('Icoon (heroicons)') }}</label>
                         <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][icon]" value="{{ $nexaResolvedIconKey }}" data-nexa-module-icon-input="1">
                         <details class="nexa-module-icon-details group mt-1 rounded-lg border border-border bg-background">
                             <summary class="list-none cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-3 hover:bg-muted/40 rounded-lg">
@@ -2226,7 +2226,7 @@
                                         <div class="text-xs text-muted-foreground truncate"><span class="font-mono nexa-module-icon-summary-key">{{ $nexaResolvedIconKey }}</span></div>
                                     </div>
                                 </div>
-                                <span class="text-xs text-muted-foreground shrink-0">Kiezen…</span>
+                                <span class="text-xs text-muted-foreground shrink-0">{{ __('Kiezen…') }}</span>
                             </summary>
                             <div class="p-2 border-t border-border max-h-64 overflow-y-auto">
                                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -2248,21 +2248,21 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label class="text-sm text-muted-foreground">Naam</label>
+                            <label class="text-sm text-muted-foreground">{{ __('Naam') }}</label>
                             <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.name', $item['name'] ?? '') }}">
                         </div>
                         <div>
-                            <label class="text-sm text-muted-foreground">Badge tekst</label>
+                            <label class="text-sm text-muted-foreground">{{ __('Badge tekst') }}</label>
                             <input type="text" class="kt-input mt-1 w-full text-sm" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][badge]" value="{{ old('home_sections.'.$sectionKey.'.items.'.$i.'.badge', $item['badge'] ?? '') }}" placeholder="Beschikbaar of Binnenkort">
                         </div>
                     </div>
                     <div>
-                        <label class="text-sm text-muted-foreground">Beschrijving</label>
+                        <label class="text-sm text-muted-foreground">{{ __('Beschrijving') }}</label>
                         @include('admin.website-pages.partials.flowbite-wysiwyg', [
                             'editorId' => 'home-' . $sectionKey . '-nexa-module-' . $i . '-description',
                             'name' => 'home_sections['.$sectionKey.'][items]['.$i.'][description]',
                             'value' => old('home_sections.'.$sectionKey.'.items.'.$i.'.description', $item['description'] ?? ''),
-                            'placeholder' => 'Beschrijving van dit moduleblok...',
+                            'placeholder' => __('Beschrijving van dit moduleblok...'),
                             'textareaId' => 'home-' . $sectionKey . '-nexa-module-' . $i . '-description',
                         ])
                     </div>
@@ -2281,20 +2281,20 @@
                         }
                     @endphp
                     <div>
-                        <label class="text-sm text-muted-foreground">Features</label>
+                        <label class="text-sm text-muted-foreground">{{ __('Features') }}</label>
                         <div class="mt-2 space-y-2 nexa-module-features-list" data-features-list data-section-key="{{ $sectionKey }}" data-item-index="{{ $i }}">
                             @foreach($featuresRows as $featureIndex => $featureText)
                                 <div class="flex items-center gap-2 nexa-feature-row" data-feature-row>
-                                    <span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>
+                                    <span class="text-emerald-500 text-sm font-semibold shrink-0" title="{{ __('Wordt met vinkje getoond op de website') }}">✓</span>
                                     <input type="text"
                                            class="kt-input w-full text-sm"
                                            name="home_sections[{{ $sectionKey }}][items][{{ $i }}][features][{{ $featureIndex }}][text]"
                                            value="{{ $featureText }}"
-                                           placeholder="Feature tekst">
+                                           placeholder="{{ __('Feature tekst') }}">
                                     <button type="button"
                                             class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove"
-                                            title="Feature verwijderen"
-                                            aria-label="Feature verwijderen"
+                                            title="{{ __('Feature verwijderen') }}"
+                                            aria-label="{{ __('Feature verwijderen') }}"
                                             data-feature-remove>
                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                                     </button>
@@ -2306,7 +2306,7 @@
                                 data-feature-add
                                 data-section-key="{{ $sectionKey }}"
                                 data-item-index="{{ $i }}">
-                            + Feature toevoegen
+                            {{ __('+ Feature toevoegen') }}
                         </button>
                     </div>
                 </div>
@@ -2331,13 +2331,13 @@
             @endphp
     <div class="kt-card home-section-card home-section-card--component home-section-card--module @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header home-section-header--component flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
             <h3 class="kt-card-title">{{ $componentTitle }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][{{ $sectionKey }}]" id="visibility-{{ $sectionKey }}" value="{{ $vis('') ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-{{ $sectionKey }}" title="{{ $vis('') ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">@if($vis(''))<svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Component van pagina verwijderen') }}" aria-label="{{ __('Component verwijderen') }}">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -2355,10 +2355,10 @@
     {{-- Onbekende of dynamische sectie (bijv. hero_2): toon generieke kaart zodat volgorde zichtbaar blijft --}}
     <div class="kt-card home-section-card @if($isCardCollapsed) home-section-card--collapsed @endif" data-section="{{ $sectionKey }}">
         <div class="kt-card-header home-section-header flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title text-muted-foreground">Sectie: {{ $sectionKey }}</h3>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title text-muted-foreground">{{ __('Sectie: :key', ['key' => $sectionKey]) }}</h3>
             <div class="flex items-center gap-1 shrink-0">
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Verwijderen" aria-label="Verwijderen">
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -2370,13 +2370,13 @@
 <template id="home-section-component-card-template">
     <div class="kt-card home-section-card home-section-card--component home-section-card--module" data-section="">
         <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
-            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
-            <h3 class="kt-card-title component-card-title">Component</h3>
+            <span class="home-section-drag-handle cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded text-muted-foreground hover:text-foreground" title="{{ __('Sleep om volgorde te wijzigen') }}" aria-label="{{ __('Volgorde wijzigen') }}"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>
+            <h3 class="kt-card-title component-card-title">{{ __('Component') }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" class="home-section-component-visibility-input" value="1" autocomplete="off">
-                <button type="button" class="section-visibility-toggle home-section-component-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="" title="Verbergen op website" aria-label="Zichtbaarheid"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
-                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="Component van pagina verwijderen" aria-label="Component verwijderen">
+                <button type="button" class="section-visibility-toggle home-section-component-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="" title="{{ __('Verbergen op website') }}" aria-label="{{ __('Zichtbaarheid') }}"><svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}"><svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg></button>
+                <button type="button" class="home-section-component-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-destructive" title="{{ __('Component van pagina verwijderen') }}" aria-label="{{ __('Component verwijderen') }}">
                     <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -2387,17 +2387,17 @@
 <div class="space-y-6 mt-6">
     <div class="kt-card home-section-card home-section-card--no-drag @if($isFooterCollapsed) home-section-card--collapsed @endif" data-section="footer">
         <div class="kt-card-header home-section-header home-section-header--footer flex items-center justify-between gap-2">
-            <h3 class="kt-card-title">Footer (bovenste blok)</h3>
+            <h3 class="kt-card-title">{{ __('Footer (bovenste blok)') }}</h3>
             <div class="flex items-center gap-1 shrink-0">
                 <input type="hidden" name="home_sections[visibility][footer]" id="visibility-footer" value="{{ ($visibility['footer'] ?? true) ? '1' : '0' }}">
-                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-footer" title="{{ ($visibility['footer'] ?? true) ? 'Verbergen op website' : 'Tonen op website' }}" aria-label="Zichtbaarheid">
+                <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" data-target="visibility-footer" title="{{ ($visibility['footer'] ?? true) ? __('Verbergen op website') : __('Tonen op website') }}" aria-label="{{ __('Zichtbaarheid') }}">
                     @if($visibility['footer'] ?? true)
                     <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                     @else
                     <svg class="w-5 h-5 text-current opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
                     @endif
                 </button>
-                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+                <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                     <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
                 </button>
             </div>
@@ -2408,8 +2408,8 @@
             <input type="checkbox" name="home_sections[footer][inherit_from_home]" id="footer-inherit-from-home" value="1" class="kt-switch kt-switch-sm"
                 {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'checked' : '' }}
                 data-toggle-target="footer-config-content">
-            <label for="footer-inherit-from-home" class="text-sm font-medium text-secondary-foreground cursor-pointer whitespace-nowrap shrink-0">Overnemen van Home</label>
-            <span class="text-xs text-muted-foreground">Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.</span>
+            <label for="footer-inherit-from-home" class="text-sm font-medium text-secondary-foreground cursor-pointer whitespace-nowrap shrink-0">{{ __('Overnemen van Home') }}</label>
+            <span class="text-xs text-muted-foreground">{{ __('Als aan: de footer van de Home-pagina wordt op deze pagina getoond; onderstaande instellingen worden verborgen.') }}</span>
         </div>
         @endif
         <div class="home-section-card-body kt-card-table p-4 space-y-4">
@@ -2420,19 +2420,19 @@
                 $footerLogoHeight = (int) old('home_sections.footer.logo_height', $footer['logo_height'] ?? 12);
                 if ($footerLogoHeight < 12 || $footerLogoHeight > 30) $footerLogoHeight = 12;
             @endphp
-            <div class="space-y-4" data-panel-title="Footer-logo">
+            <div class="space-y-4" data-panel-title="{{ __('Footer-logo') }}">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium text-secondary-foreground">Footer-logo</label>
                     <input type="hidden" name="home_sections[visibility][footer_logo]" id="visibility-footer_logo" value="{{ ($visibility['footer_logo'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_logo" aria-label="Logo tonen/verbergen">@if($visibility['footer_logo'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_logo" aria-label="{{ __('Logo tonen/verbergen') }}">@if($visibility['footer_logo'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <p class="text-xs text-muted-foreground mb-2">Laat leeg om het logo uit Algemene instellingen te gebruiken.</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Laat leeg om het logo uit Algemene instellingen te gebruiken.') }}</p>
                 <div class="flex flex-col w-full min-w-0 gap-2 sm:flex-row sm:flex-wrap sm:items-start">
                     <div class="shrink-0 flex flex-col items-center">
-                        <img alt="Footer logo" id="footer-logo-preview" class="w-auto border border-border rounded object-contain {{ $footerLogoPreviewUrl ? '' : 'hidden' }}" style="max-height: 80px;"
+                        <img alt="{{ __('Footer logo') }}" id="footer-logo-preview" class="w-auto border border-border rounded object-contain {{ $footerLogoPreviewUrl ? '' : 'hidden' }}" style="max-height: 80px;"
                              src="{{ $footerLogoPreviewUrl ? $imagePreviewUrl($footerLogoPreviewUrl) : '' }}">
-                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="footer-logo-url" data-preview-id="footer-logo-preview" title="Logo verwijderen" aria-label="Logo verwijderen"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
+                        <button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="footer-logo-url" data-preview-id="footer-logo-preview" title="{{ __('Logo verwijderen') }}" aria-label="{{ __('Logo verwijderen') }}"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg></button>
                     </div>
                     <div class="flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 w-full min-w-0 max-w-full sm:max-w-[500px] min-h-[130px] flex-1" id="footer-logo-upload-area">
                         <div class="flex flex-col place-items-center place-content-center text-center w-full">
@@ -2441,8 +2441,8 @@
                                     <i class="ki-filled ki-picture text-2xl text-primary"></i>
                                 </div>
                             </div>
-                            <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="footer-logo-upload-link">Klik of Sleep &amp; Drop</a>
-                            <span class="text-xs text-muted-foreground">SVG, PNG, JPG (max. 2MB)</span>
+                            <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer" id="footer-logo-upload-link">{!! __('Klik of Sleep &amp; Drop') !!}</a>
+                            <span class="text-xs text-muted-foreground">{{ __('SVG, PNG, JPG (max. 2MB)') }}</span>
                         </div>
                     </div>
                     <input type="file" id="footer-logo-input" accept="image/svg+xml,image/png,image/jpeg,image/jpg,image/gif" class="hidden">
@@ -2451,7 +2451,7 @@
             </div>
             <div class="flex flex-col w-full min-w-0 gap-4 sm:flex-row sm:flex-wrap sm:items-end">
                 <div class="w-full min-w-0 sm:w-auto">
-                    <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-hoogte (px)</label>
+                    <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Logo-hoogte (px)') }}</label>
                     <select name="home_sections[footer][logo_height]" id="footer-logo-height" class="kt-input w-full sm:w-32">
                         @foreach([12, 14, 16, 18, 20, 22, 24, 26, 28, 30] as $px)
                             <option value="{{ $px }}" {{ $footerLogoHeight === $px ? 'selected' : '' }}>{{ $px }}px</option>
@@ -2462,27 +2462,27 @@
                     <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo-uitlijning</label>
                     <select name="home_sections[footer][logo_align]" id="footer-logo-align" class="kt-input w-full sm:w-40">
                         @php $footerLogoAlign = old('home_sections.footer.logo_align', $footer['logo_align'] ?? 'left'); @endphp
-                        <option value="left" {{ $footerLogoAlign === 'left' ? 'selected' : '' }}>Links</option>
-                        <option value="center" {{ $footerLogoAlign === 'center' ? 'selected' : '' }}>Midden</option>
-                        <option value="right" {{ $footerLogoAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                        <option value="left" {{ $footerLogoAlign === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                        <option value="center" {{ $footerLogoAlign === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                        <option value="right" {{ $footerLogoAlign === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                     </select>
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Logo alt-tekst</label>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Logo alt-tekst') }}</label>
                 <input type="text" name="home_sections[footer][logo_alt]" class="kt-input home-section-input-400" value="{{ old('home_sections.footer.logo_alt', $footer['logo_alt'] ?? '') }}" placeholder="Bijv. Nexa Skillmatching">
             </div>
             </div>
-            <div class="row-visibility-row" data-panel-title="Footer-kaart (Google Maps)">
+            <div class="row-visibility-row" data-panel-title="{{ __('Footer-kaart (Google Maps)') }}">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Footer-kaart (Google Maps)</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Footer-kaart (Google Maps)') }}</label>
                     <input type="hidden" name="home_sections[visibility][footer_map]" id="visibility-footer_map" value="{{ ($visibility['footer_map'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_map" aria-label="Kaart tonen/verbergen">@if($visibility['footer_map'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_map" aria-label="{{ __('Kaart tonen/verbergen') }}">@if($visibility['footer_map'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 @php
                     $mapCityOnly = (bool) old('home_sections.footer.map_city_only', $footer['map_city_only'] ?? false);
                 @endphp
-                <p class="text-xs text-muted-foreground mb-2">Vul postcode en huisnummer in en klik op Zoeken, of kies "Alleen plaats invoeren". Plaats de kaart links of rechts (helft van de pagina) of onder de links (volle breedte; social media komt daaronder).</p>
+                <p class="text-xs text-muted-foreground mb-2">{{ __('Vul postcode en huisnummer in en klik op Zoeken, of kies "Alleen plaats invoeren". Plaats de kaart links of rechts (helft van de pagina) of onder de links (volle breedte; social media komt daaronder).') }}</p>
                 <div class="flex items-center gap-2 mb-3">
                     <input type="hidden" name="home_sections[footer][map_city_only]" value="0">
                     <input type="checkbox"
@@ -2491,135 +2491,135 @@
                            class="kt-switch kt-switch-sm"
                            value="1"
                            {{ $mapCityOnly ? 'checked' : '' }}>
-                    <label for="footer-map-city-only" class="text-sm font-medium text-secondary-foreground cursor-pointer">Alleen plaats invoeren</label>
+                    <label for="footer-map-city-only" class="text-sm font-medium text-secondary-foreground cursor-pointer">{{ __('Alleen plaats invoeren') }}</label>
                 </div>
                 <div class="flex flex-wrap items-start gap-6 w-full">
                     <div class="flex-1 min-w-0 w-full space-y-2">
                         <div class="flex flex-col w-full min-w-0 gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-2">
                             <div>
-                                <label class="block text-xs text-muted-foreground mb-1">Postcode</label>
+                                <label class="block text-xs text-muted-foreground mb-1">{{ __('Postcode') }}</label>
                                 <input type="text" name="home_sections[footer][map_postcode]" id="footer-map-postcode" class="kt-input w-24" value="{{ old('home_sections.footer.map_postcode', $footer['map_postcode'] ?? '') }}" placeholder="1234AB" maxlength="7" style="text-transform: uppercase;" {{ $mapCityOnly ? 'disabled' : '' }}>
                             </div>
                             <div>
-                                <label class="block text-xs text-muted-foreground mb-1">Huisnummer</label>
+                                <label class="block text-xs text-muted-foreground mb-1">{{ __('Huisnummer') }}</label>
                                 <input type="text" name="home_sections[footer][map_huisnummer]" id="footer-map-huisnummer" class="kt-input w-20" value="{{ old('home_sections.footer.map_huisnummer', $footer['map_huisnummer'] ?? '') }}" placeholder="1" {{ $mapCityOnly ? 'disabled' : '' }}>
                             </div>
-                            <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline" {{ $mapCityOnly ? 'disabled' : '' }}>Zoeken</button>
+                            <button type="button" id="footer-map-lookup-btn" class="kt-btn kt-btn-sm kt-btn-outline" {{ $mapCityOnly ? 'disabled' : '' }}>{{ __('Zoeken') }}</button>
                         </div>
                         <div class="flex flex-col w-full min-w-0 gap-3 sm:flex-row sm:flex-wrap mb-2">
                             <div class="w-full min-w-0 sm:flex-1">
-                                <label class="block text-xs text-muted-foreground mb-1">Straat</label>
+                                <label class="block text-xs text-muted-foreground mb-1">{{ __('Straat') }}</label>
                                 <input type="text" name="home_sections[footer][map_street]" id="footer-map-street" class="kt-input w-full" value="{{ old('home_sections.footer.map_street', $footer['map_street'] ?? '') }}" readonly>
                             </div>
                             <div class="w-full min-w-0 sm:flex-1">
-                                <label class="block text-xs text-muted-foreground mb-1">Plaats</label>
+                                <label class="block text-xs text-muted-foreground mb-1">{{ __('Plaats') }}</label>
                                 <input type="text" name="home_sections[footer][map_city]" id="footer-map-city" class="kt-input w-full" value="{{ old('home_sections.footer.map_city', $footer['map_city'] ?? '') }}" {{ $mapCityOnly ? '' : 'readonly' }}>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Positie</label>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Positie') }}</label>
                             @php $mapPosition = old('home_sections.footer.map_position', $footer['map_position'] ?? 'bottom'); @endphp
                             <select name="home_sections[footer][map_position]" id="footer-map-position" class="kt-select admin-field-fit" data-kt-select="true">
-                                <option value="left" {{ $mapPosition === 'left' ? 'selected' : '' }}>Links</option>
-                                <option value="right" {{ $mapPosition === 'right' ? 'selected' : '' }}>Rechts</option>
-                                <option value="bottom" {{ $mapPosition === 'bottom' ? 'selected' : '' }}>Onder</option>
+                                <option value="left" {{ $mapPosition === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                                <option value="right" {{ $mapPosition === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
+                                <option value="bottom" {{ $mapPosition === 'bottom' ? 'selected' : '' }}>{{ __('Onder') }}</option>
                             </select>
-                            <p class="text-xs text-muted-foreground mt-0.5">Links/rechts: helft van de pagina. Onder: volle breedte onder de links, social media eronder.</p>
+                            <p class="text-xs text-muted-foreground mt-0.5">{{ __('Links/rechts: helft van de pagina. Onder: volle breedte onder de links, social media eronder.') }}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Kaartgrootte</label>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Kaartgrootte') }}</label>
                             <select name="home_sections[footer][map_size]" id="footer-map-size" class="kt-input w-40">
-                                <option value="small" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'small' ? 'selected' : '' }}>Klein</option>
-                                <option value="normal" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'normal' ? 'selected' : '' }}>Normaal</option>
-                                <option value="large" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'large' ? 'selected' : '' }}>Groot</option>
+                                <option value="small" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'small' ? 'selected' : '' }}>{{ __('Klein') }}</option>
+                                <option value="normal" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'normal' ? 'selected' : '' }}>{{ __('Normaal') }}</option>
+                                <option value="large" {{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') === 'large' ? 'selected' : '' }}>{{ __('Groot') }}</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-secondary-foreground mb-1">Zoomniveau</label>
+                            <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Zoomniveau') }}</label>
                             @php $mapZoom = (int) old('home_sections.footer.map_zoom', $footer['map_zoom'] ?? 17); $mapZoom = $mapZoom >= 1 && $mapZoom <= 20 ? $mapZoom : 17; @endphp
                             <select name="home_sections[footer][map_zoom]" id="footer-map-zoom" class="kt-input w-40">
                                 @for($z = 10; $z <= 20; $z++)
                                 <option value="{{ $z }}" {{ $mapZoom === $z ? 'selected' : '' }}>{{ $z }}</option>
                                 @endfor
                             </select>
-                            <p class="text-xs text-muted-foreground mt-0.5">1 = ver, 20 = dichtbij</p>
+                            <p class="text-xs text-muted-foreground mt-0.5">{{ __('1 = ver, 20 = dichtbij') }}</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <input type="hidden" name="home_sections[footer][map_show_address_balloon]" value="0">
                             <input type="checkbox" name="home_sections[footer][map_show_address_balloon]" id="footer-map-show-address-balloon" class="kt-switch kt-switch-sm" value="1" {{ old('home_sections.footer.map_show_address_balloon', $footer['map_show_address_balloon'] ?? false) ? 'checked' : '' }}>
-                            <label for="footer-map-show-address-balloon" class="text-sm font-medium text-secondary-foreground cursor-pointer">Adres in ballon tonen</label>
+                            <label for="footer-map-show-address-balloon" class="text-sm font-medium text-secondary-foreground cursor-pointer">{{ __('Adres in ballon tonen') }}</label>
                         </div>
-                        <p class="text-xs text-muted-foreground">Toont het adres in een ballon op de kaart bij de marker.</p>
+                        <p class="text-xs text-muted-foreground">{{ __('Toont het adres in een ballon op de kaart bij de marker.') }}</p>
                     </div>
                 </div>
                 {{-- Voorbeeldkaart op eigen regel, volle breedte (voor alle thema's) --}}
                 <div id="footer-map-preview-wrapper" class="w-full mt-4">
-                    <label class="block text-xs text-muted-foreground mb-1">Voorbeeld kaart</label>
+                    <label class="block text-xs text-muted-foreground mb-1">{{ __('Voorbeeld kaart') }}</label>
                     @if(!empty($googleMapsApiKey ?? ''))
                     <div id="footer-map-preview" class="w-full rounded-lg border border-border bg-muted/30 overflow-hidden transition-[width,height] duration-200" data-api-key="{{ $googleMapsApiKey }}" data-map-id="{{ $googleMapsMapId ?? '' }}" data-size="{{ old('home_sections.footer.map_size', $footer['map_size'] ?? 'normal') }}" data-zoom="{{ $mapZoom }}"></div>
                     @else
-                    <div class="w-full rounded-lg border border-border bg-muted/30 flex items-center justify-center min-h-[200px] text-sm text-muted-foreground text-center p-4">Stel een Google Maps API-sleutel in bij Algemene instellingen om de voorbeeldkaart te tonen.</div>
+                    <div class="w-full rounded-lg border border-border bg-muted/30 flex items-center justify-center min-h-[200px] text-sm text-muted-foreground text-center p-4">{{ __('Stel een Google Maps API-sleutel in bij Algemene instellingen om de voorbeeldkaart te tonen.') }}</div>
                     @endif
                 </div>
                 <input type="hidden" name="home_sections[footer][map_lat]" id="footer-map-lat" value="{{ old('home_sections.footer.map_lat', $footer['map_lat'] ?? '') }}">
                 <input type="hidden" name="home_sections[footer][map_lng]" id="footer-map-lng" value="{{ old('home_sections.footer.map_lng', $footer['map_lng'] ?? '') }}">
             </div>
-            <div class="row-visibility-row" data-panel-title="Tagline / korte omschrijving">
+            <div class="row-visibility-row" data-panel-title="{{ __('Tagline / korte omschrijving') }}">
                 <div class="flex items-center gap-2 mb-1">
-                    <label class="text-sm font-medium text-secondary-foreground">Tagline / korte omschrijving</label>
+                    <label class="text-sm font-medium text-secondary-foreground">{{ __('Tagline / korte omschrijving') }}</label>
                     <input type="hidden" name="home_sections[visibility][footer_tagline]" id="visibility-footer_tagline" value="{{ ($visibility['footer_tagline'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_tagline" aria-label="Tagline tonen/verbergen">@if($visibility['footer_tagline'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_tagline" aria-label="{{ __('Tagline tonen/verbergen') }}">@if($visibility['footer_tagline'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
                 @include('admin.website-pages.partials.flowbite-wysiwyg', ['editorId' => 'home-footer-tagline', 'name' => 'home_sections[footer][tagline]', 'value' => old('home_sections.footer.tagline', $footer['tagline'] ?? ''), 'placeholder' => 'Ontdek wat wij voor u kunnen betekenen...', 'textareaId' => 'home-footer-tagline'])
-                <p class="text-xs text-muted-foreground mt-1">Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.</p>
+                <p class="text-xs text-muted-foreground mt-1">{{ __('Wordt onder het logo in de footer getoond. Gebruik de werkbalk voor bold, italic, lijsten, etc.') }}</p>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Snelle Links">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="{{ __('Snelle Links') }}">
                 <div class="row-visibility-row">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-sm font-medium text-secondary-foreground">Titel kolom Snelle Links</span>
+                        <span class="text-sm font-medium text-secondary-foreground">{{ __('Titel kolom Snelle Links') }}</span>
                         <input type="hidden" name="home_sections[visibility][footer_quick_links]" id="visibility-footer_quick_links" value="{{ ($visibility['footer_quick_links'] ?? true) ? '1' : '0' }}">
-                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_quick_links" aria-label="Snelle links tonen/verbergen">@if($visibility['footer_quick_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_quick_links" aria-label="{{ __('Snelle links tonen/verbergen') }}">@if($visibility['footer_quick_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
-                    <label class="block text-xs text-muted-foreground mb-1">Titel kolom</label>
+                    <label class="block text-xs text-muted-foreground mb-1">{{ __('Titel kolom') }}</label>
                     <input type="text" name="home_sections[footer][quick_links_title]" class="kt-input w-full max-w-[300px] box-border" value="{{ old('home_sections.footer.quick_links_title', $footer['quick_links_title'] ?? 'Snelle Links') }}" placeholder="Snelle Links">
-                    <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
+                    <label class="block text-xs text-muted-foreground mt-2 mb-1">{{ __('Uitlijning') }}</label>
                     @php $quickLinksAlign = old('home_sections.footer.quick_links_align', $footer['quick_links_align'] ?? 'left'); @endphp
                     <select name="home_sections[footer][quick_links_align]" class="kt-input w-40">
-                        <option value="left" {{ $quickLinksAlign === 'left' ? 'selected' : '' }}>Links</option>
-                        <option value="center" {{ $quickLinksAlign === 'center' ? 'selected' : '' }}>Midden</option>
-                        <option value="right" {{ $quickLinksAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                        <option value="left" {{ $quickLinksAlign === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                        <option value="center" {{ $quickLinksAlign === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                        <option value="right" {{ $quickLinksAlign === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                     </select>
                 </div>
                 <div class="space-y-3">
-                    <p class="text-sm font-medium text-secondary-foreground">Snelle Links</p>
+                    <p class="text-sm font-medium text-secondary-foreground">{{ __('Snelle Links') }}</p>
                     <div id="footer-quick-links-list" class="space-y-3">
                         @php $quickLinks = $footer['quick_links'] ?? []; @endphp
                         @foreach($quickLinks as $i => $link)
                         <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
-                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
-                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.quick_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
-                            <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
+                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.quick_links.{$i}.label", $link['label'] ?? '') }}" placeholder="{{ __('Label') }}">
+                            <input type="text" name="home_sections[footer][quick_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.quick_links.{$i}.url", $link['url'] ?? '') }}" placeholder="{{ __('/pad of https://...') }}">
+                            <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><i class="ki-filled ki-trash"></i></button>
                         </div>
                         @endforeach
                     </div>
-                    <button type="button" id="footer-quick-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
+                    <button type="button" id="footer-quick-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>{{ __('Link toevoegen') }}</button>
                 </div>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Ondersteuning-links">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="{{ __('Ondersteuning-links') }}">
             <div class="row-visibility-row">
                 <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm font-medium text-secondary-foreground">Ondersteuning-links</span>
                     <input type="hidden" name="home_sections[visibility][footer_support_links]" id="visibility-footer_support_links" value="{{ ($visibility['footer_support_links'] ?? true) ? '1' : '0' }}">
-                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_support_links" aria-label="Ondersteuning-links tonen/verbergen">@if($visibility['footer_support_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                    <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_support_links" aria-label="{{ __('Ondersteuning-links tonen/verbergen') }}">@if($visibility['footer_support_links'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                 </div>
-                <label class="block text-xs text-muted-foreground mb-1">Titel kolom Ondersteuning</label>
+                <label class="block text-xs text-muted-foreground mb-1">{{ __('Titel kolom Ondersteuning') }}</label>
                 <input type="text" name="home_sections[footer][support_links_title]" class="kt-input w-full max-w-[300px] box-border" value="{{ old('home_sections.footer.support_links_title', $footer['support_links_title'] ?? 'Ondersteuning') }}" placeholder="Ondersteuning">
-                <label class="block text-xs text-muted-foreground mt-2 mb-1">Uitlijning</label>
+                <label class="block text-xs text-muted-foreground mt-2 mb-1">{{ __('Uitlijning') }}</label>
                 @php $supportLinksAlign = old('home_sections.footer.support_links_align', $footer['support_links_align'] ?? 'left'); @endphp
                 <select name="home_sections[footer][support_links_align]" class="kt-input w-40 mb-3">
-                    <option value="left" {{ $supportLinksAlign === 'left' ? 'selected' : '' }}>Links</option>
-                    <option value="center" {{ $supportLinksAlign === 'center' ? 'selected' : '' }}>Midden</option>
-                    <option value="right" {{ $supportLinksAlign === 'right' ? 'selected' : '' }}>Rechts</option>
+                    <option value="left" {{ $supportLinksAlign === 'left' ? 'selected' : '' }}>{{ __('Links') }}</option>
+                    <option value="center" {{ $supportLinksAlign === 'center' ? 'selected' : '' }}>{{ __('Midden') }}</option>
+                    <option value="right" {{ $supportLinksAlign === 'right' ? 'selected' : '' }}>{{ __('Rechts') }}</option>
                 </select>
             <div class="space-y-3">
                 <p class="text-sm font-medium text-secondary-foreground">Ondersteuning-links</p>
@@ -2627,24 +2627,24 @@
                     @php $supportLinks = $footer['support_links'] ?? []; @endphp
                     @foreach($supportLinks as $i => $link)
                     <div class="footer-link-row flex flex-wrap items-center gap-3" data-index="{{ $i }}">
-                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.support_links.{$i}.label", $link['label'] ?? '') }}" placeholder="Label">
-                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.support_links.{$i}.url", $link['url'] ?? '') }}" placeholder="/pad of https://...">
-                        <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>
+                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="{{ old("home_sections.footer.support_links.{$i}.label", $link['label'] ?? '') }}" placeholder="{{ __('Label') }}">
+                        <input type="text" name="home_sections[footer][support_links][{{ $i }}][url]" class="kt-input flex-1 min-w-[160px]" value="{{ old("home_sections.footer.support_links.{$i}.url", $link['url'] ?? '') }}" placeholder="{{ __('/pad of https://...') }}">
+                        <button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="{{ __('Verwijderen') }}" aria-label="{{ __('Verwijderen') }}"><i class="ki-filled ki-trash"></i></button>
                     </div>
                     @endforeach
                 </div>
-                <button type="button" id="footer-support-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>Link toevoegen</button>
+                <button type="button" id="footer-support-links-add" class="kt-btn kt-btn-sm kt-btn-outline"><i class="ki-filled ki-plus me-1"></i>{{ __('Link toevoegen') }}</button>
             </div>
             </div>
             </div>
-            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="Social media">
+            <div class="border border-border rounded-lg p-4 space-y-4" data-panel-title="{{ __('Social media') }}">
                 <div class="row-visibility-row">
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="text-sm font-medium text-secondary-foreground">Social media</span>
+                        <span class="text-sm font-medium text-secondary-foreground">{{ __('Social media') }}</span>
                         <input type="hidden" name="home_sections[visibility][footer_social]" id="visibility-footer_social" value="{{ ($visibility['footer_social'] ?? true) ? '1' : '0' }}">
-                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_social" aria-label="Social media tonen/verbergen">@if($visibility['footer_social'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
+                        <button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-footer_social" aria-label="{{ __('Social media tonen/verbergen') }}">@if($visibility['footer_social'] ?? true)<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>@else<svg class="w-4 h-4 opacity-60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>@endif</button>
                     </div>
-                    <p class="text-xs text-muted-foreground mb-3">Vul alleen de unieke identifier in (pagina-, kanaal- of gebruikersnaam). De basis-URL staat vast; alleen ingevulde velden worden als icoon getoond.</p>
+                    <p class="text-xs text-muted-foreground mb-3">{{ __('Vul alleen de unieke identifier in (pagina-, kanaal- of gebruikersnaam). De basis-URL staat vast; alleen ingevulde velden worden als icoon getoond.') }}</p>
                     @php
                         $socialDisplay = function($val, $prefixes) {
                             $val = trim((string)$val);
@@ -2662,12 +2662,12 @@
                         $tt = $socialDisplay($v('social_tiktok'), ['https://www.tiktok.com/@', 'https://tiktok.com/@']);
                     @endphp
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div><label for="footer-social-facebook" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">facebook.com/</span> Facebook</label><input type="text" name="home_sections[footer][social_facebook]" id="footer-social-facebook" class="kt-input w-full" value="{{ $fb }}" placeholder="jouwpagina"></div>
-                        <div><label for="footer-social-instagram" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">instagram.com/</span> Instagram</label><input type="text" name="home_sections[footer][social_instagram]" id="footer-social-instagram" class="kt-input w-full" value="{{ $ig }}" placeholder="gebruikersnaam"></div>
-                        <div><label for="footer-social-x" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">x.com/</span> X (Twitter)</label><input type="text" name="home_sections[footer][social_x]" id="footer-social-x" class="kt-input w-full" value="{{ $x }}" placeholder="handle"></div>
-                        <div><label for="footer-social-linkedin" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">linkedin.com/</span> LinkedIn</label><input type="text" name="home_sections[footer][social_linkedin]" id="footer-social-linkedin" class="kt-input w-full" value="{{ $li }}" placeholder="company/bedrijfsnaam of in/naam"></div>
-                        <div><label for="footer-social-youtube" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">youtube.com/</span> YouTube</label><input type="text" name="home_sections[footer][social_youtube]" id="footer-social-youtube" class="kt-input w-full" value="{{ $yt }}" placeholder="@kanaal of channel/UC..."></div>
-                        <div><label for="footer-social-tiktok" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">tiktok.com/@</span> TikTok</label><input type="text" name="home_sections[footer][social_tiktok]" id="footer-social-tiktok" class="kt-input w-full" value="{{ $tt }}" placeholder="gebruikersnaam"></div>
+                        <div><label for="footer-social-facebook" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">facebook.com/</span> {{ __('Facebook') }}</label><input type="text" name="home_sections[footer][social_facebook]" id="footer-social-facebook" class="kt-input w-full" value="{{ $fb }}" placeholder="{{ __('jouwpagina') }}"></div>
+                        <div><label for="footer-social-instagram" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">instagram.com/</span> {{ __('Instagram') }}</label><input type="text" name="home_sections[footer][social_instagram]" id="footer-social-instagram" class="kt-input w-full" value="{{ $ig }}" placeholder="{{ __('gebruikersnaam') }}"></div>
+                        <div><label for="footer-social-x" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">x.com/</span> {{ __('X (Twitter)') }}</label><input type="text" name="home_sections[footer][social_x]" id="footer-social-x" class="kt-input w-full" value="{{ $x }}" placeholder="{{ __('handle') }}"></div>
+                        <div><label for="footer-social-linkedin" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">linkedin.com/</span> {{ __('LinkedIn') }}</label><input type="text" name="home_sections[footer][social_linkedin]" id="footer-social-linkedin" class="kt-input w-full" value="{{ $li }}" placeholder="{{ __('company/bedrijfsnaam of in/naam') }}"></div>
+                        <div><label for="footer-social-youtube" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">youtube.com/</span> {{ __('YouTube') }}</label><input type="text" name="home_sections[footer][social_youtube]" id="footer-social-youtube" class="kt-input w-full" value="{{ $yt }}" placeholder="{{ __('@kanaal of channel/UC...') }}"></div>
+                        <div><label for="footer-social-tiktok" class="text-xs font-medium text-secondary-foreground block mb-1"><span class="text-muted-foreground font-normal">tiktok.com/@</span> {{ __('TikTok') }}</label><input type="text" name="home_sections[footer][social_tiktok]" id="footer-social-tiktok" class="kt-input w-full" value="{{ $tt }}" placeholder="{{ __('gebruikersnaam') }}"></div>
                     </div>
                 </div>
             </div>
@@ -2677,23 +2677,23 @@
 
     <div class="kt-card home-section-card home-section-card--no-drag @if($isCopyrightCollapsed) home-section-card--collapsed @endif" id="copyright-section-card" data-section="copyright">
         <div class="kt-card-header home-section-header home-section-header--copyright flex items-center justify-between gap-2">
-            <h3 class="kt-card-title">Copyright (onderste balk)</h3>
-            <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Inklappen" aria-label="Sectie inklappen of uitklappen">
+            <h3 class="kt-card-title">{{ __('Copyright (onderste balk)') }}</h3>
+            <button type="button" class="home-section-collapse-toggle kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Inklappen') }}" aria-label="{{ __('Sectie inklappen of uitklappen') }}">
                 <svg class="w-5 h-5 text-current home-section-collapse-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
             </button>
         </div>
         <div class="home-section-card-body kt-card-table p-4 space-y-3">
             @if($isNonHomePage ?? false)
             <div id="copyright-inherit-notice" class="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground {{ old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? '' : 'hidden' }}">
-                <p class="font-medium text-secondary-foreground mb-1">Overgenomen van Home</p>
-                <p>Als <strong>Overnemen van Home</strong> bij Footer aan staat, wordt de copyrighttekst op de website overgenomen van de Home-pagina. Zet die optie uit om hier een eigen copyrighttekst voor deze pagina in te stellen.</p>
+                <p class="font-medium text-secondary-foreground mb-1">{{ __('Overgenomen van Home') }}</p>
+                <p>{!! __('Als :option bij Footer aan staat, wordt de copyrighttekst op de website overgenomen van de Home-pagina. Zet die optie uit om hier een eigen copyrighttekst voor deze pagina in te stellen.', ['option' => '<strong>'.e(__('Overnemen van Home')).'</strong>']) !!}</p>
             </div>
             @endif
             <div id="copyright-editable-block" class="{{ ($isNonHomePage ?? false) && old('home_sections.footer.inherit_from_home', $footer['inherit_from_home'] ?? false) ? 'hidden' : '' }}">
-                <label class="block text-sm font-medium text-secondary-foreground mb-1">Copyrighttekst</label>
+                <label class="block text-sm font-medium text-secondary-foreground mb-1">{{ __('Copyrighttekst') }}</label>
                 <input type="text" name="home_sections[copyright]" id="copyright-text-input" class="kt-input home-section-input-400" value="{{ old('home_sections.copyright', $copyright) }}" placeholder="© {year} [NEXA Suite](https://nexasuite.nl). Alle rechten voorbehouden.">
-                <p class="text-xs text-muted-foreground mt-1 mb-0">Gebruik <code>{year}</code> voor het jaar. Link: <code>[NEXA Suite](https://nexasuite.nl)</code>.</p>
-                <p class="text-xs text-muted-foreground mt-1">Gebruik <code>{year}</code> voor het huidige jaar.</p>
+                <p class="text-xs text-muted-foreground mt-1 mb-0">{!! __('Gebruik :code voor het jaar. Link: :link.', ['code' => '<code>{year}</code>', 'link' => '<code>[NEXA Suite](https://nexasuite.nl)</code>']) !!}</p>
+                <p class="text-xs text-muted-foreground mt-1">{!! __('Gebruik :code voor het huidige jaar.', ['code' => '<code>{year}</code>']) !!}</p>
             </div>
         </div>
     </div>
@@ -2750,8 +2750,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
 
         function handleFooterLogoFile(file) {
             var allowed = ['image/svg+xml','image/png','image/jpeg','image/jpg','image/gif'];
-            if (!allowed.includes(file.type)) { alert('Alleen SVG, PNG, JPG en GIF zijn toegestaan.'); fileInput.value = ''; return; }
-            if (file.size > 2 * 1024 * 1024) { alert('Max. 2MB.'); fileInput.value = ''; return; }
+            if (!allowed.includes(file.type)) { alert({!! json_encode(__('Alleen SVG, PNG, JPG en GIF zijn toegestaan.'), 15) !!}); fileInput.value = ''; return; }
+            if (file.size > 2 * 1024 * 1024) { alert(@json(__('Max. 2MB.'))); fileInput.value = ''; return; }
             var reader = new FileReader();
             reader.onload = function(e) {
                 preview.src = e.target.result;
@@ -2763,7 +2763,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             fd.append('_token', csrfToken.getAttribute('content'));
             if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
             fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-                .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); })
+                .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || @json(__('Upload mislukt'))); }); })
                 .then(function(d) {
                     if (d.success && d.logo_url) {
                         urlInput.value = d.logo_url;
@@ -2773,7 +2773,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     }
                     fileInput.value = '';
                 })
-                .catch(function(err) { alert(err.message || 'Upload mislukt'); fileInput.value = ''; });
+                .catch(function(err) { alert(err.message || @json(__('Upload mislukt'))); fileInput.value = ''; });
         }
     }
 
@@ -2810,8 +2810,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             if (footerMapCityOnly && footerMapCityOnly.checked) return;
             var postcode = (footerMapPostcode ? footerMapPostcode.value : '').trim().toUpperCase().replace(/\s+/g, '');
             var huisnummer = (footerMapHuisnummer ? footerMapHuisnummer.value : '').trim();
-            if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode)) { alert('Ongeldig postcode formaat. Gebruik 1234AB'); return; }
-            if (!huisnummer) { alert('Vul een huisnummer in.'); return; }
+            if (!/^[1-9][0-9]{3}[A-Z]{2}$/.test(postcode)) { alert(@json(__('Ongeldig postcode formaat. Gebruik 1234AB'))); return; }
+            if (!huisnummer) { alert(@json(__('Vul een huisnummer in.'))); return; }
             footerMapLookupBtn.disabled = true;
             fetch(postcodeLookupUrl, {
                 method: 'POST',
@@ -2829,10 +2829,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         window.updateFooterMapPreview(parseFloat(d.latitude), parseFloat(d.longitude));
                     }
                 } else {
-                    alert(d.message || 'Adres niet gevonden.');
+                    alert(d.message || @json(__('Adres niet gevonden.')));
                 }
             })
-            .catch(function() { alert('Zoeken mislukt.'); })
+            .catch(function() { alert(@json(__('Zoeken mislukt.'))); })
             .finally(function() { footerMapLookupBtn.disabled = false; });
         });
     }
@@ -2857,7 +2857,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             if (!previewEl || !wrapper) return;
             var errDialog = previewEl.querySelector('[role="alertdialog"], .xxGHyP-dialog-view, [aria-label="Fout"]');
             if (errDialog) errDialog.remove();
-            previewEl.innerHTML = '<div class="footer-map-fallback p-3 text-sm text-muted-foreground bg-muted/50 rounded flex items-center justify-center h-full min-h-[120px] text-center">Kaart niet beschikbaar. Voeg in Google Cloud Console bij API-sleutel restricties o.a. <code class="text-xs bg-muted px-1 rounded">' + (window.location.origin || 'http://localhost:8000') + '/*</code> toe en controleer of facturering is ingeschakeld.</div>';
+            previewEl.innerHTML = '<div class="footer-map-fallback p-3 text-sm text-muted-foreground bg-muted/50 rounded flex items-center justify-center h-full min-h-[120px] text-center">' + @json(__('Kaart niet beschikbaar. Voeg in Google Cloud Console bij API-sleutel restricties o.a. :origin toe en controleer of facturering is ingeschakeld.')).replace(':origin', '<code class="text-xs bg-muted px-1 rounded">' + (window.location.origin || 'http://localhost:8000') + '/*</code>') + '</div>';
             previewEl.classList.add('footer-map-fallback-active');
         }
         window.gm_authFailure = function() { showFooterMapFallback(); };
@@ -2963,7 +2963,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         window.updateFooterMapPreview(lat, lng);
                     }
                 } else if (opts && opts.notifyOnFail) {
-                    alert('Kon geen locatie vinden voor deze invoer.');
+                    alert(@json(__('Kon geen locatie vinden voor deze invoer.')));
                 }
             });
         }
@@ -3081,10 +3081,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         return previewEl || null;
     }
     function handleHeroImageFile(file, fileInput, urlInput, previewEl, wrapperEl, uploadAreaEl) {
-        if (!file || !(file instanceof File)) { alert('Geen bestand geselecteerd.'); if (fileInput) fileInput.value = ''; return; }
+        if (!file || !(file instanceof File)) { alert(@json(__('Geen bestand geselecteerd.'))); if (fileInput) fileInput.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
-        if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'); fileInput.value = ''; return; }
-        if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
+        if (!allowed.includes(file.type)) { alert({!! json_encode(__('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'), 15) !!}); fileInput.value = ''; return; }
+        if (file.size > 5 * 1024 * 1024) { alert(@json(__('Max. 5MB.'))); fileInput.value = ''; return; }
         var fd = new FormData();
         fd.append('image', file);
         var tokenEl = document.querySelector('meta[name="csrf-token"]');
@@ -3095,10 +3095,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             .then(function(r) {
                 return r.text().then(function(text) {
                     var d;
-                    try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { message: r.status === 422 ? 'Validatie mislukt.' : 'Upload mislukt.' }; }
+                    try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { message: r.status === 422 ? @json(__('Validatie mislukt.')) : @json(__('Upload mislukt.')) }; }
                     if (r.ok) return d;
-                    var msg = d.message || 'Upload mislukt';
-                    if (r.status === 403) msg = d.message || 'Geen rechten om afbeeldingen te uploaden. Alleen super-admins hebben toegang.';
+                    var msg = d.message || @json(__('Upload mislukt'));
+                    if (r.status === 403) msg = d.message || @json(__('Geen rechten om afbeeldingen te uploaden. Alleen super-admins hebben toegang.'));
                     else if (d.errors && typeof d.errors === 'object') {
                         var parts = [];
                         if (d.errors.image && Array.isArray(d.errors.image)) parts.push(d.errors.image.join(' '));
@@ -3119,7 +3119,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     if (wrapperEl) wrapperEl.classList.remove('hidden');
                 }
             })
-            .catch(function(err) { alert(err.message || 'Upload mislukt'); });
+            .catch(function(err) { alert(err.message || @json(__('Upload mislukt'))); });
         fileInput.value = '';
     }
     function bindHeroUploadAreasIn(container) {
@@ -3238,8 +3238,8 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             return '<option value="' + value + '"' + (pct === value ? ' selected' : '') + '>' + value + '%</option>';
         }).join('');
         return '<div class="carousel-slide-bg-width-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full mt-1">' +
-            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>' +
-            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem] carousel-slide-text-bg-width-select" title="Breedte tekstblok op slide (%)">' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">' + @json(__('Breedte')) + '</span>' +
+            '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem] carousel-slide-text-bg-width-select" title="' + @json(__('Breedte tekstblok op slide (%)')) + '">' +
             html +
             '</select>' +
             '</div>';
@@ -3248,12 +3248,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var opacityId = 'carousel-bg-opacity-' + sectionKey + '-' + idx;
         var sliderVal = carouselSlideBgOpacitySliderValue(hex, storedOpacity);
         return '<div class="carousel-slide-bg-opacity-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">' +
-            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Transparantie</span>' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">' + @json(__('Transparantie')) + '</span>' +
             '<div class="carousel-slide-text-bg-opacity-slider hero-overlay-opacity-slider flex-1 min-w-[8rem] max-w-[14rem]">' +
-            '<input type="range" name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_opacity]" id="' + opacityId + '" class="carousel-slide-text-bg-opacity-range hero-overlay-opacity-range w-full" min="0" max="100" step="1" value="' + sliderVal + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + sliderVal + '" aria-describedby="' + opacityId + '-value" title="0 = volledig doorzichtig, 100 = ondoorzichtig">' +
+            '<input type="range" name="home_sections[' + sectionKey + '][items][' + idx + '][text_bg_opacity]" id="' + opacityId + '" class="carousel-slide-text-bg-opacity-range hero-overlay-opacity-range w-full" min="0" max="100" step="1" value="' + sliderVal + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + sliderVal + '" aria-describedby="' + opacityId + '-value" title="' + {!! json_encode(__('0 = volledig doorzichtig, 100 = ondoorzichtig'), 15) !!} + '">' +
             '</div>' +
             '<span id="' + opacityId + '-value" class="carousel-slide-text-bg-opacity-value inline-flex items-center justify-center min-w-[2.75rem] rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shrink-0" aria-live="polite">' + sliderVal + '%</span>' +
-            '<span id="' + opacityId + '-preview" class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm" title="Voorbeeld achtergrondvlak" role="img" aria-label="Voorbeeld achtergrond"></span>' +
+            '<span id="' + opacityId + '-preview" class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm" title="' + @json(__('Voorbeeld achtergrondvlak')) + '" role="img" aria-label="' + @json(__('Voorbeeld achtergrond')) + '"></span>' +
             '</div>' +
             carouselSlideBgWidthOptionsHtml(sectionKey, idx, widthPercent);
     }
@@ -3423,7 +3423,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     });
 
     // Carousel: drag-and-drop upload + slides (website-media); bindCarouselSlidesIn voor dynamisch toegevoegde secties
-    var carouselDragHandleHtml = '<span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>';
+    var carouselDragHandleHtml = '<span class="carousel-slide-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 p-1 rounded text-muted-foreground hover:text-foreground" title="' + @json(__('Sleep om volgorde te wijzigen')) + '" aria-label="' + @json(__('Volgorde wijzigen')) + '"><svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg></span>';
     var carouselSlideImageTrashHtml = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
     function getWebsiteMediaDeleteUrl(uuid) {
         var meta = document.getElementById('home-sections-meta');
@@ -3491,7 +3491,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (img.classList.contains('hidden')) return;
         img.setAttribute('data-carousel-preview-lightbox-bound', '1');
         img.classList.add('cursor-zoom-in');
-        if (!img.getAttribute('title')) img.setAttribute('title', 'Klik om groot te bekijken');
+        if (!img.getAttribute('title')) img.setAttribute('title', @json(__('Klik om groot te bekijken')));
         if (!img.getAttribute('role')) img.setAttribute('role', 'button');
         if (!img.hasAttribute('tabindex')) img.setAttribute('tabindex', '0');
         img.addEventListener('click', function(e) {
@@ -3529,7 +3529,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var clearHidden = (alt || '').trim() !== '' ? '' : ' hidden';
         return '<div class="carousel-slide-alt-input-wrap relative flex-1 min-w-0">' +
             '<input type="text" name="home_sections[' + sectionKey + '][items][' + idx + '][alt]" value="' + safeAlt + '" placeholder="Bijv. Comfortabel, betrouwbaar en altijd op tijd" class="kt-input carousel-slide-alt-input w-full min-w-0 text-sm pe-9">' +
-            '<button type="button" class="carousel-slide-alt-clear kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2' + clearHidden + '" aria-label="Tekst wissen" tabindex="-1" title="Tekst wissen"><i class="ki-filled ki-cross text-sm"></i></button>' +
+            '<button type="button" class="carousel-slide-alt-clear kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost absolute end-1 top-1/2 z-[2] -translate-y-1/2' + clearHidden + '" aria-label="' + @json(__('Tekst wissen')) + '" tabindex="-1" title="' + @json(__('Tekst wissen')) + '"><i class="ki-filled ki-cross text-sm"></i></button>' +
             '</div>';
     }
     function bindCarouselSlideAltClear(wrap) {
@@ -3657,12 +3657,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
     }
     function uploadCarouselFileToRow(row, file) {
         var uploadUrl = getCarouselUploadUrlForRow(row);
-        if (!uploadUrl || !file) return Promise.reject(new Error('Upload niet beschikbaar.'));
+        if (!uploadUrl || !file) return Promise.reject(new Error(@json(__('Upload niet beschikbaar.'))));
         if (!file.type || !file.type.startsWith('image/')) {
-            return Promise.reject(new Error('Alleen afbeeldingen (JPG, PNG, WebP).'));
+            return Promise.reject(new Error({!! json_encode(__('Alleen afbeeldingen (JPG, PNG, WebP).'), 15) !!}));
         }
         if (file.size > 5 * 1024 * 1024) {
-            return Promise.reject(new Error('Maximaal 5MB per afbeelding.'));
+            return Promise.reject(new Error(@json(__('Maximaal 5MB per afbeelding.'))));
         }
         var uploadZone = row.querySelector('.carousel-slide-preview-upload');
         var token = (csrfToken && csrfToken.getAttribute('content')) || '';
@@ -3670,23 +3670,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             uploadZone.setAttribute('aria-busy', 'true');
             uploadZone.classList.add('pointer-events-none', 'opacity-70');
         }
-        setCarouselSlidePreviewUploadStatus(row, 'Uploaden...', false);
+        setCarouselSlidePreviewUploadStatus(row, @json(__('Uploaden...')), false);
         var fd = new FormData();
         fd.append('file', file);
         fd.append('_token', token);
         if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
         return fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-            .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || 'Upload mislukt'); }); })
+            .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || @json(__('Upload mislukt'))); }); })
             .then(function(d) {
                 var uuid = (d && d.uuid) ? d.uuid : '';
                 var url = (d && d.url) ? d.url : getCarouselSlideMediaUrl(uuid);
                 setCarouselSlidePreviewImage(row, uuid, url);
-                setCarouselSlidePreviewUploadStatus(row, 'Geüpload', false);
+                setCarouselSlidePreviewUploadStatus(row, @json(__('Geüpload')), false);
                 setTimeout(function() { setCarouselSlidePreviewUploadStatus(row, ''); }, 2000);
                 return d;
             })
             .catch(function(err) {
-                setCarouselSlidePreviewUploadStatus(row, err.message || 'Upload mislukt', true);
+                setCarouselSlidePreviewUploadStatus(row, err.message || @json(__('Upload mislukt')), true);
                 throw err;
             })
             .finally(function() {
@@ -3746,13 +3746,13 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             uploadZone.classList.remove('border-primary');
             var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
             if (file) {
-                uploadCarouselFileToRow(row, file).catch(function(err) { alert(err.message || 'Upload mislukt.'); });
+                uploadCarouselFileToRow(row, file).catch(function(err) { alert(err.message || @json(__('Upload mislukt.'))); });
             }
         });
         if (fileInput) {
             fileInput.addEventListener('change', function() {
                 if (this.files && this.files[0]) {
-                    uploadCarouselFileToRow(row, this.files[0]).catch(function(err) { alert(err.message || 'Upload mislukt.'); });
+                    uploadCarouselFileToRow(row, this.files[0]).catch(function(err) { alert(err.message || @json(__('Upload mislukt.'))); });
                 }
             });
         }
@@ -3771,51 +3771,51 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var safeUuid = uuid.replace(/"/g, '&quot;');
         return '<div class="carousel-slide-preview shrink-0 flex flex-col items-center gap-1">' +
             '<div class="relative h-20 w-28 shrink-0">' +
-            '<img src="' + safeUrl + '" alt="" class="carousel-slide-preview-img absolute inset-0 h-full w-full object-cover rounded border border-border' + (hasImage ? ' cursor-zoom-in' : ' hidden') + '"' + (hasImage ? ' data-carousel-preview-uuid="' + safeUuid + '" title="Klik om groot te bekijken" role="button" tabindex="0"' : '') + '>' +
-            '<div class="carousel-slide-preview-upload absolute inset-0 rounded border border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-0.5 text-center px-1 cursor-pointer hover:border-primary hover:bg-muted/50' + (hasImage ? ' hidden' : '') + '" role="button" tabindex="0" aria-label="Afbeelding uploaden voor deze slide">' +
-            '<span class="text-xs font-medium text-secondary-foreground leading-tight">Klik of sleep</span>' +
-            '<span class="text-[10px] text-muted-foreground leading-tight">JPG, PNG, WebP</span>' +
+            '<img src="' + safeUrl + '" alt="" class="carousel-slide-preview-img absolute inset-0 h-full w-full object-cover rounded border border-border' + (hasImage ? ' cursor-zoom-in' : ' hidden') + '"' + (hasImage ? ' data-carousel-preview-uuid="' + safeUuid + '" title="' + @json(__('Klik om groot te bekijken')) + '" role="button" tabindex="0"' : '') + '>' +
+            '<div class="carousel-slide-preview-upload absolute inset-0 rounded border border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-0.5 text-center px-1 cursor-pointer hover:border-primary hover:bg-muted/50' + (hasImage ? ' hidden' : '') + '" role="button" tabindex="0" aria-label="' + @json(__('Afbeelding uploaden voor deze slide')) + '">' +
+            '<span class="text-xs font-medium text-secondary-foreground leading-tight">' + @json(__('Klik of sleep')) + '</span>' +
+            '<span class="text-[10px] text-muted-foreground leading-tight">' + {!! json_encode(__('JPG, PNG, WebP'), 15) !!} + '</span>' +
             '<span class="carousel-slide-preview-upload-status text-[10px] text-primary hidden" aria-live="polite"></span></div>' +
             '<input type="file" class="carousel-slide-preview-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" tabindex="-1" aria-hidden="true">' +
             '</div>' +
-            '<button type="button" class="carousel-slide-image-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive' + (hasImage ? '' : ' hidden') + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' +
+            '<button type="button" class="carousel-slide-image-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive' + (hasImage ? '' : ' hidden') + '" title="' + @json(__('Afbeelding verwijderen')) + '" aria-label="' + @json(__('Afbeelding verwijderen')) + '">' +
             carouselSlideImageTrashHtml + '</button></div>';
     }
     var carouselCaptionAnimationOptions = [
-        { value: 'rise', label: 'Woorden omhoog' },
-        { value: 'fade', label: 'Infaden' },
-        { value: 'slide_left', label: 'Van links' },
-        { value: 'zoom', label: 'Inzoomen' },
-        { value: 'blur', label: 'Scherp worden' }
+        { value: 'rise', label: @json(__('Woorden omhoog')) },
+        { value: 'fade', label: @json(__('Infaden')) },
+        { value: 'slide_left', label: @json(__('Van links')) },
+        { value: 'zoom', label: @json(__('Inzoomen')) },
+        { value: 'blur', label: @json(__('Scherp worden')) }
     ];
     var carouselCaptionAnimationDurationOptions = [
-        { value: 300, label: '0,3 s' },
-        { value: 450, label: '0,45 s' },
-        { value: 550, label: '0,55 s (standaard)' },
-        { value: 800, label: '0,8 s' },
-        { value: 1000, label: '1 s' },
-        { value: 1500, label: '1,5 s' },
-        { value: 2000, label: '2 s' },
-        { value: 3000, label: '3 s' },
-        { value: 4000, label: '4 s' }
+        { value: 300, label: {!! json_encode(__('0,3 s'), 15) !!} },
+        { value: 450, label: {!! json_encode(__('0,45 s'), 15) !!} },
+        { value: 550, label: {!! json_encode(__('0,55 s (standaard)'), 15) !!} },
+        { value: 800, label: {!! json_encode(__('0,8 s'), 15) !!} },
+        { value: 1000, label: @json(__('1 s')) },
+        { value: 1500, label: {!! json_encode(__('1,5 s'), 15) !!} },
+        { value: 2000, label: @json(__('2 s')) },
+        { value: 3000, label: @json(__('3 s')) },
+        { value: 4000, label: @json(__('4 s')) }
     ];
     var carouselCaptionAnimationStaggerOptions = [
-        { value: 0, label: 'Geen' },
-        { value: 50, label: '0,05 s' },
-        { value: 90, label: '0,09 s (standaard)' },
-        { value: 120, label: '0,12 s' },
-        { value: 150, label: '0,15 s' },
-        { value: 200, label: '0,2 s' },
-        { value: 300, label: '0,3 s' },
-        { value: 500, label: '0,5 s' }
+        { value: 0, label: @json(__('Geen')) },
+        { value: 50, label: {!! json_encode(__('0,05 s'), 15) !!} },
+        { value: 90, label: {!! json_encode(__('0,09 s (standaard)'), 15) !!} },
+        { value: 120, label: {!! json_encode(__('0,12 s'), 15) !!} },
+        { value: 150, label: {!! json_encode(__('0,15 s'), 15) !!} },
+        { value: 200, label: {!! json_encode(__('0,2 s'), 15) !!} },
+        { value: 300, label: {!! json_encode(__('0,3 s'), 15) !!} },
+        { value: 500, label: {!! json_encode(__('0,5 s'), 15) !!} }
     ];
     function buildCarouselSlideBgColorHtml(sectionKey, idx, textBgColor, textBgOpacity, textBgWidthPercent) {
         var safeBg = (textBgColor || '').replace(/"/g, '&quot;');
         var bgId = 'carousel-bg-color-' + sectionKey + '-' + idx;
         var bgPickerVal = (safeBg && /^#/.test(safeBg)) ? safeBg : '#000000';
         return '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">' +
-            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>' +
-            '<input type="color" id="' + bgId + '_color" class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + bgPickerVal + '" title="Achtergrondkleur tekstblok" data-target-input="' + bgId + '">' +
+            '<span class="text-xs font-medium text-muted-foreground shrink-0 w-24">' + @json(__('Achtergrond')) + '</span>' +
+            '<input type="color" id="' + bgId + '_color" class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + bgPickerVal + '" title="' + @json(__('Achtergrondkleur tekstblok')) + '" data-target-input="' + bgId + '">' +
             carouselSlideHexInputHtml(sectionKey, idx, 'text_bg_color', safeBg, bgId, '#000000', 'carousel-slide-text-bg-color-hex-input') +
             '</div>' +
             carouselSlideBgOpacityControlsHtml(sectionKey, idx, safeBg, textBgOpacity, textBgWidthPercent);
@@ -3837,9 +3837,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             sizeHtml += '<option value="' + px + '"' + (px === textSizePx ? ' selected' : '') + '>' + px + ' px</option>';
         }
         var posHtml = [
-            { value: 'top', label: 'Boven' },
-            { value: 'center', label: 'Midden' },
-            { value: 'bottom', label: 'Onder' }
+            { value: 'top', label: @json(__('Boven')) },
+            { value: 'center', label: @json(__('Midden')) },
+            { value: 'bottom', label: @json(__('Onder')) }
         ].map(function(p) {
             return '<option value="' + p.value + '"' + (textPosition === p.value ? ' selected' : '') + '>' + p.label + '</option>';
         }).join('');
@@ -3853,17 +3853,17 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             return '<option value="' + s.value + '"' + (animStaggerMs === s.value ? ' selected' : '') + '>' + s.label + '</option>';
         }).join('');
         return '<div class="carousel-slide-caption-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">' +
-            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Tekstgrootte</label>' +
+            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">' + @json(__('Tekstgrootte')) + '</label>' +
             '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_size_px]" class="kt-input w-full text-sm carousel-slide-text-size-select">' + sizeHtml + '</select></div>' +
-            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Positie</label>' +
+            '<div class="carousel-slide-caption-field w-28 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">' + @json(__('Positie')) + '</label>' +
             '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_position]" class="kt-input w-full text-sm carousel-slide-text-position-select">' + posHtml + '</select></div>' +
-            '<div class="carousel-slide-caption-field w-40 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Animatie</label>' +
+            '<div class="carousel-slide-caption-field w-40 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">' + @json(__('Animatie')) + '</label>' +
             '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation]" class="kt-input w-full text-sm carousel-slide-text-animation-select">' + animHtml + '</select></div>' +
             '</div>' +
             '<div class="carousel-slide-caption-timing-options flex flex-row flex-nowrap items-end gap-2 mt-2 max-w-full">' +
-            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Animatieduur (per woord)</label>' +
+            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">' + @json(__('Animatieduur (per woord)')) + '</label>' +
             '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation_duration_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-duration-select">' + durationHtml + '</select></div>' +
-            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">Pauze tussen woorden</label>' +
+            '<div class="carousel-slide-caption-field w-44 flex-none"><label class="block text-xs font-medium text-muted-foreground mb-1">' + @json(__('Pauze tussen woorden')) + '</label>' +
             '<select name="home_sections[' + sectionKey + '][items][' + idx + '][text_animation_stagger_ms]" class="kt-input w-full text-sm carousel-slide-text-animation-stagger-select">' + staggerHtml + '</select></div>' +
             '</div>';
     }
@@ -3956,18 +3956,18 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         row.innerHTML = carouselDragHandleHtml +
             carouselSlidePreviewHtml(uuid, url) +
             '<div class="carousel-slide-row-fields flex-1 min-w-[12rem] space-y-1">' +
-            '<label class="block text-xs font-medium text-muted-foreground">Slide <span class="carousel-slide-num">' + (idx + 1) + '</span> · tekst op carousel</label>' +
+            '<label class="block text-xs font-medium text-muted-foreground">' + @json(__('Slide')) + ' <span class="carousel-slide-num">' + (idx + 1) + '</span> ' + @json(__('· tekst op carousel')) + '</label>' +
             '<div class="flex flex-wrap items-center gap-2">' +
             carouselSlideAltInputHtml(sectionKey, idx, alt) +
-            '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="Tekstkleur op carousel" data-target-input="' + textColorId + '">' +
+            '<input type="color" id="' + textColorId + '_color" class="carousel-slide-text-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0" value="' + textColorPickerVal + '" title="' + @json(__('Tekstkleur op carousel')) + '" data-target-input="' + textColorId + '">' +
             carouselSlideHexInputHtml(sectionKey, idx, 'text_color', safeTextColor, textColorId, '#ffffff', 'carousel-slide-text-color-hex-input') +
             '</div>' +
             buildCarouselSlideBgColorHtml(sectionKey, idx, '', null, 70) +
-            '<p class="text-xs text-muted-foreground">Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.</p>' +
+            '<p class="text-xs text-muted-foreground">' + {!! json_encode(__('Tekstkleur leeg = wit. Kies grootte, positie en animatie voor de tekst op de website.'), 15) !!} + '</p>' +
             buildCarouselSlideCaptionOptionsHtml(sectionKey, idx, {}) +
             '</div>' +
             '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + idx + '][uuid]" value="' + safeUuid + '">' +
-            '<button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="Slide verwijderen" aria-label="Slide verwijderen">' +
+            '<button type="button" class="carousel-slide-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive shrink-0" title="' + @json(__('Slide verwijderen')) + '" aria-label="' + @json(__('Slide verwijderen')) + '">' +
             '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>';
         listEl.appendChild(row);
         bindCarouselSlidePreviewUpload(row);
@@ -4009,21 +4009,21 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             valid.push(f);
         }
         if (valid.length === 0) {
-            setCarouselUploadStatus(area, 'Geen geldige afbeeldingen (max. 5MB, alleen JPG/PNG/WebP).', true);
+            setCarouselUploadStatus(area, {!! json_encode(__('Geen geldige afbeeldingen (max. 5MB, alleen JPG/PNG/WebP).'), 15) !!}, true);
             if (fileInput) fileInput.value = '';
             return;
         }
         var token = (csrfToken && csrfToken.getAttribute('content')) || '';
         area.setAttribute('aria-busy', 'true');
         area.classList.add('pointer-events-none', 'opacity-70');
-        setCarouselUploadStatus(area, 'Bezig met uploaden' + (valid.length > 1 ? ' (' + valid.length + ' afbeeldingen)...' : '...'), false);
+        setCarouselUploadStatus(area, valid.length > 1 ? @json(__('Bezig met uploaden (:count afbeeldingen)...')).replace(':count', valid.length) : @json(__('Bezig met uploaden...')), false);
         var uploads = valid.map(function(file) {
             var fd = new FormData();
             fd.append('file', file);
             fd.append('_token', token);
             if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
             return fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-                .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || 'Upload mislukt'); }); });
+                .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || (d.errors && d.errors.file && d.errors.file[0]) || @json(__('Upload mislukt'))); }); });
         });
         Promise.all(uploads)
             .then(function(results) {
@@ -4034,12 +4034,12 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     var uuid = (d && d.uuid) ? d.uuid : '';
                     appendCarouselSlideRow(listEl, sectionKey, idx, uuid, url, '');
                 });
-                setCarouselUploadStatus(area, valid.length > 1 ? valid.length + ' afbeeldingen toegevoegd.' : 'Afbeelding toegevoegd.', false);
+                setCarouselUploadStatus(area, valid.length > 1 ? @json(__(':count afbeeldingen toegevoegd.')).replace(':count', valid.length) : @json(__('Afbeelding toegevoegd.')), false);
                 setTimeout(function() { setCarouselUploadStatus(area, ''); }, 2500);
             })
             .catch(function(err) {
-                setCarouselUploadStatus(area, err.message || 'Upload mislukt.', true);
-                alert(err.message || 'Upload mislukt.');
+                setCarouselUploadStatus(area, err.message || @json(__('Upload mislukt.')), true);
+                alert(err.message || @json(__('Upload mislukt.')));
             })
             .finally(function() {
                 area.removeAttribute('aria-busy');
@@ -4121,13 +4121,13 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         }
                     })
                         .then(function(r) {
-                            return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Verwijderen mislukt'); });
+                            return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || @json(__('Verwijderen mislukt'))); });
                         })
                         .then(function() {
                             setCarouselSlidePreviewImage(imageRow, '', '');
                         })
                         .catch(function(err) {
-                            alert(err.message || 'Afbeelding verwijderen mislukt.');
+                            alert(err.message || @json(__('Afbeelding verwijderen mislukt.')));
                         })
                         .finally(function() {
                             imageRemoveBtn.disabled = false;
@@ -4135,9 +4135,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 };
                 if (typeof window.showAdminConfirm === 'function') {
                     window.showAdminConfirm({
-                        title: 'Afbeelding verwijderen',
-                        message: 'Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.',
-                        confirmLabel: 'Verwijderen'
+                        title: @json(__('Afbeelding verwijderen')),
+                        message: @json(__('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')),
+                        confirmLabel: {!! json_encode(__('Verwijderen'), 15) !!}
                     }).then(function (ok) {
                         if (ok) {
                             doDeleteImage();
@@ -4145,7 +4145,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     });
                     return;
                 }
-                if (!confirm('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')) return;
+                if (!confirm(@json(__('Afbeelding verwijderen? Het bestand wordt permanent van de server verwijderd. De tekstinstellingen van deze slide blijven behouden.')))) return;
                 doDeleteImage();
                 return;
             }
@@ -4171,9 +4171,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         var div = document.createElement('div');
         div.className = 'footer-link-row flex flex-wrap items-center gap-3';
         div.setAttribute('data-index', index);
-        div.innerHTML = '<input type="text" name="' + prefix + '[' + index + '][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="' + (label || '').replace(/"/g, '&quot;') + '" placeholder="Label">' +
-            '<input type="text" name="' + prefix + '[' + index + '][url]" class="kt-input flex-1 min-w-[160px]" value="' + (url || '').replace(/"/g, '&quot;') + '" placeholder="/pad of https://...">' +
-            '<button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash"></i></button>';
+        div.innerHTML = '<input type="text" name="' + prefix + '[' + index + '][label]" class="kt-input flex-1 min-w-[120px]" data-skip-minlength-validation="true" value="' + (label || '').replace(/"/g, '&quot;') + '" placeholder="' + @json(__('Label')) + '">' +
+            '<input type="text" name="' + prefix + '[' + index + '][url]" class="kt-input flex-1 min-w-[160px]" value="' + (url || '').replace(/"/g, '&quot;') + '" placeholder="' + @json(__('/pad of https://...')) + '">' +
+            '<button type="button" class="footer-link-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-outline" title="' + @json(__('Verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '"><i class="ki-filled ki-trash"></i></button>';
         return div;
     }
     function reindexLinkRows(container, prefix) {
@@ -4241,7 +4241,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (!input) return;
         var visible = input.value !== '1';
         input.value = visible ? '1' : '0';
-        btn.setAttribute('title', visible ? 'Verbergen op website' : 'Tonen op website');
+        btn.setAttribute('title', visible ? @json(__('Verbergen op website')) : @json(__('Tonen op website')));
         btn.innerHTML = btn.classList.contains('kt-btn-xs') ? (visible ? eyeSvgSmall : eyeSlashSvgSmall) : (visible ? eyeSvg : eyeSlashSvg);
         applyVisibilityTargets(id);
     });
@@ -4254,10 +4254,10 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (!card) return;
         if (collapsed) {
             card.classList.add('home-section-card--collapsed');
-            if (btn) { btn.setAttribute('title', 'Uitklappen'); btn.setAttribute('aria-label', 'Sectie uitklappen'); }
+            if (btn) { btn.setAttribute('title', @json(__('Uitklappen'))); btn.setAttribute('aria-label', @json(__('Sectie uitklappen'))); }
         } else {
             card.classList.remove('home-section-card--collapsed');
-            if (btn) { btn.setAttribute('title', 'Inklappen'); btn.setAttribute('aria-label', 'Sectie inklappen'); }
+            if (btn) { btn.setAttribute('title', @json(__('Inklappen'))); btn.setAttribute('aria-label', @json(__('Sectie inklappen'))); }
         }
         if (body) {
             body.removeAttribute('hidden');
@@ -4271,7 +4271,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         if (!cardWrapper || !allBtn) return;
         var cards = cardWrapper.querySelectorAll('.home-section-card');
         var allCollapsed = cards.length > 0 && [].slice.call(cards).every(function(c) { return c.classList.contains('home-section-card--collapsed'); });
-        var title = allCollapsed ? 'Alles uitklappen' : 'Alles inklappen';
+        var title = allCollapsed ? @json(__('Alles uitklappen')) : @json(__('Alles inklappen'));
         allBtn.setAttribute('title', title);
         allBtn.setAttribute('aria-label', title);
         if (iconEl) {
@@ -4634,7 +4634,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         iconOpts += '<option value="' + k + '">' + (iconData[k] || k) + '</option>';
                     }
                 } catch (err) {
-                    iconOpts = '<option value="light-bulb">Gloeilamp</option><option value="bolt">Bliksem</option><option value="key">Sleutel</option>';
+                    iconOpts = '<option value="light-bulb">' + @json(__('Gloeilamp')) + '</option><option value="bolt">' + @json(__('Bliksem')) + '</option><option value="key">' + @json(__('Sleutel')) + '</option>';
                 }
                 var sizeOpts = '';
                 try {
@@ -4644,23 +4644,23 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         sizeOpts += '<option value="' + s + '"' + (s === 'medium' ? ' selected' : '') + '>' + (sizeData[s] || s) + '</option>';
                     }
                 } catch (err2) {
-                    sizeOpts = '<option value="small">Klein</option><option value="medium" selected>Normaal</option><option value="large">Groot</option>';
+                    sizeOpts = '<option value="small">' + @json(__('Klein')) + '</option><option value="medium" selected>' + @json(__('Normaal')) + '</option><option value="large">' + @json(__('Groot')) + '</option>';
                 }
                 var editorId = 'home-' + sectionKey + '-item-' + nextIndex + '-description';
                 var div = document.createElement('div');
                 div.className = 'features-item-row row-visibility-row border border-border rounded-lg p-4 space-y-3 flex gap-3';
                 div.setAttribute('data-features-index', nextIndex);
-                div.innerHTML = '<span class="features-item-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 mt-1 p-1 rounded text-muted-foreground hover:text-foreground" title="Sleep om volgorde te wijzigen" aria-label="Volgorde wijzigen">' + dragSvg + '</span>' +
+                div.innerHTML = '<span class="features-item-drag-handle cursor-grab active:cursor-grabbing touch-none shrink-0 mt-1 p-1 rounded text-muted-foreground hover:text-foreground" title="' + @json(__('Sleep om volgorde te wijzigen')) + '" aria-label="' + @json(__('Volgorde wijzigen')) + '">' + dragSvg + '</span>' +
                     '<div class="flex-1 min-w-0 space-y-3">' +
                     '<div class="flex items-center gap-2 mb-1 flex-wrap">' +
-                    '<p class="text-sm font-medium text-secondary-foreground">Kaart <span class="features-item-num">' + (nextIndex + 1) + '</span></p>' +
+                    '<p class="text-sm font-medium text-secondary-foreground">' + @json(__('Kaart')) + ' <span class="features-item-num">' + (nextIndex + 1) + '</span></p>' +
                     '<input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1">' +
-                    '<button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Kaart tonen/verbergen">' + eyeSvg + '</button>' +
-                    '<button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button>' +
+                    '<button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="' + @json(__('Kaart tonen/verbergen')) + '">' + eyeSvg + '</button>' +
+                    '<button type="button" class="features-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="' + @json(__('Kaart verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '">' + trashSvg + '</button>' +
                     '</div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Titel</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input home-section-input-400 features-item-title" value=""></div>' +
-                    '<div><label class="block text-xs text-muted-foreground mb-1">Beschrijving</label>' + getFlowbiteWysiwygHtml(editorId, 'home_sections[' + sectionKey + '][items][' + nextIndex + '][description]', editorId, '') + '</div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Icoon (Heroicon)</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input w-44 shrink-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Grootte icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">Positie titel en icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align"><option value="left">Links</option><option value="center" selected>Midden</option><option value="right">Rechts</option></select></div></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">' + @json(__('Titel')) + '</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input home-section-input-400 features-item-title" value=""></div>' +
+                    '<div><label class="block text-xs text-muted-foreground mb-1">' + @json(__('Beschrijving')) + '</label>' + getFlowbiteWysiwygHtml(editorId, 'home_sections[' + sectionKey + '][items][' + nextIndex + '][description]', editorId, '') + '</div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">' + @json(__('Icoon (Heroicon)')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input w-44 shrink-0 features-item-icon">' + iconOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">' + @json(__('Grootte icoon')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_size]" class="kt-input w-44 shrink-0 features-item-icon-size">' + sizeOpts + '</select></div><div class="flex items-center gap-3"><label class="block text-xs font-medium text-muted-foreground w-40 shrink-0">' + @json(__('Positie titel en icoon')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_align]" class="kt-input w-44 shrink-0 features-item-icon-align"><option value="left">' + @json(__('Links')) + '</option><option value="center" selected>' + @json(__('Midden')) + '</option><option value="right">' + @json(__('Rechts')) + '</option></select></div></div>' +
                     '</div>';
                 container.appendChild(div);
                 dedupeFlowbiteEditors(container);
@@ -4713,14 +4713,14 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var urlInputId = 'hero-' + sectionKey + '-items_' + nextIndex + '_image_url';
                 var fileInputId = urlInputId + '-file';
                 var previewId = urlInputId + '-preview';
-                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="' + previewId + '" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="' + urlInputId + '" data-preview-id="' + previewId + '" title="Afbeelding verwijderen" aria-label="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" data-url-input-id="' + urlInputId + '" data-file-input-id="' + fileInputId + '" data-preview-id="' + previewId + '" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div></div>' +
+                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="cards-ronde-hoeken-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="' + @json(__('Kaart verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="' + previewId + '" class="cards-ronde-hoeken-upload-preview w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src=""><button type="button" class="image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="' + urlInputId + '" data-preview-id="' + previewId + '" title="' + @json(__('Afbeelding verwijderen')) + '" aria-label="' + @json(__('Afbeelding verwijderen')) + '">' + trashSvg + '</button></div>' +
+                    '<div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url" data-url-input-id="' + urlInputId + '" data-file-input-id="' + fileInputId + '" data-preview-id="' + previewId + '" style="width: 500px; min-width: 500px; height: 130px;"><span class="text-xs text-muted-foreground">' + @json(__('Klik of sleep afbeelding')) + '</span><span class="text-xs text-muted-foreground">' + {!! json_encode(__('JPG, PNG, WebP (max. 5MB)'), 15) !!} + '</span></div></div>' +
                     '<input type="file" id="' + fileInputId + '" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="items_' + nextIndex + '_image_url">' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="' + urlInputId + '" value="">' +
-                    '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">Tekst onder afbeelding</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="Tekst tonen/verbergen">' + eyeSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">Klein (300px)</option><option value="normal" selected>Normaal (400px)</option><option value="large">Groot (600px)</option><option value="xlarge">Extra groot (800px)</option><option value="max">Maximaal (volledige breedte)</option><option value="total_width">Totaalformaat cards</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>Normaal</option><option value="bold">Vet</option><option value="italic">Cursief</option></select></div><input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" value="14"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>Links</option><option value="center">Midden</option><option value="right">Rechts</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur afbeelding</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="Achtergrondkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="Tekstkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="Leegmaken" aria-label="Leegmaken" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
-                    '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, 'Tekst onder de afbeelding (rich text)', { minH: 200, maxH: 220 }) : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
+                    '<div class="space-y-2 mt-3"><div class="flex flex-wrap items-center gap-4"><label class="text-sm font-medium text-secondary-foreground shrink-0">' + @json(__('Tekst onder afbeelding')) + '</label><input type="hidden" name="home_sections[visibility][' + sectionKey + '_item_' + nextIndex + ']" id="visibility-' + sectionKey + '_item_' + nextIndex + '" value="1"><button type="button" class="section-visibility-toggle kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-foreground shrink-0" data-target="visibility-' + sectionKey + '_item_' + nextIndex + '" aria-label="' + @json(__('Tekst tonen/verbergen')) + '">' + eyeSvg + '</button></div>' +
+                    '<div class="flex flex-col gap-2"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Kaartgrootte')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm"><option value="small">' + @json(__('Klein (300px)')) + '</option><option value="normal" selected>' + @json(__('Normaal (400px)')) + '</option><option value="large">' + @json(__('Groot (600px)')) + '</option><option value="xlarge">' + @json(__('Extra groot (800px)')) + '</option><option value="max">' + @json(__('Maximaal (volledige breedte)')) + '</option><option value="total_width">' + @json(__('Totaalformaat cards')) + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Stijl')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm"><option value="normal" selected>' + @json(__('Normaal')) + '</option><option value="bold">' + @json(__('Vet')) + '</option><option value="italic">' + @json(__('Cursief')) + '</option></select></div><input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_size]" value="14"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Uitlijning')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm"><option value="left" selected>' + @json(__('Links')) + '</option><option value="center">' + @json(__('Midden')) + '</option><option value="right">' + @json(__('Rechts')) + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Padding afbeelding')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + (function(){ var o = ['<option value="0">0px</option>']; for (var px = 2; px <= 30; px += 2) o.push('<option value="' + px + '"' + (px === 2 ? ' selected' : '') + '>' + px + 'px</option>'); return o.join(''); })() + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Achtergrondkleur afbeelding')) + '</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb" title="' + @json(__('Achtergrondkleur')) + '"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="' + @json(__('Leegmaken')) + '" aria-label="' + @json(__('Leegmaken')) + '" data-color-default="#e5e7eb"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Tekstkleur')) + '</label><div class="flex items-center gap-2"><input type="color" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151" title="' + @json(__('Tekstkleur')) + '"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" id="cards-' + sectionKey + '-item-' + nextIndex + '-text-color-hex" class="kt-input font-mono text-sm home-section-hex-input" value="" placeholder="#hex of leeg" maxlength="7" data-sync-from="cards-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" title="' + @json(__('Leegmaken')) + '" aria-label="' + @json(__('Leegmaken')) + '" data-color-default="#374151"><svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></button></div></div></div>' +
+                    '<div class="w-full min-w-0">' + (function(){ var editorId = 'home-cards-' + sectionKey + '-item-' + nextIndex + '-text'; var name = 'home_sections[' + sectionKey + '][items][' + nextIndex + '][text]'; return (typeof window.getFlowbiteWysiwygHtml === 'function' ? window.getFlowbiteWysiwygHtml(editorId, name, editorId, @json(__('Tekst onder de afbeelding (rich text)')), { minH: 200, maxH: 220 }) : '<textarea name="' + name + '" id="' + editorId + '" class="kt-input w-full" rows="6"></textarea>'); })() + '</div></div>';
                 container.appendChild(div);
                 var newArea = div.querySelector('.hero-image-upload-area');
                 if (newArea) bindOneHeroUpload(newArea);
@@ -4765,16 +4765,16 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                         iconSelect += '<option value="' + fsIconKey + '">' + (fsIconData[fsIconKey] || fsIconKey) + '</option>';
                     }
                 } catch (fsIconErr) {
-                    iconSelect = '<option value="light-bulb">Gloeilamp</option>';
+                    iconSelect = '<option value="light-bulb">' + @json(__('Gloeilamp')) + '</option>';
                 }
                 var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
                 var div = document.createElement('div');
                 div.className = 'featured-services-item border border-border rounded-lg p-3 space-y-2';
-                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Blok ' + (nextIndex + 1) + '</span><button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Blok verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoon</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">' + iconSelect + '</select></div>' +
-                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">Icoonkleur</label><div class="flex items-center gap-2"><input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="#2563eb" title="Kies icoonkleur" aria-label="Icoonkleur"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_color]" class="kt-input text-sm font-mono home-section-hex-input" value="" placeholder="#hex" maxlength="7"></div></div>' +
-                    '<div><label class="text-sm text-muted-foreground block mb-1">Titel blok</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input w-full max-w-[50%] text-sm" value="" placeholder="Titel"></div>' +
-                    '<div><label class="text-sm text-muted-foreground block mb-1">Beschrijving</label><textarea name="home_sections[' + sectionKey + '][items][' + nextIndex + '][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="Beschrijving"></textarea></div>';
+                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Blok ' + (nextIndex + 1) + '</span><button type="button" class="featured-services-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="' + @json(__('Blok verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '">' + trashSvg + '</button></div>' +
+                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">' + @json(__('Icoon')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon]" class="kt-input text-sm w-auto min-w-[10rem] max-w-full">' + iconSelect + '</select></div>' +
+                    '<div class="flex gap-2 items-center"><label class="text-sm text-muted-foreground shrink-0 w-24">' + @json(__('Icoonkleur')) + '</label><div class="flex items-center gap-2"><input type="color" class="featured-services-icon-color-picker h-9 w-14 cursor-pointer rounded border border-input bg-background p-1" value="#2563eb" title="' + @json(__('Kies icoonkleur')) + '" aria-label="' + @json(__('Icoonkleur')) + '"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][icon_color]" class="kt-input text-sm font-mono home-section-hex-input" value="" placeholder="#hex" maxlength="7"></div></div>' +
+                    '<div><label class="text-sm text-muted-foreground block mb-1">' + @json(__('Titel blok')) + '</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input w-full max-w-[50%] text-sm" value="" placeholder="' + @json(__('Titel')) + '"></div>' +
+                    '<div><label class="text-sm text-muted-foreground block mb-1">' + @json(__('Beschrijving')) + '</label><textarea name="home_sections[' + sectionKey + '][items][' + nextIndex + '][description]" class="kt-input w-full max-w-[50%] text-sm min-h-[60px]" rows="2" placeholder="' + @json(__('Beschrijving')) + '"></textarea></div>';
                 container.appendChild(div);
                 return;
             }
@@ -4891,7 +4891,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             rows.forEach(function(row, i) {
                 row.setAttribute('data-tarieven-index', i);
                 var titleEl = row.querySelector('.text-sm.font-medium');
-                if (titleEl) titleEl.textContent = 'Kaart ' + (i + 1);
+                if (titleEl) titleEl.textContent = @json(__('Kaart :n')).replace(':n', i + 1);
 
                 var field = 'taxi_items_' + i + '_image_url';
                 var previewId = 'hero-' + sectionKey + '-' + field + '-preview';
@@ -4901,7 +4901,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 var preview = row.querySelector('[data-nexataxi-preview]');
                 if (preview) {
                     preview.id = previewId;
-                    preview.alt = 'Kaart ' + (i + 1);
+                    preview.alt = @json(__('Kaart :n')).replace(':n', i + 1);
                 }
                 var imageRemoveBtn = row.querySelector('.nexataxi-image-remove-btn');
                 if (imageRemoveBtn) {
@@ -4983,7 +4983,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
         function wrapNexataxiTarievenStylesPanel(innerHtml) {
             return '<div class="home-section-field-panel home-section-field-panel--nested home-section-field-panel--collapsed nexataxi-tarieven-styles-panel">' +
                 '<button type="button" class="home-section-field-panel-toggle" aria-expanded="false">' +
-                '<span class="home-section-field-panel-title">Stijl & opmaak</span>' +
+                '<span class="home-section-field-panel-title">' + @json(__('Stijl & opmaak')) + '</span>' +
                 '<svg class="home-section-field-panel-chevron w-5 h-5 shrink-0 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>' +
                 '</button>' +
                 '<div class="home-section-field-panel-body" hidden><div class="flex flex-col gap-3">' + innerHtml + '</div></div></div>';
@@ -5007,34 +5007,34 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 try { textAligns = JSON.parse(container.getAttribute('data-text-aligns') || '{}'); } catch (x) {}
                 try { imagePaddings = JSON.parse(container.getAttribute('data-image-paddings') || '{}'); } catch (x) {}
                 var field = 'taxi_items_' + nextIndex + '_image_url';
-                var vehicleOpts = '<option value="">Geen</option>';
+                var vehicleOpts = '<option value="">' + @json(__('Geen')) + '</option>';
                 vehicles.forEach(function(v) {
                     var rawUrl = v.image_url ? String(v.image_url) : '';
                     var attr = rawUrl ? ' data-image-url="' + escapeAttrUrl(rawUrl) + '"' : '';
                     vehicleOpts += '<option value="' + v.id + '"' + attr + '>' + (v.name || '') + '</option>';
                 });
-                vehicleOpts += '<option value="custom">Eigen afbeelding</option>';
+                vehicleOpts += '<option value="custom">' + @json(__('Eigen afbeelding')) + '</option>';
                 var cardSizeOpts = ''; for (var k in cardSizes) cardSizeOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + cardSizes[k] + '</option>';
                 var fontStyleOpts = ''; for (var k in fontStyles) fontStyleOpts += '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' + fontStyles[k] + '</option>';
                 var fontFamilyOpts = ''; for (var k in fontFamilies) fontFamilyOpts += '<option value="' + k + '"' + (k === '' ? ' selected' : '') + '>' + fontFamilies[k] + '</option>';
                 var fontSizeOpts = ''; for (var k in fontSizes) fontSizeOpts += '<option value="' + k + '"' + (k === '' ? ' selected' : '') + '>' + fontSizes[k] + '</option>';
                 var textAlignOpts = ''; for (var k in textAligns) textAlignOpts += '<option value="' + k + '"' + (k === 'left' ? ' selected' : '') + '>' + textAligns[k] + '</option>';
                 var paddingOpts = ''; for (var k in imagePaddings) paddingOpts += '<option value="' + k + '"' + (k === '2' ? ' selected' : '') + '>' + imagePaddings[k] + '</option>';
-                var rateOpt1 = 't/m 4 personen';
-                var rateOpt2 = '5 t/m 8 personen';
-                var rateOpt3 = 'Overige kosten';
+                var rateOpt1 = @json(__('t/m 4 personen'));
+                var rateOpt2 = @json(__('5 t/m 8 personen'));
+                var rateOpt3 = @json(__('Overige kosten'));
                 var trashSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>';
                 var hexClearSvg = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
                 var div = document.createElement('div');
                 div.className = 'nexataxi-tarieven-item border border-border rounded-lg p-4 space-y-3';
                 div.setAttribute('data-tarieven-index', nextIndex);
-                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="Kaart verwijderen" aria-label="Verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src="" data-nexataxi-preview><button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="Afbeelding verwijderen">' + trashSvg + '</button></div>' +
-                    '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40">Afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
-                    '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">Klik of sleep afbeelding</span><span class="text-xs text-muted-foreground">JPG, PNG, WebP (max. 5MB)</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
+                div.innerHTML = '<div class="flex items-center justify-between gap-2"><span class="text-sm font-medium">Kaart ' + (nextIndex + 1) + '</span><button type="button" class="nexataxi-tarieven-item-remove kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive" title="' + @json(__('Kaart verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-wrap items-start gap-2"><div class="shrink-0 flex flex-col items-center"><img alt="Kaart ' + (nextIndex + 1) + '" id="hero-' + sectionKey + '-' + field + '-preview" class="w-full max-w-[200px] max-h-24 object-cover border border-border rounded hidden" src="" data-nexataxi-preview><button type="button" class="nexataxi-image-remove-btn image-remove-btn kt-btn kt-btn-xs kt-btn-ghost text-destructive mt-1 shadow hover:bg-destructive/10" data-url-input-id="hero-' + sectionKey + '-' + field + '" data-preview-id="hero-' + sectionKey + '-' + field + '-preview" title="' + @json(__('Afbeelding verwijderen')) + '">' + trashSvg + '</button></div>' +
+                    '<div class="flex flex-col gap-2 flex-1 min-w-0"><div class="flex items-center gap-3"><label class="nexataxi-image-label text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Afbeelding')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][vehicle_id]" class="kt-input w-56 text-sm nexataxi-image-source-select" data-preview-target="hero-' + sectionKey + '-' + field + '-preview" data-upload-wrap="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap" data-image-url-input="hero-' + sectionKey + '-' + field + '" data-vehicles="' + (container.getAttribute('data-vehicles') || '[]').replace(/"/g, '&quot;') + '">' + vehicleOpts + '</select></div>' +
+                    '<div class="nexataxi-upload-wrap hidden" id="nexataxi-' + sectionKey + '-items-' + nextIndex + '-upload-wrap"><div class="hero-image-upload-area flex flex-col items-center justify-center p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30" data-section-key="' + sectionKey + '" data-field="' + field + '" style="width:100%;max-width:500px;min-height:130px"><span class="text-xs text-muted-foreground">' + @json(__('Klik of sleep afbeelding')) + '</span><span class="text-xs text-muted-foreground">' + {!! json_encode(__('JPG, PNG, WebP (max. 5MB)'), 15) !!} + '</span></div><input type="file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/gif,image/webp" data-section-key="' + sectionKey + '" data-field="' + field + '"></div>' +
                     '<input type="hidden" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_url]" id="hero-' + sectionKey + '-' + field + '" value=""></div></div>' +
-                    '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tarief</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel kaart</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Override overige kosten (€)</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="leeg = uit tarief"><span class="text-xs text-muted-foreground">Optioneel</span></div>' +
-                    wrapNexataxiTarievenStylesPanel('<div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Kaartgrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettertype</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel stijl</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Titel uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Label lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Waarde lettergrootte</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Uitlijning</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Padding afbeelding</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Achtergrondkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">Tekstkleur</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div>') + '</div>';
+                    '<div class="flex flex-col gap-2 mt-3"><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Tarief')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][rate_type]" class="kt-input w-48 text-sm"><option value="1-4" selected>' + rateOpt1 + '</option><option value="5-8">' + rateOpt2 + '</option><option value="overige_kosten">' + rateOpt3 + '</option></select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Titel kaart')) + '</label><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title]" class="kt-input flex-1 max-w-md text-sm" value="" placeholder="bijv. t/m 4 personen"></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Override overige kosten (€)')) + '</label><input type="number" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][cleaning_costs]" class="kt-input w-28 text-sm" value="" step="0.01" min="0" placeholder="' + @json(__('leeg = uit tarief')) + '"><span class="text-xs text-muted-foreground">' + @json(__('Optioneel')) + '</span></div>' +
+                    wrapNexataxiTarievenStylesPanel('<div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Kaartgrootte')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][card_size]" class="kt-input w-36 text-sm">' + cardSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Stijl')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Titel lettertype')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_family]" class="kt-input w-40 text-sm">' + fontFamilyOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Titel lettergrootte')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Titel stijl')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_font_style]" class="kt-input w-28 text-sm">' + fontStyleOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Titel uitlijning')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][title_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Label lettergrootte')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][label_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Waarde lettergrootte')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][value_font_size]" class="kt-input w-28 text-sm">' + fontSizeOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Uitlijning')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_align]" class="kt-input w-28 text-sm">' + textAlignOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Padding afbeelding')) + '</label><select name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_padding]" class="kt-input w-24 text-sm">' + paddingOpts + '</select></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Achtergrondkleur')) + '</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg" class="h-10 w-14 cursor-pointer rounded border border-input" value="#e5e7eb"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][image_bg_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-image-bg"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#e5e7eb">' + hexClearSvg + '</button></div></div><div class="flex items-center gap-3"><label class="text-sm text-muted-foreground shrink-0 w-40">' + @json(__('Tekstkleur')) + '</label><div class="flex items-center gap-2"><input type="color" id="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color" class="h-10 w-14 cursor-pointer rounded border border-input" value="#374151"><input type="text" name="home_sections[' + sectionKey + '][items][' + nextIndex + '][text_color]" class="kt-input font-mono text-sm home-section-hex-input" value="" data-sync-from="nexataxi-' + sectionKey + '-item-' + nextIndex + '-text-color"><button type="button" class="hex-clear-btn kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive shrink-0" data-color-default="#374151">' + hexClearSvg + '</button></div></div>') + '</div>';
                 container.appendChild(div);
                 reindexNexaTaxiTarievenItems(container, sectionKey);
                 if (typeof window.panelizeRepeatableElement === 'function') window.panelizeRepeatableElement(div);
@@ -5053,13 +5053,13 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     function handleFile(file) {
                         if (!file) return;
                         var allowed = ['image/jpeg','image/png','image/jpg','image/gif','image/webp'];
-                        if (!allowed.includes(file.type)) { alert('Alleen JPEG, PNG, JPG, GIF en WebP.'); fileInput.value = ''; return; }
-                        if (file.size > 5 * 1024 * 1024) { alert('Max. 5MB.'); fileInput.value = ''; return; }
+                        if (!allowed.includes(file.type)) { alert({!! json_encode(__('Alleen JPEG, PNG, JPG, GIF en WebP.'), 15) !!}); fileInput.value = ''; return; }
+                        if (file.size > 5 * 1024 * 1024) { alert(@json(__('Max. 5MB.'))); fileInput.value = ''; return; }
                         var fd = new FormData();
                         fd.append('image', file);
                         fd.append('_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
                         if (window.__websitePageModuleName) fd.append('module', window.__websitePageModuleName);
-                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || 'Upload mislukt'); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || 'Upload mislukt'); });
+                        fetch(heroImageUploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' }).then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.message || @json(__('Upload mislukt'))); }); }).then(function(d) { if (d.success && d.url) { urlInput.value = d.url; if (preview) { preview.src = storageUrlToFileUrl(d.url); preview.classList.remove('hidden'); } } }).catch(function(err) { alert(err.message || @json(__('Upload mislukt'))); });
                         fileInput.value = '';
                     }
                     if (typeof window.bindAdminUploadAreaClick === 'function') {
@@ -5316,13 +5316,13 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             });
         }
 
-        var nexaTaxiBookingRemoveBtnInner = '<button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="Verwijderen" aria-label="Verwijderen"><i class="ki-filled ki-trash" aria-hidden="true"></i></button>';
+        var nexaTaxiBookingRemoveBtnInner = '<button type="button" class="nexataxi-booking-item-remove kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-destructive" title="' + @json(__('Verwijderen')) + '" aria-label="' + @json(__('Verwijderen')) + '"><i class="ki-filled ki-trash" aria-hidden="true"></i></button>';
         var nexaTaxiBookingRemoveBtnHtml = '<div class="nexataxi-booking-item-remove-wrap">' + nexaTaxiBookingRemoveBtnInner + '</div>';
         var nexaTaxiBookingRemoveBtnHtmlOffers = '<div class="nexataxi-booking-item-remove-wrap self-end">' + nexaTaxiBookingRemoveBtnInner + '</div>';
 
         function buildNexaTaxiBookingRowHtml(listName, sectionKey, index) {
             if (listName === 'offers') {
-                var vehicleOptions = '<option value="">Automatisch</option>';
+                var vehicleOptions = '<option value="">' + @json(__('Automatisch')) + '</option>';
                 var container = document.querySelector('.nexataxi-booking-list[data-section-key="' + sectionKey + '"][data-list="offers"]');
                 if (container) {
                     try {
@@ -5333,44 +5333,44 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     } catch (e) {}
                 }
                 return '<div class="overflow-x-auto"><div class="grid gap-x-2 gap-y-1 items-center border border-border rounded p-2 nexataxi-booking-row" data-list="offers" style="min-width: 800px; grid-template-columns: minmax(56px, 0.6fr) minmax(100px, 1.6fr) minmax(115px, 1.2fr) minmax(100px, 1.2fr) minmax(115px, 1.3fr) minmax(56px, 0.55fr) minmax(56px, 0.55fr) auto;">'
-                    + '<label class="text-xs text-muted-foreground">ID</label>'
-                    + '<label class="text-xs text-muted-foreground">Titel</label>'
-                    + '<label class="text-xs text-muted-foreground">Badge</label>'
-                    + '<label class="text-xs text-muted-foreground">Personen</label>'
-                    + '<label class="text-xs text-muted-foreground">Voertuig</label>'
-                    + '<label class="text-xs text-muted-foreground">x prijs</label>'
-                    + '<label class="text-xs text-muted-foreground">x oud</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('ID')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('Titel')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('Badge')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('Personen')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('Voertuig')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('x prijs')) + '</label>'
+                    + '<label class="text-xs text-muted-foreground">' + @json(__('x oud')) + '</label>'
                     + '<div class="nexataxi-booking-item-remove-spacer" aria-hidden="true"></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][id]" value="offer_' + (index + 1) + '"></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][title]" value=""></div>'
                     + '<div class="min-w-0"><input class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][badge]" value="Standaard taxi"></div>'
-                    + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][person_range]"><option value="">Alle personen</option><option value="1-4">t/m 4 personen</option><option value="5-8">5 t/m 8 personen</option></select></div>'
+                    + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][person_range]"><option value="">' + @json(__('Alle personen')) + '</option><option value="1-4">' + @json(__('t/m 4 personen')) + '</option><option value="5-8">' + @json(__('5 t/m 8 personen')) + '</option></select></div>'
                     + '<div class="min-w-0"><select class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][vehicle_id]">' + vehicleOptions + '</select></div>'
                     + '<div class="min-w-0"><input type="number" min="0.1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][price_multiplier]" value="1"></div>'
                     + '<div class="min-w-0"><input type="number" min="1" step="0.05" class="kt-input w-full min-w-0 text-sm" name="home_sections[' + sectionKey + '][offers][' + index + '][old_price_multiplier]" value="1.2"></div>'
                     + nexaTaxiBookingRemoveBtnHtmlOffers
-                    + '<div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">Features (1 per regel)</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
+                    + '<div class="min-w-0" style="grid-column: 1 / -1;"><label class="text-xs text-muted-foreground block">' + @json(__('Features (1 per regel)')) + '</label><textarea class="kt-input w-full min-w-0 text-sm pt-1" rows="2" name="home_sections[' + sectionKey + '][offers][' + index + '][features_text]"></textarea></div>'
                     + '</div></div>';
             }
 
             if (listName === 'special') {
                 return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="special" style="grid-template-columns: minmax(0, 1.1fr) minmax(0, 3fr) minmax(0, 1.1fr) minmax(0, 0.7fr) minmax(0, 0.7fr) auto;">'
-                    + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
-                    + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
-                    + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
-                    + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
-                    + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][baggage_units]" value="1"></div>'
+                    + '<div><label class="text-xs">' + @json(__('Key')) + '</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][key]" value=""></div>'
+                    + '<div><label class="text-xs">' + @json(__('Titel')) + '</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][title]" value=""></div>'
+                    + '<div><label class="text-xs">' + @json(__('Prijs')) + '</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][special_items][' + index + '][price]" value="0"></div></div>'
+                    + '<div><label class="text-xs">' + @json(__('Max')) + '</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][max_qty]" value="4"></div>'
+                    + '<div><label class="text-xs">' + @json(__('Eenheden')) + '</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][special_items][' + index + '][baggage_units]" value="1"></div>'
                     + nexaTaxiBookingRemoveBtnHtml
                     + '</div>';
             }
 
             return '<div class="grid w-full gap-2 items-end border border-border rounded p-2 nexataxi-booking-row" data-list="baggage" style="grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.6fr) minmax(0, 0.6fr) auto;">'
-                + '<div><label class="text-xs">Key</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
-                + '<div><label class="text-xs">Titel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
-                + '<div><label class="text-xs">Subtitel</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
-                + '<div><label class="text-xs">Prijs</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
-                + '<div><label class="text-xs">Max</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
-                + '<div><label class="text-xs">Eenheden</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][baggage_units]" value="1"></div>'
+                + '<div><label class="text-xs">' + @json(__('Key')) + '</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][key]" value=""></div>'
+                + '<div><label class="text-xs">' + @json(__('Titel')) + '</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][title]" value=""></div>'
+                + '<div><label class="text-xs">' + @json(__('Subtitel')) + '</label><input class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][subtitle]" value=""></div>'
+                + '<div><label class="text-xs">' + @json(__('Prijs')) + '</label><div class="relative"><span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span><input type="number" min="0" step="0.01" class="kt-input w-full text-sm pl-6" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][price]" value="0"></div></div>'
+                + '<div><label class="text-xs">' + @json(__('Max')) + '</label><input type="number" min="0" max="20" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][max_qty]" value="4"></div>'
+                + '<div><label class="text-xs">' + @json(__('Eenheden')) + '</label><input type="number" min="0" max="10" step="0.5" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][baggage_items][' + index + '][baggage_units]" value="1"></div>'
                 + nexaTaxiBookingRemoveBtnHtml
                 + '</div>';
         }
@@ -5389,7 +5389,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 if (!key) return;
                 var base = heading.getAttribute('data-step-heading-base') || heading.textContent || '';
                 var stepNumber = stepByKey[key];
-                heading.textContent = base + ' (Stap ' + (stepNumber || '—') + ')';
+                heading.textContent = base + ' (' + @json(__('Stap')) + ' ' + (stepNumber || '—') + ')';
             });
         }
 
@@ -5435,7 +5435,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
             e.preventDefault();
             e.stopPropagation();
             var sectionKey = btn.getAttribute('data-section');
-            var name = btn.getAttribute('data-name') || 'Component';
+            var name = btn.getAttribute('data-name') || @json(__('Component'));
             if (!sectionKey) return;
             var order = (orderInput.value || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
             if (order.indexOf(sectionKey) !== -1) {
@@ -5445,7 +5445,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 msg.id = 'home-sections-component-already-msg';
                 msg.setAttribute('role', 'alert');
                 msg.className = 'px-3 py-2 text-sm text-red-600 dark:text-red-400 bg-gray-200 dark:bg-gray-700 rounded mt-1';
-                msg.textContent = '\u2018' + name + '\u2019 staat al op de pagina. Verwijder het eerst om het opnieuw toe te voegen.';
+                msg.textContent = @json(__('‘:name’ staat al op de pagina. Verwijder het eerst om het opnieuw toe te voegen.')).replace(':name', name);
                 menu.appendChild(msg);
                 setTimeout(function() { if (msg.parentNode) msg.remove(); }, 4000);
                 return;
@@ -5467,7 +5467,7 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     visBtn.setAttribute('data-target', visInput.id);
                 }
                 var titleEl = card.querySelector('.component-card-title');
-                if (titleEl) titleEl.textContent = name + ' (' + (btn.getAttribute('data-module') || 'Module') + ')';
+                if (titleEl) titleEl.textContent = name + ' (' + (btn.getAttribute('data-module') || @json(__('Module'))) + ')';
                 sortableContainer.appendChild(card);
                 if (typeof window.bindHeroUploadAreasIn === 'function') window.bindHeroUploadAreasIn(card);
                 if (typeof window.initGrwAdminStarPickers === 'function') window.initGrwAdminStarPickers(card);
@@ -5617,9 +5617,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                 row.className = 'flex items-center gap-2 nexa-feature-row';
                 row.setAttribute('data-feature-row', '1');
                 row.innerHTML = '' +
-                    '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>' +
-                    '<input type="text" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][items][' + itemIndex + '][features][' + nextIndex + '][text]" placeholder="Feature tekst">' +
-                    '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="Feature verwijderen" aria-label="Feature verwijderen" data-feature-remove>' +
+                    '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="' + @json(__('Wordt met vinkje getoond op de website')) + '">✓</span>' +
+                    '<input type="text" class="kt-input w-full text-sm" name="home_sections[' + sectionKey + '][items][' + itemIndex + '][features][' + nextIndex + '][text]" placeholder="' + @json(__('Feature tekst')) + '">' +
+                    '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="' + @json(__('Feature verwijderen')) + '" aria-label="' + @json(__('Feature verwijderen')) + '" data-feature-remove>' +
                         '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>' +
                     '</button>';
                 listEl.appendChild(row);
@@ -5643,9 +5643,9 @@ window.__websitePageModuleName = {!! json_encode($moduleNameForUploads ?? null) 
                     row.className = 'flex items-center gap-2 nexa-feature-row';
                     row.setAttribute('data-feature-row', '1');
                     row.innerHTML = '' +
-                        '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="Wordt met vinkje getoond op de website">✓</span>' +
-                        '<input type="text" class="kt-input w-full text-sm" placeholder="Feature tekst">' +
-                        '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="Feature verwijderen" aria-label="Feature verwijderen" data-feature-remove>' +
+                        '<span class="text-emerald-500 text-sm font-semibold shrink-0" title="' + @json(__('Wordt met vinkje getoond op de website')) + '">✓</span>' +
+                        '<input type="text" class="kt-input w-full text-sm" placeholder="' + @json(__('Feature tekst')) + '">' +
+                        '<button type="button" class="kt-btn kt-btn-icon kt-btn-xs kt-btn-ghost text-muted-foreground hover:text-destructive nexa-feature-remove" title="' + @json(__('Feature verwijderen')) + '" aria-label="' + @json(__('Feature verwijderen')) + '" data-feature-remove>' +
                             '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>' +
                         '</button>';
                     listEl.appendChild(row);

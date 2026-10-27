@@ -21,10 +21,10 @@
         <div class="kt-card-content">
             <div class="alert alert-warning">
                 <i class="ki-filled ki-information-5"></i>
-                De geselecteerde tenant kon niet worden gevonden. Selecteer een andere tenant of ga terug naar het overzicht.
+                {{ __('De geselecteerde tenant kon niet worden gevonden. Selecteer een andere tenant of ga terug naar het overzicht.') }}
             </div>
             <a href="{{ route('admin.dashboard') }}" class="kt-btn kt-btn-primary mt-4">
-                Terug naar dashboard
+                {{ __('Terug naar dashboard') }}
             </a>
         </div>
     </div>
@@ -62,7 +62,7 @@
                     <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                         <div class="space-y-3">
                             <h1 class="text-3xl font-semibold leading-tight text-foreground dark:text-white">
-                                Nexa overzicht
+                                {{ __('Nexa overzicht') }}
                             </h1>
                             <p class="text-sm text-secondary-foreground dark:text-white/70">
                                 {{ $heroSubtitle }}
@@ -83,7 +83,7 @@
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Gebruikers</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">{{ __('Gebruikers') }}</div>
                                     <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $stats['total_users'] ?? 0 }}</div>
                                 </div>
                                 <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
@@ -95,7 +95,7 @@
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Vacatures</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">{{ __('Vacatures') }}</div>
                                     <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $stats['total_vacancies'] ?? 0 }}</div>
                                 </div>
                                 <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
@@ -119,7 +119,7 @@
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Ritten</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">{{ __('Ritten') }}</div>
                                     <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $taxiStats['total_rides'] ?? 0 }}</div>
                                 </div>
                                 <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
@@ -130,7 +130,7 @@
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Open ritten</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">{{ __('Open ritten') }}</div>
                                     <div class="text-2xl font-semibold text-foreground dark:text-white">{{ $taxiStats['pending_rides'] ?? 0 }}</div>
                                 </div>
                                 <span class="size-10 rounded-full bg-warning/10 dark:bg-white/10 flex items-center justify-center">
@@ -142,7 +142,7 @@
                         <div class="kt-card bg-background/50 dark:bg-white/5 ring-1 ring-border dark:ring-white/10">
                             <div class="kt-card-body flex items-center justify-between gap-3 p-4">
                                 <div>
-                                    <div class="text-sm text-secondary-foreground dark:text-white/70">Inkomsten</div>
+                                    <div class="text-sm text-secondary-foreground dark:text-white/70">{{ __('Inkomsten') }}</div>
                                     <div class="text-2xl font-semibold text-foreground dark:text-white">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</div>
                                 </div>
                                 <span class="size-10 rounded-full bg-primary/10 dark:bg-white/10 flex items-center justify-center">
@@ -185,7 +185,7 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-chart-line-up-2 me-2"></i>
-                    Inkomsten
+                    {{ __('Inkomsten') }}
                 </h3>
                 <p class="text-sm text-secondary-foreground mb-0 shrink-0 text-end sm:text-end">
                     Totale omzet: <span class="font-semibold text-foreground">€{{ number_format((float)($financials['total_revenue'] ?? 0), 2, ',', '.') }}</span>
@@ -197,11 +197,11 @@
             <div class="kt-card-footer">
                 <div class="grid grid-cols-2 gap-4 w-full">
                     <div class="flex items-center justify-between rounded-lg border border-input px-4 py-3">
-                        <div class="text-sm text-secondary-foreground">Betaald</div>
+                        <div class="text-sm text-secondary-foreground">{{ __('Betaald') }}</div>
                         <div class="text-lg font-semibold text-success">{{ $financials['paid_payments'] ?? 0 }}</div>
                     </div>
                     <div class="flex items-center justify-between rounded-lg border border-input px-4 py-3">
-                        <div class="text-sm text-secondary-foreground">Openstaand</div>
+                        <div class="text-sm text-secondary-foreground">{{ __('Openstaand') }}</div>
                         <div class="text-lg font-semibold text-warning">{{ $financials['pending_payments'] ?? 0 }}</div>
                     </div>
                 </div>
@@ -219,10 +219,10 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-wallet me-2"></i>
-                    Betalingen per tenant
+                    {{ __('Betalingen per tenant') }}
                 </h3>
                 <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
-                    Volledig overzicht
+                    {{ __('Volledig overzicht') }}
                 </a>
             </div>
             @if(!empty($paymentStats))
@@ -230,17 +230,17 @@
                 <div class="flex lg:px-6 py-1.5 gap-2">
                     <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                         <span class="text-mono text-xl font-semibold">{{ $paymentStats['pending'] ?? 0 }}</span>
-                        <span class="text-secondary-foreground text-sm">Openstaand</span>
+                        <span class="text-secondary-foreground text-sm">{{ __('Openstaand') }}</span>
                     </div>
                     <span class="border-e border-e-input my-1"></span>
                     <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                         <span class="text-mono text-xl font-semibold">{{ $paymentStats['paid'] ?? 0 }}</span>
-                        <span class="text-secondary-foreground text-sm">Voldaan</span>
+                        <span class="text-secondary-foreground text-sm">{{ __('Voldaan') }}</span>
                     </div>
                     <span class="border-e border-e-input my-1"></span>
                     <div class="grid grid-cols-1 place-content-center flex-1 gap-1 text-center">
                         <span class="text-mono text-xl font-semibold">{{ $paymentStats['total'] ?? 0 }}</span>
-                        <span class="text-secondary-foreground text-sm">Totaal</span>
+                        <span class="text-secondary-foreground text-sm">{{ __('Totaal') }}</span>
                     </div>
                 </div>
             </div>
@@ -252,9 +252,9 @@
                             <tr>
                                 <th>Tenant</th>
                                 <th>Module(s)</th>
-                                <th class="text-end">Openstaand</th>
-                                <th class="text-end">Voldaan</th>
-                                <th class="text-end">Acties</th>
+                                <th class="text-end">{{ __('Openstaand') }}</th>
+                                <th class="text-end">{{ __('Voldaan') }}</th>
+                                <th class="text-end">{{ __('Acties') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -279,15 +279,15 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="flex flex-wrap justify-end gap-1.5">
-                                            <a href="{{ route('admin.payments.openstaand', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-outline">Openstaand</a>
-                                            <a href="{{ route('admin.payments.voldaan', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-primary">Voldaan</a>
+                                            <a href="{{ route('admin.payments.openstaand', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Openstaand') }}</a>
+                                            <a href="{{ route('admin.payments.voldaan', ['company_id' => $row['company']->id]) }}" class="kt-btn kt-btn-sm kt-btn-primary">{{ __('Voldaan') }}</a>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="5" class="text-center py-8 text-sm text-secondary-foreground">
-                                        Geen tenants met een actieve betaalmodule gevonden.
+                                        {{ __('Geen tenants met een actieve betaalmodule gevonden.') }}
                                     </td>
                                 </tr>
                             @endforelse
@@ -304,9 +304,9 @@
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
-                    <div class="text-sm text-secondary-foreground">Gebruikers</div>
+                    <div class="text-sm text-secondary-foreground">{{ __('Gebruikers') }}</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_users'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">Totaal aantal gebruikers</div>
+                    <div class="text-xs text-secondary-foreground">{{ __('Totaal aantal gebruikers') }}</div>
                 </div>
                 <span class="size-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-people text-primary text-xl"></i>
@@ -316,9 +316,9 @@
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
-                    <div class="text-sm text-secondary-foreground">Bedrijven</div>
+                    <div class="text-sm text-secondary-foreground">{{ __('Bedrijven') }}</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_companies'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">Actieve klanten</div>
+                    <div class="text-xs text-secondary-foreground">{{ __('Actieve klanten') }}</div>
                 </div>
                 <span class="size-12 rounded-full bg-success/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-abstract-26 text-success text-xl"></i>
@@ -329,7 +329,7 @@
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
-                    <div class="text-sm text-secondary-foreground">Vacatures</div>
+                    <div class="text-sm text-secondary-foreground">{{ __('Vacatures') }}</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['total_vacancies'] ?? 0 }}</div>
                     <div class="text-xs text-secondary-foreground">
                         <span class="inline-flex items-center gap-1">
@@ -345,9 +345,9 @@
         <div class="kt-card w-full">
             <div class="kt-card-body flex items-start justify-between gap-4 p-6">
                 <div class="space-y-1 flex-1 min-w-0">
-                    <div class="text-sm text-secondary-foreground">Kandidaten</div>
+                    <div class="text-sm text-secondary-foreground">{{ __('Kandidaten') }}</div>
                     <div class="text-2xl font-semibold text-mono">{{ $stats['candidates'] ?? 0 }}</div>
-                    <div class="text-xs text-secondary-foreground">Ingeschreven kandidaten</div>
+                    <div class="text-xs text-secondary-foreground">{{ __('Ingeschreven kandidaten') }}</div>
                 </div>
                 <span class="size-12 rounded-full bg-info/10 flex items-center justify-center shrink-0">
                     <i class="ki-filled ki-profile-user text-info text-xl"></i>
@@ -399,7 +399,7 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-abstract-38 me-2"></i>
-                    Match Statussen
+                    {{ __('Match Statussen') }}
                 </h3>
             </div>
             <div class="kt-card-body">
@@ -410,7 +410,7 @@
                                 <i class="ki-filled ki-time text-warning"></i>
                             </span>
                             <div>
-                                <div class="text-sm text-secondary-foreground">In Afwachting</div>
+                                <div class="text-sm text-secondary-foreground">{{ __('In Afwachting') }}</div>
                                 <div class="text-xl font-semibold text-mono">{{ $stats['pending_matches'] ?? 0 }}</div>
                             </div>
                         </div>
@@ -421,7 +421,7 @@
                                 <i class="ki-filled ki-check-circle text-success"></i>
                             </span>
                             <div>
-                                <div class="text-sm text-secondary-foreground">Geaccepteerd</div>
+                                <div class="text-sm text-secondary-foreground">{{ __('Geaccepteerd') }}</div>
                                 <div class="text-xl font-semibold text-mono">{{ $stats['accepted_matches'] ?? 0 }}</div>
                             </div>
                         </div>
@@ -432,7 +432,7 @@
                                 <i class="ki-filled ki-cross-circle text-danger"></i>
                             </span>
                             <div>
-                                <div class="text-sm text-secondary-foreground">Afgewezen</div>
+                                <div class="text-sm text-secondary-foreground">{{ __('Afgewezen') }}</div>
                                 <div class="text-xl font-semibold text-mono">{{ $stats['rejected_matches'] ?? 0 }}</div>
                             </div>
                         </div>
@@ -454,7 +454,7 @@
                                 <i class="ki-filled ki-check text-primary"></i>
                             </span>
                             <div>
-                                <div class="text-sm text-secondary-foreground">Aangenomen</div>
+                                <div class="text-sm text-secondary-foreground">{{ __('Aangenomen') }}</div>
                                 <div class="text-xl font-semibold text-mono">{{ $stats['hired_matches'] ?? 0 }}</div>
                             </div>
                         </div>
@@ -468,7 +468,7 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-calendar me-2"></i>
-                    Interviews Overzicht
+                    {{ __('Interviews Overzicht') }}
                 </h3>
             </div>
             <div class="kt-card-body space-y-4 m-[10px]">
@@ -478,7 +478,7 @@
                             <i class="ki-filled ki-calendar text-primary"></i>
                         </span>
                         <div>
-                            <div class="text-sm text-secondary-foreground">Totaal Interviews</div>
+                            <div class="text-sm text-secondary-foreground">{{ __('Totaal Interviews') }}</div>
                             <div class="text-xl font-semibold text-mono">{{ $stats['total_interviews'] ?? 0 }}</div>
                         </div>
                     </div>
@@ -489,7 +489,7 @@
                             <i class="ki-filled ki-check-circle text-success"></i>
                         </span>
                         <div>
-                            <div class="text-sm text-secondary-foreground">Afgerond</div>
+                            <div class="text-sm text-secondary-foreground">{{ __('Afgerond') }}</div>
                             <div class="text-xl font-semibold text-mono">{{ $stats['completed_interviews'] ?? 0 }}</div>
                         </div>
                     </div>
@@ -500,7 +500,7 @@
                             <i class="ki-filled ki-abstract-38 text-info"></i>
                         </span>
                         <div>
-                            <div class="text-sm text-secondary-foreground">Leidend tot Match</div>
+                            <div class="text-sm text-secondary-foreground">{{ __('Leidend tot Match') }}</div>
                             <div class="text-xl font-semibold text-mono">{{ $stats['interviews_leading_to_match'] ?? 0 }}</div>
                         </div>
                     </div>
@@ -515,7 +515,7 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-people me-2"></i>
-                    Gebruikers per Bedrijf
+                    {{ __('Gebruikers per Bedrijf') }}
                 </h3>
             </div>
             <div class="kt-card-content p-0 min-w-0">
@@ -523,8 +523,8 @@
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th>Bedrijf</th>
-                                <th class="text-right whitespace-nowrap">Aantal Gebruikers</th>
+                                <th>{{ __('Bedrijf') }}</th>
+                                <th class="text-right whitespace-nowrap">{{ __('Aantal Gebruikers') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -540,7 +540,7 @@
                             @empty
                             <tr>
                                 <td colspan="2" class="text-center text-muted-foreground py-5">
-                                    Geen data beschikbaar
+                                    {{ __('Geen data beschikbaar') }}
                                 </td>
                             </tr>
                             @endforelse
@@ -554,7 +554,7 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-briefcase me-2"></i>
-                    Vacatures per Bedrijf
+                    {{ __('Vacatures per Bedrijf') }}
                 </h3>
             </div>
             <div class="kt-card-content p-0 min-w-0">
@@ -562,8 +562,8 @@
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th>Bedrijf</th>
-                                <th class="text-right whitespace-nowrap">Aantal Vacatures</th>
+                                <th>{{ __('Bedrijf') }}</th>
+                                <th class="text-right whitespace-nowrap">{{ __('Aantal Vacatures') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -579,7 +579,7 @@
                             @empty
                             <tr>
                                 <td colspan="2" class="text-center text-muted-foreground py-5">
-                                    Geen data beschikbaar
+                                    {{ __('Geen data beschikbaar') }}
                                 </td>
                             </tr>
                             @endforelse
@@ -595,7 +595,7 @@
         <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
             <h3 class="kt-card-title">
                 <i class="ki-filled ki-chart-line-up-2 me-2"></i>
-                Facturen en Opbrengsten per Jaar
+                {{ __('Facturen en Opbrengsten per Jaar') }}
             </h3>
             <div class="admin-dashboard-header-meta flex flex-col gap-0.5 shrink-0 text-end text-sm text-secondary-foreground">
                 <span>{{ now()->year }}: <span class="font-semibold text-foreground">{{ $stats['current_year_invoices'] ?? 0 }} facturen</span></span>
@@ -621,7 +621,7 @@
             <div class="kt-card-body space-y-6 flex-1 p-6">
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-secondary-foreground">Match succes</span>
+                        <span class="text-secondary-foreground">{{ __('Match succes') }}</span>
                         <span class="font-semibold">{{ $matchRate }}%</span>
                     </div>
                     <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
@@ -631,7 +631,7 @@
                 </div>
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-secondary-foreground">Actieve vacatures</span>
+                        <span class="text-secondary-foreground">{{ __('Actieve vacatures') }}</span>
                         <span class="font-semibold">{{ $activeVacancyRate }}%</span>
                     </div>
                     <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
@@ -641,7 +641,7 @@
                 </div>
                 <div class="space-y-2">
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-secondary-foreground">Interview afronding</span>
+                        <span class="text-secondary-foreground">{{ __('Interview afronding') }}</span>
                         <span class="font-semibold">{{ $completedInterviewsRate }}%</span>
                     </div>
                     <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
@@ -655,19 +655,19 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-activity me-2"></i>
-                    Recente activiteit
+                    {{ __('Recente activiteit') }}
                 </h3>
             </div>
             <div class="kt-card-body grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 p-6 min-w-0">
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
-                        <span class="font-semibold text-foreground">Recente matches</span>
+                        <span class="font-semibold text-foreground">{{ __('Recente matches') }}</span>
                         @php
                             $matchesRoute = Route::has('admin.skillmatching.matches.index') 
                                 ? route('admin.skillmatching.matches.index') 
                                 : (Route::has('admin.matches.index') ? route('admin.matches.index') : '#');
                         @endphp
-                        <a href="{{ $matchesRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle matches</a>
+                        <a href="{{ $matchesRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">{{ __('Alle matches') }}</a>
                     </div>
                     <div class="divide-y divide-border">
                         @forelse($recent_matches as $match)
@@ -685,19 +685,19 @@
                                 </div>
                             </div>
                         @empty
-                            <div class="py-3 text-sm text-secondary-foreground">Geen recente matches</div>
+                            <div class="py-3 text-sm text-secondary-foreground">{{ __('Geen recente matches') }}</div>
                         @endforelse
                     </div>
                 </div>
                 <div class="space-y-4">
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
-                        <span class="font-semibold text-foreground">Aankomende interviews</span>
+                        <span class="font-semibold text-foreground">{{ __('Aankomende interviews') }}</span>
                         @php
                             $interviewsRoute = Route::has('admin.skillmatching.interviews.index') 
                                 ? route('admin.skillmatching.interviews.index') 
                                 : (Route::has('admin.interviews.index') ? route('admin.interviews.index') : '#');
                         @endphp
-                        <a href="{{ $interviewsRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">Alle interviews</a>
+                        <a href="{{ $interviewsRoute }}" class="kt-btn kt-btn-xs kt-btn-outline">{{ __('Alle interviews') }}</a>
                     </div>
                     <div class="divide-y divide-border">
                         @forelse($upcoming_interviews as $interview)
@@ -715,7 +715,7 @@
                                 </div>
                             </div>
                         @empty
-                            <div class="py-3 text-sm text-secondary-foreground">Geen geplande interviews</div>
+                            <div class="py-3 text-sm text-secondary-foreground">{{ __('Geen geplande interviews') }}</div>
                         @endforelse
                     </div>
                 </div>
@@ -740,7 +740,7 @@
                 @endphp
                 @if($vacanciesRoute)
                 <a href="{{ $vacanciesRoute }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
-                    Bekijk alle
+                    {{ __('Bekijk alle') }}
                 </a>
                 @endif
             </div>
@@ -749,9 +749,9 @@
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th>Vacature</th>
-                                <th>Bedrijf</th>
-                                <th class="whitespace-nowrap">Datum</th>
+                                <th>{{ __('Vacature') }}</th>
+                                <th>{{ __('Bedrijf') }}</th>
+                                <th class="whitespace-nowrap">{{ __('Datum') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -779,7 +779,7 @@
                             @empty
                             <tr>
                                 <td colspan="3" class="text-center text-muted-foreground py-5">
-                                    Geen recente vacatures
+                                    {{ __('Geen recente vacatures') }}
                                 </td>
                             </tr>
                             @endforelse
@@ -790,9 +790,9 @@
                     <div class="flex items-center justify-between text-sm text-secondary-foreground">
                         <div class="flex items-center gap-2">
                             <i class="ki-filled ki-abstract-26 text-success text-base"></i>
-                            Nieuwste bedrijven
+                            {{ __('Nieuwste bedrijven') }}
                         </div>
-                        <a href="{{ route('admin.companies.index') }}" class="text-primary hover:underline">Alle bedrijven</a>
+                        <a href="{{ route('admin.companies.index') }}" class="text-primary hover:underline">{{ __('Alle bedrijven') }}</a>
                     </div>
                     <div class="mt-3 flex flex-col gap-2">
                         @forelse($recent_companies ?? [] as $company)
@@ -801,7 +801,7 @@
                                 <span class="text-secondary-foreground">{{ $company->created_at->format('d-m') }}</span>
                             </div>
                         @empty
-                            <div class="text-sm text-secondary-foreground">Geen nieuwe bedrijven</div>
+                            <div class="text-sm text-secondary-foreground">{{ __('Geen nieuwe bedrijven') }}</div>
                         @endforelse
                     </div>
                 </div>
@@ -813,11 +813,11 @@
             <div class="kt-card-header admin-dashboard-card-header items-center justify-between gap-3">
                 <h3 class="kt-card-title">
                     <i class="ki-filled ki-wallet me-2"></i>
-                    Recente betalingen
+                    {{ __('Recente betalingen') }}
                 </h3>
                 @if($isSuperAdmin)
                     <a href="{{ route('admin.payments.index') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
-                        Bekijk alle
+                        {{ __('Bekijk alle') }}
                     </a>
                 @endif
             </div>
@@ -826,11 +826,11 @@
                     <table class="kt-table align-middle">
                         <thead>
                             <tr>
-                                <th>Bedrijf</th>
+                                <th>{{ __('Bedrijf') }}</th>
                                 <th class="whitespace-nowrap">Module</th>
-                                <th class="whitespace-nowrap">Bedrag</th>
+                                <th class="whitespace-nowrap">{{ __('Bedrag') }}</th>
                                 <th class="whitespace-nowrap">Status</th>
-                                <th class="whitespace-nowrap">Datum</th>
+                                <th class="whitespace-nowrap">{{ __('Datum') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -868,7 +868,7 @@
                             @empty
                                 <tr>
                                     <td colspan="5" class="text-center text-muted-foreground py-5">
-                                        Geen betalingen gevonden
+                                        {{ __('Geen betalingen gevonden') }}
                                     </td>
                                 </tr>
                             @endforelse

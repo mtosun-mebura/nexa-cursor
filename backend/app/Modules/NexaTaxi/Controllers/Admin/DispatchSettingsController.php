@@ -51,7 +51,7 @@ class DispatchSettingsController extends Controller
 
         $marketplaceNetworkOnly = ! $isSuperAdmin && $this->isMarketplacePackageCompany($companyId);
         if ($marketplaceNetworkOnly && ! TaxiDispatchAccess::sees(auth()->user(), 'network')) {
-            abort(403, 'Geen rechten voor chauffeur dispatch.');
+            abort(403, __('Geen rechten voor chauffeur dispatch.'));
         }
         $marketplaceCanOwnNetwork = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
 
@@ -132,7 +132,7 @@ class DispatchSettingsController extends Controller
     public function editCustomerAcceptEmail(): View
     {
         if (! TaxiDispatchAccess::sees(auth()->user(), 'customer_accept')) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
@@ -159,8 +159,8 @@ class DispatchSettingsController extends Controller
             'text_content' => ['nullable', 'string'],
             'uses_global_fallback' => ['nullable', 'in:0,1'],
         ], [
-            'subject.required' => 'Vul een onderwerp in.',
-            'html_content.required' => 'Vul de HTML-inhoud van de e-mail in.',
+            'subject.required' => __('Vul een onderwerp in.'),
+            'html_content.required' => __('Vul de HTML-inhoud van de e-mail in.'),
         ]);
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
@@ -173,7 +173,7 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.customer_accept_email.edit', ['saved' => 1])
-            ->with('success', 'E-mailtekst voor rit geaccepteerd is opgeslagen.');
+            ->with('success', __('E-mailtekst voor rit geaccepteerd is opgeslagen.'));
     }
 
     public function update(Request $request): RedirectResponse
@@ -250,25 +250,25 @@ class DispatchSettingsController extends Controller
         }
 
         $validated = $request->validate($rules, [
-            'offer_ttl_minutes.required' => 'Vul de acceptatietijd in.',
-            'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
-            'offer_ttl_minutes.min' => 'Acceptatietijd moet minimaal '.$minMinutes.' minuut zijn.',
-            'offer_ttl_minutes.max' => 'Acceptatietijd mag maximaal '.$maxMinutes.' minuten zijn.',
-            'past_pickup_grace_minutes.required' => 'Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.',
-            'past_pickup_grace_minutes.min' => 'Grace-interval moet minimaal '.$minGraceMinutes.' minuten zijn.',
-            'past_pickup_grace_minutes.max' => 'Grace-interval mag maximaal '.$maxGraceMinutes.' minuten zijn.',
-            'overdue_auto_archive_days.required' => 'Vul in na hoeveel verlopen dagen de rit automatisch gearchiveerd wordt.',
-            'overdue_auto_archive_days.min' => 'Auto-archief moet minimaal '.$minOverdueArchiveDays.' dagen zijn (0 = uit).',
-            'overdue_auto_archive_days.max' => 'Auto-archief mag maximaal '.$maxOverdueArchiveDays.' dagen zijn.',
-            'unaccepted_auto_cancel_minutes.required' => 'Vul in na hoeveel minuten de klant mag kiezen om te wachten of te annuleren.',
-            'unaccepted_auto_cancel_minutes.min' => 'Deze tijd moet minimaal '.$minAutoCancelMinutes.' minuten zijn (0 = uit).',
-            'unaccepted_auto_cancel_minutes.max' => 'Deze tijd mag maximaal '.$maxAutoCancelMinutes.' minuten zijn.',
-            'customer_unaccepted_decision_minutes.required' => 'Vul in hoe lang de klant mag reageren (wachten of annuleren).',
-            'customer_unaccepted_decision_minutes.min' => 'Reactietijd moet minimaal '.$minDecisionMinutes.' minuten zijn (0 = nooit automatisch annuleren).',
-            'customer_unaccepted_decision_minutes.max' => 'Reactietijd mag maximaal '.$maxDecisionMinutes.' minuten zijn.',
-            'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
-            'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
-            'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
+            'offer_ttl_minutes.required' => __('Vul de acceptatietijd in.'),
+            'offer_ttl_minutes.integer' => __('Acceptatietijd moet een heel getal zijn.'),
+            'offer_ttl_minutes.min' => __('Acceptatietijd moet minimaal :min minuut zijn.', ['min' => $minMinutes]),
+            'offer_ttl_minutes.max' => __('Acceptatietijd mag maximaal :max minuten zijn.', ['max' => $maxMinutes]),
+            'past_pickup_grace_minutes.required' => __('Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.'),
+            'past_pickup_grace_minutes.min' => __('Grace-interval moet minimaal :min minuten zijn.', ['min' => $minGraceMinutes]),
+            'past_pickup_grace_minutes.max' => __('Grace-interval mag maximaal :max minuten zijn.', ['max' => $maxGraceMinutes]),
+            'overdue_auto_archive_days.required' => __('Vul in na hoeveel verlopen dagen de rit automatisch gearchiveerd wordt.'),
+            'overdue_auto_archive_days.min' => __('Auto-archief moet minimaal :min dagen zijn (0 = uit).', ['min' => $minOverdueArchiveDays]),
+            'overdue_auto_archive_days.max' => __('Auto-archief mag maximaal :max dagen zijn.', ['max' => $maxOverdueArchiveDays]),
+            'unaccepted_auto_cancel_minutes.required' => __('Vul in na hoeveel minuten de klant mag kiezen om te wachten of te annuleren.'),
+            'unaccepted_auto_cancel_minutes.min' => __('Deze tijd moet minimaal :min minuten zijn (0 = uit).', ['min' => $minAutoCancelMinutes]),
+            'unaccepted_auto_cancel_minutes.max' => __('Deze tijd mag maximaal :max minuten zijn.', ['max' => $maxAutoCancelMinutes]),
+            'customer_unaccepted_decision_minutes.required' => __('Vul in hoe lang de klant mag reageren (wachten of annuleren).'),
+            'customer_unaccepted_decision_minutes.min' => __('Reactietijd moet minimaal :min minuten zijn (0 = nooit automatisch annuleren).', ['min' => $minDecisionMinutes]),
+            'customer_unaccepted_decision_minutes.max' => __('Reactietijd mag maximaal :max minuten zijn.', ['max' => $maxDecisionMinutes]),
+            'customer_login_code_expires_minutes.required' => __('Vul de geldigheid van de inlogcode in.'),
+            'customer_login_code_expires_minutes.min' => __('Geldigheid moet minimaal :min minuten zijn.', ['min' => $minLoginCodeMinutes]),
+            'customer_login_code_expires_minutes.max' => __('Geldigheid mag maximaal :max minuten zijn.', ['max' => $maxLoginCodeMinutes]),
         ]);
 
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
@@ -317,8 +317,8 @@ class DispatchSettingsController extends Controller
         $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
 
         $success = $companyId === null
-            ? 'Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.'
-            : 'Chauffeur dispatch is opgeslagen.';
+            ? __('Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.')
+            : __('Chauffeur dispatch is opgeslagen.');
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
@@ -335,7 +335,7 @@ class DispatchSettingsController extends Controller
             }
         }
         if ($mutating === []) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
 
         $rules = [];
@@ -421,7 +421,7 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'Chauffeur dispatch is opgeslagen.');
+            ->with('success', __('Chauffeur dispatch is opgeslagen.'));
     }
 
     private function updateMarketplaceNetworkOnly(Request $request, ?int $companyId): RedirectResponse
@@ -444,7 +444,7 @@ class DispatchSettingsController extends Controller
             return redirect()
                 ->route('admin.taxi.dispatch_settings.edit')
                 ->withErrors([
-                    'network_enabled' => 'Marketplace heeft geen betaald maandabonnement. Schakel network niet in als owner; deel je invite-code zodat betaalde tenants jou als uitvoerder kunnen koppelen (NEXA-fee op die ritten). Een super-admin kan marketplace↔marketplace later aanzetten bij Configuraties → Nexa Suite (klant-app).',
+                    'network_enabled' => __('Marketplace heeft geen betaald maandabonnement. Schakel network niet in als owner; deel je invite-code zodat betaalde tenants jou als uitvoerder kunnen koppelen (NEXA-fee op die ritten). Een super-admin kan marketplace↔marketplace later aanzetten bij Configuraties → Nexa Suite (klant-app).'),
                 ])
                 ->withFragment('dispatch-nexa-network');
         }
@@ -457,7 +457,7 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'NEXA Network-partnerinstellingen zijn opgeslagen.');
+            ->with('success', __('NEXA Network-partnerinstellingen zijn opgeslagen.'));
     }
 
     /**
@@ -515,7 +515,7 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'Nieuwe network invite-code aangemaakt. De oude code werkt niet meer.')
+            ->with('success', __('Nieuwe network invite-code aangemaakt. De oude code werkt niet meer.'))
             ->withFragment('dispatch-nexa-network');
     }
 
@@ -531,7 +531,7 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'Auto-accept voor invites is bijgewerkt.')
+            ->with('success', __('Auto-accept voor invites is bijgewerkt.'))
             ->withFragment('dispatch-nexa-network');
     }
 
@@ -547,7 +547,7 @@ class DispatchSettingsController extends Controller
             return redirect()
                 ->route('admin.taxi.dispatch_settings.edit')
                 ->withErrors([
-                    'invite_code' => 'Alleen met een betaald maandabonnement (Start, Pro of Business) kun je partners koppelen om network te gebruiken. Marketplace mag wel als uitvoerder gekoppeld worden (met NEXA-fee op die ritten).',
+                    'invite_code' => __('Alleen met een betaald maandabonnement (Start, Pro of Business) kun je partners koppelen om network te gebruiken. Marketplace mag wel als uitvoerder gekoppeld worden (met NEXA-fee op die ritten).'),
                 ])
                 ->withInput()
                 ->withFragment('dispatch-nexa-network');
@@ -556,7 +556,7 @@ class DispatchSettingsController extends Controller
         $validated = $request->validate([
             'invite_code' => ['required', 'string', 'max:32'],
         ], [
-            'invite_code.required' => 'Vul de invite-code van de partner in.',
+            'invite_code.required' => __('Vul de invite-code van de partner in.'),
         ]);
 
         try {
@@ -574,8 +574,8 @@ class DispatchSettingsController extends Controller
         }
 
         $message = $result['auto_accepted']
-            ? 'Partner gekoppeld (auto-accept). Zij mogen nu jouw network-ritten uitvoeren als network aan staat.'
-            : 'Koppelverzoek verstuurd. De partner moet het verzoek nog accepteren.';
+            ? __('Partner gekoppeld (auto-accept). Zij mogen nu jouw network-ritten uitvoeren als network aan staat.')
+            : __('Koppelverzoek verstuurd. De partner moet het verzoek nog accepteren.');
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
@@ -609,13 +609,13 @@ class DispatchSettingsController extends Controller
         try {
             if ($action === 'accept') {
                 $this->networkPartnerships->acceptPartnership($partnership, $companyId, auth()->user());
-                $message = 'Partnerverzoek geaccepteerd.';
+                $message = __('Partnerverzoek geaccepteerd.');
             } elseif ($action === 'decline') {
                 $this->networkPartnerships->declinePartnership($partnership, $companyId, auth()->user());
-                $message = 'Partnerverzoek afgewezen.';
+                $message = __('Partnerverzoek afgewezen.');
             } else {
                 $this->networkPartnerships->revokePartnership($partnership, $companyId, auth()->user());
-                $message = 'Network-koppeling ingetrokken.';
+                $message = __('Network-koppeling ingetrokken.');
             }
         } catch (InvalidArgumentException|RuntimeException $e) {
             return redirect()
@@ -627,7 +627,7 @@ class DispatchSettingsController extends Controller
 
             return redirect()
                 ->route('admin.taxi.dispatch_settings.edit')
-                ->withErrors(['network_partnership' => 'Actie mislukt. Probeer het opnieuw.'])
+                ->withErrors(['network_partnership' => __('Actie mislukt. Probeer het opnieuw.')])
                 ->withFragment('dispatch-nexa-network');
         }
 
@@ -645,8 +645,8 @@ class DispatchSettingsController extends Controller
     private function redirectNoTenant(string $route): RedirectResponse
     {
         $message = auth()->user()?->hasRole('super-admin')
-            ? 'Selecteer een tenant voor bedrijfsinstellingen, of bewerk zonder tenant de Nexa Suite-standaard (marktplaats & network).'
-            : 'Geen bedrijf gekoppeld aan dit account.';
+            ? __('Selecteer een tenant voor bedrijfsinstellingen, of bewerk zonder tenant de Nexa Suite-standaard (marktplaats & network).')
+            : __('Geen bedrijf gekoppeld aan dit account.');
 
         return redirect()->route($route)->withErrors(['tenant' => $message])->withInput();
     }
@@ -661,6 +661,6 @@ class DispatchSettingsController extends Controller
                 return;
             }
         }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 }

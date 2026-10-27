@@ -42,24 +42,24 @@
         @if($contractWorkspaceTab === 'overzicht')
             <div class="contract-hub-grid">
                 <a href="{{ $passengersUrl }}" class="contract-hub-tile">
-                    <span class="contract-hub-tile__label">Passagiers</span>
+                    <span class="contract-hub-tile__label">{{ __('Passagiers') }}</span>
                     <span class="contract-hub-tile__value">{{ $passengerCount }}</span>
-                    <span class="contract-hub-tile__meta">Personen die meereizen · beheer namen &amp; adressen</span>
+                    <span class="contract-hub-tile__meta">{{ __('Personen die meereizen · beheer namen & adressen') }}</span>
                 </a>
                 <a href="{{ $groupsUrl }}" class="contract-hub-tile">
-                    <span class="contract-hub-tile__label">Groepen &amp; routes</span>
+                    <span class="contract-hub-tile__label">{{ __('Groepen & routes') }}</span>
                     <span class="contract-hub-tile__value">{{ $groupCount }}</span>
-                    <span class="contract-hub-tile__meta">Vaste heen- en terugritten · leden &amp; routeplanner</span>
+                    <span class="contract-hub-tile__meta">{{ __('Vaste heen- en terugritten · leden & routeplanner') }}</span>
                 </a>
                 <a href="{{ $bookingsUrl }}" class="contract-hub-tile">
-                    <span class="contract-hub-tile__label">Individuele ritten</span>
+                    <span class="contract-hub-tile__label">{{ __('Individuele ritten') }}</span>
                     <span class="contract-hub-tile__value">{{ $individualBookingCount }}</span>
-                    <span class="contract-hub-tile__meta">Eenmalige of losse contractritten</span>
+                    <span class="contract-hub-tile__meta">{{ __('Eenmalige of losse contractritten') }}</span>
                 </a>
                 <a href="{{ $facturenUrl }}" class="contract-hub-tile">
-                    <span class="contract-hub-tile__label">Facturen</span>
+                    <span class="contract-hub-tile__label">{{ __('Facturen') }}</span>
                     <span class="contract-hub-tile__value">{{ $contractInvoices->count() }}</span>
-                    <span class="contract-hub-tile__meta">Maandfacturen genereren &amp; verzenden</span>
+                    <span class="contract-hub-tile__meta">{{ __('Maandfacturen genereren & verzenden') }}</span>
                 </a>
             </div>
 

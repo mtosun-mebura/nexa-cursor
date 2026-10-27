@@ -21,7 +21,7 @@ class AdminCompanyDomainController extends Controller
             auth()->user(),
             $company,
             TenantConfigCapability::DOMAIN,
-            'Alleen een super-admin of gebruikers met domein-toegang kunnen tenant-domeinen beheren.'
+            __('Alleen een super-admin of gebruikers met domein-toegang kunnen tenant-domeinen beheren.')
         );
     }
 
@@ -29,7 +29,7 @@ class AdminCompanyDomainController extends Controller
     {
         $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $request->merge([
@@ -46,8 +46,8 @@ class AdminCompanyDomainController extends Controller
             ],
             'is_primary' => 'sometimes|boolean',
         ], [
-            'host.regex' => 'Voer een geldige hostnaam in (alleen letters, cijfers, punten en koppeltekens; geen poort).',
-            'host.unique' => 'Deze hostnaam is al gekoppeld aan een bedrijf.',
+            'host.regex' => __('Voer een geldige hostnaam in (alleen letters, cijfers, punten en koppeltekens; geen poort).'),
+            'host.unique' => __('Deze hostnaam is al gekoppeld aan een bedrijf.'),
         ]);
 
         $isPrimary = ! empty($validated['is_primary']);
@@ -64,14 +64,14 @@ class AdminCompanyDomainController extends Controller
             'is_primary' => $isPrimary,
         ]);
 
-        return $this->domainsJsonOrRedirect($request, $company, 'Domein toegevoegd.');
+        return $this->domainsJsonOrRedirect($request, $company, __('Domein toegevoegd.'));
     }
 
     public function update(Request $request, Company $company, CompanyDomain $domain)
     {
         $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
         if ((int) $domain->company_id !== (int) $company->id) {
             abort(404);
@@ -90,20 +90,20 @@ class AdminCompanyDomainController extends Controller
                 Rule::unique('company_domains', 'host')->ignore($domain->id),
             ],
         ], [
-            'host.regex' => 'Voer een geldige hostnaam in (alleen letters, cijfers, punten en koppeltekens; geen poort).',
-            'host.unique' => 'Deze hostnaam is al gekoppeld aan een bedrijf.',
+            'host.regex' => __('Voer een geldige hostnaam in (alleen letters, cijfers, punten en koppeltekens; geen poort).'),
+            'host.unique' => __('Deze hostnaam is al gekoppeld aan een bedrijf.'),
         ]);
 
         $domain->update(['host' => $validated['host']]);
 
-        return $this->domainsJsonOrRedirect($request, $company, 'Domein bijgewerkt.');
+        return $this->domainsJsonOrRedirect($request, $company, __('Domein bijgewerkt.'));
     }
 
     public function destroy(Request $request, Company $company, CompanyDomain $domain)
     {
         $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
         if ((int) $domain->company_id !== (int) $company->id) {
             abort(404);
@@ -116,14 +116,14 @@ class AdminCompanyDomainController extends Controller
             $this->ensurePrimaryDomain($company);
         }
 
-        return $this->domainsJsonOrRedirect($request, $company, 'Domein verwijderd.');
+        return $this->domainsJsonOrRedirect($request, $company, __('Domein verwijderd.'));
     }
 
     public function setPrimary(Request $request, Company $company, CompanyDomain $domain)
     {
         $this->ensureDomainAccess($company);
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
         if ((int) $domain->company_id !== (int) $company->id) {
             abort(404);
@@ -137,13 +137,13 @@ class AdminCompanyDomainController extends Controller
                 // Alleen-domein: blijft primair via ensurePrimaryDomain.
             }
 
-            return $this->domainsJsonOrRedirect($request, $company, 'Primair domein bijgewerkt.');
+            return $this->domainsJsonOrRedirect($request, $company, __('Primair domein bijgewerkt.'));
         }
 
         CompanyDomain::query()->where('company_id', $company->id)->update(['is_primary' => false]);
         $domain->update(['is_primary' => true]);
 
-        return $this->domainsJsonOrRedirect($request, $company, 'Primair domein ingesteld.');
+        return $this->domainsJsonOrRedirect($request, $company, __('Primair domein ingesteld.'));
     }
 
     /**

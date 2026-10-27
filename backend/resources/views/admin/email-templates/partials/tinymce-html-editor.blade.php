@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'undo redo | blocks | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent',
                 'link | charmap | table | tablecellbackcolor | code',
             ],
-            block_formats: 'Paragraaf=p; Kop 1=h1; Kop 2=h2; Kop 3=h3',
+            block_formats: @json(__('Paragraaf').'=p; '.__('Kop 1').'=h1; '.__('Kop 2').'=h2; '.__('Kop 3').'=h3'),
             content_style: contentStyleEmail,
             skin: isDark ? 'oxide-dark' : 'oxide',
             content_css: false,
@@ -111,22 +111,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 editor.ui.registry.addIcon('tablecellbackcolor', '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="2" width="9" height="9" fill="currentColor" stroke="currentColor" stroke-width="1.2"/><rect x="13" y="2" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="2" y="13" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="13" y="13" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>');
                 editor.ui.registry.addButton('tablecellbackcolor', {
                     icon: 'tablecellbackcolor',
-                    tooltip: 'Achtergrondkleur tabelcel',
+                    tooltip: @json(__('Achtergrondkleur tabelcel')),
                     onAction: function() {
                         var node = editor.selection.getNode();
                         var cell = editor.dom.getParent(node, 'td,th');
                         if (!cell) {
-                            editor.windowManager.alert('Zet de cursor in een tabelcel om de achtergrondkleur te wijzigen.');
+                            editor.windowManager.alert(@json(__('Zet de cursor in een tabelcel om de achtergrondkleur te wijzigen.')));
                             return;
                         }
                         var currentColor = editor.dom.getStyle(cell, 'background-color') || '#ffffff';
                         editor.windowManager.open({
-                            title: 'Achtergrondkleur tabelcel',
-                            body: { type: 'panel', items: [{ type: 'colorinput', name: 'color', label: 'Kleur' }] },
+                            title: @json(__('Achtergrondkleur tabelcel')),
+                            body: { type: 'panel', items: [{ type: 'colorinput', name: 'color', label: @json(__('Kleur')) }] },
                             initialData: { color: currentColor },
                             buttons: [
-                                { type: 'submit', text: 'Toepassen', primary: true },
-                                { type: 'cancel', text: 'Annuleren' }
+                                { type: 'submit', text: @json(__('Toepassen')), primary: true },
+                                { type: 'cancel', text: @json(__('Annuleren')) }
                             ],
                             onSubmit: function(api) {
                                 var data = api.getData();

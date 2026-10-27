@@ -16,7 +16,7 @@ class AdminPermissionController extends Controller
     public function index(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te bekijken.');
+            abort(403, __('Je hebt geen rechten om permissies te bekijken.'));
         }
         
         // Start query
@@ -253,13 +253,13 @@ class AdminPermissionController extends Controller
         ]);
 
         return redirect()->route('admin.permissions.index')
-            ->with('success', 'Permissie succesvol aangemaakt.');
+            ->with('success', __('Permissie succesvol aangemaakt.'));
     }
 
     public function show(Permission $permission)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te bekijken.');
+            abort(403, __('Je hebt geen rechten om permissies te bekijken.'));
         }
         
         $permission->load(['roles.users', 'users']);
@@ -270,7 +270,7 @@ class AdminPermissionController extends Controller
     public function edit(Permission $permission)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te bewerken.');
+            abort(403, __('Je hebt geen rechten om permissies te bewerken.'));
         }
         
         return view('admin.permissions.edit', compact('permission'));
@@ -289,20 +289,20 @@ class AdminPermissionController extends Controller
         ]);
 
         return redirect()->route('admin.permissions.index')
-            ->with('success', 'Permissie succesvol bijgewerkt.');
+            ->with('success', __('Permissie succesvol bijgewerkt.'));
     }
 
     public function destroy(Permission $permission)
     {
         // Check if permission is assigned to any roles
         if ($permission->roles()->count() > 0) {
-            return back()->with('error', 'Deze permissie is toegewezen aan rollen en kan niet worden verwijderd.');
+            return back()->with('error', __('Deze permissie is toegewezen aan rollen en kan niet worden verwijderd.'));
         }
 
         $permission->delete();
 
         return redirect()->route('admin.permissions.index')
-            ->with('success', 'Permissie succesvol verwijderd.');
+            ->with('success', __('Permissie succesvol verwijderd.'));
     }
 
     public function assignToRole(Request $request, Permission $permission)
@@ -315,7 +315,7 @@ class AdminPermissionController extends Controller
         $roles = Role::whereIn('name', $request->roles)->get();
         $permission->syncRoles($roles);
 
-        return back()->with('success', 'Permissies succesvol toegewezen aan rollen.');
+        return back()->with('success', __('Permissies succesvol toegewezen aan rollen.'));
     }
 
     public function bulkCreate()
@@ -409,7 +409,7 @@ class AdminPermissionController extends Controller
         // Build moduleNames array with all found modules
         $moduleNames = [];
         foreach ($allModules as $module) {
-            $moduleNames[$module] = $baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module));
+            $moduleNames[$module] = __($baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)));
         }
         
         // Sort by display name for better UX
@@ -481,15 +481,15 @@ class AdminPermissionController extends Controller
         
         // Create action display names
         $actionNames = [
-            'view' => 'View - Bekijken van items',
-            'create' => 'Create - Nieuwe items aanmaken',
-            'edit' => 'Edit - Bestaande items bewerken',
-            'delete' => 'Delete - Items verwijderen',
-            'approve' => 'Approve - Items goedkeuren',
-            'assign' => 'Assign - Items toewijzen',
-            'publish' => 'Publish - Items publiceren',
-            'schedule' => 'Schedule - Items inplannen',
-            'send' => 'Send - Items versturen',
+            'view' => __('View - Bekijken van items'),
+            'create' => __('Create - Nieuwe items aanmaken'),
+            'edit' => __('Edit - Bestaande items bewerken'),
+            'delete' => __('Delete - Items verwijderen'),
+            'approve' => __('Approve - Items goedkeuren'),
+            'assign' => __('Assign - Items toewijzen'),
+            'publish' => __('Publish - Items publiceren'),
+            'schedule' => __('Schedule - Items inplannen'),
+            'send' => __('Send - Items versturen'),
         ];
         
         // Build actions array with display names
@@ -500,7 +500,7 @@ class AdminPermissionController extends Controller
             } else {
                 // For custom actions, create a display name
                 $displayName = ucwords(str_replace(['-', '_'], ' ', $action));
-                $actions[$action] = $displayName . ' - ' . $displayName . ' actie';
+                $actions[$action] = __(':name - :name actie', ['name' => $displayName]);
             }
         }
         
@@ -650,8 +650,8 @@ class AdminPermissionController extends Controller
         }
 
         $message = count($createdPermissions) > 0 
-            ? count($createdPermissions) . ' permissies succesvol aangemaakt.'
-            : 'Geen nieuwe permissies aangemaakt (alleen bestaande permissies gevonden).';
+            ? __(':count permissies succesvol aangemaakt.', ['count' => count($createdPermissions)])
+            : __('Geen nieuwe permissies aangemaakt (alleen bestaande permissies gevonden).');
 
         return redirect()->route('admin.permissions.index')
             ->with('success', $message);
@@ -660,7 +660,7 @@ class AdminPermissionController extends Controller
     public function bulkEdit(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te bewerken.');
+            abort(403, __('Je hebt geen rechten om permissies te bewerken.'));
         }
         
         $selectedModule = $request->get('module'); // Single module selected from dropdown
@@ -745,7 +745,7 @@ class AdminPermissionController extends Controller
         // Build moduleNames array with all found modules
         $moduleNames = [];
         foreach ($allModules as $module) {
-            $moduleNames[$module] = $baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module));
+            $moduleNames[$module] = __($baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)));
         }
         asort($moduleNames);
         
@@ -804,7 +804,7 @@ class AdminPermissionController extends Controller
     public function bulkUpdate(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te bewerken.');
+            abort(403, __('Je hebt geen rechten om permissies te bewerken.'));
         }
 
         // Get all valid actions dynamically from existing permissions
@@ -964,18 +964,24 @@ class AdminPermissionController extends Controller
 
         $message = [];
         if ($created > 0) {
-            $message[] = $created . ' permissie' . ($created > 1 ? 's' : '') . ' aangemaakt';
+            $message[] = $created > 1
+                ? __(':count permissies aangemaakt', ['count' => $created])
+                : __(':count permissie aangemaakt', ['count' => $created]);
         }
         if ($deleted > 0) {
-            $message[] = $deleted . ' permissie' . ($deleted > 1 ? 's' : '') . ' verwijderd';
+            $message[] = $deleted > 1
+                ? __(':count permissies verwijderd', ['count' => $deleted])
+                : __(':count permissie verwijderd', ['count' => $deleted]);
         }
         if ($skipped > 0) {
-            $message[] = $skipped . ' permissie' . ($skipped > 1 ? 's' : '') . ' overgeslagen (toegewezen aan rollen)';
+            $message[] = $skipped > 1
+                ? __(':count permissies overgeslagen (toegewezen aan rollen)', ['count' => $skipped])
+                : __(':count permissie overgeslagen (toegewezen aan rollen)', ['count' => $skipped]);
         }
         
         $finalMessage = count($message) > 0 
             ? implode(', ', $message) . '.'
-            : 'Geen wijzigingen doorgevoerd.';
+            : __('Geen wijzigingen doorgevoerd.');
 
         return redirect()->route('admin.permissions.index')
             ->with('success', $finalMessage);
@@ -984,7 +990,7 @@ class AdminPermissionController extends Controller
     public function bulkDelete(Request $request)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('delete-permissions')) {
-            abort(403, 'Je hebt geen rechten om permissies te verwijderen.');
+            abort(403, __('Je hebt geen rechten om permissies te verwijderen.'));
         }
 
         $request->validate([
@@ -1012,15 +1018,19 @@ class AdminPermissionController extends Controller
         }
 
         if ($deleted > 0) {
-            $message = $deleted . ' permissie' . ($deleted > 1 ? 's' : '') . ' succesvol verwijderd.';
+            $message = $deleted > 1
+                ? __(':count permissies succesvol verwijderd.', ['count' => $deleted])
+                : __(':count permissie succesvol verwijderd.', ['count' => $deleted]);
             if ($skipped > 0) {
-                $message .= ' ' . $skipped . ' permissie' . ($skipped > 1 ? 's' : '') . ' overgeslagen (toegewezen aan rollen).';
+                $message .= ' ' . ($skipped > 1
+                    ? __(':count permissies overgeslagen (toegewezen aan rollen).', ['count' => $skipped])
+                    : __(':count permissie overgeslagen (toegewezen aan rollen).', ['count' => $skipped]));
             }
             return redirect()->route('admin.permissions.index')
                 ->with('success', $message);
         } else {
             return redirect()->route('admin.permissions.index')
-                ->with('error', 'Geen permissies verwijderd. Alle geselecteerde permissies zijn toegewezen aan rollen.');
+                ->with('error', __('Geen permissies verwijderd. Alle geselecteerde permissies zijn toegewezen aan rollen.'));
         }
     }
 }

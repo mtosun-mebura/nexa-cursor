@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Gebruiker Details - ' . $user->first_name . ' ' . $user->last_name)
+@section('title', __('Gebruiker Details - :name', ['name' => $user->first_name . ' ' . $user->last_name]))
 
 @section('content')
 
@@ -88,7 +88,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.users.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -102,7 +102,7 @@
                        class="kt-switch kt-switch-sm"
                        {{ $isActive ? 'checked' : '' }}
                        disabled/>
-                <span class="ms-2">Actief</span>
+                <span class="ms-2">{{ __('Actief') }}</span>
             </label>
             @else
             <form action="{{ route('admin.users.toggle-status', $user) }}" method="POST" id="toggle-status-form" class="inline">
@@ -115,7 +115,7 @@
                            class="kt-switch kt-switch-sm" 
                            id="toggle-status-checkbox"
                            {{ $isActive ? 'checked' : '' }}/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             </form>
             @endif
@@ -128,7 +128,7 @@
                        class="kt-switch kt-switch-sm" 
                        {{ $isActive ? 'checked' : '' }} 
                        disabled/>
-                <span class="ms-2">Actief</span>
+                <span class="ms-2">{{ __('Actief') }}</span>
             </label>
             @endcan
             @can('edit-users')
@@ -138,7 +138,7 @@
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-sm" style="background-color: #f97316; color: white !important; border-color: #f97316;">
                     <i class="ki-filled ki-sms me-1" style="color: white !important;"></i>
-                    Verstuur activatielink
+                    {{ __('Verstuur activatielink') }}
                 </button>
             </form>
             <span class="text-orange-500">|</span>
@@ -147,19 +147,19 @@
             <form action="{{ route('admin.users.force-logout', $user) }}"
                   method="POST"
                   class="inline-flex"
-                  data-admin-confirm="Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app."
-                  data-admin-confirm-title="Op afstand uitloggen"
-                  data-admin-confirm-label="Uitloggen">
+                  data-admin-confirm="{{ __('Deze gebruiker wordt op alle apparaten uitgelogd, inclusief de chauffeur-app.') }}"
+                  data-admin-confirm-title="{{ __('Op afstand uitloggen') }}"
+                  data-admin-confirm-label="{{ __('Uitloggen') }}">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline user-show-action-btn">
                     <i class="ki-filled ki-exit-right-corner"></i>
-                    Uitloggen
+                    {{ __('Uitloggen') }}
                 </button>
             </form>
             @endif
             <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-primary user-show-action-btn">
                 <i class="ki-filled ki-notepad-edit"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endcan
         </div>
@@ -175,14 +175,14 @@
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                 <h3 class="kt-card-title mb-0">
-                    Profiel
+                    {{ __('Profiel') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            Naam
+                            {{ __('Naam') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             {{ $user->first_name }} {{ $user->last_name }}
@@ -190,7 +190,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            E-mail
+                            {{ __('E-mail') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $user->email }}
@@ -198,7 +198,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Telefoon
+                            {{ __('Telefoon') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @if($user->phone)
@@ -211,7 +211,7 @@
                     @if($user->company?->hasSkillmatchingModule())
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Functie
+                            {{ __('Functie') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @if($user->function)
@@ -225,7 +225,7 @@
                     @if($user->company)
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Bedrijf
+                                {{ __('Bedrijf') }}
                             </td>
                             <td class="text-foreground font-normal">
                                 <a class="text-foreground hover:text-primary" href="{{ route('admin.companies.show', $user->company) }}">
@@ -236,7 +236,7 @@
                     @endif
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Geboortedatum
+                            {{ __('Geboortedatum') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @if($user->date_of_birth)
@@ -254,29 +254,29 @@
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                 <h3 class="kt-card-title mb-0">
-                    Account Status
+                    {{ __('Account Status') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            Status
+                            {{ __('Status') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             @php
                                 $isActive = isset($user->is_active) ? $user->is_active : ($user->email_verified_at !== null);
                             @endphp
                             @if($isActive)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            App-wachtwoord
+                            {{ __('App-wachtwoord') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @php
@@ -284,17 +284,17 @@
                             @endphp
                             @if($needsAppPassword)
                                 <div class="flex flex-col items-start gap-1">
-                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nog instellen</span>
-                                    <span class="text-xs text-secondary-foreground">Inlogcode in chauffeur- of contract-app</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Nog instellen') }}</span>
+                                    <span class="text-xs text-secondary-foreground">{{ __('Inlogcode in chauffeur- of contract-app') }}</span>
                                 </div>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Ingesteld</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Ingesteld') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Rollen
+                            {{ __('Rollen') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @php
@@ -305,30 +305,30 @@
                                     @if(auth()->user()->hasRole('super-admin'))
                                         <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-sm kt-badge-secondary me-1">Verborgen</span>
+                                        <span class="kt-badge kt-badge-sm kt-badge-secondary me-1">{{ __('Verborgen') }}</span>
                                     @endif
                                 @else
                                     <span class="kt-badge kt-badge-sm kt-badge-primary me-1">{{ ucfirst(str_replace('-', ' ', $roleName)) }}</span>
                                 @endif
                             @endforeach
                             @if($showRoleNames === [])
-                                <span class="text-secondary-foreground text-sm">Geen rollen</span>
+                                <span class="text-secondary-foreground text-sm">{{ __('Geen rollen') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            E-mail geverifieerd
+                            {{ __('E-mail geverifieerd') }}
                         </td>
                         <td class="text-foreground font-normal">
                             <div class="flex flex-wrap items-center gap-2">
                                 @if($user->email_verified_at)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Ja') }}</span>
                                     <span class="text-xs text-secondary-foreground">
                                         {{ \Carbon\Carbon::parse($user->email_verified_at)->format('d-m-Y H:i') }}
                                     </span>
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Nee') }}</span>
                                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-users'))
                                         <form action="{{ route('admin.users.send-activation-link', $user) }}" method="POST" class="inline-flex">
                                             @csrf
@@ -336,9 +336,9 @@
                                                     class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
                                                     data-kt-tooltip="true"
                                                     data-kt-tooltip-placement="top"
-                                                    aria-label="Verificatiemail versturen">
+                                                    aria-label="{{ __('Verificatiemail versturen') }}">
                                                 <i class="ki-filled ki-sms"></i>
-                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Verificatiemail versturen naar {{ $user->email }}</span>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Verificatiemail versturen naar :email', ['email' => $user->email]) }}</span>
                                             </button>
                                         </form>
                                     @endif
@@ -349,9 +349,9 @@
                                                     class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
                                                     data-kt-tooltip="true"
                                                     data-kt-tooltip-placement="top"
-                                                    aria-label="E-mailadres handmatig verifiëren">
+                                                    aria-label="{{ __('E-mailadres handmatig verifiëren') }}">
                                                 <i class="ki-filled ki-check-circle"></i>
-                                                <span class="kt-tooltip" data-kt-tooltip-content="true">E-mailadres handmatig verifiëren</span>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('E-mailadres handmatig verifiëren') }}</span>
                                             </button>
                                         </form>
                                     @endif
@@ -361,17 +361,17 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Telefoon geverifieerd
+                            {{ __('Telefoon geverifieerd') }}
                         </td>
                         <td class="text-foreground font-normal">
                             <div class="flex flex-wrap items-center gap-2">
                                 @if($user->phone_verified_at)
-                                    <span class="kt-badge kt-badge-sm kt-badge-success">Ja</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Ja') }}</span>
                                     <span class="text-xs text-secondary-foreground">
                                         {{ \Carbon\Carbon::parse($user->phone_verified_at)->format('d-m-Y H:i') }}
                                     </span>
                                 @else
-                                    <span class="kt-badge kt-badge-sm kt-badge-warning">Nee</span>
+                                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Nee') }}</span>
                                     @php $canSendVerification = auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-users'); @endphp
                                     @if($canSendVerification)
                                         @if(trim((string) ($user->phone ?? '')) !== '')
@@ -381,9 +381,9 @@
                                                         class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
                                                         data-kt-tooltip="true"
                                                         data-kt-tooltip-placement="top"
-                                                        aria-label="Telefoonverificatie versturen">
+                                                        aria-label="{{ __('Telefoonverificatie versturen') }}">
                                                     <i class="ki-filled ki-phone"></i>
-                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">Verificatie versturen naar {{ $user->phone }}</span>
+                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Verificatie versturen naar :phone', ['phone' => $user->phone]) }}</span>
                                                 </button>
                                             </form>
                                         @else
@@ -391,10 +391,10 @@
                                                 <button type="button"
                                                         class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
                                                         disabled
-                                                        aria-label="Geen telefoonnummer">
+                                                        aria-label="{{ __('Geen telefoonnummer') }}">
                                                     <i class="ki-filled ki-phone"></i>
                                                 </button>
-                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Geen telefoonnummer ingesteld</span>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Geen telefoonnummer ingesteld') }}</span>
                                             </span>
                                         @endif
                                     @endif
@@ -406,9 +406,9 @@
                                                         class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground"
                                                         data-kt-tooltip="true"
                                                         data-kt-tooltip-placement="top"
-                                                        aria-label="Telefoonnummer handmatig verifiëren">
+                                                        aria-label="{{ __('Telefoonnummer handmatig verifiëren') }}">
                                                     <i class="ki-filled ki-check-circle"></i>
-                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">Telefoonnummer handmatig verifiëren</span>
+                                                    <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Telefoonnummer handmatig verifiëren') }}</span>
                                                 </button>
                                             </form>
                                         @else
@@ -416,10 +416,10 @@
                                                 <button type="button"
                                                         class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground"
                                                         disabled
-                                                        aria-label="Geen telefoonnummer">
+                                                        aria-label="{{ __('Geen telefoonnummer') }}">
                                                     <i class="ki-filled ki-check-circle"></i>
                                                 </button>
-                                                <span class="kt-tooltip" data-kt-tooltip-content="true">Geen telefoonnummer ingesteld</span>
+                                                <span class="kt-tooltip" data-kt-tooltip-content="true">{{ __('Geen telefoonnummer ingesteld') }}</span>
                                             </span>
                                         @endif
                                     @endif
@@ -429,7 +429,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Aangemaakt op
+                            {{ __('Aangemaakt op') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $user->created_at->format('d-m-Y H:i') }}
@@ -437,7 +437,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Laatst bijgewerkt
+                            {{ __('Laatst bijgewerkt') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $user->updated_at->format('d-m-Y H:i') }}
@@ -490,7 +490,7 @@
                                 // If not JSON, use status text
                                 errorMessage = response.statusText || errorMessage;
                             }
-                            throw new Error(errorMessage + ' (Status: ' + response.status + ')');
+                            throw new Error(errorMessage + ' (' + @json(__('Status:')) + ' ' + response.status + ')');
                         });
                     }
                     // Try to parse as JSON
@@ -513,8 +513,8 @@
                     // Revert checkbox state on error
                     checkbox.checked = !originalChecked;
                     // Show detailed error message
-                    const errorMessage = error.message || 'Er is een fout opgetreden bij het wijzigen van de status.';
-                    alert('Fout: ' + errorMessage);
+                    const errorMessage = error.message || @json(__('Er is een fout opgetreden bij het wijzigen van de status.'));
+                    alert(@json(__('Fout:')) + ' ' + errorMessage);
                 });
             });
         }

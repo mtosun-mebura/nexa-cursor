@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Notificatie Details - #' . $notification->id)
+@section('title', __('Notificatie Details - #:id', ['id' => $notification->id]))
 
 @php
     $canDeleteNotification = auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-notifications');
@@ -93,7 +93,7 @@
             </div>
             <div class="flex items-center gap-1.5">
                 <div class="text-xl lg:text-2xl leading-6 font-semibold text-mono">
-                    Notificatie voor {{ trim(($notification->user->first_name ?? '') . ' ' . ($notification->user->last_name ?? '')) ?: 'Onbekend' }}
+                    {{ __('Notificatie voor :name', ['name' => trim(($notification->user->first_name ?? '') . ' ' . ($notification->user->last_name ?? '')) ?: __('Onbekend')]) }}
                 </div>
             </div>
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
@@ -105,7 +105,7 @@
                 </div>
                 <div class="flex gap-1.25 items-center">
                     @php
-                        $statusLabel = $notification->read_at ? 'Gelezen' : 'Ongelezen';
+                        $statusLabel = $notification->read_at ? __('Gelezen') : __('Ongelezen');
                     @endphp
                     <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
                         {{ $statusLabel }}
@@ -114,7 +114,7 @@
                 @if($notification->priority)
                 <div class="flex gap-1.25 items-center">
                     <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
-                        {{ ucfirst($notification->priority) }} prioriteit
+                        {{ __(':priority prioriteit', ['priority' => ucfirst($notification->priority)]) }}
                     </span>
                 </div>
                 @endif
@@ -131,9 +131,9 @@
                 @if($notification->type === 'interview' && $hasResponse)
                 <div class="flex gap-1.25 items-center">
                     @if($responseType === 'accept')
-                        <i class="ki-filled ki-check-circle text-green-500 text-lg" title="Geaccepteerd"></i>
+                        <i class="ki-filled ki-check-circle text-green-500 text-lg" title="{{ __('Geaccepteerd') }}"></i>
                     @elseif($responseType === 'decline')
-                        <i class="ki-filled ki-cross-circle text-red-500 text-lg" title="Afgewezen"></i>
+                        <i class="ki-filled ki-cross-circle text-red-500 text-lg" title="{{ __('Afgewezen') }}"></i>
                     @endif
                 </div>
                 @endif
@@ -147,7 +147,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -183,13 +183,13 @@
                     aria-haspopup="dialog"
                     aria-controls="notifications-delete-modal">
                 <i class="ki-filled ki-trash me-2"></i>
-                Verwijderen
+                {{ __('Verwijderen') }}
             </button>
             @endif
             @if((auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-notifications')) && $showEditButton)
             <a href="{{ route('admin.notifications.edit', $notification) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endif
         </div>
@@ -200,28 +200,28 @@
         <div class="kt-card flex-1 min-w-0">
             <div class="kt-card-header flex items-center px-5 py-5">
                 <h3 class="kt-card-title mb-0">
-                    Notificatie Informatie
+                    {{ __('Notificatie Informatie') }}
                 </h3>
             </div>
             <div class="kt-card-content p-5 notification-detail-fields">
                 <dl class="m-0">
                     <div class="notification-detail-row">
-                        <dt>Ontvanger</dt>
+                        <dt>{{ __('Ontvanger') }}</dt>
                         <dd>
                             @if($notification->user)
                                 {{ trim($notification->user->first_name . ' ' . $notification->user->last_name) }}
                             @else
-                                Onbekend
+                                {{ __('Onbekend') }}
                             @endif
                         </dd>
                     </div>
                     <div class="notification-detail-row">
-                        <dt>E-mail</dt>
+                        <dt>{{ __('E-mail') }}</dt>
                         <dd>
                             @if($notification->user)
                                 {{ $notification->user->email }}
                             @else
-                                Onbekend
+                                {{ __('Onbekend') }}
                             @endif
                         </dd>
                     </div>
@@ -237,13 +237,13 @@
                     @endphp
                     @if($match && $match->vacancy)
                     <div class="notification-detail-row">
-                        <dt>Vacature</dt>
+                        <dt>{{ __('Vacature') }}</dt>
                         <dd>{{ $match->vacancy->title }}</dd>
                     </div>
                     @endif
                     @endif
                     <div class="notification-detail-row">
-                        <dt>Bedrijf</dt>
+                        <dt>{{ __('Bedrijf') }}</dt>
                         <dd>
                             @if($notification->user && $notification->user->company)
                                 {{ $notification->user->company->name }}
@@ -251,60 +251,60 @@
                                 @php
                                     $company = \App\Models\Company::find($notification->company_id);
                                 @endphp
-                                {{ $company ? $company->name : 'Onbekend' }}
+                                {{ $company ? $company->name : __('Onbekend') }}
                             @else
-                                Onbekend
+                                {{ __('Onbekend') }}
                             @endif
                         </dd>
                     </div>
                     <div class="notification-detail-row">
-                        <dt>Afzender</dt>
+                        <dt>{{ __('Afzender') }}</dt>
                         <dd>
                             @if($sender)
                                 {{ trim($sender->first_name . ' ' . $sender->last_name) }}
                             @else
-                                Systeem
+                                {{ __('Systeem') }}
                             @endif
                         </dd>
                     </div>
                     @if($sender)
                     <div class="notification-detail-row">
-                        <dt>Afzender E-mail</dt>
+                        <dt>{{ __('Afzender E-mail') }}</dt>
                         <dd>{{ $sender->email }}</dd>
                     </div>
                     @endif
                     <div class="notification-detail-row">
-                        <dt>Categorie</dt>
+                        <dt>{{ __('Categorie') }}</dt>
                         <dd>
                             @php
                                 $categoryLabels = [
-                                    'info' => 'Informatie',
-                                    'warning' => 'Waarschuwing',
-                                    'success' => 'Succes',
-                                    'error' => 'Fout',
-                                    'reminder' => 'Herinnering',
-                                    'update' => 'Update',
-                                    'incident' => 'Incident',
+                                    'info' => __('Informatie'),
+                                    'warning' => __('Waarschuwing'),
+                                    'success' => __('Succes'),
+                                    'error' => __('Fout'),
+                                    'reminder' => __('Herinnering'),
+                                    'update' => __('Update'),
+                                    'incident' => __('Incident'),
                                 ];
-                                echo $categoryLabels[$notification->category ?? ''] ?? ucfirst($notification->category ?? 'Onbekend');
+                                echo $categoryLabels[$notification->category ?? ''] ?? ucfirst($notification->category ?? __('Onbekend'));
                             @endphp
                         </dd>
                     </div>
                     @if($notification->scheduled_at)
                     <div class="notification-detail-row">
-                        <dt>Geplande Datum & Tijd</dt>
+                        <dt>{{ __('Geplande Datum & Tijd') }}</dt>
                         <dd>{{ $notification->scheduled_at->format('d-m-Y H:i') }}</dd>
                     </div>
                     @endif
                     @if($notification->location)
                     <div class="notification-detail-row">
-                        <dt>Locatie</dt>
+                        <dt>{{ __('Locatie') }}</dt>
                         <dd>{{ $notification->location }}</dd>
                     </div>
                     @endif
                     @if($notification->priority)
                     <div class="notification-detail-row">
-                        <dt>Prioriteit</dt>
+                        <dt>{{ __('Prioriteit') }}</dt>
                         <dd>
                             <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->priority == 'urgent' ? 'danger' : ($notification->priority == 'high' ? 'warning' : ($notification->priority == 'low' ? 'secondary' : 'info')) }}">
                                 {{ ucfirst($notification->priority) }}
@@ -313,7 +313,7 @@
                     </div>
                     @endif
                     <div class="notification-detail-row">
-                        <dt>Aangemaakt op</dt>
+                        <dt>{{ __('Aangemaakt op') }}</dt>
                         <dd>{{ $notification->created_at->format('d-m-Y H:i') }}</dd>
                     </div>
                 </dl>
@@ -324,50 +324,50 @@
         <div class="kt-card flex-1 min-w-0">
             <div class="kt-card-header flex items-center px-5 py-5">
                 <h3 class="kt-card-title mb-0">
-                    Bericht & Bestand
+                    {{ __('Bericht & Bestand') }}
                 </h3>
             </div>
             <div class="kt-card-content p-5 notification-detail-fields">
                 <dl class="m-0">
                     <div class="notification-detail-row">
-                        <dt>Titel</dt>
+                        <dt>{{ __('Titel') }}</dt>
                         <dd>{{ $notification->title }}</dd>
                     </div>
                     <div class="notification-detail-row">
-                        <dt>Type</dt>
+                        <dt>{{ __('Type') }}</dt>
                         <dd>
                             @php
                                 $typeLabels = [
-                                    'match' => 'Match',
-                                    'interview' => 'Sollicitatie',
-                                    'system' => 'Systeem',
-                                    'email' => 'E-mail',
-                                    'reminder' => 'Herinnering',
-                                    'file' => 'Bestand',
-                                    'incident' => 'Incident',
-                                    'config_access' => 'Configuratie',
+                                    'match' => __('Match'),
+                                    'interview' => __('Sollicitatie'),
+                                    'system' => __('Systeem'),
+                                    'email' => __('E-mail'),
+                                    'reminder' => __('Herinnering'),
+                                    'file' => __('Bestand'),
+                                    'incident' => __('Incident'),
+                                    'config_access' => __('Configuratie'),
                                 ];
-                                echo $typeLabels[$notification->type ?? ''] ?? ucfirst($notification->type ?? 'Onbekend');
+                                echo $typeLabels[$notification->type ?? ''] ?? ucfirst($notification->type ?? __('Onbekend'));
                             @endphp
                         </dd>
                     </div>
                     <div class="notification-detail-row">
-                        <dt>Status</dt>
+                        <dt>{{ __('Status') }}</dt>
                         <dd>
                             <span class="kt-badge kt-badge-sm kt-badge-{{ $notification->read_at ? 'success' : 'warning' }}">
-                                {{ $notification->read_at ? 'Gelezen' : 'Ongelezen' }}
+                                {{ $notification->read_at ? __('Gelezen') : __('Ongelezen') }}
                             </span>
                         </dd>
                     </div>
                     @if($notification->read_at)
                     <div class="notification-detail-row">
-                        <dt>Gelezen op</dt>
+                        <dt>{{ __('Gelezen op') }}</dt>
                         <dd>{{ $notification->read_at->format('d-m-Y H:i') }}</dd>
                     </div>
                     @endif
                     @if($notification->message)
                     <div class="notification-detail-row">
-                        <dt>Bericht</dt>
+                        <dt>{{ __('Bericht') }}</dt>
                         <dd>
                             @php
                                 $messageText = trim($notification->message);
@@ -384,13 +384,13 @@
                                         $berichtText = preg_replace('/\s*(?:Datum:|Locatie:).*$/s', '', $berichtText);
                                         $berichtText = trim($berichtText);
                                         if ($berichtText) {
-                                            $parts[] =  'Bericht: ' . $berichtText;
+                                            $parts[] =  __('Bericht: ') . $berichtText;
                                         }
                                     }
 
                                     // Extract location if present (Afspraakdetails)
                                     if (preg_match('/Afspraakdetails:\s*(.+?)(?:\s*$)/s', $messageText, $locationMatches)) {
-                                        $parts[] = 'Afspraakdetails: ' . trim($locationMatches[1]);
+                                        $parts[] = __('Afspraakdetails: ') . trim($locationMatches[1]);
                                     }
 
                                     // If we found structured parts, use them; otherwise use original message
@@ -422,15 +422,15 @@
                 </dl>
                 @if($notification->file_path)
                 <div class="mt-5 pt-4 border-t border-border">
-                    <h4 class="text-sm font-semibold text-secondary-foreground mb-2">Bestand</h4>
+                    <h4 class="text-sm font-semibold text-secondary-foreground mb-2">{{ __('Bestand') }}</h4>
                     <div class="flex flex-wrap items-center gap-2">
                         <a href="{{ \Storage::url($notification->file_path) }}" target="_blank" class="kt-btn kt-btn-outline">
                             <i class="ki-filled ki-file me-2"></i>
-                            {{ $notification->file_name ?? 'Download bestand' }}
+                            {{ $notification->file_name ?? __('Download bestand') }}
                         </a>
                         @if($notification->file_size)
                         <span class="text-xs text-muted-foreground">
-                            ({{ number_format($notification->file_size / 1024, 2) }} KB)
+                            {{ __('(:filesize KB)', ['filesize' => number_format($notification->file_size / 1024, 2)]) }}
                         </span>
                         @endif
                     </div>
@@ -451,16 +451,16 @@
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-notifications-delete-dismiss></div>
     <div class="notifications-delete-panel relative z-10 w-full max-w-md rounded-2xl border shadow-2xl">
         <div class="notifications-delete-panel__head px-5 py-5">
-            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">Notificatie verwijderen</h3>
+            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">{{ __('Notificatie verwijderen') }}</h3>
         </div>
         <div class="notifications-delete-panel__body px-5 py-5">
             <p class="notifications-delete-panel__text mb-0">
-                Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+                {{ __('Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}
             </p>
         </div>
         <div class="notifications-delete-panel__foot px-5 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>Verwijderen</button>
+            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>{{ __('Verwijderen') }}</button>
         </div>
     </div>
 </div>
@@ -632,9 +632,9 @@
                 event.preventDefault();
                 event.stopPropagation();
                 window.showAdminConfirm({
-                    title: 'Notificatie verwijderen',
-                    message: 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-                    confirmLabel: 'Verwijderen'
+                    title: @json(__('Notificatie verwijderen')),
+                    message: @json(__('Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')),
+                    confirmLabel: @json(__('Verwijderen'))
                 }).then(function (ok) {
                     if (ok) {
                         submitDelete();

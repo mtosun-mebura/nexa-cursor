@@ -252,7 +252,7 @@ class DriverScheduleService
         $grouped = [];
         foreach ($schedules as $schedule) {
             $vehicle = $vehiclesById->get((int) $schedule->vehicle_id);
-            $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : 'Onbekend voertuig';
+            $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : __('Onbekend voertuig');
             $notes = trim((string) ($schedule->notes ?? ''));
             if (mb_strlen($notes) > 80) {
                 $notes = mb_substr($notes, 0, 77).'…';
@@ -475,7 +475,7 @@ class DriverScheduleService
             $driver = $driversById->get((int) $schedule->driver_id);
             $driverName = $this->userDisplayName($driver);
             $vehicle = $vehiclesById->get((int) $schedule->vehicle_id);
-            $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : 'Onbekend voertuig';
+            $vehicleLabel = $vehicle ? $vehicle->fleetLabel() : __('Onbekend voertuig');
             $company = $companiesById->get((int) $schedule->company_id);
             $color = UserAgendaColor::resolved($driver);
             $notes = trim((string) ($schedule->notes ?? ''));
@@ -522,7 +522,7 @@ class DriverScheduleService
         $ends = ContractTransportTimezone::parseLocalDateTime($date, $endTime);
         if ($ends->lte($starts)) {
             throw ValidationException::withMessages([
-                'end_time' => 'Eindtijd moet na de starttijd liggen.',
+                'end_time' => __('Eindtijd moet na de starttijd liggen.'),
             ]);
         }
 
@@ -533,7 +533,7 @@ class DriverScheduleService
     {
         if (! $this->eligibility->isChauffeurForCompany(User::query()->findOrFail($driverId), $companyId)) {
             throw ValidationException::withMessages([
-                'driver_id' => 'Deze gebruiker is geen chauffeur van dit bedrijf.',
+                'driver_id' => __('Deze gebruiker is geen chauffeur van dit bedrijf.'),
             ]);
         }
 
@@ -544,7 +544,7 @@ class DriverScheduleService
             ->exists();
         if (! $exists) {
             throw ValidationException::withMessages([
-                'vehicle_id' => 'Kies een actief voertuig van dit bedrijf.',
+                'vehicle_id' => __('Kies een actief voertuig van dit bedrijf.'),
             ]);
         }
     }
@@ -588,12 +588,12 @@ class DriverScheduleService
                     }
                     if ((int) $row->driver_id === $driverId) {
                         throw ValidationException::withMessages([
-                            'driver_id' => 'Deze chauffeur is in dit tijdvak al ingepland.',
+                            'driver_id' => __('Deze chauffeur is in dit tijdvak al ingepland.'),
                         ]);
                     }
                     if ((int) $row->vehicle_id === $vehicleId) {
                         throw ValidationException::withMessages([
-                            'vehicle_id' => 'Dit voertuig is in dit tijdvak al aan een chauffeur gekoppeld.',
+                            'vehicle_id' => __('Dit voertuig is in dit tijdvak al aan een chauffeur gekoppeld.'),
                         ]);
                     }
                 }

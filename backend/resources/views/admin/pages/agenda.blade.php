@@ -5,9 +5,12 @@
     $isDriverScheduleCalendar = $calendarMode === 'driver_schedules';
     $canManage = $canManage ?? false;
     $superAdminNeedsTenant = $superAdminNeedsTenant ?? false;
+    $agendaMonthNames = array_map(fn ($name) => __($name), ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december']);
+    $agendaDayNames = array_map(fn ($name) => __($name), ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag']);
+    $agendaDayNamesShort = array_map(fn ($name) => __($name), ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo']);
 @endphp
 
-@section('title', $isDriverScheduleCalendar ? 'Chauffeurplanning' : 'Agenda - NEXA Skillmatching')
+@section('title', $isDriverScheduleCalendar ? __('Chauffeurplanning') : __('Agenda - NEXA Skillmatching'))
 
 @section('content')
 <style>
@@ -931,39 +934,39 @@
         <!-- Header -->
         <div class="agenda-header admin-calendar-toolbar">
             <div class="agenda-header-top admin-calendar-toolbar__top">
-                <div class="agenda-title" id="agenda-title">Agenda</div>
+                <div class="agenda-title" id="agenda-title">{{ __('Agenda') }}</div>
                 <div class="agenda-actions">
                 <div class="view-buttons-container">
                     <button class="kt-btn kt-btn-outline view-btn kt-btn-active" data-view="month" id="btn-month" aria-pressed="true">
-                        Maand
+                        {{ __('Maand') }}
                     </button>
                     <button class="kt-btn kt-btn-outline view-btn" data-view="week" id="btn-week" aria-pressed="false">
-                        Week
+                        {{ __('Week') }}
                     </button>
                     <button class="kt-btn kt-btn-outline view-btn" data-view="day" id="btn-day" aria-pressed="false">
-                        Dag
+                        {{ __('Dag') }}
                     </button>
                 </div>
                 <div class="agenda-nav-buttons">
-                    <button class="kt-btn kt-btn-outline" id="btn-prev" type="button" aria-label="Vorige periode">
+                    <button class="kt-btn kt-btn-outline" id="btn-prev" type="button" aria-label="{{ __('Vorige periode') }}">
                         <i class="ki-filled ki-arrow-left"></i>
                     </button>
                     <button class="kt-btn kt-btn-outline" id="btn-today" type="button">
-                        Vandaag
+                        {{ __('Vandaag') }}
                     </button>
-                    <button class="kt-btn kt-btn-outline" id="btn-next" type="button" aria-label="Volgende periode">
+                    <button class="kt-btn kt-btn-outline" id="btn-next" type="button" aria-label="{{ __('Volgende periode') }}">
                         <i class="ki-filled ki-arrow-right"></i>
                     </button>
                 </div>
                 @if($isDriverScheduleCalendar && $canManage)
                 <a href="{{ route('admin.taxi.driver_schedules.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuwe dienst
+                    {{ __('Nieuwe dienst') }}
                 </a>
                 @elseif(! $isDriverScheduleCalendar && Route::has('admin.skillmatching.interviews.create'))
                 <a href="{{ route('admin.skillmatching.interviews.create') }}" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-plus me-2"></i>
-                    Nieuwe interview
+                    {{ __('Nieuwe interview') }}
                 </a>
                 @endif
                 </div>
@@ -976,8 +979,8 @@
             @if($showAgendaUserFilter || $showAgendaDriverFilter || $showAgendaVehicleFilter)
             <div class="admin-calendar-toolbar__filters">
                 @if($showAgendaUserFilter)
-                <select id="user-filter" class="kt-select kt-select-sm" aria-label="Gebruiker">
-                    <option value="" selected>Alle gebruikers</option>
+                <select id="user-filter" class="kt-select kt-select-sm" aria-label="{{ __('Gebruiker') }}">
+                    <option value="" selected>{{ __('Alle gebruikers') }}</option>
                     @foreach($users as $user)
                         @php $userAgendaColor = $user->agenda_color ?: $user->resolvedAgendaColor(); @endphp
                         <option value="{{ $user->id }}" data-agenda-color="{{ $userAgendaColor }}">{{ $user->first_name }} {{ $user->last_name }}</option>
@@ -985,8 +988,8 @@
                 </select>
                 @endif
                 @if($showAgendaDriverFilter)
-                <select id="driver-filter" class="kt-select kt-select-sm" aria-label="Chauffeur">
-                    <option value="" selected>Alle chauffeurs</option>
+                <select id="driver-filter" class="kt-select kt-select-sm" aria-label="{{ __('Chauffeur') }}">
+                    <option value="" selected>{{ __('Alle chauffeurs') }}</option>
                     @foreach($agendaDrivers as $agendaDriver)
                         @php $driverAgendaColor = $agendaDriver->agenda_color ?: $agendaDriver->resolvedAgendaColor(); @endphp
                         <option value="{{ $agendaDriver->id }}" data-agenda-color="{{ $driverAgendaColor }}">{{ $agendaDriver->first_name }} {{ $agendaDriver->last_name }}</option>
@@ -994,8 +997,8 @@
                 </select>
                 @endif
                 @if($showAgendaVehicleFilter)
-                <select id="vehicle-filter" class="kt-select kt-select-sm" aria-label="Voertuig">
-                    <option value="" selected>Alle voertuigen</option>
+                <select id="vehicle-filter" class="kt-select kt-select-sm" aria-label="{{ __('Voertuig') }}">
+                    <option value="" selected>{{ __('Alle voertuigen') }}</option>
                     @foreach($agendaVehicles as $agendaVehicle)
                         <option value="{{ $agendaVehicle->id }}">{{ $agendaVehicle->fleetLabel() }}</option>
                     @endforeach
@@ -1007,7 +1010,7 @@
 
         @if($superAdminNeedsTenant)
         <div class="kt-alert kt-alert-light border border-input p-4" role="status">
-            Selecteer een tenant om chauffeurs en voertuigen te filteren en nieuwe diensten in te plannen.
+            {{ __('Selecteer een tenant om chauffeurs en voertuigen te filteren en nieuwe diensten in te plannen.') }}
         </div>
         @endif
 
@@ -1033,9 +1036,9 @@
         <div class="agenda-event-modal__header">
             <div class="modal-header-main">
                 <div id="modal-event-avatar" class="modal-event-avatar hidden" aria-hidden="true"></div>
-                <h3 class="agenda-event-modal__title" id="modal-day-title">Afspraken</h3>
+                <h3 class="agenda-event-modal__title" id="modal-day-title">{{ __('Afspraken') }}</h3>
             </div>
-            <button class="agenda-event-modal__close" onclick="closeDayModal()" type="button" aria-label="Sluiten">
+            <button class="agenda-event-modal__close" onclick="closeDayModal()" type="button" aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
@@ -1051,10 +1054,39 @@ let currentDate = new Date();
 let currentView = 'month';
 let events = [];
 
-// Month names in Dutch
-const monthNames = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-const dayNames = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
-const dayNamesShort = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+// Month and day names (translated per admin locale)
+const monthNames = @json($agendaMonthNames);
+const dayNames = @json($agendaDayNames);
+const dayNamesShort = @json($agendaDayNamesShort);
+
+// Translated UI strings used by the calendar scripts
+const agendaI18n = {
+    week: @json(__('Week')),
+    todayDate: @json(__('Vandaag, :day :month :year')),
+    dayHeader: @json(__(':weekday, :day :month')),
+    dayModalTitle: @json(__(':weekday, :day :month :year')),
+    driver: @json(__('Chauffeur')),
+    customer: @json(__('Klant')),
+    unknown: @json(__('Onbekend')),
+    locationMissing: @json(__('Locatie niet opgegeven')),
+    vehicleLine: @json(__('Voertuig: :name')),
+    unknownVehicle: @json(__('Onbekend voertuig')),
+    driverLine: @json(__('Chauffeur: :name')),
+    statusLine: @json(__('Status: :status')),
+    unknownVacancy: @json(__('Onbekende functie')),
+    unknownCompany: @json(__('Onbekend bedrijf')),
+    viewDetails: @json(__('Bekijk details')),
+    rideTitle: @json(__('Rit – :name')),
+    scheduleTitle: @json(__('Dienst – :name')),
+    appointment: @json(__('Afspraak')),
+};
+
+function agendaT(text, params) {
+    Object.keys(params || {}).forEach(function (key) {
+        text = text.split(':' + key).join(params[key]);
+    });
+    return text;
+}
 
 function resolveEventColor(event) {
     if (event && event.color) {
@@ -1142,7 +1174,7 @@ function getSelectedVehicleId() {
 const interviewBaseUrl = @json(Route::has('admin.skillmatching.interviews.index') ? rtrim(route('admin.skillmatching.interviews.index'), '/') . '/' : '');
 const agendaEventsUrl = @json($isDriverScheduleCalendar ? route('admin.taxi.driver_schedules.events') : route('admin.agenda.events'));
 const scheduleCreateUrl = @json($isDriverScheduleCalendar && $canManage ? route('admin.taxi.driver_schedules.create') : '');
-const scheduleModalLinkLabel = @json($isDriverScheduleCalendar ? 'Dienst bewerken' : 'Bekijk in chauffeurplanning');
+const scheduleModalLinkLabel = @json($isDriverScheduleCalendar ? __('Dienst bewerken') : __('Bekijk in chauffeurplanning'));
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -1328,9 +1360,9 @@ function updateTitle() {
     } else if (currentView === 'week') {
         const weekStart = getWeekStart(currentDate);
         const weekNumber = getWeekNumber(weekStart);
-        titleEl.textContent = `Week ${weekNumber}, ${monthNames[weekStart.getMonth()]} ${weekStart.getFullYear()}`;
+        titleEl.textContent = `${agendaI18n.week} ${weekNumber}, ${monthNames[weekStart.getMonth()]} ${weekStart.getFullYear()}`;
     } else if (currentView === 'day') {
-        titleEl.textContent = `Vandaag, ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        titleEl.textContent = agendaT(agendaI18n.todayDate, { day: currentDate.getDate(), month: monthNames[currentDate.getMonth()], year: currentDate.getFullYear() });
     }
 }
 
@@ -1405,7 +1437,7 @@ function eventFullTooltip(event) {
 function eventCompactLabel(event) {
     const time = formatTime(event.start);
     let label = String(event.title || '').trim();
-    label = label.replace(/^Rit:\s*/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    label = label.replace(/^(?:Rit|Ride):\s*/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     if (label.length > 16) {
         label = label.slice(0, 14) + '…';
     }
@@ -1415,7 +1447,7 @@ function eventCompactLabel(event) {
 function dayEventLabel(event) {
     const timeRange = `${formatTime(event.start)} - ${formatTime(event.end)}`;
     let label = String(event.title || '').trim();
-    label = label.replace(/^Rit:\s*/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    label = label.replace(/^(?:Rit|Ride):\s*/i, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
     return label ? `${timeRange} ${label}` : timeRange;
 }
 
@@ -1805,7 +1837,7 @@ function positionWeekEvents(container, weekStart, startHour, endHour) {
             if (isCompact) {
                 eventEl.textContent = eventCompactLabel(event);
             } else {
-                const shortTitle = String(event.title || '').replace(/^Rit:\s*/i, '').trim();
+                const shortTitle = String(event.title || '').replace(/^(?:Rit|Ride):\s*/i, '').trim();
                 eventEl.innerHTML = `
                     <div class="week-event-time">${formatTime(event.start)} - ${formatTime(event.end)}</div>
                     <div class="week-event-title">${shortTitle}</div>
@@ -1835,7 +1867,7 @@ function renderDayView() {
     // Day header
     const dayHeader = document.createElement('div');
     dayHeader.className = 'day-header';
-    dayHeader.textContent = `${dayNames[currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1]}, ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`;
+    dayHeader.textContent = agendaT(agendaI18n.dayHeader, { weekday: dayNames[currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1], day: currentDate.getDate(), month: monthNames[currentDate.getMonth()] });
     container.appendChild(dayHeader);
 
     // Time slots (00:00 to 23:00) - each row has time + day cell
@@ -1911,12 +1943,12 @@ function formatTime(dateString) {
 function getEventDisplayName(event) {
     const kind = event.extendedProps && event.extendedProps.event_kind;
     if (kind === 'driver_schedule') {
-        return event.extendedProps.driver_name || 'Chauffeur';
+        return event.extendedProps.driver_name || agendaI18n.driver;
     }
     const isRide = kind === 'ride';
     return isRide
-        ? (event.extendedProps.candidate_name || 'Klant')
-        : (event.extendedProps.candidate_name || 'Onbekend');
+        ? (event.extendedProps.candidate_name || agendaI18n.customer)
+        : (event.extendedProps.candidate_name || agendaI18n.unknown);
 }
 
 function populateModalHeaderAvatar(event) {
@@ -1970,7 +2002,7 @@ function buildEventModalItem(event) {
 
     const locationDetail = document.createElement('div');
     locationDetail.className = 'modal-event-detail';
-    locationDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.location || 'Locatie niet opgegeven'}</span>`;
+    locationDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.location || agendaI18n.locationMissing}</span>`;
 
     details.appendChild(timeDetail);
     if (!isSchedule) {
@@ -1978,12 +2010,12 @@ function buildEventModalItem(event) {
     } else {
         const vehicleDetail = document.createElement('div');
         vehicleDetail.className = 'modal-event-detail';
-        vehicleDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path d="M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg><span>Voertuig: ${event.extendedProps.vehicle_label || event.extendedProps.location || 'Onbekend voertuig'}</span>`;
+        vehicleDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path d="M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg><span>${agendaT(agendaI18n.vehicleLine, { name: event.extendedProps.vehicle_label || event.extendedProps.location || agendaI18n.unknownVehicle })}</span>`;
         details.appendChild(vehicleDetail);
         if (event.extendedProps.driver_name) {
             const driverDetail = document.createElement('div');
             driverDetail.className = 'modal-event-detail';
-            driverDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>Chauffeur: ${event.extendedProps.driver_name}</span>`;
+            driverDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>${agendaT(agendaI18n.driverLine, { name: event.extendedProps.driver_name })}</span>`;
             details.appendChild(driverDetail);
         }
     }
@@ -1992,19 +2024,19 @@ function buildEventModalItem(event) {
         if (event.extendedProps.driver_name) {
             const driverDetail = document.createElement('div');
             driverDetail.className = 'modal-event-detail';
-            driverDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>Chauffeur: ${event.extendedProps.driver_name}</span>`;
+            driverDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd" /></svg><span>${agendaT(agendaI18n.driverLine, { name: event.extendedProps.driver_name })}</span>`;
             details.appendChild(driverDetail);
         }
         if (event.extendedProps.status) {
             const statusDetail = document.createElement('div');
             statusDetail.className = 'modal-event-detail';
-            statusDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg><span>Status: ${event.extendedProps.status}</span>`;
+            statusDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" /></svg><span>${agendaT(agendaI18n.statusLine, { status: event.extendedProps.status })}</span>`;
             details.appendChild(statusDetail);
         }
     } else if (!isSchedule) {
         const vacancyDetail = document.createElement('div');
         vacancyDetail.className = 'modal-event-detail';
-        vacancyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 5.25a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0 1 12 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 0 1 7.5 5.455V5.25Zm7.5 0v.09a49.488 49.488 0 0 0-6 0v-.09a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5Zm-3 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /><path d="M3 18.4v-2.796a4.3 4.3 0 0 0 .713.31A26.226 26.226 0 0 0 12 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 0 1-6.477-.427C4.047 21.128 3 19.852 3 18.4Z" /></svg><span>${event.extendedProps.vacancy_title || 'Onbekende functie'}</span>`;
+        vacancyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M7.5 5.25a3 3 0 0 1 3-3h3a3 3 0 0 1 3 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0 1 12 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 0 1 7.5 5.455V5.25Zm7.5 0v.09a49.488 49.488 0 0 0-6 0v-.09a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5Zm-3 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clip-rule="evenodd" /><path d="M3 18.4v-2.796a4.3 4.3 0 0 0 .713.31A26.226 26.226 0 0 0 12 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 0 1-6.477-.427C4.047 21.128 3 19.852 3 18.4Z" /></svg><span>${event.extendedProps.vacancy_title || agendaI18n.unknownVacancy}</span>`;
         details.appendChild(vacancyDetail);
 
         if (event.extendedProps.interviewer_name) {
@@ -2017,7 +2049,7 @@ function buildEventModalItem(event) {
 
     const companyDetail = document.createElement('div');
     companyDetail.className = 'modal-event-detail';
-    companyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5H15v-18a.75.75 0 0 0 0-1.5H3ZM6.75 19.5v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75ZM6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 6.75ZM6.75 9a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM6 12.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 6a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75Zm-.75 3.75A.75.75 0 0 1 10.5 9h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 12a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM16.5 6.75v15h5.25a.75.75 0 0 0 0-1.5H21v-12a.75.75 0 0 0 0-1.5h-4.5Zm1.5 4.5a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 2.25a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75v-.008a.75.75 0 0 0-.75-.75h-.008ZM18 17.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.company_name || 'Onbekend bedrijf'}</span>`;
+    companyDetail.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 1rem; height: 1rem; flex-shrink: 0;"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 0 0 1.5v16.5h-.75a.75.75 0 0 0 0 1.5H15v-18a.75.75 0 0 0 0-1.5H3ZM6.75 19.5v-2.25a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75ZM6 6.75A.75.75 0 0 1 6.75 6h.75a.75.75 0 0 1 0 1.5h-.75A.75.75 0 0 1 6 6.75ZM6.75 9a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM6 12.75a.75.75 0 0 1 .75-.75h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 6a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75Zm-.75 3.75A.75.75 0 0 1 10.5 9h.75a.75.75 0 0 1 0 1.5h-.75a.75.75 0 0 1-.75-.75ZM10.5 12a.75.75 0 0 0 0 1.5h.75a.75.75 0 0 0 0-1.5h-.75ZM16.5 6.75v15h5.25a.75.75 0 0 0 0-1.5H21v-12a.75.75 0 0 0 0-1.5h-4.5Zm1.5 4.5a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Zm.75 2.25a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75v-.008a.75.75 0 0 0-.75-.75h-.008ZM18 17.25a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z" clip-rule="evenodd" /></svg><span>${event.extendedProps.company_name || agendaI18n.unknownCompany}</span>`;
     details.appendChild(companyDetail);
 
     content.appendChild(details);
@@ -2043,7 +2075,7 @@ function buildEventModalItem(event) {
         const link = document.createElement('div');
         link.className = 'modal-event-link';
         const interviewId = String(event.id).replace(/^interview-/, '');
-        link.innerHTML = `<a href="${interviewBaseUrl}${interviewId}">Bekijk details</a>`;
+        link.innerHTML = `<a href="${interviewBaseUrl}${interviewId}">${agendaI18n.viewDetails}</a>`;
         content.appendChild(link);
     }
 
@@ -2089,10 +2121,10 @@ window.openEventModal = function(event) {
 
     const kind = event.extendedProps && event.extendedProps.event_kind;
     const title = kind === 'ride'
-        ? ('Rit – ' + (event.extendedProps.candidate_name || 'Klant'))
+        ? agendaT(agendaI18n.rideTitle, { name: event.extendedProps.candidate_name || agendaI18n.customer })
         : (kind === 'driver_schedule'
-            ? ('Dienst – ' + (event.extendedProps.driver_name || 'Chauffeur'))
-            : (event.title || 'Afspraak'));
+            ? agendaT(agendaI18n.scheduleTitle, { name: event.extendedProps.driver_name || agendaI18n.driver })
+            : (event.title || agendaI18n.appointment));
 
     const eventsContainer = document.getElementById('modal-day-events');
     eventsContainer.innerHTML = '';
@@ -2106,7 +2138,7 @@ window.openDayModal = function(year, month, day) {
     if (dayEvents.length === 0) return;
 
     const date = new Date(year, month, day);
-    const title = `${dayNames[date.getDay() === 0 ? 6 : date.getDay() - 1]}, ${day} ${monthNames[month]} ${year}`;
+    const title = agendaT(agendaI18n.dayModalTitle, { weekday: dayNames[date.getDay() === 0 ? 6 : date.getDay() - 1], day: day, month: monthNames[month], year: year });
 
     const eventsContainer = document.getElementById('modal-day-events');
     eventsContainer.innerHTML = '';

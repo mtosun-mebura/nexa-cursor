@@ -20,7 +20,7 @@
            data-kt-date-picker-selected-month="{{ $selectedMonth }}"
            data-kt-date-picker-selected-year="{{ $selectedYear }}"
            @endif
-           placeholder="{{ $placeholder ?? 'Selecteer maand' }}"
+           placeholder="{{ $placeholder ?? __('Selecteer maand') }}"
            readonly
            type="text"
            @if(!empty($required)) required @endif />

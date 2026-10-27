@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Bedrijf Details - ' . $company->name)
+@section('title', __('Bedrijf Details').' - '.$company->name)
 
 @section('content')
 
@@ -8,17 +8,16 @@
     <div class="kt-alert company-welcome-alert mb-5" role="alert">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <div class="font-medium">Company-admin ontbreekt — welkomstmail is nog niet verstuurd.</div>
+                <div class="font-medium">{{ __('Company-admin ontbreekt — welkomstmail is nog niet verstuurd.') }}</div>
                 <p class="text-sm mb-0 mt-1 opacity-90">
-                    Er is nog geen actieve gebruiker voor deze tenant. De wizard is niet tot de laatste stap afgerond,
-                    dus er is nog geen welkomstmail verstuurd om een inlogcode aan te vragen.
+                    {{ __('Er is nog geen actieve gebruiker voor deze tenant. De wizard is niet tot de laatste stap afgerond, dus er is nog geen welkomstmail verstuurd om een inlogcode aan te vragen.') }}
                 </p>
             </div>
             <form method="POST" action="{{ route('admin.companies.send-welcome', $company) }}" class="shrink-0" id="company-welcome-mail-form">
                 @csrf
                 <button type="submit" class="kt-btn company-welcome-alert__btn" id="company-welcome-mail-btn">
                     <i class="ki-filled ki-loader-2 company-welcome-alert__spinner" aria-hidden="true"></i>
-                    <span class="company-welcome-alert__btn-label">Welkomstmail nu versturen</span>
+                    <span class="company-welcome-alert__btn-label">{{ __('Welkomstmail nu versturen') }}</span>
                 </button>
             </form>
         </div>
@@ -140,13 +139,13 @@
                 </div>
             </div>
             <div class="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span>ID</span>
+                <span>{{ __('ID') }}</span>
                 <span class="font-mono font-semibold text-foreground">{{ $company->id }}</span>
                 <button type="button"
                         class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                         data-copy-text="{{ $company->id }}"
-                        title="ID kopiëren"
-                        aria-label="Bedrijfs-ID {{ $company->id }} kopiëren">
+                        title="{{ __('ID kopiëren') }}"
+                        aria-label="{{ __('Bedrijfs-ID :id kopiëren', ['id' => $company->id]) }}">
                     <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
                 </button>
             </div>
@@ -157,7 +156,7 @@
                         $isActive = isset($company->is_active) ? $company->is_active : true;
                     @endphp
                     <span id="company-status-hero" class="font-medium {{ $isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                        {{ $isActive ? 'Actief' : 'Inactief' }}
+                        {{ $isActive ? __('Actief') : __('Inactief') }}
                     </span>
                 </div>
                 @if($company->city)
@@ -175,8 +174,8 @@
                         <button type="button"
                                 class="admin-email-copy shrink-0 inline-flex items-center justify-center size-6 rounded text-muted-foreground hover:text-primary"
                                 data-copy-text="{{ $company->email }}"
-                                title="E-mailadres kopiëren"
-                                aria-label="E-mailadres kopiëren">
+                                title="{{ __('E-mailadres kopiëren') }}"
+                                aria-label="{{ __('E-mailadres kopiëren') }}">
                             <i class="ki-filled ki-copy text-xs pointer-events-none" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -194,7 +193,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.companies.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         @else
@@ -210,7 +209,7 @@
                                class="kt-switch kt-switch-sm" 
                                id="toggle-main-location-checkbox-header"
                                {{ $company->is_main || $company->mainLocation ? 'checked' : '' }}/>
-                        <span class="ml-2">Hoofdkantoor</span>
+                        <span class="ml-2">{{ __('Hoofdkantoor') }}</span>
                     </label>
                 </form>
                 <span class="text-orange-500 dark:text-orange-400 flex items-center">|</span>
@@ -221,7 +220,7 @@
                                class="kt-switch kt-switch-sm" 
                                id="is_active_header"
                                {{ isset($company->is_active) && $company->is_active ? 'checked' : '' }}/>
-                        <span class="ml-2">Actief</span>
+                        <span class="ml-2">{{ __('Actief') }}</span>
                     </label>
                 </form>
             </div>
@@ -229,12 +228,12 @@
             <span class="text-orange-500 dark:text-orange-400 flex items-center">|</span>
             <a href="{{ route('admin.companies.pipeline-templates.index', $company) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-diagram-3 me-2"></i>
-                Pipeline Templates
+                {{ __('Pipeline Templates') }}
             </a>
             @endif
             <a href="{{ route('admin.companies.edit', $company) }}" class="kt-btn kt-btn-primary ml-auto">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
         </div>
         @endcan
@@ -248,31 +247,31 @@
     $companyShowCanSeeDomains = $companyShowIsSuperAdmin
         || app(\App\Services\TenantConfigAccessService::class)->can($companyShowUser, $company, \App\Support\TenantConfigCapability::DOMAIN);
     $companyShowTabs = array_values(array_filter([
-        ['id' => 'company-info', 'label' => 'Bedrijfsinformatie', 'icon' => 'ki-filled ki-shop'],
-        ['id' => 'company-contact', 'label' => 'Contact', 'icon' => 'ki-filled ki-geolocation'],
-        $companyShowIsSuperAdmin ? ['id' => 'company-modules', 'label' => 'Modules', 'icon' => 'ki-filled ki-element-11'] : null,
-        ['id' => 'company-users-website', 'label' => 'Gebruikers', 'icon' => 'ki-filled ki-people'],
-        $companyShowIsSuperAdmin ? ['id' => 'config-access', 'label' => 'Configuraties', 'icon' => 'ki-filled ki-setting-2'] : null,
-        $companyShowCanSeeDomains ? ['id' => 'company-domains', 'label' => 'Domeinen', 'icon' => 'ki-filled ki-abstract-26'] : null,
-        ['id' => 'company-locations', 'label' => 'Vestigingen', 'icon' => 'ki-filled ki-home-2'],
+        ['id' => 'company-info', 'label' => __('Bedrijfsinformatie'), 'icon' => 'ki-filled ki-shop'],
+        ['id' => 'company-contact', 'label' => __('Contact'), 'icon' => 'ki-filled ki-geolocation'],
+        $companyShowIsSuperAdmin ? ['id' => 'company-modules', 'label' => __('Modules'), 'icon' => 'ki-filled ki-element-11'] : null,
+        ['id' => 'company-users-website', 'label' => __('Gebruikers'), 'icon' => 'ki-filled ki-people'],
+        $companyShowIsSuperAdmin ? ['id' => 'config-access', 'label' => __('Configuraties'), 'icon' => 'ki-filled ki-setting-2'] : null,
+        $companyShowCanSeeDomains ? ['id' => 'company-domains', 'label' => __('Domeinen'), 'icon' => 'ki-filled ki-abstract-26'] : null,
+        ['id' => 'company-locations', 'label' => __('Vestigingen'), 'icon' => 'ki-filled ki-home-2'],
     ]));
     $companyShowTabs = \App\Support\CompanyShowWizardStatus::decorateTabs($company, $companyShowTabs);
 @endphp
 <div class="kt-container-fixed company-show-section-nav sticky mb-5 lg:mb-7.5">
-    <nav class="kt-tabs kt-tabs-line admin-page-tabs min-w-0" aria-label="Onderdelen op deze pagina" id="company-show-tabs">
+    <nav class="kt-tabs kt-tabs-line admin-page-tabs min-w-0" aria-label="{{ __('Onderdelen op deze pagina') }}" id="company-show-tabs">
         @foreach($companyShowTabs as $tab)
             <a href="#{{ $tab['id'] }}"
                class="kt-tab-toggle{{ $loop->first ? ' active' : '' }}"
                data-company-show-tab="{{ $tab['id'] }}"
                data-wizard-complete="{{ ! empty($tab['done']) ? '1' : '0' }}"
-               title="{{ $tab['label'] }} — {{ $tab['status_label'] }}"
+               title="{{ $tab['label'] }} — {{ __($tab['status_label']) }}"
                @if($loop->first) aria-current="page" @endif>
                 <i class="{{ $tab['icon'] }}" aria-hidden="true"></i>
                 <span class="kt-tab-title">{{ $tab['label'] }}</span>
                 <span class="company-show-tab-status company-show-tab-status--{{ ! empty($tab['done']) ? 'done' : 'todo' }}" aria-hidden="true">
                     <i class="ki-filled {{ ! empty($tab['done']) ? 'ki-check-circle' : 'ki-information-2' }}"></i>
                 </span>
-                <span class="sr-only">{{ $tab['status_label'] }}</span>
+                <span class="sr-only">{{ __($tab['status_label']) }}</span>
             </a>
         @endforeach
     </nav>
@@ -286,14 +285,14 @@
         <div class="kt-card w-full flex flex-col company-show-section" id="company-info">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Bedrijfsinformatie
+                    {{ __('Bedrijfsinformatie') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            Bedrijfsnaam
+                            {{ __('Bedrijfsnaam') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             <div class="flex items-start gap-2">
@@ -304,7 +303,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Pakket
+                            {{ __('Pakket') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @php
@@ -329,13 +328,13 @@
                                     <code class="text-xs text-muted-foreground ms-1">{{ $company->package_key }}</code>
                                 </div>
                                 @if($packageStartLabel)
-                                    <div class="text-xs text-muted-foreground mt-0.5">Ingang {{ $packageStartLabel }}</div>
+                                    <div class="text-xs text-muted-foreground mt-0.5">{{ __('Ingang :date', ['date' => $packageStartLabel]) }}</div>
                                 @endif
                                 @if($packageTrialEndLabel)
-                                    <div class="text-xs text-muted-foreground">Gratis periode tot {{ $packageTrialEndLabel }}</div>
+                                    <div class="text-xs text-muted-foreground">{{ __('Gratis periode tot :date', ['date' => $packageTrialEndLabel]) }}</div>
                                 @endif
                             @else
-                                <span class="text-muted-foreground">Geen pakket gekoppeld</span>
+                                <span class="text-muted-foreground">{{ __('Geen pakket gekoppeld') }}</span>
                             @endif
                         </td>
                     </tr>
@@ -347,7 +346,7 @@
                         $moduleCatalog = collect(app(\App\Services\NexaPricingService::class)->modulesCatalog());
                     @endphp
                     <tr>
-                        <td class="text-secondary-foreground font-normal align-top">Aanvullende modules</td>
+                        <td class="text-secondary-foreground font-normal align-top">{{ __('Aanvullende modules') }}</td>
                         <td class="text-foreground font-normal">
                             @php
                                 $addonIconByKey = [
@@ -365,21 +364,21 @@
                                     $displayQty = max($quantity, (int) ($record['active_quantity'] ?? 0));
                                     $title = $addon['name'] ?? $addon['label'] ?? $addon['key'];
                                     if ($addon['key'] === \App\Support\TenantPackageAddon::EXTRA_CLIENTS) {
-                                        $title = $displayQty.'× '.$title.' (+'.($displayQty * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK).' klanten)';
+                                        $title = __(':qty× :title (+:extra klanten)', ['qty' => $displayQty, 'title' => $title, 'extra' => $displayQty * \App\Support\TenantPackageAddon::EXTRA_CLIENTS_PER_PACK]);
                                     } elseif (($addon['type'] ?? '') === \App\Support\TenantPackageAddon::TYPE_QUANTITY) {
                                         $title = $displayQty.'× '.$title;
                                     }
                                     $meta = null;
                                     $badge = null;
                                     if (\App\Support\TenantPackageAddon::isPendingCancel($record) && ! empty($record['starts_at'])) {
-                                        $badge = 'Opgezegd';
-                                        $meta = 'Actief tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y');
+                                        $badge = __('Opgezegd');
+                                        $meta = __('Actief tot :date', ['date' => \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y')]);
                                     } elseif (\App\Support\TenantPackageAddon::isPendingDecrease($record) && ! empty($record['starts_at'])) {
-                                        $badge = 'Wijziging';
-                                        $meta = (int) ($record['active_quantity'] ?? 0).' tot '.\Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y').', daarna '.$quantity;
+                                        $badge = __('Wijziging');
+                                        $meta = __(':from tot :date, daarna :to', ['from' => (int) ($record['active_quantity'] ?? 0), 'date' => \Carbon\Carbon::parse($record['starts_at'])->translatedFormat('j F Y'), 'to' => $quantity]);
                                     }
                                     if (! \App\Support\TenantPackageAddon::isPendingCancel($record) && \App\Support\TenantPackageAddon::entitledQuantityFromRecord($record) <= 0) {
-                                        $badge = 'Nog niet actief';
+                                        $badge = __('Nog niet actief');
                                     }
                                     $addonModuleCards[] = [
                                         'icon' => $addonIconByKey[$addon['key']] ?? 'ki-filled ki-element-11',
@@ -392,8 +391,8 @@
                                 }
                                 $addonModuleCards[] = [
                                     'icon' => 'ki-filled ki-people',
-                                    'title' => 'Contractklanten',
-                                    'meta' => 'Limiet: '.$entitlements->contractClientLimitLabel($company),
+                                    'title' => __('Contractklanten'),
+                                    'meta' => __('Limiet: :limit', ['limit' => __($entitlements->contractClientLimitLabel($company))]),
                                     'start_label' => $packageStartLabel,
                                     'trial_end_label' => $packageTrialEndLabel,
                                     'badge' => null,
@@ -411,10 +410,10 @@
                                                 <div class="text-xs text-muted-foreground mt-0.5">{{ $moduleCard['meta'] }}</div>
                                             @endif
                                             @if(! empty($moduleCard['start_label']))
-                                                <div class="text-xs text-muted-foreground{{ $moduleCard['meta'] ? '' : ' mt-0.5' }}">Ingang {{ $moduleCard['start_label'] }}</div>
+                                                <div class="text-xs text-muted-foreground{{ $moduleCard['meta'] ? '' : ' mt-0.5' }}">{{ __('Ingang :date', ['date' => $moduleCard['start_label']]) }}</div>
                                             @endif
                                             @if(! empty($moduleCard['trial_end_label']))
-                                                <div class="text-xs text-muted-foreground">Gratis periode tot {{ $moduleCard['trial_end_label'] }}</div>
+                                                <div class="text-xs text-muted-foreground">{{ __('Gratis periode tot :date', ['date' => $moduleCard['trial_end_label']]) }}</div>
                                             @endif
                                             @if($moduleCard['badge'])
                                                 <span class="kt-badge kt-badge-sm kt-badge-warning mt-1.5">{{ $moduleCard['badge'] }}</span>
@@ -424,13 +423,13 @@
                                 @endforeach
                             </div>
                             @if($addonsInTrial)
-                                <p class="text-xs text-muted-foreground mt-3 mb-0">Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.</p>
+                                <p class="text-xs text-muted-foreground mt-3 mb-0">{{ __('Tijdens de proefperiode zijn alle aanvullende modules te gebruiken. Opzeggen vóór de ingangsdatum van het abonnement is kosteloos.') }}</p>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            KVK Nummer
+                            {{ __('KVK Nummer') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $company->kvk_number ?? '-' }}
@@ -438,7 +437,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Branche
+                            {{ __('Branche') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $company->industry ?? '-' }}
@@ -446,19 +445,19 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Bedrijfstype
+                            {{ __('Bedrijfstype') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @if($company->is_intermediary)
-                                <span class="kt-badge kt-badge-sm kt-badge-info">Tussenpartij / Recruiter</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-info">{{ __('Tussenpartij / Recruiter') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Directe werkgever</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Directe werkgever') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal align-top">
-                            Beschrijving
+                            {{ __('Beschrijving') }}
                         </td>
                         <td class="text-foreground font-normal break-words" style="word-wrap: break-word; overflow-wrap: break-word;">
                             {{ $company->description ?? '-' }}
@@ -466,7 +465,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Gebouw-illustratie
+                            {{ __('Gebouw-illustratie') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @php
@@ -482,7 +481,7 @@
                                             data-building-lightbox-alt="{{ $biOption['label'] }}"
                                             aria-haspopup="dialog"
                                             aria-controls="company-building-lightbox"
-                                            title="Klik om te vergroten">
+                                            title="{{ __('Klik om te vergroten') }}">
                                         <img src="{{ $biOption['src'] }}" alt="" class="h-10 w-auto rounded border border-border cursor-pointer" width="40" height="40">
                                         <span>{{ $biOption['label'] }}</span>
                                     </button>
@@ -496,7 +495,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Contactpersoon
+                            {{ __('Contactpersoon') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @php
@@ -511,10 +510,10 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Bedrijf als hoofdkantoor (wizard)
+                            {{ __('Bedrijf als hoofdkantoor (wizard)') }}
                         </td>
                         <td class="text-foreground font-normal">
-                            {{ $company->is_main ? 'Ja' : 'Nee' }}
+                            {{ $company->is_main ? __('Ja') : __('Nee') }}
                         </td>
                     </tr>
                 </table>
@@ -525,7 +524,7 @@
         <div class="kt-card w-full flex flex-col company-show-section" id="company-contact">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Contact Informatie
+                    {{ __('Contact Informatie') }}
                 </h3>
             </div>
             <div class="kt-card-content">
@@ -707,22 +706,22 @@
     <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5 company-show-section" id="company-modules">
         <div class="kt-card-header items-center justify-between gap-3">
             <h3 class="kt-card-title mb-0">
-                Gekoppelde modules
+                {{ __('Gekoppelde modules') }}
             </h3>
             @can('edit-companies')
                 <a href="{{ route('admin.companies.edit', $company) }}#company-modules" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
                     <i class="ki-filled ki-notepad-edit me-1"></i>
-                    Aanpassen
+                    {{ __('Aanpassen') }}
                 </a>
             @endcan
         </div>
         <div class="kt-card-content flex flex-col gap-4">
             <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
-                Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.
+                {{ __('Zelfde keuze als in de tenant-wizard (stap Modules). Alleen gekoppelde modules zijn beschikbaar voor dit bedrijf.') }}
             </p>
             @if($company->modules->isEmpty())
                 <p class="text-sm text-muted-foreground mb-0 rounded-lg border border-dashed border-input px-4 py-3">
-                    Geen modules gekoppeld.
+                    {{ __('Geen modules gekoppeld.') }}
                 </p>
             @else
                 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -741,11 +740,11 @@
                                 <div class="flex items-start justify-between gap-2 min-w-0">
                                     <span class="font-semibold text-sm text-foreground leading-snug">{{ $mod->display_name }}</span>
                                     @if($mod->installed && $mod->active)
-                                        <span class="kt-badge kt-badge-sm kt-badge-success shrink-0">Actief</span>
+                                        <span class="kt-badge kt-badge-sm kt-badge-success shrink-0">{{ __('Actief') }}</span>
                                     @elseif($mod->installed)
-                                        <span class="kt-badge kt-badge-sm kt-badge-warning shrink-0">Geïnstalleerd</span>
+                                        <span class="kt-badge kt-badge-sm kt-badge-warning shrink-0">{{ __('Geïnstalleerd') }}</span>
                                     @else
-                                        <span class="kt-badge kt-badge-sm kt-badge-outline shrink-0">Niet geïnstalleerd</span>
+                                        <span class="kt-badge kt-badge-sm kt-badge-outline shrink-0">{{ __('Niet geïnstalleerd') }}</span>
                                     @endif
                                 </div>
                                 <code class="text-xs text-secondary-foreground break-all">{{ $mod->name }}</code>
@@ -765,49 +764,51 @@
     <div class="kt-card min-w-full mt-5 lg:mt-7.5 company-show-section" id="company-users-website">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
-                Gebruikers &amp; website
+                {{ __('Gebruikers & website') }}
             </h3>
         </div>
         <div class="kt-card-content">
             <ul class="list-none space-y-3 text-sm text-muted-foreground m-0 p-0">
                 <li class="flex flex-wrap items-center gap-2">
                     <span class="text-foreground font-medium">{{ $company->users->count() }}</span>
-                    <span>gebruiker(s) gekoppeld aan dit bedrijf.</span>
+                    <span>{{ __('gebruiker(s) gekoppeld aan dit bedrijf.') }}</span>
                     @can('view-users')
-                        <a href="{{ route('admin.users.index', ['company' => $company->id]) }}" class="text-primary font-medium hover:underline">Gebruikers bekijken</a>
+                        <a href="{{ route('admin.users.index', ['company' => $company->id]) }}" class="text-primary font-medium hover:underline">{{ __('Gebruikers bekijken') }}</a>
                     @endcan
                 </li>
                 @if(! empty($companyWebsiteDevPreviewUrl))
                     <li class="flex flex-col gap-2">
                         <div class="flex flex-wrap items-center gap-3">
                             <a href="{{ $companyWebsiteDevPreviewUrl }}" target="_blank" rel="noopener noreferrer" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
-                                Website openen (dev)
+                                {{ __('Website openen (dev)') }}
                             </a>
                             <span class="text-xs text-muted-foreground">
-                                Opent <code class="text-xs">{{ parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost' }}</code> met <code class="text-xs">{{ config('tenancy.dev_effective_host_query_param') }}={{ $companyWebsiteDevPreviewHost }}</code>.
+                                {!! __('Opent :host met :param.', ['host' => '<code class="text-xs">'.e(parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost').'</code>', 'param' => '<code class="text-xs">'.e(config('tenancy.dev_effective_host_query_param').'='.$companyWebsiteDevPreviewHost).'</code>']) !!}
                             </span>
                         </div>
                         @if($companyWebsiteInactivePages->isNotEmpty())
                             <p class="text-xs text-amber-800 dark:text-amber-200 mb-0 rounded-md border border-amber-300/80 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700/80 px-3 py-2">
                                 @if(! empty($companyWebsiteHomeInactive))
-                                    De home staat op <strong>Inactief</strong> en de live site toont dan niet de website-builder.
+                                    {!! __('De home staat op :status en de live site toont dan niet de website-builder.', ['status' => '<strong>'.e(__('Inactief')).'</strong>']) !!}
                                 @else
-                                    Sommige geconfigureerde pagina&rsquo;s staan op <strong>Inactief</strong> en ontbreken in het menu; footer-links geven 404.
+                                    {!! __('Sommige geconfigureerde pagina’s staan op :status en ontbreken in het menu; footer-links geven 404.', ['status' => '<strong>'.e(__('Inactief')).'</strong>']) !!}
                                 @endif
-                                Inactief:
-                                <strong>{{ $companyWebsiteInactivePages->map(fn ($p) => $p->title ?: $p->slug)->implode(', ') }}</strong>.
-                                Zet bij <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="font-medium underline">Website-pagina&rsquo;s</a> per pagina <strong>Actief</strong> aan en sla op.
+                                {!! __('Inactief: :pages. Zet bij :link per pagina :active aan en sla op.', [
+                                    'pages' => '<strong>'.e($companyWebsiteInactivePages->map(fn ($p) => $p->title ?: $p->slug)->implode(', ')).'</strong>',
+                                    'link' => '<a href="'.e(route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6])).'" class="font-medium underline">'.e(__('Website-pagina’s')).'</a>',
+                                    'active' => '<strong>'.e(__('Actief')).'</strong>',
+                                ]) !!}
                             </p>
                         @endif
                     </li>
                 @endif
                 @if(auth()->user()->hasRole('super-admin') || app(\App\Services\TenantConfigAccessService::class)->can(auth()->user(), $company, \App\Support\TenantConfigCapability::WEBSITE))
                     <li class="flex flex-wrap items-center gap-2">
-                        <span>Website-pagina's voor deze tenant beheren (zoals in wizard stap Website).</span>
-                        <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">Naar website-pagina's</a>
+                        <span>{{ __('Website-pagina\'s voor deze tenant beheren (zoals in wizard stap Website).') }}</span>
+                        <a href="{{ route('admin.website-pages.index', ['from_wizard' => 1, 'wizard_company' => $company->id, 'wizard_step' => 6]) }}" class="text-primary font-medium hover:underline">{{ __('Naar website-pagina\'s') }}</a>
                     </li>
                     <li class="flex flex-col gap-1 pt-2 border-t border-border mt-2">
-                        <p class="text-xs text-muted-foreground mb-0">Volledige tenant-ZIP (pagina’s, media, tenant-instellingen): <strong class="text-foreground font-medium">Configuraties → Omgeving-sync</strong>. Database-push naar een andere omgeving staat daar ook.</p>
+                        <p class="text-xs text-muted-foreground mb-0">{!! __('Volledige tenant-ZIP (pagina’s, media, tenant-instellingen): :menu. Database-push naar een andere omgeving staat daar ook.', ['menu' => '<strong class="text-foreground font-medium">'.e(__('Configuraties → Omgeving-sync')).'</strong>']) !!}</p>
                     </li>
                 @endif
             </ul>
@@ -834,16 +835,16 @@
     <div class="kt-card w-full min-w-0 mt-5 lg:mt-7.5 company-show-section" id="company-domains">
         <div class="kt-card-header">
             <h3 class="kt-card-title mb-0">
-                Tenant domeinen (SaaS)
+                {{ __('Tenant domeinen (SaaS)') }}
             </h3>
         </div>
         <div class="kt-card-content flex flex-col gap-5">
             <p class="text-sm text-secondary-foreground mb-0 leading-relaxed">
-                Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit <code class="text-xs">APP_URL</code> en domeinen in <code class="text-xs">TENANCY_CENTRAL_DOMAINS</code> worden niet als tenant opgelost.
+                {!! __('Bezoekers die via deze host binnenkomen krijgen de tenant-context van dit bedrijf. De host uit :app_url en domeinen in :central worden niet als tenant opgelost.', ['app_url' => '<code class="text-xs">APP_URL</code>', 'central' => '<code class="text-xs">TENANCY_CENTRAL_DOMAINS</code>']) !!}
             </p>
 
             <p id="company-domains-empty" class="text-sm text-muted-foreground mb-0 rounded-lg border border-dashed border-input px-4 py-3 {{ $company->domains->isNotEmpty() ? 'hidden' : '' }}">
-                Nog geen domeinen gekoppeld.
+                {{ __('Nog geen domeinen gekoppeld.') }}
             </p>
 
             <div id="company-domains-list-wrap" class="flex flex-col gap-2 {{ $company->domains->isEmpty() ? 'hidden' : '' }}">
@@ -861,14 +862,14 @@
             >
                 @csrf
                 <div class="flex flex-col gap-1.5">
-                    <label for="domain_host" class="text-sm font-medium text-foreground">Hostnaam</label>
+                    <label for="domain_host" class="text-sm font-medium text-foreground">{{ __('Hostnaam') }}</label>
                     <input
                         type="text"
                         name="host"
                         id="domain_host"
                         value="{{ old('host') }}"
                         class="kt-input w-full @error('host') border-destructive @enderror"
-                        placeholder="bijv. klant.jouwdomein.nl"
+                        placeholder="{{ __('bijv. klant.jouwdomein.nl') }}"
                         required
                         autocomplete="off"
                         @error('host') data-server-error="1" @enderror
@@ -879,17 +880,17 @@
                     @enderror
                 </div>
                 <div class="flex flex-col gap-2">
-                    <span class="text-sm font-medium text-foreground">Primair domein</span>
+                    <span class="text-sm font-medium text-foreground">{{ __('Primair domein') }}</span>
                     <input type="hidden" name="is_primary" value="0">
                     <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                         <input type="checkbox" name="is_primary" value="1" class="kt-switch kt-switch-sm shrink-0" {{ old('is_primary') ? 'checked' : '' }}>
-                        <span class="text-sm text-secondary-foreground">Instellen als primair domein</span>
+                        <span class="text-sm text-secondary-foreground">{{ __('Instellen als primair domein') }}</span>
                     </label>
                 </div>
                 <div>
                     <button type="submit" class="kt-btn kt-btn-primary w-full sm:w-auto">
                         <i class="ki-filled ki-plus me-2"></i>
-                        Domein toevoegen
+                        {{ __('Domein toevoegen') }}
                     </button>
                 </div>
             </form>
@@ -906,12 +907,12 @@
     <div class="kt-card min-w-full mt-5 lg:mt-7.5 company-show-section" id="company-locations">
         <div class="kt-card-header">
             <h3 class="kt-card-title">
-                Vestigingen
+                {{ __('Vestigingen') }}
             </h3>
             @can('edit-companies')
             <a href="{{ route('admin.companies.locations.create', $company) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>
-                Nieuwe Vestiging
+                {{ __('Nieuwe Vestiging') }}
             </a>
             @endcan
         </div>
@@ -921,12 +922,12 @@
                     <table class="kt-table table-auto kt-table-border">
                         <thead>
                             <tr>
-                                <th>Naam</th>
-                                <th>Adres</th>
-                                <th>Contact</th>
-                                <th>Status</th>
+                                <th>{{ __('Naam') }}</th>
+                                <th>{{ __('Adres') }}</th>
+                                <th>{{ __('Contact') }}</th>
+                                <th>{{ __('Status') }}</th>
                                 @can('edit-companies')
-                                <th class="w-[60px] text-center">Acties</th>
+                                <th class="w-[60px] text-center">{{ __('Acties') }}</th>
                                 @endcan
                             </tr>
                         </thead>
@@ -970,22 +971,22 @@
                                             <form action="{{ route('admin.companies.locations.toggle-status', [$company, $location]) }}" method="POST" class="location-toggle-status-form-{{ $location->id }}" style="display: inline;">
                                                 @csrf
                                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-success location-status-button" data-location-id="{{ $location->id }}" data-company-id="{{ $company->id }}">
-                                                    Actief
+                                                    {{ __('Actief') }}
                                                 </button>
                                             </form>
                                         @else
                                             <form action="{{ route('admin.companies.locations.toggle-status', [$company, $location]) }}" method="POST" class="location-toggle-status-form-{{ $location->id }}" style="display: inline;">
                                                 @csrf
                                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-danger location-status-button" data-location-id="{{ $location->id }}" data-company-id="{{ $company->id }}">
-                                                    Inactief
+                                                    {{ __('Inactief') }}
                                                 </button>
                                             </form>
                                         @endif
                                         @else
                                         @if($location->is_active)
-                                            <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                         @else
-                                            <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                            <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                         @endif
                                         @endcan
                                     </td>
@@ -1002,7 +1003,7 @@
                                                             <span class="kt-menu-icon">
                                                                 <i class="ki-filled ki-pencil"></i>
                                                             </span>
-                                                            <span class="kt-menu-title">Bewerken</span>
+                                                            <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                         </a>
                                                     </div>
                                                     <div class="kt-menu-separator"></div>
@@ -1014,7 +1015,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-cross-circle"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Deactiveren</span>
+                                                                <span class="kt-menu-title">{{ __('Deactiveren') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -1026,7 +1027,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-check-circle"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Activeren</span>
+                                                                <span class="kt-menu-title">{{ __('Activeren') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -1037,14 +1038,14 @@
                                                         <form action="{{ route('admin.companies.locations.destroy', [$company, $location]) }}"
                                                               method="POST"
                                                               style="display: inline;"
-                                                              onsubmit="return confirm('Weet je zeker dat je deze vestiging wilt verwijderen?')">
+                                                              onsubmit='return confirm(@json(__('Weet je zeker dat je deze vestiging wilt verwijderen?')))'>
                                                             @csrf
                                                             @method('DELETE')
                                                             <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-trash"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Verwijderen</span>
+                                                                <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                             </button>
                                                         </form>
                                                     </div>
@@ -1062,7 +1063,7 @@
             @else
                 <div class="text-center py-8 text-muted-foreground">
                     <i class="ki-filled ki-information-5 text-4xl mb-2"></i>
-                    <p>Nog geen vestigingen toegevoegd.</p>
+                    <p>{{ __('Nog geen vestigingen toegevoegd.') }}</p>
                 </div>
             @endif
         </div>
@@ -1079,10 +1080,10 @@
      hidden>
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-building-lightbox-dismiss></div>
     <div class="company-building-lightbox__panel relative z-10 max-w-[92vw] max-h-[92vh] rounded-2xl border border-border p-3">
-        <button type="button" class="company-building-lightbox__close kt-btn kt-btn-icon kt-btn-outline" data-building-lightbox-close aria-label="Sluiten">
+        <button type="button" class="company-building-lightbox__close kt-btn kt-btn-icon kt-btn-outline" data-building-lightbox-close aria-label="{{ __('Sluiten') }}">
             <i class="ki-filled ki-cross"></i>
         </button>
-        <h2 id="company-building-lightbox-title" class="sr-only">Gebouw-illustratie</h2>
+        <h2 id="company-building-lightbox-title" class="sr-only">{{ __('Gebouw-illustratie') }}</h2>
         <img src="" alt="" class="company-building-lightbox__img">
     </div>
 </div>
@@ -1111,7 +1112,7 @@
         img.src = src;
         img.alt = alt || '';
         if (title) {
-            title.textContent = alt || 'Gebouw-illustratie';
+            title.textContent = alt || @json(__('Gebouw-illustratie'));
         }
         lightbox.hidden = false;
         lightbox.classList.remove('hidden');
@@ -1366,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             }
                         }
                     } else {
-                        throw new Error(data.message || 'Wijziging mislukt');
+                        throw new Error(data.message || @json(__('Wijziging mislukt')));
                     }
                 })
                 .catch(error => {
@@ -1378,8 +1379,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Revert checkbox state on error
                     this.checked = !originalChecked;
                     // Show detailed error message
-                    const errorMessage = error.message || 'Er is een fout opgetreden bij het wijzigen van het hoofdkantoor.';
-                    alert('Fout: ' + errorMessage);
+                    const errorMessage = error.message || @json(__('Er is een fout opgetreden bij het wijzigen van het hoofdkantoor.'));
+                    alert(@json(__('Fout:')) + ' ' + errorMessage);
                 });
             });
         }
@@ -1437,16 +1438,16 @@ document.addEventListener('DOMContentLoaded', function () {
                             const heroStatusElement = document.getElementById('company-status-hero');
                             if (heroStatusElement) {
                                 if (data.is_active) {
-                                    heroStatusElement.textContent = 'Actief';
+                                    heroStatusElement.textContent = @json(__('Actief'));
                                     heroStatusElement.className = 'font-medium text-green-600 dark:text-green-400';
                                 } else {
-                                    heroStatusElement.textContent = 'Inactief';
+                                    heroStatusElement.textContent = @json(__('Inactief'));
                                     heroStatusElement.className = 'font-medium text-red-600 dark:text-red-400';
                                 }
                             }
                         }
                     } else {
-                        throw new Error(data.message || 'Wijziging mislukt');
+                        throw new Error(data.message || @json(__('Wijziging mislukt')));
                     }
                 })
                 .catch(error => {
@@ -1458,8 +1459,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Revert checkbox state on error
                     this.checked = !originalChecked;
                     // Show detailed error message
-                    const errorMessage = error.message || 'Er is een fout opgetreden bij het wijzigen van de status.';
-                    alert('Fout: ' + errorMessage);
+                    const errorMessage = error.message || @json(__('Er is een fout opgetreden bij het wijzigen van de status.'));
+                    alert(@json(__('Fout:')) + ' ' + errorMessage);
                 });
             });
         }
@@ -1502,10 +1503,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data.success && data.is_active !== undefined) {
                         // Update button based on new status
                         if (data.is_active) {
-                            originalButton.textContent = 'Actief';
+                            originalButton.textContent = @json(__('Actief'));
                             originalButton.className = 'kt-btn kt-btn-sm kt-btn-success location-status-button';
                         } else {
-                            originalButton.textContent = 'Inactief';
+                            originalButton.textContent = @json(__('Inactief'));
                             originalButton.className = 'kt-btn kt-btn-sm kt-btn-danger location-status-button';
                         }
                         originalButton.setAttribute('data-location-id', locationId);
@@ -1517,7 +1518,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Er is een fout opgetreden bij het wijzigen van de status.');
+                    alert(@json(__('Er is een fout opgetreden bij het wijzigen van de status.')));
                     originalButton.disabled = false;
                 });
             });
@@ -1559,7 +1560,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Er is een fout opgetreden bij het wijzigen van de status.');
+                    alert(@json(__('Er is een fout opgetreden bij het wijzigen van de status.')));
                 });
             });
         });
@@ -1618,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.setAttribute('aria-busy', 'true');
             const label = btn.querySelector('.company-welcome-alert__btn-label');
             if (label) {
-                label.textContent = 'Versturen…';
+                label.textContent = @json(__('Versturen…'));
             }
         });
     });

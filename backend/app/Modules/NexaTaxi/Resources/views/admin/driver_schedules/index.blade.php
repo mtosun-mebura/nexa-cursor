@@ -1,49 +1,49 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Chauffeurplanning')
+@section('title', __('Chauffeurplanning'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="admin-calendar-toolbar">
         <div class="admin-calendar-toolbar__top">
             <div class="min-w-0">
-                <h1 class="admin-calendar-toolbar__title">Chauffeurplanning</h1>
+                <h1 class="admin-calendar-toolbar__title">{{ __('Chauffeurplanning') }}</h1>
                 <p class="admin-calendar-toolbar__subtitle">
-                    Week {{ $weekStart->locale('nl')->translatedFormat('d M') }} – {{ $weekEnd->locale('nl')->translatedFormat('d M Y') }}
+                    {{ __('Week') }} {{ $weekStart->locale(app()->getLocale())->translatedFormat('d M') }} – {{ $weekEnd->locale(app()->getLocale())->translatedFormat('d M Y') }}
                 </p>
             </div>
             <div class="admin-calendar-toolbar__actions">
-                <a href="{{ route('admin.taxi.driver_schedules.index', array_filter(['week' => $prevWeek, 'driver_id' => $driverFilter, 'vehicle_id' => $vehicleFilter])) }}" class="kt-btn kt-btn-outline" aria-label="Vorige week">← Vorige week</a>
+                <a href="{{ route('admin.taxi.driver_schedules.index', array_filter(['week' => $prevWeek, 'driver_id' => $driverFilter, 'vehicle_id' => $vehicleFilter])) }}" class="kt-btn kt-btn-outline" aria-label="{{ __('Vorige week') }}">{{ __('← Vorige week') }}</a>
                 <a
                     href="{{ route('admin.taxi.driver_schedules.index', array_filter(['week' => $todayWeek, 'driver_id' => $driverFilter, 'vehicle_id' => $vehicleFilter])) }}"
                     class="kt-btn {{ $isCurrentWeek ? 'kt-btn-primary' : 'kt-btn-outline' }}"
                     @if($isCurrentWeek) aria-current="date" @endif
-                >Vandaag</a>
-                <a href="{{ route('admin.taxi.driver_schedules.index', array_filter(['week' => $nextWeek, 'driver_id' => $driverFilter, 'vehicle_id' => $vehicleFilter])) }}" class="kt-btn kt-btn-outline" aria-label="Volgende week">Volgende week →</a>
+                >{{ __('Vandaag') }}</a>
+                <a href="{{ route('admin.taxi.driver_schedules.index', array_filter(['week' => $nextWeek, 'driver_id' => $driverFilter, 'vehicle_id' => $vehicleFilter])) }}" class="kt-btn kt-btn-outline" aria-label="{{ __('Volgende week') }}">{{ __('Volgende week →') }}</a>
                 @if($canManage)
-                    <a href="{{ route('admin.taxi.driver_schedules.create') }}" class="kt-btn kt-btn-primary">Nieuwe dienst</a>
+                    <a href="{{ route('admin.taxi.driver_schedules.create') }}" class="kt-btn kt-btn-primary">{{ __('Nieuwe dienst') }}</a>
                 @endif
             </div>
         </div>
         <form method="GET" action="{{ route('admin.taxi.driver_schedules.index') }}" class="admin-calendar-toolbar__filters" id="driver-schedule-filters">
-            <label class="sr-only" for="driver-schedule-week-filter">Week</label>
+            <label class="sr-only" for="driver-schedule-week-filter">{{ __('Week') }}</label>
             @include('taxi::admin.transport_customers.partials.date-picker-input', [
                 'name' => 'week',
                 'id' => 'driver-schedule-week-filter',
                 'value' => $weekStart->format('Y-m-d'),
                 'wrapperClass' => 'admin-calendar-toolbar__date w-40',
-                'placeholder' => 'Selecteer week',
+                'placeholder' => __('Selecteer week'),
             ])
-            <select name="driver_id" class="kt-select kt-select-sm" aria-label="Chauffeur">
-                <option value="">Alle chauffeurs</option>
+            <select name="driver_id" class="kt-select kt-select-sm" aria-label="{{ __('Chauffeur') }}">
+                <option value="">{{ __('Alle chauffeurs') }}</option>
                 @foreach($chauffeurs as $chauffeur)
                     <option value="{{ $chauffeur->id }}" @selected((int) $driverFilter === (int) $chauffeur->id)>
                         {{ trim($chauffeur->first_name.' '.$chauffeur->last_name) }}
                     </option>
                 @endforeach
             </select>
-            <select name="vehicle_id" class="kt-select kt-select-sm" aria-label="Voertuig">
-                <option value="">Alle voertuigen</option>
+            <select name="vehicle_id" class="kt-select kt-select-sm" aria-label="{{ __('Voertuig') }}">
+                <option value="">{{ __('Alle voertuigen') }}</option>
                 @foreach($vehicles as $vehicle)
                     <option value="{{ $vehicle->id }}" @selected((int) $vehicleFilter === (int) $vehicle->id)>
                         {{ $vehicle->fleetLabel() }}
@@ -55,7 +55,7 @@
 
     @if($superAdminNeedsTenant)
         <div class="kt-alert kt-alert-light border border-input mb-5 p-4" role="status">
-            Selecteer een tenant om chauffeurs en voertuigen te filteren en nieuwe diensten in te plannen.
+            {{ __('Selecteer een tenant om chauffeurs en voertuigen te filteren en nieuwe diensten in te plannen.') }}
         </div>
     @endif
 
@@ -70,7 +70,7 @@
                 @if($canManage)
                     <a href="{{ route('admin.taxi.driver_schedules.create', ['date' => $day['date']->format('Y-m-d')]) }}"
                        class="kt-btn kt-btn-sm kt-btn-ghost shrink-0 px-1.5"
-                       aria-label="Dienst toevoegen op {{ $day['label'] }}">+</a>
+                       aria-label="{{ __('Dienst toevoegen op :day', ['day' => $day['label']]) }}">+</a>
                 @endif
             </div>
             <div class="kt-card-content p-5 space-y-2 min-h-32">
@@ -89,7 +89,7 @@
                         <div class="text-muted-foreground">{{ $item['vehicle'] }}</div>
                     </button>
                 @empty
-                    <p class="text-xs text-muted-foreground mb-0">Geen diensten</p>
+                    <p class="text-xs text-muted-foreground mb-0">{{ __('Geen diensten') }}</p>
                 @endforelse
             </div>
         </div>
@@ -108,48 +108,48 @@
     <div class="w-full max-w-lg max-h-[min(90vh,40rem)] flex flex-col rounded-xl border border-input bg-white dark:bg-[#0b0f19] shadow-xl overflow-hidden">
         <div class="flex items-start justify-between gap-3 border-b border-input px-5 py-5 shrink-0">
             <div class="min-w-0">
-                <h3 id="driver-schedule-modal-title" class="text-lg font-semibold text-foreground mb-0 break-words" data-schedule-modal-title>Dienst</h3>
+                <h3 id="driver-schedule-modal-title" class="text-lg font-semibold text-foreground mb-0 break-words" data-schedule-modal-title>{{ __('Dienst') }}</h3>
             </div>
             <button type="button"
                     class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
                     data-schedule-modal-close
-                    aria-label="Sluiten">
+                    aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto px-5 py-5 space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Datum</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Datum') }}</div>
                     <div class="font-medium text-foreground" data-schedule-modal-date></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Tijd</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Tijd') }}</div>
                     <div class="font-medium text-foreground" data-schedule-modal-time></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Chauffeur</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Chauffeur') }}</div>
                     <div class="font-medium text-foreground" data-schedule-modal-driver></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Voertuig</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Voertuig') }}</div>
                     <div class="font-medium text-foreground" data-schedule-modal-vehicle></div>
                 </div>
             </div>
             <div>
-                <div class="text-xs text-muted-foreground mb-0.5">Notitie</div>
+                <div class="text-xs text-muted-foreground mb-0.5">{{ __('Notitie') }}</div>
                 <div class="text-sm text-foreground whitespace-pre-wrap" data-schedule-modal-notes></div>
             </div>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-input px-5 py-5 shrink-0">
-            <button type="button" class="kt-btn kt-btn-outline" data-schedule-modal-close>Sluiten</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-schedule-modal-close>{{ __('Sluiten') }}</button>
             @if($canManage)
                 <form method="POST" class="hidden" data-schedule-modal-delete-form>
                     @csrf
                     @method('DELETE')
                 </form>
-                <button type="button" class="kt-btn kt-btn-outline text-destructive" data-schedule-modal-delete>Verwijderen</button>
-                <a href="#" class="kt-btn kt-btn-primary hidden" data-schedule-modal-edit>Bewerken</a>
+                <button type="button" class="kt-btn kt-btn-outline text-destructive" data-schedule-modal-delete>{{ __('Verwijderen') }}</button>
+                <a href="#" class="kt-btn kt-btn-primary hidden" data-schedule-modal-edit>{{ __('Bewerken') }}</a>
             @endif
         </div>
     </div>
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function openModal(detail) {
         lastFocus = document.activeElement;
         currentDetail = detail || {};
-        titleEl.textContent = currentDetail.driver || 'Dienst';
+        titleEl.textContent = currentDetail.driver || @json(__('Dienst'));
         dateEl.textContent = currentDetail.date || '—';
         timeEl.textContent = currentDetail.time || '—';
         driverEl.textContent = currentDetail.driver || '—';
@@ -257,12 +257,12 @@ document.addEventListener('DOMContentLoaded', function () {
             var ok = true;
             if (typeof window.showAdminConfirm === 'function') {
                 ok = await window.showAdminConfirm({
-                    title: 'Dienst verwijderen',
-                    message: 'Weet je zeker dat je deze ingeplande dienst wilt verwijderen?',
-                    confirmLabel: 'Verwijderen'
+                    title: @json(__('Dienst verwijderen')),
+                    message: @json(__('Weet je zeker dat je deze ingeplande dienst wilt verwijderen?')),
+                    confirmLabel: @json(__('Verwijderen'))
                 });
             } else {
-                ok = window.confirm('Weet je zeker dat je deze ingeplande dienst wilt verwijderen?');
+                ok = window.confirm(@json(__('Weet je zeker dat je deze ingeplande dienst wilt verwijderen?')));
             }
             if (ok) {
                 deleteForm.submit();

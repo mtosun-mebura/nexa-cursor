@@ -7,7 +7,7 @@
      aria-live="polite"
      aria-busy="false">
     <span class="postcode-lookup-spinner shrink-0" aria-hidden="true"></span>
-    <span>Adres opzoeken…</span>
+    <span>{{ __('Adres opzoeken…') }}</span>
 </div>
 @once
 <style>

@@ -109,7 +109,7 @@ class TransportIndividualBookingController extends Controller
             route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
         );
 
-        return redirect($backUrl)->with('success', 'Individuele contractrit gepland; chauffeurs-rit is gesynchroniseerd.');
+        return redirect($backUrl)->with('success', __('Individuele contractrit gepland; chauffeurs-rit is gesynchroniseerd.'));
     }
 
     public function edit(Request $request, int $customerId, int $contractId, int $bookingId)
@@ -141,7 +141,7 @@ class TransportIndividualBookingController extends Controller
 
         if ($booking->status === TransportIndividualBooking::STATUS_CANCELLED) {
             throw ValidationException::withMessages([
-                'status' => 'Geannuleerde ritten kunnen niet meer worden bewerkt.',
+                'status' => __('Geannuleerde ritten kunnen niet meer worden bewerkt.'),
             ]);
         }
 
@@ -161,7 +161,7 @@ class TransportIndividualBookingController extends Controller
             route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
         );
 
-        return redirect($backUrl)->with('success', 'Individuele contractrit opgeslagen; chauffeurs-rit is gesynchroniseerd.');
+        return redirect($backUrl)->with('success', __('Individuele contractrit opgeslagen; chauffeurs-rit is gesynchroniseerd.'));
     }
 
     public function destroy(int $customerId, int $contractId, int $bookingId)
@@ -173,7 +173,7 @@ class TransportIndividualBookingController extends Controller
         if ($booking->status === TransportIndividualBooking::STATUS_CANCELLED) {
             return redirect()
                 ->route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
-                ->with('success', 'Rit was al geannuleerd.');
+                ->with('success', __('Rit was al geannuleerd.'));
         }
 
         $conn = $booking->getConnectionName();
@@ -182,7 +182,7 @@ class TransportIndividualBookingController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_individual_bookings.index', [$customerId, $contractId])
-            ->with('success', 'Individuele contractrit geannuleerd.');
+            ->with('success', __('Individuele contractrit geannuleerd.'));
     }
 
     /** @return array<string, mixed> */
@@ -201,8 +201,8 @@ class TransportIndividualBookingController extends Controller
             'vehicle_id' => ['required', 'integer'],
             'price_override' => ['nullable', 'numeric', 'min:0'],
         ], [
-            'driver_id.required' => 'Selecteer een vaste chauffeur.',
-            'vehicle_id.required' => 'Selecteer een vast voertuig.',
+            'driver_id.required' => __('Selecteer een vaste chauffeur.'),
+            'vehicle_id.required' => __('Selecteer een vast voertuig.'),
         ]);
 
         $data['driver_id'] = (int) $data['driver_id'];
@@ -221,7 +221,7 @@ class TransportIndividualBookingController extends Controller
             ->where('users.id', $data['driver_id'])
             ->exists();
         if (! $valid) {
-            throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur.']);
+            throw ValidationException::withMessages(['driver_id' => __('Ongeldige chauffeur.')]);
         }
         $this->driverEligibility->assertContractantForContractAssignment((int) $data['driver_id']);
 
@@ -230,7 +230,7 @@ class TransportIndividualBookingController extends Controller
             ->where('id', $data['vehicle_id'])
             ->exists();
         if (! $valid) {
-            throw ValidationException::withMessages(['vehicle_id' => 'Ongeldig voertuig.']);
+            throw ValidationException::withMessages(['vehicle_id' => __('Ongeldig voertuig.')]);
         }
     }
 
@@ -244,7 +244,7 @@ class TransportIndividualBookingController extends Controller
 
         if (! $exists) {
             throw ValidationException::withMessages([
-                'transport_passenger_id' => 'Selecteer een actieve passagier van dit abonnement.',
+                'transport_passenger_id' => __('Selecteer een actieve passagier van dit abonnement.'),
             ]);
         }
     }
@@ -304,7 +304,7 @@ class TransportIndividualBookingController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 }
