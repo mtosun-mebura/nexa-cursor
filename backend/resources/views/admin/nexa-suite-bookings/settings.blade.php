@@ -150,6 +150,156 @@
                 </div>
             </div>
 
+            @php
+                $publicHostEditId = session('public_host_edit');
+                $publicHostShowDraft = (bool) session('public_host_draft');
+            @endphp
+            <div class="kt-card w-full min-w-0" id="publieke-host">
+                <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                    <h3 class="kt-card-title mb-0">{{ __('Publieke host') }}</h3>
+                    <button type="button" class="kt-btn kt-btn-outline shrink-0" id="nexa-public-host-add">
+                        <i class="ki-filled ki-plus me-2"></i>
+                        {{ __('Toevoegen') }}
+                    </button>
+                </div>
+                <div class="kt-card-content p-0">
+                    <div class="px-5 pt-5 pb-5 min-w-0">
+                        <p class="text-sm text-muted-foreground mb-4">
+                            {{ __('De gemarkeerde omgeving is de publieke host voor Mollie-terugkeer en webhooks. In de app kies je zelf welke server je aanroept.') }}
+                        </p>
+                        @if($errors->has('public_hosts'))
+                            <p class="text-sm text-destructive mb-4">{{ $errors->first('public_hosts') }}</p>
+                        @endif
+                        <div class="flex flex-col gap-4">
+                            @foreach(($publicHosts ?? []) as $publicHostRow)
+                                @php
+                                    $rowIsEdit = $publicHostEditId === $publicHostRow['id'];
+                                    $rowNameInvalid = $rowIsEdit && $errors->has('name');
+                                    $rowHostInvalid = $rowIsEdit && $errors->has('host');
+                                    $rowName = $rowIsEdit ? old('name', $publicHostRow['name']) : $publicHostRow['name'];
+                                    $rowHost = $rowIsEdit ? old('host', $publicHostRow['host']) : $publicHostRow['host'];
+                                @endphp
+                                <div class="rounded-lg border border-border px-4 py-4 min-w-0">
+                                    <div class="flex flex-wrap items-start gap-3">
+                                        <div class="min-w-0 w-full sm:w-56 sm:max-w-xs">
+                                            <label class="text-sm text-secondary-foreground mb-1 block" for="nexa-host-name-{{ $publicHostRow['id'] }}">{{ __('Omgeving') }}</label>
+                                            <input type="text"
+                                                   id="nexa-host-name-{{ $publicHostRow['id'] }}"
+                                                   name="name"
+                                                   form="nexa-public-host-{{ $publicHostRow['id'] }}"
+                                                   value="{{ $rowName }}"
+                                                   autocomplete="off"
+                                                   class="kt-input w-full min-w-0 {{ $rowNameInvalid ? 'border-destructive' : '' }}"
+                                                   aria-invalid="{{ $rowNameInvalid ? 'true' : 'false' }}">
+                                            @if($rowNameInvalid)
+                                                <p class="text-sm text-destructive mt-1 mb-0">{{ $errors->first('name') }}</p>
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0 w-full sm:min-w-64 sm:flex-1">
+                                            <label class="text-sm text-secondary-foreground mb-1 block" for="nexa-host-url-{{ $publicHostRow['id'] }}">{{ __('Host') }}</label>
+                                            <div class="flex items-center gap-2">
+                                                <input type="text"
+                                                       id="nexa-host-url-{{ $publicHostRow['id'] }}"
+                                                       name="host"
+                                                       form="nexa-public-host-{{ $publicHostRow['id'] }}"
+                                                       value="{{ $rowHost }}"
+                                                       inputmode="url"
+                                                       autocomplete="off"
+                                                       placeholder="https://nexasuite.nl"
+                                                       class="kt-input min-w-0 flex-1 {{ $rowHostInvalid ? 'border-destructive' : '' }}"
+                                                       aria-invalid="{{ $rowHostInvalid ? 'true' : 'false' }}">
+                                                <button type="submit"
+                                                        form="nexa-public-host-{{ $publicHostRow['id'] }}"
+                                                        class="kt-btn kt-btn-icon kt-btn-primary shrink-0"
+                                                        aria-label="{{ __('Opslaan') }}"
+                                                        title="{{ __('Opslaan') }}">
+                                                    <i class="ki-filled ki-check"></i>
+                                                </button>
+                                                <button type="submit"
+                                                        form="nexa-public-host-delete-{{ $publicHostRow['id'] }}"
+                                                        class="kt-btn kt-btn-icon kt-btn-outline shrink-0"
+                                                        aria-label="{{ __('Verwijderen') }}"
+                                                        title="{{ __('Verwijderen') }}">
+                                                    <i class="ki-filled ki-trash"></i>
+                                                </button>
+                                            </div>
+                                            @if($rowHostInvalid)
+                                                <p class="text-sm text-destructive mt-1 mb-0">{{ $errors->first('host') }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="pt-4">
+                                        <button type="submit"
+                                                form="nexa-public-host-pay-{{ $publicHostRow['id'] }}"
+                                                class="kt-btn kt-btn-sm {{ $publicHostRow['payments'] ? 'kt-btn-primary' : 'kt-btn-outline' }}"
+                                                aria-pressed="{{ $publicHostRow['payments'] ? 'true' : 'false' }}">
+                                            @if($publicHostRow['payments'])
+                                                <i class="ki-filled ki-check me-2"></i>
+                                            @endif
+                                            {{ __('Gebruik voor betalingen') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                            <div id="nexa-public-host-draft" class="rounded-lg border border-border px-4 py-4 min-w-0 {{ $publicHostShowDraft ? '' : 'hidden' }}">
+                                @php
+                                    $draftNameInvalid = $publicHostShowDraft && $errors->has('name');
+                                    $draftHostInvalid = $publicHostShowDraft && $errors->has('host');
+                                @endphp
+                                <div class="flex flex-wrap items-start gap-3">
+                                    <div class="min-w-0 w-full sm:w-56 sm:max-w-xs">
+                                        <label class="text-sm text-secondary-foreground mb-1 block" for="nexa-host-name-new">{{ __('Omgeving') }}</label>
+                                        <input type="text"
+                                               id="nexa-host-name-new"
+                                               name="name"
+                                               form="nexa-public-host-new"
+                                               value="{{ $publicHostShowDraft ? old('name') : '' }}"
+                                               autocomplete="off"
+                                               class="kt-input w-full min-w-0 {{ $draftNameInvalid ? 'border-destructive' : '' }}"
+                                               aria-invalid="{{ $draftNameInvalid ? 'true' : 'false' }}">
+                                        @if($draftNameInvalid)
+                                            <p class="text-sm text-destructive mt-1 mb-0">{{ $errors->first('name') }}</p>
+                                        @endif
+                                    </div>
+                                    <div class="min-w-0 w-full sm:min-w-64 sm:flex-1">
+                                        <label class="text-sm text-secondary-foreground mb-1 block" for="nexa-host-url-new">{{ __('Host') }}</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="text"
+                                                   id="nexa-host-url-new"
+                                                   name="host"
+                                                   form="nexa-public-host-new"
+                                                   value="{{ $publicHostShowDraft ? old('host') : '' }}"
+                                                   inputmode="url"
+                                                   autocomplete="off"
+                                                   placeholder="https://nexasuite.nl"
+                                                   class="kt-input min-w-0 flex-1 {{ $draftHostInvalid ? 'border-destructive' : '' }}"
+                                                   aria-invalid="{{ $draftHostInvalid ? 'true' : 'false' }}">
+                                            <button type="submit"
+                                                    form="nexa-public-host-new"
+                                                    class="kt-btn kt-btn-icon kt-btn-primary shrink-0"
+                                                    aria-label="{{ __('Opslaan') }}"
+                                                    title="{{ __('Opslaan') }}">
+                                                <i class="ki-filled ki-check"></i>
+                                            </button>
+                                            <button type="button"
+                                                    id="nexa-public-host-draft-discard"
+                                                    class="kt-btn kt-btn-icon kt-btn-outline shrink-0"
+                                                    aria-label="{{ __('Verwijderen') }}"
+                                                    title="{{ __('Verwijderen') }}">
+                                                <i class="ki-filled ki-trash"></i>
+                                            </button>
+                                        </div>
+                                        @if($draftHostInvalid)
+                                            <p class="text-sm text-destructive mt-1 mb-0">{{ $errors->first('host') }}</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header px-5 py-5"><h3 class="kt-card-title mb-0">{{ __('Provisie') }}</h3></div>
                 <div class="kt-card-content p-5">
@@ -388,6 +538,56 @@
     <form id="fee-refresh-prices-form" method="POST" action="{{ route('admin.nexa-suite-bookings.settings.refresh-prices') }}" class="hidden">
         @csrf
     </form>
+    @foreach(($publicHosts ?? []) as $publicHostRow)
+        <form id="nexa-public-host-{{ $publicHostRow['id'] }}" method="POST" action="{{ route('admin.nexa-suite-bookings.settings.public-hosts.update', $publicHostRow['id']) }}" class="hidden" novalidate>
+            @csrf
+            @method('PUT')
+        </form>
+        <form id="nexa-public-host-delete-{{ $publicHostRow['id'] }}"
+              method="POST"
+              action="{{ route('admin.nexa-suite-bookings.settings.public-hosts.destroy', $publicHostRow['id']) }}"
+              class="hidden"
+              data-confirm-title="{{ __('Omgeving verwijderen') }}"
+              data-admin-confirm-label="{{ __('Verwijderen') }}"
+              data-confirm-message="{{ __('Weet je zeker dat je de omgeving “:name” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.', ['name' => $publicHostRow['name']]) }}">
+            @csrf
+            @method('DELETE')
+        </form>
+        <form id="nexa-public-host-pay-{{ $publicHostRow['id'] }}" method="POST" action="{{ route('admin.nexa-suite-bookings.settings.public-hosts.payments', $publicHostRow['id']) }}" class="hidden">
+            @csrf
+        </form>
+    @endforeach
+    <form id="nexa-public-host-new" method="POST" action="{{ route('admin.nexa-suite-bookings.settings.public-hosts.store') }}" class="hidden" novalidate>
+        @csrf
+    </form>
+    <script>
+    (function () {
+        var add = document.getElementById('nexa-public-host-add');
+        var draft = document.getElementById('nexa-public-host-draft');
+        if (!add || !draft) return;
+        add.addEventListener('click', function () {
+            draft.classList.remove('hidden');
+            var input = document.getElementById('nexa-host-name-new');
+            if (input) input.focus();
+        });
+        var discard = document.getElementById('nexa-public-host-draft-discard');
+        if (discard) {
+            discard.addEventListener('click', function () {
+                draft.classList.add('hidden');
+                ['nexa-host-name-new', 'nexa-host-url-new'].forEach(function (id) {
+                    var field = document.getElementById(id);
+                    if (!field) return;
+                    field.value = '';
+                    field.classList.remove('border-destructive');
+                    field.setAttribute('aria-invalid', 'false');
+                });
+                draft.querySelectorAll('.text-destructive').forEach(function (el) {
+                    el.remove();
+                });
+            });
+        }
+    })();
+    </script>
 
     @php
         $eur = fn ($v) => '€'.number_format((float) $v, 2, ',', '.');

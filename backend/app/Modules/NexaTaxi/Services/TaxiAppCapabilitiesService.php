@@ -52,6 +52,12 @@ class TaxiAppCapabilitiesService
         $networkEnabled = $canDriver && $companyId > 0 && $this->dispatchSettings->networkEnabled($companyId);
         $marketplaceMode = $canDriver && $isMarketplace;
 
+        // Platform-super-admin heeft vaak geen chauffeur- of portaalrol. Geen nep-rol in de
+        // database: wel het bestaande chauffeurscherm, zodat de app na login open kan.
+        if ($user->isSuperAdmin() && ! $canDriver && ! $canContract) {
+            $canDriver = true;
+        }
+
         $screens = [];
 
         if ($canDriver) {

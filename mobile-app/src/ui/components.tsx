@@ -64,7 +64,7 @@ export function Field({
   value: string;
   onChangeText: (v: string) => void;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'number-pad' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address' | 'number-pad' | 'phone-pad' | 'url';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   placeholder?: string;
   autoComplete?: 'off' | 'email' | 'password' | 'username' | 'tel' | 'name';

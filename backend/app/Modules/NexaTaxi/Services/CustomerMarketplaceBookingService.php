@@ -209,7 +209,7 @@ class CustomerMarketplaceBookingService
         $checkoutUrl = null;
         $appReturn = $returnUrl !== ''
             ? $returnUrl
-            : url('/taxi/klant');
+            : app(\App\Services\NexaSuitePublicHost::class)->withPublicHost(url('/taxi/klant'));
         $separator = str_contains($appReturn, '?') ? '&' : '?';
         $appReturn .= $separator.'boeking=betaald&token='.urlencode($trackToken);
 
@@ -229,7 +229,7 @@ class CustomerMarketplaceBookingService
         }
 
         try {
-            $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price);
+            $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price, true);
             $checkoutUrl = $paymentResult['checkout_url'];
         } catch (ValidationException $e) {
             throw $e;
@@ -291,7 +291,7 @@ class CustomerMarketplaceBookingService
 
         $appReturn = is_string($returnUrl) ? trim($returnUrl) : '';
         if ($appReturn === '') {
-            $appReturn = url('/taxi/klant');
+            $appReturn = app(\App\Services\NexaSuitePublicHost::class)->withPublicHost(url('/taxi/klant'));
         }
         $separator = str_contains($appReturn, '?') ? '&' : '?';
         if (! str_contains($appReturn, 'token=')) {
@@ -314,7 +314,7 @@ class CustomerMarketplaceBookingService
         );
         $ride->update(['booking_payload' => $payload]);
 
-        $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price);
+        $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price, true);
 
         return [
             'ride' => $ride->fresh() ?? $ride,

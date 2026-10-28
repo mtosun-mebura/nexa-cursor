@@ -47,7 +47,7 @@ import { DARK_MAP_STYLE, bearingDegrees, fetchDrivingRoute, type LatLng } from '
 import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { playRideAlertTone } from '../audio/rideAlert';
-import { API_BASE_URL, ColorPalette } from '../config';
+import { getApiBaseUrl, ColorPalette } from '../config';
 import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
 import { AppearanceControls } from '../ui/AppearanceControls';
 import { DemoModeRow } from '../ui/DemoModeRow';
@@ -77,8 +77,9 @@ function resolveMediaUrl(url?: string | null): string | null {
   if (!raw) return null;
   if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith('//')) return `https:${raw}`;
-  if (raw.startsWith('/')) return `${API_BASE_URL}${raw}`;
-  return `${API_BASE_URL}/${raw}`;
+  const apiBase = getApiBaseUrl();
+  if (raw.startsWith('/')) return `${apiBase}${raw}`;
+  return `${apiBase}/${raw}`;
 }
 
 const ROLE_LABEL: Record<string, string> = {

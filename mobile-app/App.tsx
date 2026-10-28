@@ -7,6 +7,7 @@ import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
+import { hydrateApiBase } from './src/config';
 import { DemoProvider, useDemo } from './src/demo/DemoContext';
 import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
 import { parseAppDeepLink } from './src/linking';
@@ -246,6 +247,20 @@ function AppShell() {
 }
 
 export default function App() {
+  const [baseReady, setBaseReady] = useState(false);
+
+  useEffect(() => {
+    hydrateApiBase().finally(() => setBaseReady(true));
+  }, []);
+
+  if (!baseReady) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: '#0B1220' }} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>

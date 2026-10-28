@@ -97,10 +97,11 @@ module.exports = () => {
   config.extra = {
     ...(config.extra || {}),
     apiBaseUrl:
-      process.env.EXPO_PUBLIC_API_BASE_URL || config.extra?.apiBaseUrl || 'https://nexasuite.online',
+      process.env.EXPO_PUBLIC_API_BASE_URL || config.extra?.apiBaseUrl || 'https://nexasuite.nl',
     // getExpoPushTokenAsync needs extra.eas.projectId (or EXPO_PUBLIC_EAS_PROJECT_ID).
     // Android also needs google-services.json plus an FCM v1 service account on the Expo project.
-    // Do not set a project id here until `eas init` has created one.
+    // TODO (after eas init): set EXPO_PUBLIC_EAS_PROJECT_ID, or let `eas init` write projectId —
+    // do not invent a fake UUID.
   };
 
   const easProjectId = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '').trim();

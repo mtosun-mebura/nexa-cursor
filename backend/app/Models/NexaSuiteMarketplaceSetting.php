@@ -34,6 +34,8 @@ class NexaSuiteMarketplaceSetting extends Model
         'invoice_payment_terms_text',
         'mollie_api_key',
         'mollie_webhook_url',
+        'public_base_url',
+        'public_hosts',
     ];
 
     protected $hidden = [
@@ -43,6 +45,7 @@ class NexaSuiteMarketplaceSetting extends Model
     protected $casts = [
         'fee_percent' => 'integer',
         'fee_minimum_settings' => 'array',
+        'public_hosts' => 'array',
         'allow_marketplace_network_owner' => 'boolean',
         'auto_generate' => 'boolean',
         'auto_send' => 'boolean',

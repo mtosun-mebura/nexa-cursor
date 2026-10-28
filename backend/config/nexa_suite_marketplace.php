@@ -35,4 +35,13 @@ return [
     'invoice_number_prefix' => 'NSB',
     'invoice_number_format' => '{prefix}-{year}-{number}',
     'invoice_title' => 'NEXA Suite boekingsfactuur',
+    /**
+     * Publieke host voor Mollie-redirects en webhooks van betalingen uit de native app.
+     * Lege databasekolom valt hierop terug. De app kiest zelf welke server hij aanroept.
+     */
+    'public_base_url' => 'https://nexasuite.nl',
+    'public_environments' => [
+        'productie' => 'https://nexasuite.nl',
+        'test' => 'https://nexasuite.online',
+    ],
 ];

@@ -132,6 +132,11 @@ class TaxiAppFirstLoginService
 
     public function userMayUseChannel(User $user, string $channel): bool
     {
+        if ($user->isSuperAdmin()
+            && in_array($channel, [self::CHANNEL_DRIVER, self::CHANNEL_CONTRACT], true)) {
+            return true;
+        }
+
         $companyId = (int) ($user->company_id ?? 0);
         if ($companyId <= 0) {
             return false;

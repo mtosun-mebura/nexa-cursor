@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\NexaSuitePublicHost;
 use App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
@@ -257,6 +258,17 @@ class AppBootstrapController extends Controller
             ],
             'capabilities' => $caps,
             'tokens' => $tokens,
+        ]);
+    }
+
+    public function environments(NexaSuitePublicHost $hosts): JsonResponse
+    {
+        return response()->json([
+            'default_host' => NexaSuitePublicHost::DEFAULT_URL,
+            'environments' => array_map(static fn (array $entry): array => [
+                'name' => $entry['name'],
+                'host' => $entry['host'],
+            ], $hosts->entries()),
         ]);
     }
 }

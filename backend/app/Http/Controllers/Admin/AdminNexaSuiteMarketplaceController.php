@@ -13,12 +13,14 @@ use App\Services\NexaSuiteMarketplaceInvoicePdfService;
 use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\RideSettlementEligibilityService;
 use App\Services\NexaSuiteMollieService;
+use App\Services\NexaSuitePublicHost;
 use App\Services\PaymentProviderService;
 use App\Support\Admin\AdminTenantScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AdminNexaSuiteMarketplaceController extends Controller
@@ -187,7 +189,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
     }
 
-    public function settings(Request $request, NexaSuiteMollieService $mollie): View
+    public function settings(Request $request, NexaSuiteMollieService $mollie, NexaSuitePublicHost $publicHost): View
     {
         $this->ensureSuperAdmin();
         $settings = NexaSuiteMarketplaceSetting::current();
@@ -216,7 +218,8 @@ class AdminNexaSuiteMarketplaceController extends Controller
             'mollieApiKeyMasked' => $settings->maskedMollieApiKey(),
             'mollieKeyMode' => $mollie->keyMode(),
             'mollieFromPlatformFallback' => ! $settings->hasStoredMollieApiKey() && $mollie->usesPlatformBillingFallback(),
-            'defaultTaxiWebhookUrl' => url('/api/taxi/webhooks/mollie'),
+            'defaultTaxiWebhookUrl' => $publicHost->withPublicHost('/api/taxi/webhooks/mollie'),
+            'publicHosts' => $publicHost->entries(),
             'nav' => 'settings',
         ]);
     }
@@ -298,6 +301,7 @@ class AdminNexaSuiteMarketplaceController extends Controller
         ]);
 
         $settings = NexaSuiteMarketplaceSetting::current();
+
         $feeMinimum = array_filter([
             'enabled' => $request->has('fee_minimum_enabled') ? $request->boolean('fee_minimum_enabled') : null,
             'methods' => collect($validated['fee_methods'] ?? [])
@@ -362,6 +366,73 @@ class AdminNexaSuiteMarketplaceController extends Controller
         return redirect()
             ->route('admin.nexa-suite-bookings.settings')
             ->with('success', __('Instellingen opgeslagen.'));
+    }
+
+    public function storePublicHost(Request $request, NexaSuitePublicHost $hosts): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $hosts->add((string) $request->input('name'), (string) $request->input('host'));
+        } catch (ValidationException $e) {
+            return $this->publicHostError($e, ['public_host_draft' => '1']);
+        }
+
+        return redirect()
+            ->route('admin.nexa-suite-bookings.settings')
+            ->with('success', __('Omgeving opgeslagen.'));
+    }
+
+    public function updatePublicHost(Request $request, string $hostId, NexaSuitePublicHost $hosts): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $hosts->update($hostId, (string) $request->input('name'), (string) $request->input('host'));
+        } catch (ValidationException $e) {
+            return $this->publicHostError($e, ['public_host_edit' => $hostId]);
+        }
+
+        return redirect()
+            ->route('admin.nexa-suite-bookings.settings')
+            ->with('success', __('Omgeving opgeslagen.'));
+    }
+
+    public function destroyPublicHost(string $hostId, NexaSuitePublicHost $hosts): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        try {
+            $hosts->delete($hostId);
+        } catch (ValidationException $e) {
+            return $this->publicHostError($e);
+        }
+
+        return redirect()
+            ->route('admin.nexa-suite-bookings.settings')
+            ->with('success', __('Omgeving verwijderd.'));
+    }
+
+    public function usePublicHostForPayments(string $hostId, NexaSuitePublicHost $hosts): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+        $hosts->useForPayments($hostId);
+
+        return redirect()
+            ->route('admin.nexa-suite-bookings.settings')
+            ->with('success', __('Deze omgeving wordt gebruikt voor betalingen.'));
+    }
+
+    /**
+     * @param  array<string, string>  $flash
+     */
+    private function publicHostError(ValidationException $e, array $flash = []): RedirectResponse
+    {
+        return redirect()
+            ->route('admin.nexa-suite-bookings.settings')
+            ->withInput()
+            ->withErrors($e->errors())
+            ->with($flash);
     }
 
     public function refreshFeePrices(\App\Services\Payout\MollieMethodPricingFetcher $fetcher): RedirectResponse

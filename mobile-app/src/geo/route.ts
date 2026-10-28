@@ -1,6 +1,6 @@
 import { dateLocale, t } from '../i18n';
 import * as Location from 'expo-location';
-import { API_BASE_URL } from '../config';
+import { resolveApiBaseUrl } from '../config';
 
 export type GeoPoint = {
   lat: number;
@@ -209,8 +209,9 @@ export function formatAddress(parts: Location.LocationGeocodedAddress): string {
 
 async function reverseViaBackend(lat: number, lng: number): Promise<string | null> {
   try {
+    const base = await resolveApiBaseUrl();
     const url =
-      `${API_BASE_URL}/nexa-taxi/booking/address-search?` +
+      `${base}/nexa-taxi/booking/address-search?` +
       `lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
@@ -305,8 +306,9 @@ function suggestionMatchScore(label: string, query: string): number {
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
   const q = query.trim();
   if (q.length < 3) return [];
+  const base = await resolveApiBaseUrl();
   const url =
-    `${API_BASE_URL}/nexa-taxi/booking/address-search?` +
+    `${base}/nexa-taxi/booking/address-search?` +
     `q=${encodeURIComponent(q)}&countrycodes=nl&limit=8&accept-language=nl&addressdetails=1`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) return [];

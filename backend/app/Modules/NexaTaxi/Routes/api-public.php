@@ -6,6 +6,8 @@ use App\Modules\NexaTaxi\Controllers\Api\TaxiMollieWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/app')->group(function () {
+    Route::get('environments', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'environments'])
+        ->middleware('throttle:taxi-customer-read');
     Route::post('login', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'login'])
         ->middleware('throttle:taxi-app-login-code');
     Route::post('marketplace/register', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'registerMarketplace'])

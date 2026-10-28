@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import { API_BASE_URL } from '../config';
+import { resolveApiBaseUrl } from '../config';
 
 export type QuoteOffer = {
   id: string;
@@ -194,7 +194,8 @@ export async function fetchNearbyTaxis(input: {
     radius_km: String(input.radiusKm ?? 50),
     section_key: MARKETPLACE_SECTION,
   });
-  const res = await fetch(`${API_BASE_URL}/nexa-taxi/booking/nearby-taxis?${params}`, {
+  const base = await resolveApiBaseUrl();
+  const res = await fetch(`${base}/nexa-taxi/booking/nearby-taxis?${params}`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) return [];
