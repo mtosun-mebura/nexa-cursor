@@ -40,6 +40,8 @@ class AdminLocaleSwitchTest extends TestCase
 
         $this->assertSame('nl', app()->getLocale());
         $this->assertStringContainsString('id="admin-locale-switch"', $html);
+        $this->assertStringContainsString('data-admin-locale-switch', $html);
+        $this->assertStringContainsString('admin-scroll-after-locale', $html);
         $this->assertStringContainsString('data-locale-target="en"', $html);
         $this->assertStringContainsString('title="English"', $html);
         $this->assertStringContainsString(route('admin.locale.switch', 'en'), $html);

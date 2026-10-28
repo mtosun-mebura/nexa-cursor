@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../config';
+import { resolveApiBaseUrl } from '../config';
 import { t } from '../i18n';
 import { alertUnseenDriverOffers } from '../notifications/offerAlertWatch';
 
@@ -50,7 +50,8 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   const speed = latest.coords.speed;
 
   try {
-    await fetch(`${API_BASE_URL}/api/taxi/v1/driver/availability/location`, {
+    const base = await resolveApiBaseUrl();
+    await fetch(`${base}/api/taxi/v1/driver/availability/location`, {
       method: 'PUT',
       headers: {
         Accept: 'application/json',

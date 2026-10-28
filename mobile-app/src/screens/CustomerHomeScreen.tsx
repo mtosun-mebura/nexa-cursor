@@ -109,7 +109,7 @@ import {
   useDemoTaxis,
 } from '../demo/taxiSimulation';
 import { PickupAtField } from '../ui/PickupAtPicker';
-import { API_BASE_URL, ColorPalette } from '../config';
+import { resolveApiBaseUrl, ColorPalette } from '../config';
 import { useI18n, t, dateLocale } from '../i18n';
 import { ThemePreference, useTheme } from '../theme/ThemeContext';
 
@@ -1689,7 +1689,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   async function onDownloadInvoice(token: string) {
-    const url = `${API_BASE_URL}/api/taxi/v1/customer/live/invoice?token=${encodeURIComponent(token)}`;
+    const url = `${await resolveApiBaseUrl()}/api/taxi/v1/customer/live/invoice?token=${encodeURIComponent(token)}`;
     try {
       await Linking.openURL(url);
     } catch {

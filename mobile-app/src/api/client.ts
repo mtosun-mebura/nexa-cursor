@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config';
+import { resolveApiBaseUrl } from '../config';
 
 export class ApiError extends Error {
   status: number;
@@ -69,12 +69,14 @@ export async function apiRequest<T>(
     Accept: 'application/json',
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
+    'X-Nexa-Client': 'native',
   };
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const base = await resolveApiBaseUrl();
+  const res = await fetch(`${base}${path}`, {
     method: options.method || 'GET',
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
@@ -139,12 +141,14 @@ export async function apiUpload<T>(
     if (value !== '') form.append(key, value);
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const base = await resolveApiBaseUrl();
+  const res = await fetch(`${base}${path}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${options.token}`,
       'X-Requested-With': 'XMLHttpRequest',
+      'X-Nexa-Client': 'native',
     },
     body: form,
   });

@@ -262,7 +262,7 @@ class DriverAuthController extends Controller
         }
 
         $companyId = (int) $user->company_id;
-        if ($companyId <= 0 || ! $eligibility->isChauffeurForCompany($user, $companyId)) {
+        if (! $user->isSuperAdmin() && ($companyId <= 0 || ! $eligibility->isChauffeurForCompany($user, $companyId))) {
             return response()->json([
                 'message' => 'Dit account heeft geen chauffeur-toegang.',
             ], 403);

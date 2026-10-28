@@ -5,6 +5,7 @@
 @endphp
 <a href="{{ route('admin.locale.switch', $adminLocaleTarget) }}"
    id="admin-locale-switch"
+   data-admin-locale-switch
    data-locale-target="{{ $adminLocaleTarget }}"
    class="kt-btn kt-btn-ghost kt-btn-icon size-8 hover:bg-background shrink-0"
    title="{{ $adminLocaleLabel }}"

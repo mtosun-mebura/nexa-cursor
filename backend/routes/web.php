@@ -922,6 +922,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::get('werkwijze', [AdminNexaSuiteMarketplaceController::class, 'procedure'])->name('procedure');
             Route::get('settings', [AdminNexaSuiteMarketplaceController::class, 'settings'])->name('settings');
             Route::put('settings', [AdminNexaSuiteMarketplaceController::class, 'updateSettings'])->name('settings.update');
+            Route::post('settings/public-hosts', [AdminNexaSuiteMarketplaceController::class, 'storePublicHost'])->name('settings.public-hosts.store');
+            Route::put('settings/public-hosts/{hostId}', [AdminNexaSuiteMarketplaceController::class, 'updatePublicHost'])->name('settings.public-hosts.update');
+            Route::delete('settings/public-hosts/{hostId}', [AdminNexaSuiteMarketplaceController::class, 'destroyPublicHost'])->name('settings.public-hosts.destroy');
+            Route::post('settings/public-hosts/{hostId}/payments', [AdminNexaSuiteMarketplaceController::class, 'usePublicHostForPayments'])->name('settings.public-hosts.payments');
             Route::post('settings/refresh-prices', [AdminNexaSuiteMarketplaceController::class, 'refreshFeePrices'])->name('settings.refresh-prices');
             Route::post('generate', [AdminNexaSuiteMarketplaceController::class, 'generate'])->name('generate');
             Route::post('run-now', [AdminNexaSuiteMarketplaceController::class, 'runNow'])->name('run-now');

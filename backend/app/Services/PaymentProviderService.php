@@ -230,8 +230,8 @@ class PaymentProviderService
     }
 
     /**
-     * Sla de Mollie-omgeving van één tenant op. Betalingen (chauffeur-app, boeking)
-     * gebruiken deze API-sleutel, dus het geld komt op de Mollie-rekening van de tenant.
+     * Sla de Mollie-omgeving van één tenant op. Boekingen via de tenant-website
+     * gebruiken deze API-sleutel. Betalingen uit de native Nexa Taxi-app lopen via Nexa Suite.
      *
      * @throws \Illuminate\Validation\ValidationException
      */

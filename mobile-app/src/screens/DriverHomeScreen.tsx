@@ -74,7 +74,7 @@ import {
 import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { API_BASE_URL, ColorPalette } from '../config';
+import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import { ensureForegroundLocationPermission, LOCATION_SETTINGS_HINT } from '../location/background';
 import {
   clampGpsRefreshSeconds,
@@ -315,12 +315,13 @@ function resolveMediaUrl(url?: string | null): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
   if (raw.startsWith('//')) return `https:${raw}`;
-  if (raw.startsWith('/')) return `${API_BASE_URL}${raw}`;
-  if (!/^https?:\/\//i.test(raw)) return `${API_BASE_URL}/${raw}`;
+  const apiBase = getApiBaseUrl();
+  if (raw.startsWith('/')) return `${apiBase}${raw}`;
+  if (!/^https?:\/\//i.test(raw)) return `${apiBase}/${raw}`;
   try {
     const parsed = new URL(raw);
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-      const base = new URL(API_BASE_URL);
+      const base = new URL(apiBase);
       parsed.protocol = base.protocol;
       parsed.host = base.host;
       return parsed.toString();
@@ -1717,8 +1718,9 @@ export function DriverHomeScreen() {
   };
 
   const openHandleiding = () => {
-    const url = `${API_BASE_URL}/taxi/chauffeur/handleiding`;
-    Linking.openURL(url).catch(() => undefined);
+    void resolveApiBaseUrl().then((base) => {
+      Linking.openURL(`${base}/taxi/chauffeur/handleiding`).catch(() => undefined);
+    });
   };
 
   const chooseImageSource = (): Promise<'library' | 'files' | null> =>

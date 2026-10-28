@@ -1462,7 +1462,43 @@
     <script>
     (function() {
         var SCROLL_KEY = 'admin-scroll-after-save';
+        var LOCALE_SCROLL_KEY = 'admin-scroll-after-locale';
         var IGNORE_ROW_SEL = 'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell';
+
+        // Taalwissel: scroll eenmalig bewaren. De key gaat direct weg, zodat een latere navigatie bovenaan start.
+        var localeScrollY = null;
+        try {
+            var rawLocaleScroll = sessionStorage.getItem(LOCALE_SCROLL_KEY);
+            if (rawLocaleScroll !== null && rawLocaleScroll !== '') {
+                sessionStorage.removeItem(LOCALE_SCROLL_KEY);
+                var parsedLocaleScroll = parseInt(rawLocaleScroll, 10);
+                if (!isNaN(parsedLocaleScroll) && parsedLocaleScroll >= 0) {
+                    localeScrollY = parsedLocaleScroll;
+                }
+            }
+        } catch (err) {}
+        function restoreLocaleScroll() {
+            if (localeScrollY === null) return;
+            if ('scrollRestoration' in history) {
+                try { history.scrollRestoration = 'manual'; } catch (err) {}
+            }
+            window.scrollTo(0, localeScrollY);
+        }
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented) return;
+            if (e.button && e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var localeTarget = e.target;
+            if (!localeTarget || typeof localeTarget.closest !== 'function') return;
+            var localeLink = localeTarget.closest('#admin-locale-switch, a[data-admin-locale-switch]');
+            if (!localeLink) return;
+            try {
+                sessionStorage.setItem(LOCALE_SCROLL_KEY, String(window.scrollY || window.pageYOffset || 0));
+            } catch (err) {}
+        }, true);
+        restoreLocaleScroll();
+        requestAnimationFrame(restoreLocaleScroll);
+        window.addEventListener('load', restoreLocaleScroll);
 
         function readPayload() {
             try {

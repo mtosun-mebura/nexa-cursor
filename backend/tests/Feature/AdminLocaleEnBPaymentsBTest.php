@@ -148,12 +148,22 @@ class AdminLocaleEnBPaymentsBTest extends TestCase
 
         $settings = $this->actingAs($admin)->withSession($session)
             ->get(route('admin.nexa-suite-bookings.settings'))->assertOk()->getContent();
-        foreach (['NEXA Suite booking settings', 'How this is used', 'Platform collect is on', 'Mollie (customer app / marketplace)', 'API key', 'Webhook URL', 'Commission', 'Minimum fee (Mollie costs)', 'Fetch prices from Mollie', 'Automatic specification (PDF)', 'VAT &amp; reminders', 'Invoice header (PDF)', 'Overview of fee and what you keep', 'Driver receives', 'You keep', 'Save'] as $english) {
+        foreach (['NEXA Suite booking settings', 'How this is used', 'Platform collect is on', 'Mollie (customer app / marketplace)', 'API key', 'Webhook URL', 'Commission', 'Minimum fee (Mollie costs)', 'Fetch prices from Mollie', 'Automatic specification (PDF)', 'VAT &amp; reminders', 'Invoice header (PDF)', 'Overview of fee and what you keep', 'Driver receives', 'You keep', 'Save', 'Public host', 'Use for payments', 'The marked environment is the public host for Mollie return URLs and webhooks. In the app you choose which server to call.', 'Environment', 'Delete environment', 'Are you sure you want to delete the environment “Productie”? This cannot be undone.'] as $english) {
             $this->assertStringContainsString($english, $settings, $english);
         }
-        foreach (['NEXA Suite boekingsinstellingen', 'Hoe dit gebruikt wordt', 'Platform collect staat aan', 'Provisie', 'Minimale fee', 'Prijzen bij Mollie ophalen', 'Automatische specificatie', 'BTW &amp; aanmaningen', 'Factuurkop', 'Chauffeur krijgt', 'Jij houdt over', 'Opslaan'] as $dutch) {
+        foreach (['NEXA Suite boekingsinstellingen', 'Hoe dit gebruikt wordt', 'Platform collect staat aan', 'Provisie', 'Minimale fee', 'Prijzen bij Mollie ophalen', 'Automatische specificatie', 'BTW &amp; aanmaningen', 'Factuurkop', 'Chauffeur krijgt', 'Jij houdt over', 'Opslaan', 'Publieke host', 'Gebruik voor betalingen', 'De gemarkeerde omgeving', 'Toevoegen', 'aria-label="Verwijderen"', 'Omgeving verwijderen'] as $dutch) {
             $this->assertStringNotContainsString($dutch, $this->visibleHtml($settings), $dutch);
         }
+        $this->assertStringContainsString('aria-label="Delete"', $settings);
+        $this->assertStringContainsString('aria-label="Save"', $settings);
+
+        $this->actingAs($admin)->withSession($session)
+            ->post(route('admin.nexa-suite-bookings.settings.public-hosts.store'), [
+                'name' => 'Locale host',
+                'host' => 'https://locale.example.nl',
+            ])
+            ->assertRedirect(route('admin.nexa-suite-bookings.settings'))
+            ->assertSessionHas('success', 'Environment saved.');
 
         $procedure = $this->actingAs($admin)->withSession($session)
             ->get(route('admin.nexa-suite-bookings.procedure'))->assertOk()->getContent();
@@ -234,7 +244,7 @@ class AdminLocaleEnBPaymentsBTest extends TestCase
         }
 
         $settings = $this->actingAs($admin)->withSession($session)->get(route('admin.nexa-suite-bookings.settings'))->assertOk()->getContent();
-        foreach (['NEXA Suite boekingsinstellingen', 'Hoe dit gebruikt wordt', 'Platform collect staat aan', 'Minimale fee (Mollie-kosten)', 'Jij houdt over', 'Opslaan'] as $dutch) {
+        foreach (['NEXA Suite boekingsinstellingen', 'Hoe dit gebruikt wordt', 'Platform collect staat aan', 'Minimale fee (Mollie-kosten)', 'Jij houdt over', 'Opslaan', 'Publieke host', 'Gebruik voor betalingen', 'Toevoegen', 'De gemarkeerde omgeving is de publieke host voor Mollie-terugkeer en webhooks. In de app kies je zelf welke server je aanroept.', 'Weet je zeker dat je de omgeving “Productie” wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'] as $dutch) {
             $this->assertStringContainsString($dutch, $settings, $dutch);
         }
 

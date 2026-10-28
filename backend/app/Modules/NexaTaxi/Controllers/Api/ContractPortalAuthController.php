@@ -166,6 +166,13 @@ class ContractPortalAuthController extends Controller
         app(TaxiContractvervoerSchemaService::class)->ensureContractPortalTables($conn);
 
         $context = $access->resolveContext($conn, $user);
+        if ($context === null && $user->isSuperAdmin()) {
+            $context = [
+                'company_id' => (int) ($user->company_id ?? 0),
+                'transport_customer_id' => 0,
+                'portal_role' => TransportCustomerPortalUser::ROLE_CONTRACTANT,
+            ];
+        }
         if ($context === null) {
             return response()->json([
                 'message' => 'Dit account heeft geen toegang tot het contractportaal.',
