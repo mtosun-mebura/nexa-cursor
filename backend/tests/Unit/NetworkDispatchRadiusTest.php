@@ -911,4 +911,166 @@ class NetworkDispatchRadiusTest extends TestCase
                 && str_contains((string) ($message['body'] ?? ''), 'Damrak 1');
         });
     }
+
+    #[Test]
+    public function paid_marketplace_ride_with_past_pickup_still_reaches_the_online_driver_inbox(): void
+    {
+        $company = Company::query()->create(['name' => 'Past Pickup Taxi', 'is_active' => true]);
+        $other = Company::query()->create(['name' => 'Other Past Taxi', 'is_active' => true]);
+
+        $online = User::factory()->create(['company_id' => $company->id]);
+        $online->assignRole('chauffeur');
+        $offline = User::factory()->create(['company_id' => $company->id]);
+        $offline->assignRole('chauffeur');
+        $otherDriver = User::factory()->create(['company_id' => $other->id]);
+        $otherDriver->assignRole('chauffeur');
+
+        foreach ([[$online, true], [$offline, false], [$otherDriver, true]] as [$driver, $isOnline]) {
+            DriverAvailability::on('module_taxi')->create([
+                'driver_id' => $driver->id,
+                'company_id' => $driver->company_id,
+                'is_online' => $isOnline,
+                'lat' => 52.2290,
+                'lng' => 6.8894,
+                'last_seen_at' => now(),
+                'location_updated_at' => now(),
+            ]);
+        }
+
+        $stalePickup = now('Europe/Amsterdam')->subHours(6)->format('Y-m-d H:i:s');
+        $futurePickup = now('Europe/Amsterdam')->addHours(3)->format('Y-m-d H:i:s');
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'status' => RideRequest::STATUS_PENDING_PAYMENT,
+            'payment_method' => RideRequest::PAYMENT_METHOD_BOOKING,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PENDING,
+            'pickup_address' => 'Roombeek',
+            'dropoff_address' => 'Station Enschede',
+            'pickup_lat' => 52.2290,
+            'pickup_lng' => 6.8894,
+            'passengers' => 1,
+            'pickup_at' => $stalePickup,
+            'customer_name' => 'Klant',
+            'booking_payload' => [
+                'channel' => RideRequest::SOURCE_NEXA_SUITE,
+                'marketplace' => [
+                    'channel' => 'customer_app',
+                    'radius_km' => 50,
+                    'candidate_company_ids' => [(int) $company->id],
+                    'settings_company_id' => (int) $company->id,
+                ],
+                'step_data' => ['app' => 'customer'],
+            ],
+        ]);
+        $payment = RidePayment::on('module_taxi')->create([
+            'ride_request_id' => $ride->id,
+            'company_id' => null,
+            'channel' => RidePayment::CHANNEL_BOOKING,
+            'mollie_payment_id' => 'tr_past_pickup',
+            'amount' => 16.00,
+            'currency' => 'EUR',
+            'status' => RidePayment::STATUS_OPEN,
+        ]);
+
+        app(TaxiRidePaymentService::class)->applyMollieStatus('module_taxi', $payment, [
+            'id' => 'tr_past_pickup',
+            'status' => 'paid',
+        ]);
+
+        $ride = $ride->fresh();
+        $cutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt((int) $company->id);
+        $this->assertTrue($ride->pickup_at->greaterThanOrEqualTo($cutoff));
+        $this->assertNotSame($stalePickup, $ride->pickup_at->format('Y-m-d H:i:s'));
+        $this->assertDatabaseHas('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $online->id,
+            'company_id' => $company->id,
+            'status' => RideDispatchOffer::STATUS_PENDING,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $offline->id,
+        ], 'module_taxi');
+        $this->assertDatabaseMissing('ride_dispatch_offers', [
+            'ride_request_id' => $ride->id,
+            'driver_id' => $otherDriver->id,
+        ], 'module_taxi');
+
+        $dispatch = app(RideDispatchService::class);
+        $dispatch->expireOffersForPastPickups('module_taxi', (int) $company->id);
+        $inboxIds = RideDispatchOffer::on('module_taxi')
+            ->inboxForDriver((int) $online->id, $cutoff)
+            ->pluck('ride_request_id')
+            ->all();
+        $this->assertContains($ride->id, $inboxIds);
+
+        $scheduled = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'pickup_address' => 'Later',
+            'dropoff_address' => 'Bestemming',
+            'pickup_lat' => 52.2290,
+            'pickup_lng' => 6.8894,
+            'passengers' => 1,
+            'pickup_at' => $futurePickup,
+            'customer_name' => 'Later',
+            'booking_payload' => [
+                'channel' => RideRequest::SOURCE_NEXA_SUITE,
+                'marketplace' => [
+                    'channel' => 'customer_app',
+                    'radius_km' => 50,
+                    'candidate_company_ids' => [(int) $company->id],
+                ],
+                'step_data' => ['app' => 'customer'],
+            ],
+        ]);
+        $dispatch->startDispatchForCompanies('module_taxi', $scheduled, [(int) $company->id], false);
+        $this->assertSame($futurePickup, $scheduled->fresh()->pickup_at->format('Y-m-d H:i:s'));
+
+        $expired = RideRequest::on('module_taxi')->create([
+            'company_id' => null,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'status' => RideRequest::STATUS_OFFERED,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PAID,
+            'pickup_address' => 'Al betaald',
+            'dropoff_address' => 'Wacht',
+            'pickup_lat' => 52.2290,
+            'pickup_lng' => 6.8894,
+            'passengers' => 1,
+            'pickup_at' => $stalePickup,
+            'customer_name' => 'Wacht',
+            'booking_payload' => [
+                'channel' => RideRequest::SOURCE_NEXA_SUITE,
+                'marketplace' => [
+                    'channel' => 'customer_app',
+                    'radius_km' => 50,
+                    'candidate_company_ids' => [(int) $company->id],
+                ],
+                'step_data' => ['app' => 'customer'],
+            ],
+        ]);
+        RideDispatchOffer::on('module_taxi')->create([
+            'ride_request_id' => $expired->id,
+            'company_id' => $company->id,
+            'driver_id' => $online->id,
+            'status' => RideDispatchOffer::STATUS_EXPIRED,
+            'wave' => 1,
+            'offered_at' => now()->subMinutes(10),
+            'expires_at' => now()->subMinutes(5),
+            'responded_at' => now()->subMinutes(5),
+        ]);
+
+        $dispatch->expireOffersForPastPickups('module_taxi', (int) $company->id);
+        $dispatch->syncPendingOffersForDriver('module_taxi', (int) $company->id, (int) $online->id);
+
+        $revivedCutoff = app(TaxiDispatchSettingsService::class)->pickupQueueCutoffAt((int) $company->id);
+        $revivedIds = RideDispatchOffer::on('module_taxi')
+            ->inboxForDriver((int) $online->id, $revivedCutoff)
+            ->pluck('ride_request_id')
+            ->all();
+        $this->assertContains($expired->id, $revivedIds);
+        $this->assertTrue($expired->fresh()->pickup_at->greaterThanOrEqualTo($revivedCutoff));
+    }
 }
