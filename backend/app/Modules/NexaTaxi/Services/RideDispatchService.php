@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +45,8 @@ class RideDispatchService
 
             return;
         }
+
+        $ride = $this->promoteRidePickupIntoDriverQueue($ride, $companyId);
 
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
         $batch = (int) config('taxi-dispatch.offer_batch_size', 8);
@@ -409,6 +412,11 @@ class RideDispatchService
             return;
         }
 
+        // Inbox verloopt eerst aanbiedingen vóór het grace-venster. Een net betaalde
+        // rit met een oude ophaaltijd (app liet de tijd staan) moet daarna alsnog
+        // in Aanvragen komen, niet pas na een nieuwe boeking.
+        $this->promotePastPickupsIntoDriverQueue($conn, $companyId);
+
         $ttl = $this->dispatchSettings->offerTtlSeconds($companyId);
         $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
         $now = now();
@@ -650,6 +658,62 @@ class RideDispatchService
         }
 
         return [$lat, $lng, $this->dispatchSettings->networkMaxRadiusKm($ownerId)];
+    }
+
+    /**
+     * Ophaaltijd vóór het chauffeur-venster: de klant heeft net betaald en wacht.
+     * Zet de tijd op nu (Amsterdam-muurtijd) zodat het aanbod niet meteen verloopt.
+     */
+    protected function promoteRidePickupIntoDriverQueue(RideRequest $ride, int $companyId): RideRequest
+    {
+        if ($ride->driver_id || $ride->hasPendingPickupProposal()) {
+            return $ride;
+        }
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_PENDING_DISPATCH,
+            RideRequest::STATUS_OFFERED,
+        ], true)) {
+            return $ride;
+        }
+
+        $cutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId > 0 ? $companyId : null);
+        if ($ride->pickup_at && $ride->pickup_at->greaterThanOrEqualTo($cutoff)) {
+            return $ride;
+        }
+
+        $nowWall = ContractTransportTimezone::naiveUtcForWallClockQuery(
+            now(ContractTransportTimezone::TIMEZONE)
+        );
+        $ride->update(['pickup_at' => $nowWall]);
+
+        return $ride->fresh() ?? $ride;
+    }
+
+    /**
+     * Zelfde correctie voor ritten die al een verlopen aanbod hebben (inbox-poll).
+     */
+    protected function promotePastPickupsIntoDriverQueue(string $conn, int $companyId): void
+    {
+        if ($companyId <= 0 || ! TaxiDispatchSchema::tablesExist($conn)) {
+            return;
+        }
+
+        $cutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
+        $rides = RideRequest::on($conn)
+            ->ownedOrUnclaimedMarketplaceForCompany($companyId)
+            ->whereNull('driver_id')
+            ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
+            ->withoutPendingPickupProposal()
+            ->where('created_at', '>=', now()->subDay())
+            ->whereNotNull('pickup_at')
+            ->where('pickup_at', '<', $cutoff)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        foreach ($rides as $ride) {
+            $this->promoteRidePickupIntoDriverQueue($ride, $companyId);
+        }
     }
 
     /**
