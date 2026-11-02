@@ -182,12 +182,18 @@ class DriverDispatchController extends Controller
             ->sortByDesc(fn (RideRequest $ride) => $ride->pickup_at?->getTimestamp() ?? 0)
             ->values();
 
+        // Een open marktplaatsrit blijft bij de chauffeur staan. Auto-archiveren
+        // stopte die rit in een lijst die de app niet tekent, terwijl de klant
+        // hem nog als geboekte rit ziet.
         $archivedOverdueScheduledRides = $overdueAll
-            ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId))
+            ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId)
+                && ! $ride->isNexaSuiteBooking()
+                && ! $ride->isCustomerAppMarketplaceBooking())
             ->values();
 
+        $archivedIds = $archivedOverdueScheduledRides->pluck('id')->all();
         $overdueScheduledRides = $overdueAll
-            ->reject(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId))
+            ->reject(fn (RideRequest $ride) => in_array((int) $ride->id, $archivedIds, true))
             ->values();
 
         $completedRides = RideRequest::on($conn)
