@@ -204,6 +204,12 @@ function rideMatchesPeriodFilter(
   return day >= weekFrom && day <= weekTo;
 }
 
+/** Open marktplaatsrit waarvan het ophaalmoment voorbij is: altijd tonen, ook buiten Dag/Week. */
+function isOutstandingMarketplaceRide(ride: DriverActiveRide | null | undefined): boolean {
+  if (!ride || !isMarketplaceRide(ride)) return false;
+  return ride.is_scheduled_overdue === true || ride.is_pickup_overdue === true;
+}
+
 function persistRideKindFilter(kind: RideKindFilter) {
   AsyncStorage.setItem(DRIVER_RIDE_KIND_KEY, kind).catch(() => undefined);
 }
@@ -1284,7 +1290,15 @@ export function DriverHomeScreen() {
   const overdueNonContractRidesAll = ownOverdueScheduledRides.filter((r) => !isContractRide(r));
   const marketplaceOverdueAsScheduled = overdueScheduledRides.filter((r) => isMarketplaceRide(r));
   const ownArchivedOverdueRides = archivedOverdueScheduledRides.filter((r) => !isMarketplaceRide(r));
-  const plannedRidesAll = [...scheduledRides, ...marketplaceOverdueAsScheduled];
+  const marketplaceArchivedOutstanding = archivedOverdueScheduledRides.filter((r) => isMarketplaceRide(r));
+  const plannedRideIds = new Set<number>();
+  const plannedRidesAll = [...scheduledRides, ...marketplaceOverdueAsScheduled, ...marketplaceArchivedOutstanding].filter(
+    (ride) => {
+      if (plannedRideIds.has(ride.id)) return false;
+      plannedRideIds.add(ride.id);
+      return true;
+    }
+  );
   const archivedCompletedSet = useMemo(
     () => new Set(archivedCompletedIds),
     [archivedCompletedIds]
@@ -1309,10 +1323,9 @@ export function DriverHomeScreen() {
   const weekToIso = addDaysIso(weekFromIso, 6);
 
   function matchesTripFilters(ride: DriverActiveRide | null | undefined): boolean {
-    return (
-      rideMatchesKindFilter(ride, effectiveRideKind) &&
-      rideMatchesPeriodFilter(ride, ridePeriodFilter, todayIso, weekFromIso, weekToIso)
-    );
+    if (!rideMatchesKindFilter(ride, effectiveRideKind)) return false;
+    if (isOutstandingMarketplaceRide(ride)) return true;
+    return rideMatchesPeriodFilter(ride, ridePeriodFilter, todayIso, weekFromIso, weekToIso);
   }
 
   function keepDriverCard(ride: DriverActiveRide | null | undefined): boolean {
