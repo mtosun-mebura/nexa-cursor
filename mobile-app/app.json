@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "owner": "mebura-bv",
     "scheme": "nexataxi",
     "newArchEnabled": true,
     "splash": {
@@ -28,7 +29,13 @@
         "NSPhotoLibraryUsageDescription": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
         "NSPhotoLibraryAddUsageDescription": "Nexa Taxi bewaart gekozen foto’s alleen voor je chauffeurprofiel.",
         "NSCameraUsageDescription": "Nexa Taxi gebruikt de camera optioneel voor profiel-, logo- en autouploads.",
-        "UIBackgroundModes": ["location", "fetch", "processing", "audio"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "processing",
+          "audio",
+          "remote-notification"
+        ],
         "ITSAppUsesNonExemptEncryption": false,
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,
@@ -138,7 +145,10 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://nexasuite.nl"
+      "apiBaseUrl": "https://nexasuite.online",
+      "eas": {
+        "projectId": "71887be1-537b-4f8c-9a83-8e219840f42f"
+      }
     }
   }
 }

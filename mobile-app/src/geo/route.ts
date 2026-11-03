@@ -1,6 +1,6 @@
 import { dateLocale, t } from '../i18n';
 import * as Location from 'expo-location';
-import { resolveApiBaseUrl } from '../config';
+import { API_BASE_DEFAULT, resolveApiBaseUrl } from '../config';
 
 export type GeoPoint = {
   lat: number;
@@ -167,10 +167,16 @@ export function compactAddressLabel(
   const city = cityFromNominatim(displayName, address);
   const streetPart = [street, number].filter(Boolean).join(' ').trim();
   const poi = String(poiName || '').trim();
+  // Backend formatReverseGeocodePayload zet name vaak op "Straat 12" — dat is geen POI.
+  const poiIsStreet =
+    !poi ||
+    isNlPostcode(poi) ||
+    poi.toLowerCase() === street.toLowerCase() ||
+    poi.toLowerCase() === streetPart.toLowerCase() ||
+    (streetPart !== '' && poi.toLowerCase().startsWith(streetPart.toLowerCase())) ||
+    (streetPart !== '' && streetPart.toLowerCase().includes(poi.toLowerCase()));
   const lead =
-    poi && streetPart && poi.toLowerCase() !== street.toLowerCase()
-      ? `${poi}, ${streetPart}`
-      : streetPart || poi;
+    poi && streetPart && !poiIsStreet ? `${poi}, ${streetPart}` : streetPart || poi;
   if (lead && !isNlPostcode(lead) && city) return `${lead}, ${city}`;
   if (lead && !isNlPostcode(lead)) return lead;
 
@@ -207,20 +213,48 @@ export function formatAddress(parts: Location.LocationGeocodedAddress): string {
   return street || city || 'Onbekend adres';
 }
 
-async function reverseViaBackend(lat: number, lng: number): Promise<string | null> {
+async function fetchJson(
+  url: string,
+  timeoutMs = 8000
+): Promise<{ ok: true; data: unknown } | { ok: false }> {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
   try {
-    const base = await resolveApiBaseUrl();
-    const url =
-      `${base}/nexa-taxi/booking/address-search?` +
-      `lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`;
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const label = compactAddressLabel(data?.display_name, data?.address, data?.name);
-    return label || null;
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    });
+    if (!res.ok) return { ok: false };
+    return { ok: true, data: await res.json() };
   } catch {
-    return null;
+    return { ok: false };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
+}
+
+/** Actieve host eerst; bij netwerk/HTTP-fout één keer productie (Test/Cloudflare 502). */
+async function withAddressSearchHosts(): Promise<string[]> {
+  const primary = await resolveApiBaseUrl();
+  if (primary === API_BASE_DEFAULT) return [primary];
+  return [primary, API_BASE_DEFAULT];
+}
+
+async function reverseViaBackend(lat: number, lng: number): Promise<string | null> {
+  const query =
+    `lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`;
+  for (const base of await withAddressSearchHosts()) {
+    const result = await fetchJson(`${base}/nexa-taxi/booking/address-search?${query}`);
+    if (!result.ok || !result.data || typeof result.data !== 'object') continue;
+    const data = result.data as {
+      display_name?: string;
+      address?: NominatimAddress;
+      name?: string;
+    };
+    const label = compactAddressLabel(data.display_name, data.address, data.name);
+    if (label) return label;
+  }
+  return null;
 }
 
 export type AddressSuggestion = {
@@ -303,16 +337,7 @@ function suggestionMatchScore(label: string, query: string): number {
   return score;
 }
 
-export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
-  const q = query.trim();
-  if (q.length < 3) return [];
-  const base = await resolveApiBaseUrl();
-  const url =
-    `${base}/nexa-taxi/booking/address-search?` +
-    `q=${encodeURIComponent(q)}&countrycodes=nl&limit=8&accept-language=nl&addressdetails=1`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) return [];
-  const data = await res.json();
+function parseAddressSuggestions(data: unknown, q: string): AddressSuggestion[] {
   if (!Array.isArray(data)) return [];
 
   const seenCoords = new Set<string>();
@@ -368,6 +393,20 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
 
   ranked.sort((a, b) => b.score - a.score);
   return ranked.slice(0, 6).map(({ label, lat, lng }) => ({ label, lat, lng }));
+}
+
+export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+  const params =
+    `q=${encodeURIComponent(q)}&countrycodes=nl&limit=8&accept-language=nl&addressdetails=1`;
+
+  for (const base of await withAddressSearchHosts()) {
+    const result = await fetchJson(`${base}/nexa-taxi/booking/address-search?${params}`);
+    if (!result.ok) continue; // 502/timeout → volgende host
+    return parseAddressSuggestions(result.data, q);
+  }
+  return [];
 }
 
 function waitForPosition(timeoutMs: number): Promise<Location.LocationObject | null> {
@@ -675,6 +714,14 @@ export function defaultPickupDate(minutesFromNow = 10): Date {
   const rem = d.getMinutes() % 5;
   if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
   return d;
+}
+
+/** Clock-skew grace: "nu" / net-gekozen tijden mogen niet false-failen. */
+export const PICKUP_AT_PAST_GRACE_MS = 60_000;
+
+/** True als ophaaltijd (device local wall-clock) te ver in het verleden ligt. */
+export function isPickupAtInPast(d: Date, nowMs: number = Date.now()): boolean {
+  return d.getTime() < nowMs - PICKUP_AT_PAST_GRACE_MS;
 }
 
 /** Europe/Amsterdam wall-clock string zonder timezone (backend verwacht dit). */

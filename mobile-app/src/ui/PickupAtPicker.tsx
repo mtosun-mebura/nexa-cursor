@@ -53,9 +53,11 @@ function sameMinute(a: Date, b: Date): boolean {
 export function PickupAtField({
   value,
   onChange,
+  error,
 }: {
   value: Date;
   onChange: (next: Date) => void;
+  error?: string | null;
 }) {
   const { colors } = useTheme();
   const { locale } = useI18n();
@@ -148,7 +150,7 @@ export function PickupAtField({
       <Text style={styles.fieldLabel}>{t("Ophalen")}</Text>
       <Pressable
         onPress={() => setOpen(true)}
-        style={styles.trigger}
+        style={[styles.trigger, error ? styles.triggerError : null]}
         accessibilityRole="button"
         accessibilityLabel={t("Kies ophaaldatum en -tijd")}
       >
@@ -159,6 +161,7 @@ export function PickupAtField({
         </Text>
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
 
       <AppModal
         visible={open}
@@ -329,6 +332,9 @@ function makeStyles(colors: ColorPalette) {
       paddingVertical: 16,
       minHeight: 56,
     },
+    triggerError: {
+      borderColor: colors.danger,
+    },
     triggerText: {
       color: colors.text,
       fontSize: 17,
@@ -339,6 +345,12 @@ function makeStyles(colors: ColorPalette) {
     chevron: {
       color: colors.muted,
       fontSize: 14,
+    },
+    fieldError: {
+      color: colors.danger,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 8,
     },
     sheet: {
       maxHeight: '78%',

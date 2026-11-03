@@ -209,6 +209,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(90)->by('taxi-action|'.$key);
         });
 
+        // Accepteren deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur (ook een dubbele tik) mag hier nooit 429 krijgen;
+        // "al genomen" / "verlopen" komt uit de claim-service.
+        RateLimiter::for('taxi-driver-accept', function () {
+            return Limit::none();
+        });
+
         RateLimiter::for('taxi-driver-read', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 

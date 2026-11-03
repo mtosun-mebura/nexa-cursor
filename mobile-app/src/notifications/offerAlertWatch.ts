@@ -152,6 +152,9 @@ async function checkOnce(input: {
   const inForeground = !input.fromBackground && AppState.currentState === 'active';
   const badge = inForeground ? undefined : await addOfferBadge(fresh.length);
 
+  const offerId = Number(priority.id) || null;
+  const rideRequestId = Number(priority.ride_request_id || priority.ride?.id || 0) || null;
+
   if (inForeground) {
     const played = await playRideAlertTone(tone);
     if (!played) await playRideAlertTone('alert');
@@ -162,6 +165,8 @@ async function checkOnce(input: {
       playSound: false,
       tone: played ? tone : 'alert',
       badge,
+      offerId,
+      rideRequestId,
     });
   } else {
     // Melding + geluid eerst. De GPS-taak heeft weinig tijd; een stil app-geluid
@@ -175,6 +180,8 @@ async function checkOnce(input: {
       systemSound: true,
       tone,
       badge,
+      offerId,
+      rideRequestId,
     });
     if (!(await played)) {
       await playRideAlertTone('alert');

@@ -128,6 +128,8 @@ export async function notifyNewDriverOffer(opts: {
   systemSound?: boolean;
   tone?: string | null;
   badge?: number;
+  offerId?: number | null;
+  rideRequestId?: number | null;
 }): Promise<void> {
   const pickup = String(opts.pickup || '').trim() || t("Nieuwe rit");
   const dropoff = String(opts.dropoff || '').trim();
@@ -138,6 +140,8 @@ export async function notifyNewDriverOffer(opts: {
   const tone = normalizeRideAlertTone(opts.tone);
   const badge =
     opts.badge != null && Number.isFinite(opts.badge) ? Math.max(0, Math.round(opts.badge)) : undefined;
+  const offerId = Number(opts.offerId || 0) || null;
+  const rideRequestId = Number(opts.rideRequestId || 0) || null;
 
   try {
     if (Platform.OS === 'ios') {
@@ -165,6 +169,8 @@ export async function notifyNewDriverOffer(opts: {
       sound,
       tone,
       badge,
+      offerId,
+      rideRequestId,
     });
     if (shown) {
       if (badge != null) await setDriverOfferBadge(badge);
@@ -179,6 +185,8 @@ async function scheduleOfferNotification(opts: {
   sound: string | boolean;
   tone: RideAlertTone;
   badge?: number;
+  offerId?: number | null;
+  rideRequestId?: number | null;
 }): Promise<boolean> {
   if (!Notifications) return false;
   const channelId =
@@ -197,7 +205,12 @@ async function scheduleOfferNotification(opts: {
     // iOS standby: `true` is het systeemgeluid. De string 'default' is een bestandsnaam.
     sound: opts.sound,
     ...(opts.badge != null ? { badge: opts.badge } : {}),
-    data: { type: 'driver_offer', screen: 'requests' },
+    data: {
+      type: 'driver_offer',
+      screen: 'requests',
+      offer_id: opts.offerId ?? null,
+      ride_request_id: opts.rideRequestId ?? null,
+    },
     ...(Platform.OS === 'android'
       ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
       : {}),
@@ -354,15 +367,56 @@ export async function setupDriverNotificationChannel(): Promise<void> {
   }
 }
 
+export type DriverNotificationOpenTarget = {
+  screen: 'requests' | 'trips';
+  offerId?: number | null;
+  rideId?: number | null;
+};
+
+function targetFromNotificationData(data: Record<string, unknown> | undefined | null): DriverNotificationOpenTarget | null {
+  const type = data?.type;
+  if (type === 'driver_offer') {
+    const offerId = Number(data?.offer_id || 0) || null;
+    const rideId = Number(data?.ride_request_id || data?.ride_id || 0) || null;
+    return { screen: 'requests', offerId, rideId };
+  }
+  if (type === 'pickup_denied' || type === 'pickup_departure') {
+    const rideId = Number(data?.ride_id || data?.ride_request_id || 0) || null;
+    return { screen: 'trips', rideId };
+  }
+  return null;
+}
+
 export function addDriverOfferNotificationResponseListener(
-  onOpenRequests: () => void,
-  onOpenTrips?: () => void
+  onOpenRequests: (target: { offerId?: number | null; rideId?: number | null }) => void,
+  onOpenTrips?: (rideId?: number | null) => void
 ): () => void {
   if (!Notifications) return () => undefined;
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const type = response.notification.request.content.data?.type;
-    if (type === 'driver_offer') onOpenRequests();
-    if (type === 'pickup_denied' || type === 'pickup_departure') onOpenTrips?.();
+    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+    const target = targetFromNotificationData(data);
+    if (!target) return;
+    if (target.screen === 'requests') {
+      onOpenRequests({ offerId: target.offerId ?? null, rideId: target.rideId ?? null });
+    } else {
+      onOpenTrips?.(target.rideId ?? null);
+    }
   });
   return () => sub.remove();
+}
+
+let initialNotificationConsumed = false;
+
+/** Cold start: gebruiker opende de app via een melding terwijl JS nog niet luisterde. */
+export async function consumeInitialDriverNotificationResponse(): Promise<DriverNotificationOpenTarget | null> {
+  if (!Notifications || initialNotificationConsumed) return null;
+  initialNotificationConsumed = true;
+  try {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    if (!response) return null;
+    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+    return targetFromNotificationData(data);
+  } catch {
+    return null;
+  }
 }

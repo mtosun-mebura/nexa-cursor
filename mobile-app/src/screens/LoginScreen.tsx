@@ -14,7 +14,6 @@ import { useAuth } from '../auth/AuthContext';
 import { ColorPalette } from '../config';
 import { useI18n, t } from '../i18n';
 import { useThemeColors } from '../theme/ThemeContext';
-import { ApiEnvironmentField } from '../ui/ApiEnvironmentField';
 import { AppearanceControls } from '../ui/AppearanceControls';
 import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { useAndroidKeyboardOverlap } from '../ui/androidText';
@@ -204,7 +203,6 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 + keyboardOverlap }}
       >
-        <ApiEnvironmentField />
         <Field
           label={t("E-mailadres")}
           value={email}

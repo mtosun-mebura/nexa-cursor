@@ -172,6 +172,20 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Rit accepteren: nooit de Engelse Laravel-tekst "Too Many Attempts." in de app-popup.
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
+            if ($e->getStatusCode() !== 429) {
+                return null;
+            }
+            if (! $request->is('api/taxi/v1/driver/dispatch/offers/*/accept')) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => 'Te veel pogingen om deze rit te accepteren. Wacht even en probeer het opnieuw.',
+            ], 429, $e->getHeaders());
+        });
+
         // CSRF-token verlopen (HTTP 419): Laravel mapt TokenMismatchException naar HttpException(419).
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
             if ($e->getStatusCode() !== 419) {

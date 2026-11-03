@@ -1,8 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useKeepAwake } from 'expo-keep-awake';
 import React, { useEffect, useMemo, useState } from 'react';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { NavigationBar } from 'expo-navigation-bar';
-import { ActivityIndicator, Linking, Platform, StatusBar, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Linking,
+  Platform,
+  StatusBar,
+  View,
+  type AppStateStatus,
+} from 'react-native';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +18,8 @@ import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext'
 import { hydrateApiBase } from './src/config';
 import { DemoProvider, useDemo } from './src/demo/DemoContext';
 import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
+// Register the driver GPS TaskManager task at bundle load (needed for background wakes).
+import './src/location/background';
 import { parseAppDeepLink } from './src/linking';
 import { LocaleProvider } from './src/i18n';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
@@ -31,6 +41,35 @@ export type RootStackParamList = {
 
 const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
 type GuestRoute = 'welcome' | 'login' | 'customer' | 'marketplace';
+
+/** iOS idleTimerDisabled + Android FLAG_KEEP_SCREEN_ON via expo-keep-awake. */
+const FOREGROUND_KEEP_AWAKE_TAG = 'nexa-app-foreground';
+
+/**
+ * Houd het scherm aan zolang de app actief op de voorgrond staat.
+ * Bij inactive/background (slotknop, Home, app-wisselaar) de lock loslaten
+ * zodat het toestel normaal kan slapen. De gebruiker kan altijd zelf weg.
+ */
+function KeepScreenAwake() {
+  useEffect(() => {
+    const apply = (state: AppStateStatus) => {
+      if (state === 'active') {
+        void activateKeepAwakeAsync(FOREGROUND_KEEP_AWAKE_TAG).catch(() => undefined);
+        return;
+      }
+      if (state === 'inactive' || state === 'background') {
+        void deactivateKeepAwake(FOREGROUND_KEEP_AWAKE_TAG).catch(() => undefined);
+      }
+    };
+    apply(AppState.currentState);
+    const sub = AppState.addEventListener('change', apply);
+    return () => {
+      sub.remove();
+      void deactivateKeepAwake(FOREGROUND_KEEP_AWAKE_TAG).catch(() => undefined);
+    };
+  }, []);
+  return null;
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -227,7 +266,6 @@ function RootNavigator() {
 }
 
 function AppShell() {
-  useKeepAwake();
   const { colors, colorScheme } = useTheme();
   return (
     <>
@@ -253,21 +291,18 @@ export default function App() {
     hydrateApiBase().finally(() => setBaseReady(true));
   }, []);
 
-  if (!baseReady) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, backgroundColor: '#0B1220' }} />
-      </SafeAreaProvider>
-    );
-  }
-
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <LocaleProvider>
-          <AppShell />
-        </LocaleProvider>
-      </ThemeProvider>
+      <KeepScreenAwake />
+      {baseReady ? (
+        <ThemeProvider>
+          <LocaleProvider>
+            <AppShell />
+          </LocaleProvider>
+        </ThemeProvider>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: '#0B1220' }} />
+      )}
     </SafeAreaProvider>
   );
 }

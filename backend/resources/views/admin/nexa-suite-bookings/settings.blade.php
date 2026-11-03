@@ -165,7 +165,7 @@
                 <div class="kt-card-content p-0">
                     <div class="px-5 pt-5 pb-5 min-w-0">
                         <p class="text-sm text-muted-foreground mb-4">
-                            {{ __('De gemarkeerde omgeving is de publieke host voor Mollie-terugkeer en webhooks. In de app kies je zelf welke server je aanroept.') }}
+                            {{ __('De gemarkeerde omgeving is alleen de publieke host voor Mollie-terugkeer en webhooks.') }}
                         </p>
                         @if($errors->has('public_hosts'))
                             <p class="text-sm text-destructive mb-4">{{ $errors->first('public_hosts') }}</p>

@@ -51,6 +51,7 @@ import {
   fetchDrivingRoute,
   formatEuroNl,
   formatPickupAtPayload,
+  isPickupAtInPast,
   GeoPoint,
   LatLng,
   peekCurrentCoords,
@@ -109,12 +110,34 @@ import {
   useDemoTaxis,
 } from '../demo/taxiSimulation';
 import { PickupAtField } from '../ui/PickupAtPicker';
-import { resolveApiBaseUrl, ColorPalette } from '../config';
+import { DutchPlateBadge } from '../ui/DutchPlateInput';
+import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import { useI18n, t, dateLocale } from '../i18n';
 import { ThemePreference, useTheme } from '../theme/ThemeContext';
 
 const TRACK_KEY = 'nexa_taxi_customer_track';
 const PROFILE_KEY = 'nexa_taxi_customer_profile_guest';
+
+type ContactSnapshot = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+};
+
+function contactDetailsFilled(
+  firstName: string,
+  lastName: string,
+  phone: string,
+  email: string
+): boolean {
+  return (
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    phone.trim().length > 0 &&
+    email.trim().length > 0
+  );
+}
 const TAB_KEY = 'nexa_taxi_customer_tab';
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
 const dropPinGreen = require('../../assets/marker-drop-green.png');
@@ -377,6 +400,107 @@ function arrivalEtaText(live?: LiveRide | null): string | null {
   return formatEtaPhrase(Math.max(1, Math.ceil((km / 28) * 60)));
 }
 
+function resolveCustomerMediaUrl(url?: string | null): string | null {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  const apiBase = getApiBaseUrl();
+  if (raw.startsWith('/')) return `${apiBase}${raw}`;
+  if (!/^https?:\/\//i.test(raw)) return `${apiBase}/${raw}`;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      const base = new URL(apiBase);
+      parsed.protocol = base.protocol;
+      parsed.host = base.host;
+      return parsed.toString();
+    }
+  } catch {
+    /* absolute url laten staan */
+  }
+  return raw;
+}
+
+const ACCEPTED_CAR_WIDTH = 92;
+const ACCEPTED_CAR_HEIGHT = 56;
+
+function AcceptedRideIdentity({
+  live,
+  onPreview,
+}: {
+  live: LiveRide;
+  onPreview: (uri: string) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const photo = resolveCustomerMediaUrl(live.driver?.photo_url);
+  const carPhoto = resolveCustomerMediaUrl(live.vehicle?.photo_url);
+  const logo = resolveCustomerMediaUrl(live.driver?.company_logo_url);
+  const plate = String(live.vehicle?.license_plate || '').trim();
+
+  return (
+    <View style={[styles.driverCard, styles.acceptedDriverCard]}>
+      {logo ? (
+        <Image source={{ uri: logo }} style={styles.acceptedDriverLogo} resizeMode="contain" />
+      ) : null}
+      <View style={styles.acceptedAlign}>
+        <View style={styles.acceptedAlignRow}>
+          <View style={styles.acceptedCarColumn}>
+            <Pressable
+              disabled={!photo}
+              onPress={() => {
+                if (photo) onPreview(photo);
+              }}
+              accessibilityRole={photo ? 'button' : 'image'}
+              accessibilityLabel={photo ? t("Profielfoto vergroten") : t("Chauffeur")}
+            >
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.acceptedDriverAvatar} />
+              ) : (
+                <View style={[styles.acceptedDriverAvatar, styles.driverAvatarFallback]}>
+                  <Ionicons name="person" size={34} color={colors.muted} />
+                </View>
+              )}
+            </Pressable>
+          </View>
+          <View style={styles.acceptedDriverMeta}>
+            {live.driver?.name ? (
+              <Text style={styles.driverName}>{live.driver.name}</Text>
+            ) : (
+              <Text style={styles.driverName}>{t("Chauffeur")}</Text>
+            )}
+            {live.driver?.rating_avg != null ? (
+              <Text style={styles.acceptedDriverRating}>
+                <Text style={styles.driverStar}>★</Text>
+                {' '}
+                {Number(live.driver.rating_avg).toFixed(1)}
+                {live.driver.rating_count ? ` (${live.driver.rating_count})` : ''}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.acceptedAlignRow}>
+          <Pressable
+            disabled={!carPhoto}
+            onPress={() => {
+              if (carPhoto) onPreview(carPhoto);
+            }}
+            accessibilityRole={carPhoto ? 'button' : 'image'}
+            accessibilityLabel={carPhoto ? t("Autofoto vergroten") : t("Auto")}
+          >
+            <Image
+              source={carPhoto ? { uri: carPhoto } : taxiCarYellow}
+              style={styles.acceptedVehicleThumb}
+              resizeMode="cover"
+            />
+          </Pressable>
+          <DutchPlateBadge plate={plate} accessibilityLabel={t("Kenteken")} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function DriverComingText({
   eta,
   headlineStyle,
@@ -548,6 +672,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [pickupAnswerToken, setPickupAnswerToken] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [bookContactEditing, setBookContactEditing] = useState(false);
+  /** Read-only only after hydrate/save with all fields filled — not while first-time typing. */
+  const [contactConfirmed, setContactConfirmed] = useState(false);
+  const contactSnapshot = useRef<ContactSnapshot | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
@@ -602,12 +731,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [remarks, setRemarks] = useState('');
   const [pickupAt, setPickupAt] = useState(() => defaultPickupDate(10));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<
-    'pickup' | 'dropoff' | 'firstName' | 'lastName' | 'phone' | 'email' | 'offer' | 'dispatch',
+    'pickup' | 'dropoff' | 'pickupAt' | 'firstName' | 'lastName' | 'phone' | 'email' | 'offer' | 'dispatch',
     string
   >>>({});
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
-  const [quoteBusy, setQuoteBusy] = useState(false);
   const [nearbyTaxis, setNearbyTaxis] = useState<NearbyTaxi[]>([]);
   const demo = useDemo();
   const demoActive = demo.active;
@@ -621,8 +749,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const dropoffRef = useRef<GeoPoint | null>(null);
   const mapRef = useRef<MapView | null>(null);
   const tripMapRef = useRef<MapView | null>(null);
+  const ridesScrollRef = useRef<ScrollView | null>(null);
+  const tripStatusY = useRef(0);
   const followTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ignoreMapGestureUntil = useRef(0);
+  const ignoreBookGestureUntil = useRef(0);
+  const bookUserMoving = useRef(false);
+  const bookFingerDown = useRef(false);
+  const bookFingerAt = useRef(0);
+  const bookSawGesture = useRef(false);
+  const bookGpsSeq = useRef(0);
   const tripFitted = useRef(false);
   const [followTaxi, setFollowTaxi] = useState(false);
   const [tripRoute, setTripRoute] = useState<LatLng[]>([]);
@@ -662,6 +799,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const freeNearby = demoActive ? demoCount : freeTaxis.length;
   const canDispatch = freeNearby > 0;
 
+  // Chauffeur heeft "ophalen" geklikt (customer_event en_route, status nog accepted).
+  const followTaxiMode = !!(driverComing && activeTaxiLoc);
+  const followTaxiModeRef = useRef(followTaxiMode);
+  followTaxiModeRef.current = followTaxiMode;
+
   const tripFitPointsRef = useRef<LatLng[]>([]);
   tripFitPointsRef.current = tripRoutePoints(live, tripRoute, activeTaxiLoc);
 
@@ -671,9 +813,119 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     if (followTimer.current) clearTimeout(followTimer.current);
     followTimer.current = setTimeout(() => {
       ignoreMapGestureUntil.current = Date.now() + 1200;
-      fitMapToPoints(tripMapRef.current, tripFitPointsRef.current);
+      if (followTaxiModeRef.current) {
+        setFollowTaxi(true);
+      } else {
+        fitMapToPoints(tripMapRef.current, tripFitPointsRef.current);
+      }
     }, 3000);
   }, []);
+
+  const cancelBookLocationReturn = useCallback(() => {
+    if (bookIdleTimer.current) {
+      clearTimeout(bookIdleTimer.current);
+      bookIdleTimer.current = null;
+    }
+  }, []);
+
+  const holdBookMapForProgrammaticMove = useCallback(
+    (ms = 1600) => {
+      bookUserMoving.current = false;
+      bookFingerDown.current = false;
+      bookSawGesture.current = false;
+      bookGpsSeq.current += 1;
+      ignoreBookGestureUntil.current = Date.now() + ms;
+      cancelBookLocationReturn();
+    },
+    [cancelBookLocationReturn]
+  );
+
+  const moveBookMapToCurrentLocation = useCallback(async () => {
+    const seq = ++bookGpsSeq.current;
+    cancelBookLocationReturn();
+    const coords = await peekCurrentCoords();
+    if (seq !== bookGpsSeq.current) return;
+    if (bookUserMoving.current || bookFingerDown.current) return;
+    if (!coords) return;
+    const map = mapRef.current;
+    if (!map) return;
+    ignoreBookGestureUntil.current = Date.now() + 1600;
+    try {
+      const cam = await map.getCamera();
+      if (seq !== bookGpsSeq.current || bookUserMoving.current || bookFingerDown.current) return;
+      const zoom = cam.zoom && cam.zoom > 0 ? cam.zoom : 15;
+      map.animateCamera(
+        {
+          center: { latitude: coords.lat, longitude: coords.lng },
+          heading: cam.heading ?? 0,
+          pitch: 0,
+          zoom,
+        },
+        { duration: 450 }
+      );
+    } catch {
+      if (seq !== bookGpsSeq.current || bookUserMoving.current || bookFingerDown.current) return;
+      map.animateToRegion(
+        {
+          latitude: coords.lat,
+          longitude: coords.lng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        450
+      );
+    }
+  }, [cancelBookLocationReturn]);
+
+  const scheduleBookLocationReturn = useCallback(() => {
+    if (Date.now() < ignoreBookGestureUntil.current) return;
+    if (bookUserMoving.current || bookFingerDown.current) return;
+    cancelBookLocationReturn();
+    bookIdleTimer.current = setTimeout(function tick() {
+      bookIdleTimer.current = null;
+      if (Date.now() < ignoreBookGestureUntil.current) return;
+      const fingerFresh = bookFingerDown.current && Date.now() - bookFingerAt.current < 2500;
+      if (bookUserMoving.current || fingerFresh) {
+        bookIdleTimer.current = setTimeout(tick, 400);
+        return;
+      }
+      bookFingerDown.current = false;
+      bookUserMoving.current = false;
+      void moveBookMapToCurrentLocation();
+    }, 3000);
+  }, [cancelBookLocationReturn, moveBookMapToCurrentLocation]);
+
+  const noteBookMapGesture = useCallback(() => {
+    if (Date.now() < ignoreBookGestureUntil.current) return;
+    bookSawGesture.current = true;
+    bookUserMoving.current = true;
+    bookGpsSeq.current += 1;
+    cancelBookLocationReturn();
+  }, [cancelBookLocationReturn]);
+
+  const noteBookMapGestureEnd = useCallback(() => {
+    if (Date.now() < ignoreBookGestureUntil.current) return;
+    bookUserMoving.current = false;
+    bookFingerDown.current = false;
+    if (!bookSawGesture.current) return;
+    bookSawGesture.current = false;
+    scheduleBookLocationReturn();
+  }, [scheduleBookLocationReturn]);
+
+  const noteBookMapTouchStart = useCallback(() => {
+    bookFingerDown.current = true;
+    bookFingerAt.current = Date.now();
+    bookUserMoving.current = true;
+  }, []);
+
+  const noteBookMapTouchEnd = useCallback(() => {
+    bookFingerDown.current = false;
+    bookUserMoving.current = false;
+    if (!bookSawGesture.current) return;
+    if (Date.now() < ignoreBookGestureUntil.current) return;
+    bookSawGesture.current = false;
+    scheduleBookLocationReturn();
+  }, [scheduleBookLocationReturn]);
 
   useEffect(() => {
     if (!rideMapOpen) {
@@ -684,11 +936,34 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
     setTab('rides');
     AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
-    pauseFollow();
+    if (followTaxiMode) {
+      if (followTimer.current) clearTimeout(followTimer.current);
+      setFollowTaxi(true);
+    } else {
+      setFollowTaxi(false);
+      // Na ophalen → rit gestart: opnieuw volledige route in beeld.
+      tripFitted.current = false;
+    }
     return () => {
       if (followTimer.current) clearTimeout(followTimer.current);
     };
-  }, [rideMapOpen, pauseFollow]);
+  }, [rideMapOpen, followTaxiMode]);
+
+  useEffect(() => {
+    if (!rideMapOpen) return;
+    setShowArchivedRides(false);
+  }, [rideMapOpen, trackToken]);
+
+  useEffect(() => {
+    if (!rideMapOpen || tab !== 'rides') return;
+    const scrollToStatus = () => {
+      const y =
+        tripStatusY.current > 0 ? tripStatusY.current : Math.max(0, tripMapHeight + 12);
+      ridesScrollRef.current?.scrollTo({ y, animated: false });
+    };
+    const timers = [0, 80, 280, 500].map((ms) => setTimeout(scrollToStatus, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [rideMapOpen, tab, trackToken, tripMapHeight]);
 
   useEffect(() => {
     if (!rideMapOpen || live?.pickup_lat == null || live?.pickup_lng == null || live?.dropoff_lat == null || live?.dropoff_lng == null) {
@@ -710,7 +985,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [rideMapOpen, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
 
   useEffect(() => {
-    if (!rideMapOpen || tab !== 'rides') return;
+    if (!rideMapOpen || tab !== 'rides' || followTaxiMode) return;
     const timer = setTimeout(() => {
       if (tripFitted.current) return;
       const map = tripMapRef.current;
@@ -722,7 +997,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       fitMapToPoints(map, points);
     }, 350);
     return () => clearTimeout(timer);
-  }, [rideMapOpen, tab, tripRoute, activeTaxiLoc, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
+  }, [rideMapOpen, tab, followTaxiMode, tripRoute, activeTaxiLoc, live?.pickup_lat, live?.pickup_lng, live?.dropoff_lat, live?.dropoff_lng]);
 
   useEffect(() => {
     if (!followTaxi || !activeTaxiLoc) return;
@@ -732,6 +1007,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       { duration: 900 }
     );
   }, [followTaxi, activeTaxiLoc?.lat, activeTaxiLoc?.lng]);
+
+  useEffect(() => {
+    return () => {
+      if (bookIdleTimer.current) clearTimeout(bookIdleTimer.current);
+    };
+  }, []);
   const unavailableMessage =
     quote?.marketplace?.unavailable_message ||
     t("Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie. Je krijgt een melding zodra er weer een taxi beschikbaar is.");
@@ -782,6 +1063,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     if (routeCoords.length > 1 && mapRef.current) {
+      holdBookMapForProgrammaticMove();
       mapRef.current.fitToCoordinates(routeCoords, {
         edgePadding: { top: 40, right: 40, bottom: 40, left: 40 },
         animated: true,
@@ -943,10 +1225,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             phone?: string;
             email?: string;
           };
-          if (p.first_name) setFirstName(String(p.first_name));
-          if (p.last_name) setLastName(String(p.last_name));
-          if (p.phone) setPhone(String(p.phone));
-          if (p.email) setEmail(String(p.email));
+          const loadedFirst = p.first_name ? String(p.first_name) : '';
+          const loadedLast = p.last_name ? String(p.last_name) : '';
+          const loadedPhone = p.phone ? String(p.phone) : '';
+          const loadedEmail = p.email ? String(p.email) : '';
+          if (loadedFirst) setFirstName(loadedFirst);
+          if (loadedLast) setLastName(loadedLast);
+          if (loadedPhone) setPhone(loadedPhone);
+          if (loadedEmail) setEmail(loadedEmail);
+          if (contactDetailsFilled(loadedFirst, loadedLast, loadedPhone, loadedEmail)) {
+            setContactConfirmed(true);
+          }
         }
       } catch {
         /* ignore */
@@ -984,6 +1273,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    holdBookMapForProgrammaticMove();
     const coords: LatLng[] = [];
     if (pickup) coords.push({ latitude: pickup.lat, longitude: pickup.lng });
     if (dropoff) coords.push({ latitude: dropoff.lat, longitude: dropoff.lng });
@@ -1025,6 +1315,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   ]);
 
   function zoomMap(delta: number) {
+    bookUserMoving.current = false;
+    bookFingerDown.current = false;
+    scheduleBookLocationReturn();
+    ignoreBookGestureUntil.current = Date.now() + 700;
     const map = mapRef.current;
     if (!map) return;
     map
@@ -1081,6 +1375,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
+  function focusAcceptedMap() {
+    const reveal = () => ridesScrollRef.current?.scrollTo({ y: 0, animated: true });
+    requestAnimationFrame(reveal);
+    setTimeout(reveal, 80);
+    setTimeout(reveal, 280);
+    setTimeout(() => {
+      if (activeTaxiLoc) focusTripTaxi();
+      else fitTripRoute();
+    }, 360);
+  }
+
   function fitTripRoute() {
     setFollowTaxi(false);
     if (followTimer.current) clearTimeout(followTimer.current);
@@ -1089,6 +1394,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   function fitMapToRoute() {
+    holdBookMapForProgrammaticMove();
     const points: LatLng[] = [];
     if (routeCoords.length > 1) points.push(...routeCoords);
     if (pickup) points.push({ latitude: pickup.lat, longitude: pickup.lng });
@@ -1097,19 +1403,66 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     fitMapToPoints(mapRef.current, points);
   }
 
+  const showProfileInputs = !contactConfirmed || profileEditing;
+  const showBookContactInputs = !contactConfirmed || bookContactEditing;
+
+  function beginContactEdit(scope: 'profile' | 'book') {
+    contactSnapshot.current = { firstName, lastName, phone, email };
+    setProfileSaved(false);
+    if (scope === 'profile') setProfileEditing(true);
+    else setBookContactEditing(true);
+  }
+
+  function restoreContactSnapshot() {
+    const snap = contactSnapshot.current;
+    if (!snap) return;
+    setFirstName(snap.firstName);
+    setLastName(snap.lastName);
+    setPhone(snap.phone);
+    setEmail(snap.email);
+    contactSnapshot.current = null;
+    setFieldErrors((e) => ({
+      ...e,
+      firstName: undefined,
+      lastName: undefined,
+      phone: undefined,
+      email: undefined,
+    }));
+  }
+
+  function cancelContactEdit(scope: 'profile' | 'book') {
+    restoreContactSnapshot();
+    if (scope === 'profile') setProfileEditing(false);
+    else setBookContactEditing(false);
+  }
+
+  function leaveContactEditModes() {
+    if (profileEditing || bookContactEditing) restoreContactSnapshot();
+    setProfileEditing(false);
+    setBookContactEditing(false);
+  }
+
   async function saveProfile() {
     setProfileSaved(false);
     if (profileSavedTimer.current) clearTimeout(profileSavedTimer.current);
     try {
+      const nextFirst = firstName.trim();
+      const nextLast = lastName.trim();
+      const nextPhone = phone.trim();
+      const nextEmail = email.trim();
       await AsyncStorage.setItem(
         PROFILE_KEY,
         JSON.stringify({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
+          first_name: nextFirst,
+          last_name: nextLast,
+          phone: nextPhone,
+          email: nextEmail,
         })
       );
+      contactSnapshot.current = null;
+      setProfileEditing(false);
+      setBookContactEditing(false);
+      setContactConfirmed(contactDetailsFilled(nextFirst, nextLast, nextPhone, nextEmail));
       setProfileSaved(true);
       profileSavedTimer.current = setTimeout(() => setProfileSaved(false), 3000);
     } catch {
@@ -1154,7 +1507,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       return;
     }
     const metrics = routeMetrics || estimateRouteMetrics(pickup, dropoff);
-    setQuoteBusy(true);
     try {
       const data = await fetchQuote({
         ...metrics,
@@ -1168,8 +1520,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       if (dropoffRef.current) setQuote(data);
     } catch {
       /* houd vorige quote; lokale prijsindicatie blijft zichtbaar */
-    } finally {
-      setQuoteBusy(false);
     }
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt]);
 
@@ -1368,6 +1718,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   function goToBookTab() {
     Keyboard.dismiss();
+    leaveContactEditModes();
     setBookMountKey((k) => k + 1);
     setTab('book');
     AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
@@ -1438,6 +1789,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     const next: typeof fieldErrors = {};
     if (!pickup) next.pickup = t("Kies een ophaaladres uit de suggesties.");
     if (!dropoff) next.dropoff = t("Kies een bestemming uit de suggesties.");
+    if (isPickupAtInPast(pickupAt)) {
+      next.pickupAt = t("Kies een ophaalmoment in de toekomst.");
+    }
     if (firstName.trim().length < 2) next.firstName = t("Vul je voornaam in.");
     if (lastName.trim().length < 2) next.lastName = t("Vul je achternaam in.");
     if (phone.trim().length < 8) next.phone = t("Vul een geldig telefoonnummer in.");
@@ -1583,6 +1937,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       setGuestRides(next);
       setExpandedRideKey(rideArchiveKey({ id: data.ride_request_id, token: data.track_token }));
       clearBookingDropoff();
+      await saveProfile();
 
       const checkout = data.checkout_url || data.live?.checkout_url;
       if (checkout) {
@@ -1725,16 +2080,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
-  function startNewRide() {
-    setTrackToken(null);
-    setLive(null);
-    persistTrack(null);
-    setError(null);
-    setExpandedRideKey(null);
-    clearBookingDropoff();
-    goToBookTab();
-  }
-
   function loadRideLive(ride: GuestRide) {
     setTrackToken(ride.token);
     persistTrack(isActiveRidePhase(ride.phase) ? ride.token : null);
@@ -1806,6 +2151,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         pitchEnabled={false}
         rotateEnabled={false}
         moveOnMarkerPress={false}
+        onTouchStart={noteBookMapTouchStart}
+        onTouchEnd={noteBookMapTouchEnd}
+        onTouchCancel={noteBookMapTouchEnd}
+        onPanDrag={noteBookMapGesture}
+        onRegionChangeStart={(_region, details) => {
+          if (details?.isGesture) noteBookMapGesture();
+        }}
+        onRegionChange={(_region, details) => {
+          if (details?.isGesture) noteBookMapGesture();
+        }}
+        onRegionChangeComplete={(_region, details) => {
+          if (details?.isGesture) noteBookMapGestureEnd();
+        }}
       >
         {pickup ? (
           <Marker
@@ -1874,6 +2232,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </Pressable>
         ) : null}
       </View>
+      <Pressable
+        onPress={() => {
+          bookUserMoving.current = false;
+          bookFingerDown.current = false;
+          void moveBookMapToCurrentLocation();
+        }}
+        style={styles.locateBtn}
+        accessibilityRole="button"
+        accessibilityLabel={t("Huidige locatie")}
+      >
+        <Ionicons name="locate" size={18} color={colors.text} />
+      </Pressable>
       {demoActive ? (
         <View style={styles.demoBadge} pointerEvents="none">
           <Text style={styles.demoBadgeText}>DEMO</Text>
@@ -2002,14 +2372,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         <Text style={styles.routeSummary}>{routeSummary}</Text>
       )}
       <View style={styles.quotePriceSlot}>
-        <Text
-          style={quoteBusy ? styles.quotePriceBusy : styles.price}
-          numberOfLines={1}
-        >
-          {quoteBusy ? t("Bezig met berekenen…") : displayPrice}
+        <Text style={styles.price} numberOfLines={1}>
+          {displayPrice}
         </Text>
       </View>
-      <Text style={[styles.meta, styles.quoteMetaCenter]}>
+      <Text
+        style={[
+          styles.meta,
+          styles.quoteMetaCenter,
+          freeNearby > 0 ? null : styles.quoteMetaNoTaxi,
+        ]}
+      >
         {freeNearby > 0
           ? freeNearby === 1
             ? t('{n} taxi in de buurt', { n: freeNearby })
@@ -2046,6 +2419,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           }}
           placeholder={t("Typ een adres en kies een suggestie")}
           autoCapitalize="words"
+          autoComplete="off"
           confirmed={!!pickup}
           error={fieldErrors.pickup}
           returnKeyType="next"
@@ -2102,6 +2476,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           }}
           placeholder={t("Typ een adres en kies een suggestie")}
           autoCapitalize="words"
+          autoComplete="off"
           confirmed={!!dropoff}
           error={fieldErrors.dropoff}
           returnKeyType="done"
@@ -2131,7 +2506,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </Card>
 
       <Card>
-        <PickupAtField value={pickupAt} onChange={setPickupAt} />
+        <PickupAtField
+          value={pickupAt}
+          error={fieldErrors.pickupAt}
+          onChange={(next) => {
+            setPickupAt(next);
+            setFieldErrors((e) => ({ ...e, pickupAt: undefined }));
+          }}
+        />
       </Card>
 
       <View
@@ -2201,56 +2583,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </Card>
 
       <Card>
-        <View style={styles.nameRow}>
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t("Voornaam")}
-              value={firstName}
-              onChangeText={(v) => {
-                setFirstName(v);
-                setFieldErrors((e) => ({ ...e, firstName: undefined }));
-              }}
-              autoCapitalize="words"
-              error={fieldErrors.firstName}
-            />
-          </View>
-          <View style={{ width: 10 }} />
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t("Achternaam")}
-              value={lastName}
-              onChangeText={(v) => {
-                setLastName(v);
-                setFieldErrors((e) => ({ ...e, lastName: undefined }));
-              }}
-              autoCapitalize="words"
-              error={fieldErrors.lastName}
-            />
-          </View>
-        </View>
-        <Field
-          label={t("Telefoon")}
-          value={phone}
-          onChangeText={(v) => {
-            setPhone(v);
-            setFieldErrors((e) => ({ ...e, phone: undefined }));
-          }}
-          keyboardType="phone-pad"
-          placeholder="06…"
-          error={fieldErrors.phone}
-        />
-        <Field
-          label="E-mail"
-          value={email}
-          onChangeText={(v) => {
-            setEmail(v);
-            setFieldErrors((e) => ({ ...e, email: undefined }));
-          }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholder="naam@email.nl"
-          error={fieldErrors.email}
-        />
         <Field
           label="Opmerkingen"
           value={remarks}
@@ -2258,6 +2590,105 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           placeholder={t("Bijv. bakfiets, hulp bij instappen…")}
           multiline
         />
+      </Card>
+
+      <Card>
+        {showBookContactInputs ? (
+          <>
+            <View style={styles.nameRow}>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label={t("Voornaam")}
+                  value={firstName}
+                  onChangeText={(v) => {
+                    setFirstName(v);
+                    setFieldErrors((e) => ({ ...e, firstName: undefined }));
+                  }}
+                  autoCapitalize="words"
+                  error={fieldErrors.firstName}
+                />
+              </View>
+              <View style={{ width: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Field
+                  label={t("Achternaam")}
+                  value={lastName}
+                  onChangeText={(v) => {
+                    setLastName(v);
+                    setFieldErrors((e) => ({ ...e, lastName: undefined }));
+                  }}
+                  autoCapitalize="words"
+                  error={fieldErrors.lastName}
+                />
+              </View>
+            </View>
+            <Field
+              label={t("Telefoon")}
+              value={phone}
+              onChangeText={(v) => {
+                setPhone(v);
+                setFieldErrors((e) => ({ ...e, phone: undefined }));
+              }}
+              keyboardType="phone-pad"
+              placeholder="06…"
+              error={fieldErrors.phone}
+            />
+            <Field
+              label="E-mail"
+              value={email}
+              onChangeText={(v) => {
+                setEmail(v);
+                setFieldErrors((e) => ({ ...e, email: undefined }));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="naam@email.nl"
+              error={fieldErrors.email}
+            />
+            {bookContactEditing ? (
+              <>
+                {profileSaved ? (
+                  <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
+                ) : null}
+                <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+                <View style={{ height: 10 }} />
+                <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('book')} />
+              </>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <View style={styles.nameRow}>
+              <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+                <Text style={styles.rowValue}>{firstName}</Text>
+              </View>
+              <View style={{ width: 10 }} />
+              <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+                <Text style={styles.rowValue}>{lastName}</Text>
+              </View>
+            </View>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+              <Text style={styles.rowValue}>{phone}</Text>
+            </View>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>E-mail</Text>
+              <Text style={styles.rowValue}>{email}</Text>
+            </View>
+            <Pressable
+              onPress={() => beginContactEdit('book')}
+              style={({ pressed }) => [
+                styles.contactEditBtn,
+                pressed && styles.contactEditBtnPressed,
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.contactEditBtnText}>{t("Bewerk")}</Text>
+            </Pressable>
+          </>
+        )}
         <Text style={styles.profileHint}>{t("Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden ingevuld.")}</Text>
       </Card>
 
@@ -2578,38 +3009,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               >
                 <PhasePill phase={phase} />
               </Pressable>
-              <View style={styles.rideCardTopRight}>
-                {canArchive ? (
-                  <Pressable
-                    onPress={() =>
-                      toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-                    }
-                    hitSlop={8}
-                    style={styles.archiveIconBtn}
-                    accessibilityLabel={
-                      showArchivedRides ? t("Terugzetten uit archief") : t("Archiveren")
-                    }
-                  >
-                    <Ionicons
-                      name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
-                      size={20}
-                      color={colors.muted}
-                    />
-                  </Pressable>
-                ) : null}
-                <Pressable
-                  onPress={() => toggleRideExpanded(ride)}
-                  hitSlop={12}
-                  style={styles.rideChevronBtn}
-                  accessibilityLabel={expanded ? 'Inklappen' : t("Uitklappen")}
-                >
-                  <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={26}
-                    color={colors.muted}
-                  />
-                </Pressable>
-              </View>
+              <Pressable
+                onPress={() => toggleRideExpanded(ride)}
+                hitSlop={12}
+                style={styles.rideChevronBtn}
+                accessibilityLabel={expanded ? 'Inklappen' : t("Uitklappen")}
+              >
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={26}
+                  color={colors.muted}
+                />
+              </Pressable>
             </View>
           ) : null}
 
@@ -2653,31 +3064,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 {shortAddress(from)} → {shortAddress(to)}
               </Text>
               {cancelled ? (
-                <View style={styles.rideCardTopRight}>
-                  {canArchive ? (
-                    <Pressable
-                      onPress={() =>
-                        toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-                      }
-                      hitSlop={8}
-                      style={styles.archiveIconBtn}
-                      accessibilityLabel={
-                        showArchivedRides ? t("Terugzetten uit archief") : t("Archiveren")
-                      }
-                    >
-                      <Ionicons
-                        name={showArchivedRides ? 'arrow-up-circle-outline' : 'archive-outline'}
-                        size={20}
-                        color={colors.muted}
-                      />
-                    </Pressable>
-                  ) : null}
-                  <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={26}
-                    color={colors.muted}
-                  />
-                </View>
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={26}
+                  color={colors.muted}
+                />
               ) : null}
             </View>
             ) : null}
@@ -2719,12 +3110,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 ? live?.baggage || { summary: ride.baggage_summary }
                 : { summary: ride.baggage_summary },
             })}
-            {price != null ? (
-              <>
-                <Text style={[styles.rowLabel, { marginTop: 10 }]}>{t("Prijs")}</Text>
-                <Text style={styles.rowValue}>{formatEuroNl(Number(price))}</Text>
-              </>
-            ) : null}
 
             {isLiveMatch && live ? (
               <>
@@ -2739,7 +3124,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   </>
                 ) : null}
 
-                {live.driver || live.vehicle ? (
+                {phase === 'accepted' ? (
+                  <AcceptedRideIdentity live={live} onPreview={setPhotoPreviewUri} />
+                ) : live.driver || live.vehicle ? (
                   <View style={styles.driverCard}>
                     {live.driver?.company_logo_url ? (
                       <Image
@@ -2916,11 +3303,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
 
-            {completed && !cancelled ? (
+            {canArchive ? (
               <View style={{ marginTop: 12 }}>
-                <PrimaryButton title={t("Nieuwe rit")} onPress={startNewRide} />
+                <GhostButton
+                  title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
+                  onPress={() =>
+                    toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+                  }
+                />
               </View>
             ) : null}
+          </View>
+        ) : canArchive ? (
+          <View style={styles.rideArchiveBtnWrap}>
+            <GhostButton
+              title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
+              onPress={() =>
+                toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+              }
+            />
           </View>
         ) : null}
       </View>
@@ -3039,6 +3440,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             ) : null}
           </View>
         </View>
+        <View
+          onLayout={(e) => {
+            tripStatusY.current = e.nativeEvent.layout.y;
+          }}
+        >
         <Card>
           {invoiceSentLabel ? (
             <Text style={styles.liveTitle}>{invoiceSentLabel}</Text>
@@ -3051,6 +3457,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               detailStyle={styles.arrivalType}
             />
           )}
+          <View style={styles.followMapBlock}>
+            <Pressable
+              onPress={focusAcceptedMap}
+              style={styles.followMapLinkPress}
+              accessibilityRole="button"
+              accessibilityLabel={t("Volg chauffeur op de kaart.")}
+              accessibilityHint={t("Toont de live positie van de chauffeur op de kaart")}
+            >
+              <Ionicons name="map-outline" size={16} color={colors.primary} />
+              <Text style={styles.followMapLink}>{t("Volg chauffeur op de kaart.")}</Text>
+            </Pressable>
+          </View>
+          <AcceptedRideIdentity live={live} onPreview={setPhotoPreviewUri} />
           <View style={styles.rideCardFoot}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.metaCaption}>{t("Datum")}</Text>
@@ -3094,13 +3513,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             baggage: live.baggage,
           })}
         </Card>
+        </View>
       </View>
     ) : null;
 
   const ridesContent = (
     <ScrollView
+      ref={ridesScrollRef}
       style={styles.formScroll}
-      contentContainerStyle={styles.scroll}
+      contentContainerStyle={[
+        styles.scroll,
+        rideMapOpen && !tripStarted ? { paddingBottom: 168 } : null,
+      ]}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
     >
@@ -3121,8 +3545,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {archivedPast.length === 0 ? (
             <Card>
               <Text style={styles.meta}>
-                Gearchiveerde ritten verschijnen hier. Tik op het archieficoon bij een eerdere rit om
-                die te bewaren.
+                {t(
+                  'Gearchiveerde ritten verschijnen hier. Tik op Naar archief bij een eerdere rit om die te bewaren.'
+                )}
               </Text>
             </Card>
           ) : (
@@ -3184,25 +3609,56 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     >
       <ErrorText>{error}</ErrorText>
       <Card>
-        <Field label={t("Voornaam")} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
-        <Field label={t("Achternaam")} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
-        <Field
-          label={t("Telefoon")}
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          placeholder="06…"
-        />
-        <Field
-          label="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          placeholder="naam@email.nl"
-        />
-        {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
-        <PrimaryButton title={t("Opslaan")} onPress={saveProfile} />
+        {showProfileInputs ? (
+          <>
+            <Field label={t("Voornaam")} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+            <Field label={t("Achternaam")} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+            <Field
+              label={t("Telefoon")}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="06…"
+            />
+            <Field
+              label="E-mail"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholder="naam@email.nl"
+            />
+            {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
+            <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+            {profileEditing ? (
+              <>
+                <View style={{ height: 10 }} />
+                <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('profile')} />
+              </>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+              <Text style={styles.rowValue}>{firstName}</Text>
+            </View>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+              <Text style={styles.rowValue}>{lastName}</Text>
+            </View>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+              <Text style={styles.rowValue}>{phone}</Text>
+            </View>
+            <View style={styles.contactReadonlyField}>
+              <Text style={styles.rowLabel}>E-mail</Text>
+              <Text style={styles.rowValue}>{email}</Text>
+            </View>
+            {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
+            <PrimaryButton title={t("Bewerk")} onPress={() => beginContactEdit('profile')} />
+          </>
+        )}
       </Card>
 
       <Card>
@@ -3297,6 +3753,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             goToBookTab();
             return;
           }
+          leaveContactEditModes();
           setTab(key);
           AsyncStorage.setItem(TAB_KEY, key).catch(() => undefined);
           setError(null);
@@ -3872,20 +4329,11 @@ function makeStyles(colors: ColorPalette) {
       gap: 8,
       marginBottom: 8,
     },
-    rideCardTopRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginLeft: 'auto',
-    },
     rideCardAmount: {
       color: colors.text,
       fontSize: 15,
       fontWeight: '700',
       lineHeight: 20,
-    },
-    archiveIconBtn: {
-      padding: 2,
     },
     rideChevronBtn: {
       padding: 4,
@@ -4003,21 +4451,20 @@ function makeStyles(colors: ColorPalette) {
       marginBottom: 4,
     },
     quotePriceSlot: {
-      height: 40,
+      minHeight: 40,
       marginTop: 14,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    quotePriceBusy: {
-      color: colors.muted,
-      fontSize: 15,
-      fontWeight: '600',
-      lineHeight: 40,
-      textAlign: 'center',
     },
     quoteMetaCenter: {
       textAlign: 'center',
       marginTop: 6,
+    },
+    quoteMetaNoTaxi: {
+      // Duidelijke oranje waarschuwing (licht #EA580C / donker #FB923C)
+      color: colors.text === '#F8FAFC' ? '#FB923C' : '#EA580C',
+      fontWeight: '600',
     },
     tripMetrics: {
       flexDirection: 'row',
@@ -4083,6 +4530,11 @@ function makeStyles(colors: ColorPalette) {
       paddingTop: 12,
       paddingBottom: 14,
     },
+    rideArchiveBtnWrap: {
+      paddingHorizontal: 14,
+      paddingBottom: 14,
+      paddingTop: 4,
+    },
     archiveLink: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -4118,6 +4570,23 @@ function makeStyles(colors: ColorPalette) {
       marginBottom: 12,
       backgroundColor: colors.card,
     },
+    followMapBlock: {
+      marginTop: 2,
+      marginBottom: 8,
+      gap: 4,
+    },
+    followMapLinkPress: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 2,
+    },
+    followMapLink: {
+      color: colors.primary,
+      fontSize: 15,
+      fontWeight: '700',
+    },
     map: {
       width: '100%',
       height: '100%',
@@ -4143,6 +4612,19 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 22,
       fontWeight: '600',
       lineHeight: 24,
+    },
+    locateBtn: {
+      position: 'absolute',
+      right: 10,
+      bottom: 10,
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     fleetBadge: {
       position: 'absolute',
@@ -4311,6 +4793,59 @@ function makeStyles(colors: ColorPalette) {
       borderRadius: 28,
       backgroundColor: colors.inputBg,
     },
+    driverAvatarFallback: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    acceptedDriverCard: {
+      marginBottom: 20,
+      padding: 16,
+      overflow: 'hidden',
+    },
+    acceptedDriverLogo: {
+      width: 120,
+      height: 40,
+      alignSelf: 'center',
+      backgroundColor: 'transparent',
+    },
+    acceptedAlign: {
+      alignSelf: 'center',
+      alignItems: 'flex-start',
+      maxWidth: '100%',
+      gap: 10,
+    },
+    acceptedAlignRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      maxWidth: '100%',
+    },
+    acceptedCarColumn: {
+      width: ACCEPTED_CAR_WIDTH,
+      alignItems: 'center',
+    },
+    acceptedDriverMeta: {
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    acceptedDriverAvatar: {
+      width: 70,
+      height: 70,
+      borderRadius: 35,
+      backgroundColor: colors.inputBg,
+    },
+    acceptedDriverRating: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 18,
+      marginTop: 2,
+    },
+    acceptedVehicleThumb: {
+      width: ACCEPTED_CAR_WIDTH,
+      height: ACCEPTED_CAR_HEIGHT,
+      borderRadius: 6,
+      backgroundColor: 'transparent',
+    },
     driverName: {
       color: colors.text,
       fontSize: 16,
@@ -4398,6 +4933,27 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 12,
       lineHeight: 17,
       marginTop: 10,
+    },
+    contactReadonlyField: {
+      marginBottom: 14,
+    },
+    contactEditBtn: {
+      alignSelf: 'flex-start',
+      marginTop: 2,
+      paddingVertical: 7,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: 'transparent',
+    },
+    contactEditBtnPressed: {
+      backgroundColor: colors.inputBg,
+    },
+    contactEditBtnText: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '600',
     },
     price: {
       color: colors.text,

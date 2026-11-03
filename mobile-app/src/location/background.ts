@@ -14,12 +14,12 @@ export const LOCATION_SETTINGS_HINT =
 export const LOCATION_REQUIRED_HINT = 'Locatietoestemming is verplicht om online te gaan.';
 
 /**
- * While-using is enough. Remember that the Always / all-the-time upgrade was
- * already offered so a later online toggle does not open Android's location
- * permission page or iOS's Change to Always sheet again.
+ * Remember that we already showed the Always / all-the-time system prompt once
+ * (or opened Android's location settings). A later Online toggle must not nag.
+ * New key: older builds set a flag without ever calling requestBackgroundPermissionsAsync.
  */
-const BACKGROUND_UPGRADE_OFFERED_KEY = 'nexa.taxi.backgroundLocationUpgradeOffered';
-let backgroundUpgradeOffered = false;
+const BACKGROUND_UPGRADE_ASKED_KEY = 'nexa.taxi.backgroundLocationUpgradeAsked.v2';
+let backgroundUpgradeAsked = false;
 
 export const LOCATION_TASK = 'nexa-taxi-driver-location';
 const TOKEN_KEY = 'nexa_taxi_location_token';
@@ -125,49 +125,52 @@ export function ensureForegroundLocationPermission(): Promise<void> {
   return foregroundPermissionTask;
 }
 
-async function wasBackgroundUpgradeOffered(): Promise<boolean> {
-  if (backgroundUpgradeOffered) return true;
+async function wasBackgroundUpgradeAsked(): Promise<boolean> {
+  if (backgroundUpgradeAsked) return true;
   try {
-    if ((await AsyncStorage.getItem(BACKGROUND_UPGRADE_OFFERED_KEY)) === '1') {
-      backgroundUpgradeOffered = true;
+    if ((await AsyncStorage.getItem(BACKGROUND_UPGRADE_ASKED_KEY)) === '1') {
+      backgroundUpgradeAsked = true;
       return true;
     }
   } catch {
     /* in-memory flag still applies for this session */
   }
-  return backgroundUpgradeOffered;
+  return backgroundUpgradeAsked;
 }
 
-function rememberBackgroundUpgradeOffered(): void {
-  backgroundUpgradeOffered = true;
-  AsyncStorage.setItem(BACKGROUND_UPGRADE_OFFERED_KEY, '1').catch(() => undefined);
+function rememberBackgroundUpgradeAsked(): void {
+  backgroundUpgradeAsked = true;
+  AsyncStorage.setItem(BACKGROUND_UPGRADE_ASKED_KEY, '1').catch(() => undefined);
 }
 
 /**
- * While-using is enough for the map and dispatch. Returns true only when
- * Always / all-the-time is already granted.
- * Does not call requestBackgroundPermissionsAsync once foreground is granted:
- * on Android 11+ that opens the system Location permission page on every call,
- * and on iOS it re-presents Change to Always. The offer is stored so a later
- * online toggle does not open that page. Staying on while-using is not an error.
+ * Ensures Always / all-the-time when possible so online drivers stay on booking
+ * maps and receive offer checks while the app is backgrounded.
+ * Asks at most once per install. Denial is not fatal: Online still works in
+ * foreground; Android keeps the foreground-service task with while-in-use.
  */
 export async function requestBackgroundLocationUpgrade(): Promise<boolean> {
   try {
     const background = await Location.getBackgroundPermissionsAsync();
     if (background.status === 'granted') return true;
-    if (backgroundUpgradeOffered || (await wasBackgroundUpgradeOffered())) return false;
 
     const foreground = await Location.getForegroundPermissionsAsync();
-    if (foreground.status === 'granted' || background.canAskAgain === false) {
-      rememberBackgroundUpgradeOffered();
+    if (foreground.status !== 'granted') return false;
+
+    if (background.canAskAgain === false) {
+      rememberBackgroundUpgradeAsked();
       return false;
     }
+    if (backgroundUpgradeAsked || (await wasBackgroundUpgradeAsked())) {
+      return false;
+    }
+
+    rememberBackgroundUpgradeAsked();
+    const asked = await Location.requestBackgroundPermissionsAsync();
+    return asked.status === 'granted';
   } catch {
     return false;
   }
-
-  // Not asked yet. The one system prompt is the foreground dialog.
-  return false;
 }
 
 export async function isBackgroundLocationGranted(): Promise<boolean> {
@@ -208,10 +211,10 @@ async function startLocationTask(refreshSeconds: number) {
 }
 
 /**
- * Foreground permission is required. While-using is enough to go online and is
- * not a warning. Always / all-the-time is used only when it is already granted.
- * On Android the foreground-service updates run with while-in-use. On iOS the
- * background task starts only with Always.
+ * Foreground permission is required to go Online.
+ * iOS: background task needs Always (requested once via upgrade).
+ * Android: foreground-service updates run with while-in-use; Always is preferred
+ * so presence survives longer after leaving the app.
  */
 export async function startBackgroundLocation(
   token: string,
@@ -246,6 +249,23 @@ export async function resumeGrantedBackgroundLocation(refreshSeconds: number = 1
   if (started) return true;
   await startLocationTask(refreshSeconds);
   return true;
+}
+
+/**
+ * Keep the native location task running while Online (no permission prompt).
+ * iOS needs Always; Android may run the foreground-service task with while-in-use.
+ */
+export async function ensureBackgroundLocationRunning(refreshSeconds: number = 1): Promise<boolean> {
+  const backgroundGranted = await isBackgroundLocationGranted();
+  if (!backgroundGranted && Platform.OS !== 'android') return false;
+  const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
+  if (started) return true;
+  try {
+    await startLocationTask(refreshSeconds);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function stopBackgroundLocation() {

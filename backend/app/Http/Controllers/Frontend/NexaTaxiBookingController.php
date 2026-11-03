@@ -64,7 +64,8 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
-        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data);
+        // Prijsindicatie mag zonder online taxi (HQ-/platformtarief); boeken eist wél chauffeurs.
+        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data, requireOnlineDrivers: false);
         if ($marketplace['error']) {
             return $marketplace['error'];
         }
@@ -75,7 +76,12 @@ class NexaTaxiBookingController extends Controller
         if ($bookingBlock) {
             return $bookingBlock;
         }
-        $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
+        // Marktplaats-rit blijft unclaimed (tenant_company_id null); prijsindicatie gebruikt tarieven van de dichtstbijzijnde kandidaat.
+        $quotes = $this->pricing->buildQuotes(
+            $resolved['config'],
+            $data,
+            $this->pricingCompanyIdForQuotes($resolved)
+        );
 
         $entitlements = app(CompanyEntitlementService::class);
         if (! $entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING)) {
@@ -254,7 +260,11 @@ class NexaTaxiBookingController extends Controller
             return $entitlements->jsonDenied($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING);
         }
         $sectionConfig = $resolved['config'];
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $data, $resolved['tenant_company_id']);
+        $quotes = $this->pricing->buildQuotes(
+            $sectionConfig,
+            $data,
+            $this->pricingCompanyIdForQuotes($resolved)
+        );
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);
         if (! $selected) {
             return response()->json([
@@ -1268,6 +1278,25 @@ class NexaTaxiBookingController extends Controller
     }
 
     /**
+     * Bedrijf waarvan tarieven/voertuigen voor de prijsindicatie komen.
+     * Marktplaats houdt tenant_company_id null (unclaimed), maar quote gebruikt de dichtstbijzijnde kandidaat.
+     *
+     * @param  array{tenant_company_id?: int|null, marketplace?: array<string, mixed>}  $resolved
+     */
+    protected function pricingCompanyIdForQuotes(array $resolved): ?int
+    {
+        $tenantId = isset($resolved['tenant_company_id']) ? (int) $resolved['tenant_company_id'] : 0;
+        if ($tenantId > 0) {
+            return $tenantId;
+        }
+        $nearestId = isset($resolved['marketplace']['company_id']) && is_numeric($resolved['marketplace']['company_id'])
+            ? (int) $resolved['marketplace']['company_id']
+            : 0;
+
+        return $nearestId > 0 ? $nearestId : null;
+    }
+
+    /**
      * Centrale nexasuite.nl-boeking: koppel de rit aan de dichtstbijzijnde taxi-tenant.
      * Algemene boekingsmodule: altijd marketplace. Boekingsmodule v2: alleen de tenant van de pagina.
      *
@@ -1275,7 +1304,7 @@ class NexaTaxiBookingController extends Controller
      * @param  array<string, mixed>  $data
      * @return array{resolved: array, error: ?JsonResponse}
      */
-    protected function resolveMarketplaceAssignment(array $resolved, array $data): array
+    protected function resolveMarketplaceAssignment(array $resolved, array $data, bool $requireOnlineDrivers = true): array
     {
         $sectionKey = isset($data['section_key']) ? (string) $data['section_key'] : '';
 
@@ -1328,20 +1357,42 @@ class NexaTaxiBookingController extends Controller
         $radiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
             $resolved['config']['logic']['marketplace_radius_km'] ?? null
         );
-        $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+        $resolver = app(NearestTaxiTenantResolver::class);
+        $matches = $resolver->resolveNearby(
             $lat,
             $lng,
             NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
             $radiusKm
         );
         if ($matches === []) {
-            return [
-                'resolved' => $resolved,
-                'error' => response()->json([
-                    'success' => false,
-                    'message' => 'Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.',
-                ], 422),
+            if ($requireOnlineDrivers) {
+                return [
+                    'resolved' => $resolved,
+                    'error' => response()->json([
+                        'success' => false,
+                        'message' => 'Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.',
+                    ], 422),
+                ];
+            }
+
+            // Quote zonder online taxi: tarief via dichtstbijzijnde vestiging (of platformdefault).
+            $hq = $resolver->nearestByHeadquarters($lat, $lng, $radiusKm)
+                ?? $resolver->nearestByHeadquarters($lat, $lng, null);
+            $resolved['tenant_company_id'] = null;
+            $resolved['config']['logic']['offer_display_mode'] = 'person_range';
+            $resolved['marketplace'] = [
+                'source' => RideRequest::SOURCE_NEXA_SUITE,
+                'label' => 'NEXA Suite',
+                'company_id' => $hq ? (int) $hq['company']->id : null,
+                'company_name' => $hq ? (string) $hq['company']->name : null,
+                'distance_km' => $hq ? $hq['distance_km'] : null,
+                'radius_km' => $radiusKm,
+                'candidate_company_ids' => [],
+                'candidates' => [],
+                'taxi_available' => false,
             ];
+
+            return ['resolved' => $resolved, 'error' => null];
         }
 
         $candidates = [];
@@ -1369,6 +1420,7 @@ class NexaTaxiBookingController extends Controller
             'radius_km' => $radiusKm,
             'candidate_company_ids' => $candidateIds,
             'candidates' => $candidates,
+            'taxi_available' => true,
         ];
 
         return ['resolved' => $resolved, 'error' => null];

@@ -50,3 +50,16 @@ export function formatDutchPlate(input: string): string {
   }
   return out;
 }
+
+/**
+ * Zelfde normalisatie als formatDutchPlate. Een vol kenteken zonder sidecode
+ * (bijv. MAMMBO) krijgt alsnog streepjes per twee tekens, alleen voor weergave.
+ */
+export function formatDutchPlateDisplay(input: string): string {
+  const formatted = formatDutchPlate(input);
+  if (!formatted || formatted.includes('-')) return formatted;
+  if (formatted.length === 6) {
+    return `${formatted.slice(0, 2)}-${formatted.slice(2, 4)}-${formatted.slice(4, 6)}`;
+  }
+  return formatted;
+}

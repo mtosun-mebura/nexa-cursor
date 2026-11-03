@@ -729,7 +729,7 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.payout-identities.*') || request()->routeIs('admin.nexa-suite-bookings.*') || request()->routeIs('admin.payment-flows.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.payout-identities.*') || \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.*', 'admin.nexa-suite-bookings.settings*') || request()->routeIs('admin.payment-flows.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -805,7 +805,7 @@
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-suite-bookings.*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.*', 'admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                 href="{{ route('admin.nexa-suite-bookings.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
@@ -989,7 +989,7 @@
                     $canViewBankAccount = $marketplacePackage && (auth()->user()?->isTenantAdmin() || $isSuperAdminSettings);
                 @endphp
                 @if($isSuperAdminSettings || ($canViewMailSettings && ! $marketplacePackage) || $canViewBankAccount)
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.bank-account*') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.bank-account*') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -1081,7 +1081,7 @@
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.nexa-suite-bookings.settings') }}" tabindex="0">
                                 <span

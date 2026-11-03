@@ -164,7 +164,7 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-stream');
 
         Route::post('dispatch/offers/{offer}/accept', [DriverDispatchController::class, 'accept'])
-            ->middleware('throttle:taxi-driver-action')
+            ->middleware('throttle:taxi-driver-accept')
             ->whereNumber('offer');
 
         Route::post('dispatch/offers/{offer}/decline', [DriverDispatchController::class, 'decline'])
