@@ -6,6 +6,8 @@ export type GeoPoint = {
   lat: number;
   lng: number;
   address: string;
+  /** Bedrijf, bioscoop, stadion — leeg bij een kale straat. */
+  placeName?: string | null;
 };
 
 export type LatLng = { latitude: number; longitude: number };
@@ -261,7 +263,34 @@ export type AddressSuggestion = {
   label: string;
   lat: number;
   lng: number;
+  /** Google/Nominatim-naam, alleen als die geen straat of plaats is. */
+  placeName?: string | null;
 };
+
+/**
+ * Plaatsnaam boven de straat. Een straat, huisnummer of plaatsnaam zelf telt niet.
+ */
+export function visiblePlaceName(name?: string | null, address?: string | null): string {
+  const place = String(name || '').replace(/\s+/g, ' ').trim();
+  if (!place) return '';
+  const line = String(address || '').replace(/\s+/g, ' ').trim();
+  if (!line) return place;
+  if (place.toLowerCase() === line.toLowerCase()) return '';
+  const parts = line
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const placeLower = place.toLowerCase();
+  if (parts.some((part) => part.toLowerCase() === placeLower)) return '';
+  const street = (parts[0] || '').toLowerCase();
+  if (
+    street &&
+    (street === placeLower || street.startsWith(`${placeLower} `) || placeLower.startsWith(street))
+  ) {
+    return '';
+  }
+  return place;
+}
 
 /** Suggestie: straat + huisnummer en plaats. Geen postcode of wijk. */
 function suggestionLabel(
@@ -342,7 +371,7 @@ function parseAddressSuggestions(data: unknown, q: string): AddressSuggestion[] 
 
   const seenCoords = new Set<string>();
   const seenLabels = new Set<string>();
-  const ranked: { label: string; lat: number; lng: number; score: number }[] = [];
+  const ranked: { label: string; lat: number; lng: number; score: number; placeName: string }[] = [];
 
   for (const item of data as {
     display_name?: string;
@@ -366,9 +395,12 @@ function parseAddressSuggestions(data: unknown, q: string): AddressSuggestion[] 
     let label = suggestionLabel(item.display_name, item.address, item.name);
     if (!label) continue;
     // Altijd een straatnaam (of echte POI), nooit alleen postcode + stad
-    const { street } = streetPartsFromNominatim(item.display_name, item.address, item.name);
+    const { street, number } = streetPartsFromNominatim(item.display_name, item.address, item.name);
     const poi = String(item.name || '').trim();
     if (!street && (!poi || isNlPostcode(poi))) continue;
+    const streetPart = [street, number].filter(Boolean).join(' ').trim();
+    const city = stripPostcode(cityFromNominatim(item.display_name, item.address));
+    const placeName = visiblePlaceName(poi, [streetPart, city].filter(Boolean).join(', '));
 
     const labelKey = label.toLowerCase();
     if (seenLabels.has(labelKey)) {
@@ -387,12 +419,18 @@ function parseAddressSuggestions(data: unknown, q: string): AddressSuggestion[] 
       label,
       lat,
       lng,
+      placeName,
       score: suggestionMatchScore(label, q),
     });
   }
 
   ranked.sort((a, b) => b.score - a.score);
-  return ranked.slice(0, 6).map(({ label, lat, lng }) => ({ label, lat, lng }));
+  return ranked.slice(0, 6).map(({ label, lat, lng, placeName }) => ({
+    label,
+    lat,
+    lng,
+    placeName: placeName || null,
+  }));
 }
 
 export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
@@ -510,7 +548,12 @@ export async function geocodeAddress(query: string): Promise<GeoPoint> {
   const suggestions = await searchAddresses(query);
   if (suggestions.length) {
     const first = suggestions[0];
-    return { lat: first.lat, lng: first.lng, address: first.label };
+    return {
+      lat: first.lat,
+      lng: first.lng,
+      address: first.label,
+      placeName: first.placeName || null,
+    };
   }
   throw new Error('Adres niet gevonden. Kies een suggestie uit de lijst.');
 }
@@ -687,6 +730,11 @@ async function lastKnownCoords(): Promise<{ lat: number; lng: number } | null> {
     /* ignore */
   }
   return null;
+}
+
+/** Alleen de laatst bekende fix. Start geen nieuwe GPS-meting. */
+export async function peekLastKnownCoords(): Promise<{ lat: number; lng: number } | null> {
+  return lastKnownCoords();
 }
 
 /** GPS zonder adres — voor vloot op de kaart voordat er een ophaaladres is. */

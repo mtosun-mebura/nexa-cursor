@@ -16,7 +16,6 @@ import {
   Platform,
   StatusBar,
   useColorScheme,
-  View,
 } from 'react-native';
 import { ColorPalette, DARK_COLORS, LIGHT_COLORS } from '../config';
 import { syncAlternateAppIcon } from './alternateAppIcon';
@@ -128,10 +127,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const colorScheme = resolveScheme(preference, phoneScheme);
+  // Geen leeg venster als iOS het schema nog niet doorgeeft (zwart scherm).
+  const colorScheme = resolveScheme(preference, phoneScheme) ?? 'dark';
 
   useEffect(() => {
-    if (colorScheme == null) return;
     const barStyle = colorScheme === 'light' ? 'dark-content' : 'light-content';
     StatusBar.setBarStyle(barStyle);
     if (Platform.OS !== 'android') return;
@@ -164,14 +163,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       ready,
     };
   }, [preference, colorScheme, setPreference, ready]);
-
-  if (colorScheme == null) {
-    return (
-      <ThemeContext.Provider value={value}>
-        <View style={{ flex: 1 }} />
-      </ThemeContext.Provider>
-    );
-  }
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

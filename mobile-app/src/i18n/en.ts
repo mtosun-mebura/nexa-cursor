@@ -14,6 +14,8 @@ export const EN: Record<string, string> = {
   'Aanvragen ({count})': 'Requests ({count})',
   Accepteren: 'Accept',
   'Accepteren mislukt.': 'Could not accept.',
+  'De rit staat nog open. De klant wacht nog op een chauffeur.':
+    'The ride is still open. The customer is still waiting for a driver.',
   Accountstatus: 'Account status',
   Achternaam: 'Last name',
   Actief: 'Active',
@@ -506,6 +508,8 @@ export const EN: Record<string, string> = {
   Taxibedrijf: 'Taxi company',
   'Taxibedrijf registreren': 'Register a taxi company',
   'Te betalen bedrag': 'Amount due',
+  'Te veel pogingen om deze rit te annuleren. Wacht even en probeer het opnieuw.':
+    'Too many attempts to cancel this ride. Wait a moment and try again.',
   Telefoon: 'Phone',
   Telefoonnummer: 'Phone number',
   Terug: 'Back',

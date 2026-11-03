@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Support\TaxiCustomerAppSchema;
 use App\Services\ModuleDatabaseService;
 use App\Services\NearestTaxiTenantResolver;
@@ -173,6 +174,14 @@ class CustomerMarketplaceBookingService
             ],
             'pricing' => $quotes,
         ];
+        $pickupPlace = RidePlaceName::distinct($data['pickup_place_name'] ?? null, $data['pickup_address'] ?? '');
+        $dropoffPlace = RidePlaceName::distinct($data['dropoff_place_name'] ?? null, $data['dropoff_address'] ?? '');
+        if ($pickupPlace !== null) {
+            $payload['pickup_place_name'] = $pickupPlace;
+        }
+        if ($dropoffPlace !== null) {
+            $payload['dropoff_place_name'] = $dropoffPlace;
+        }
 
         $rideData = [
             'company_id' => null,

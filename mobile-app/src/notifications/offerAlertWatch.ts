@@ -8,7 +8,11 @@ import {
   type DispatchOffer,
   type DriverActiveRide,
 } from '../api/driver';
-import { normalizeRideAlertTone, playRideAlertTone, prepareRideAlertAudio } from '../audio/rideAlert';
+import {
+  normalizeRideAlertTone,
+  playRideAlertTone,
+  prepareRideAlertAudio,
+} from '../audio/rideAlert';
 import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
 import { alertNextPickupDeparture } from './pickupDeparture';
 
@@ -22,6 +26,9 @@ const BADGE_KEY = 'nexa_taxi_offer_badge';
 let chain: Promise<unknown> = Promise.resolve();
 let lastBackgroundCheck = 0;
 let audioPrimed = false;
+/** Eén inbox-check tegelijk. Extra aanroepen (GPS-burst) vervangen de wachtende input. */
+let alertDraining = false;
+let queuedAlert: Parameters<typeof checkOnce>[0] | null = null;
 
 export function rememberRideAlertTone(tone?: string | null): void {
   SecureStore.setItemAsync(TONE_KEY, normalizeRideAlertTone(tone)).catch(() => undefined);
@@ -78,9 +85,8 @@ async function saveSeen(seen: Set<number>): Promise<void> {
 
 /**
  * Nieuwe ritaanvragen:
- * - Voorgrond: app-toon (werkt ook bij stille stand; zelfde pad als profiel-preview).
- * - Standby/achtergrond: eerst lokale melding mét toon (betrouwbaar op vergrendelscherm),
- *   daarna best-effort app-audio. App-audio alleen mag hier niet het meldingsgeluid blokkeren.
+ * - Voorgrond: gekozen ritgeluid via expo-audio (beltoon/luidspreker als de telefoon niet op stil staat), stille banner.
+ * - Standby/achtergrond: lokale melding met dezelfde wav (hoorbaar als de ringer niet stil staat).
  */
 export function alertUnseenDriverOffers(input: {
   token?: string;
@@ -90,7 +96,25 @@ export function alertUnseenDriverOffers(input: {
   origin?: { lat: number; lng: number } | null;
   fromBackground?: boolean;
 }): Promise<DispatchOffer[]> {
-  const run = chain.then(() => checkOnce(input));
+  queuedAlert = input;
+  if (alertDraining) return Promise.resolve([]);
+  alertDraining = true;
+  const run = chain.then(async () => {
+    let last: DispatchOffer[] = [];
+    try {
+      while (queuedAlert) {
+        const next = queuedAlert;
+        queuedAlert = null;
+        last = await checkOnce(next);
+      }
+      return last;
+    } finally {
+      alertDraining = false;
+      if (queuedAlert) {
+        void alertUnseenDriverOffers(queuedAlert);
+      }
+    }
+  });
   chain = run.then(
     () => undefined,
     () => undefined
@@ -156,36 +180,32 @@ async function checkOnce(input: {
   const rideRequestId = Number(priority.ride_request_id || priority.ride?.id || 0) || null;
 
   if (inForeground) {
-    const played = await playRideAlertTone(tone);
-    if (!played) await playRideAlertTone('alert');
+    void playRideAlertTone(tone).then((played) => {
+      if (!played) void playRideAlertTone('alert');
+    });
     await notifyNewDriverOffer({
       count: fresh.length,
       pickup: priority.ride?.pickup_address,
       dropoff: priority.ride?.dropoff_address,
       playSound: false,
-      tone: played ? tone : 'alert',
-      badge,
-      offerId,
-      rideRequestId,
-    });
-  } else {
-    // Melding + geluid eerst. De GPS-taak heeft weinig tijd; een stil app-geluid
-    // mag de melding niet tegenhouden. Lukt het gekozen ritgeluid niet, dan Alert.
-    const played = playRideAlertTone(tone);
-    await notifyNewDriverOffer({
-      count: fresh.length,
-      pickup: priority.ride?.pickup_address,
-      dropoff: priority.ride?.dropoff_address,
-      playSound: true,
-      systemSound: true,
       tone,
       badge,
       offerId,
       rideRequestId,
     });
-    if (!(await played)) {
-      await playRideAlertTone('alert');
-    }
+  } else {
+    // Lokale melding met dezelfde wav. Niet wachten op de speler:
+    // die hangt de GPS-taak op en de melding is het geluid op de beltoon.
+    await notifyNewDriverOffer({
+      count: fresh.length,
+      pickup: priority.ride?.pickup_address,
+      dropoff: priority.ride?.dropoff_address,
+      playSound: true,
+      tone,
+      badge,
+      offerId,
+      rideRequestId,
+    });
   }
   return fresh;
 }
@@ -259,7 +279,7 @@ async function notifyFreshPickupDenials(input: {
   const tone = normalizeRideAlertTone(storedTone);
   const inForeground = AppState.currentState === 'active';
   if (inForeground) {
-    await playRideAlertTone(tone);
+    void playRideAlertTone(tone);
     await notifyPickupDenied({
       title,
       body,
@@ -275,7 +295,6 @@ async function notifyFreshPickupDenials(input: {
       playSound: true,
       tone,
     });
-    void playRideAlertTone(tone);
   }
   return { title, body, rideId };
 }

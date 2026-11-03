@@ -6,7 +6,7 @@ use App\Models\User;
 
 final class RideAlertTone
 {
-    public const DEFAULT = 'classic';
+    public const DEFAULT = 'alert';
 
     /** @var list<string> */
     public const KEYS = ['classic', 'chime', 'alert', 'soft', 'siren'];

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import { resolveApiBaseUrl } from '../config';
@@ -25,6 +25,13 @@ export const LOCATION_TASK = 'nexa-taxi-driver-location';
 const TOKEN_KEY = 'nexa_taxi_location_token';
 const VEHICLE_KEY = 'nexa_taxi_location_vehicle';
 
+/**
+ * De taak levert bij distanceInterval 0 een fix per GPS-sample.
+ * Zonder deze vlag stapelen SecureStore-, fetch- en inbox-promises zich op
+ * de JS-microtaskqueue (geheugen naar meerdere GB, taps komen niet meer aan).
+ */
+let locationTaskBusy = false;
+
 export function clampGpsRefreshSeconds(value: unknown): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 1) return 1;
@@ -32,14 +39,27 @@ export function clampGpsRefreshSeconds(value: unknown): number {
 }
 
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
-  if (error) {
+  if (error || locationTaskBusy) {
+    return;
+  }
+  // Open app: de voorgrond-watch post de locatie en de inbox pollt op een timer.
+  // Deze taak hier óók laten lopen blokkeert de JS-thread tot de app crasht.
+  if (AppState.currentState === 'active') {
     return;
   }
   const locations = (data as { locations?: Location.LocationObject[] })?.locations;
   if (!locations?.length) {
     return;
   }
-  const latest = locations[locations.length - 1];
+  locationTaskBusy = true;
+  try {
+    await runLocationTask(locations[locations.length - 1]);
+  } finally {
+    locationTaskBusy = false;
+  }
+});
+
+async function runLocationTask(latest: Location.LocationObject): Promise<void> {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
   if (!token) {
     return;
@@ -85,7 +105,7 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
   } catch {
     /* inbox-check mag de locatiepost niet breken */
   }
-});
+}
 
 export async function prepareBackgroundLocation(token: string, vehicleId?: number | null) {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -266,6 +286,11 @@ export async function ensureBackgroundLocationRunning(refreshSeconds: number = 1
   } catch {
     return false;
   }
+}
+
+/** Stop high-rate updates while the app is open. Keeps the stored token for standby. */
+export async function pauseBackgroundLocationUpdates(): Promise<void> {
+  await stopLocationTask();
 }
 
 export async function stopBackgroundLocation() {

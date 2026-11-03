@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import {
   createAudioPlayer,
   setAudioModeAsync,
@@ -8,6 +9,9 @@ import {
 export const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'] as const;
 export type RideAlertTone = (typeof RIDE_ALERT_TONES)[number];
 
+/** Nieuwe installatie / geen opgeslagen keuze. Een gekozen chip blijft staan. */
+export const DEFAULT_RIDE_ALERT_TONE: RideAlertTone = 'alert';
+
 export const RIDE_ALERT_OPTIONS: { key: RideAlertTone; label: string }[] = [
   { key: 'classic', label: 'Klassiek' },
   { key: 'chime', label: 'Bel' },
@@ -16,12 +20,13 @@ export const RIDE_ALERT_OPTIONS: { key: RideAlertTone; label: string }[] = [
   { key: 'siren', label: 'Sirene' },
 ];
 
+/** Zelfde wav als de lokale melding (classic.wav … siren.wav in de app-bundle). Eén bestand per naam. */
 const SOURCES: Record<RideAlertTone, number> = {
-  classic: require('../../assets/sounds/classic.m4a'),
-  chime: require('../../assets/sounds/chime.m4a'),
-  alert: require('../../assets/sounds/alert.m4a'),
-  soft: require('../../assets/sounds/soft.m4a'),
-  siren: require('../../assets/sounds/siren.m4a'),
+  classic: require('../../assets/sounds/classic.wav'),
+  chime: require('../../assets/sounds/chime.wav'),
+  alert: require('../../assets/sounds/alert.wav'),
+  soft: require('../../assets/sounds/soft.wav'),
+  siren: require('../../assets/sounds/siren.wav'),
 };
 
 /** Bestandsnaam voor expo-notifications (wav in app.json sounds). */
@@ -31,28 +36,41 @@ export function rideAlertNotificationSound(tone?: string | null): string {
 
 let current: AudioPlayer | null = null;
 let playChain: Promise<boolean> = Promise.resolve(false);
+let audioModeTask: Promise<void> | null = null;
 
 export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
   const key = String(value || '').toLowerCase();
   return (RIDE_ALERT_TONES as readonly string[]).includes(key)
     ? (key as RideAlertTone)
-    : 'classic';
+    : DEFAULT_RIDE_ALERT_TONE;
 }
 
 /**
- * AVAudioSession .playback + playsInSilentMode: speelt ook bij iPhone stille stand
- * (mute-schakelaar). Media-volume 0 blijft stil. Background: UIBackgroundModes audio.
+ * iOS soloAmbient: beltoonvolume, stil bij de stille schakelaar.
+ * Playback (playsInSilentMode) volgt alleen het mediavolume.
+ * Eén keer configureren — niet bij elke tik. Na achtergrond opnieuw, omdat iOS de sessie dan loslaat.
  */
-export async function prepareRideAlertAudio(): Promise<void> {
-  await setAudioModeAsync({
+export function prepareRideAlertAudio(): Promise<void> {
+  if (audioModeTask) return audioModeTask;
+  const task = setAudioModeAsync({
     allowsRecording: false,
-    playsInSilentMode: true,
-    shouldPlayInBackground: true,
+    playsInSilentMode: false,
+    shouldPlayInBackground: false,
     shouldRouteThroughEarpiece: false,
     interruptionMode: 'doNotMix',
-  });
-  await setIsAudioActiveAsync(true);
+  })
+    .then(() => setIsAudioActiveAsync(true))
+    .catch((error) => {
+      if (audioModeTask === task) audioModeTask = null;
+      throw error;
+    });
+  audioModeTask = task;
+  return task;
 }
+
+AppState.addEventListener('change', (state) => {
+  if (state === 'background') audioModeTask = null;
+});
 
 function releasePlayer(player: AudioPlayer | null): void {
   if (!player) return;
@@ -68,8 +86,8 @@ function releasePlayer(player: AudioPlayer | null): void {
   }
 }
 
-function waitUntilLoaded(player: AudioPlayer, timeoutMs = 2500): Promise<boolean> {
-  if (player.isLoaded) return Promise.resolve(true);
+function waitUntilLoaded(player: AudioPlayer, timeoutMs = 1200): Promise<boolean> {
+  if (player.isLoaded && !player.currentStatus.error) return Promise.resolve(true);
   return new Promise((resolve) => {
     const started = Date.now();
     let settled = false;
@@ -84,22 +102,26 @@ function waitUntilLoaded(player: AudioPlayer, timeoutMs = 2500): Promise<boolean
       }
       resolve(ok);
     };
-    const sub = player.addListener('playbackStatusUpdate', () => {
-      if (player.isLoaded) finish(true);
+    const sub = player.addListener('playbackStatusUpdate', (status) => {
+      if (status.error) finish(false);
+      else if (player.isLoaded) finish(true);
     });
     const poll = setInterval(() => {
-      if (player.isLoaded) {
+      const error = player.currentStatus?.error;
+      if (error) {
+        finish(false);
+      } else if (player.isLoaded) {
         finish(true);
       } else if (Date.now() - started >= timeoutMs) {
         finish(false);
       }
-    }, 40);
+    }, 50);
   });
 }
 
 async function playOnce(key: RideAlertTone): Promise<boolean> {
+  let player: AudioPlayer | null = null;
   try {
-    // Elke keer opnieuw: iOS deactiveert de sessie vaak na achtergrond/GPS-wake.
     await prepareRideAlertAudio();
 
     if (current) {
@@ -107,19 +129,28 @@ async function playOnce(key: RideAlertTone): Promise<boolean> {
       current = null;
     }
 
-    const player = createAudioPlayer(SOURCES[key], {
-      updateInterval: 100,
+    player = createAudioPlayer(SOURCES[key], {
+      updateInterval: 250,
       keepAudioSessionActive: true,
     });
     player.volume = 1;
     player.loop = false;
     current = player;
 
-    await waitUntilLoaded(player);
-    await setIsAudioActiveAsync(true);
+    const loaded = await waitUntilLoaded(player);
+    if (!loaded || current !== player) {
+      releasePlayer(player);
+      if (current === player) current = null;
+      return false;
+    }
 
+    const releaseTimer = setTimeout(() => {
+      releasePlayer(player);
+      if (current === player) current = null;
+    }, 8000);
     player.addListener('playbackStatusUpdate', (status) => {
-      if (!status.didJustFinish) return;
+      if (!status.didJustFinish && !status.error) return;
+      clearTimeout(releaseTimer);
       releasePlayer(player);
       if (current === player) current = null;
     });
@@ -127,11 +158,13 @@ async function playOnce(key: RideAlertTone): Promise<boolean> {
     player.play();
     return true;
   } catch {
+    releasePlayer(player);
+    if (current === player) current = null;
     return false;
   }
 }
 
-/** Speelt de gekozen toon; true als starten lukte. Werkt in stille stand en achtergrond. */
+/** Speelt de gekozen toon; true als starten lukte. Stil als de telefoon op de stille stand staat. */
 export function playRideAlertTone(tone?: string | null): Promise<boolean> {
   const key = normalizeRideAlertTone(tone);
   const run = playChain.then(() => playOnce(key));
@@ -140,4 +173,10 @@ export function playRideAlertTone(tone?: string | null): Promise<boolean> {
     () => false
   );
   return run;
+}
+
+/** Stop lopende preview/alert (bijv. bij schermwissels). */
+export function stopRideAlertTone(): void {
+  releasePlayer(current);
+  current = null;
 }

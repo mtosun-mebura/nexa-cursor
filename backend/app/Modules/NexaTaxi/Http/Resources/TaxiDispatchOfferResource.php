@@ -258,6 +258,8 @@ class TaxiDispatchOfferResource
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->driverLegPickupAddress(),
             'dropoff_address' => $ride->driverLegDropoffAddress(),
+            'pickup_place_name' => $ride->driverLegPickupPlaceName(),
+            'dropoff_place_name' => $ride->driverLegDropoffPlaceName(),
             'pickup_lat' => $returnLegCoords['pickup_lat'],
             'pickup_lng' => $returnLegCoords['pickup_lng'],
             'dropoff_lat' => $returnLegCoords['dropoff_lat'],

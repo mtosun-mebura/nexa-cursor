@@ -5,8 +5,8 @@ import {
   clampGpsRefreshSeconds,
   ensureBackgroundLocationRunning,
   ensureForegroundLocationPermission,
+  pauseBackgroundLocationUpdates,
   prepareBackgroundLocation,
-  resumeGrantedBackgroundLocation,
   startBackgroundLocation,
   stopBackgroundLocation,
 } from './background';
@@ -121,9 +121,11 @@ async function startForegroundWatch(opts: TrackingOpts) {
 
   watchSub = await Location.watchPositionAsync(
     {
-      accuracy: Location.Accuracy.BestForNavigation,
-      timeInterval: refreshMs,
-      distanceInterval: 0,
+      // BestForNavigation + distanceInterval 0 levert tientallen fixes per seconde
+      // en vult de JS-wachtrij tot navigatie vastloopt.
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: Math.max(refreshMs, 3000),
+      distanceInterval: 20,
       mayShowUserSettingsDialog: true,
     },
     (loc) => {
@@ -166,7 +168,8 @@ function bindAppState(opts: TrackingOpts) {
     const current = activeOpts;
     if (state === 'active') {
       void startForegroundWatch(current).catch(() => undefined);
-      void resumeGrantedBackgroundLocation(current.refreshSeconds).catch(() => undefined);
+      // De achtergrondtaak (elke GPS-sample) mag niet meelopen zolang het scherm open is.
+      void pauseBackgroundLocationUpdates().catch(() => undefined);
       return;
     }
     // Lock / home: keep the native location task alive so last_seen stays fresh
@@ -199,6 +202,9 @@ export async function startDriverLocationTracking(opts: TrackingOpts): Promise<v
     await stopForegroundWatch();
     await stopBackgroundLocation();
     return;
+  }
+  if (AppState.currentState === 'active') {
+    await pauseBackgroundLocationUpdates();
   }
   bindAppState(activeOpts);
 }

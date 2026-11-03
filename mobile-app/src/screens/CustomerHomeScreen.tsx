@@ -55,8 +55,10 @@ import {
   GeoPoint,
   LatLng,
   peekCurrentCoords,
+  peekLastKnownCoords,
   resolveCurrentPickup,
   searchAddresses,
+  visiblePlaceName,
 } from '../geo/route';
 import {
   baggageChipLines,
@@ -840,10 +842,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     [cancelBookLocationReturn]
   );
 
-  const moveBookMapToCurrentLocation = useCallback(async () => {
+  const moveBookMapToCurrentLocation = useCallback(async (fresh = false) => {
     const seq = ++bookGpsSeq.current;
     cancelBookLocationReturn();
-    const coords = await peekCurrentCoords();
+    const coords = fresh ? await peekCurrentCoords() : await peekLastKnownCoords();
     if (seq !== bookGpsSeq.current) return;
     if (bookUserMoving.current || bookFingerDown.current) return;
     if (!coords) return;
@@ -1746,7 +1748,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   function applySuggestion(item: AddressSuggestion, kind: 'pickup' | 'dropoff') {
     const label = bookingAddressLine(item.label) || item.label;
-    const point = { lat: item.lat, lng: item.lng, address: label };
+    const placeName = visiblePlaceName(item.placeName, label) || null;
+    const point = { lat: item.lat, lng: item.lng, address: label, placeName };
     if (kind === 'pickup') {
       setPickup(point);
       setPickupQuery(label);
@@ -1897,6 +1900,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         passengers: Math.max(1, Math.min(20, parseInt(passengers, 10) || 1)),
         pickup_address: pickup.address,
         dropoff_address: dropoff.address,
+        pickup_place_name: pickup.placeName || null,
+        dropoff_place_name: dropoff.placeName || null,
         pickup_lat: pickup.lat,
         pickup_lng: pickup.lng,
         dropoff_lat: dropoff.lat,
@@ -1921,6 +1926,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         ...guestPatchFromLive(data.live || {}),
         from: pickup.address,
         to: dropoff.address,
+        from_place:
+          data.live && 'pickup_place_name' in data.live
+            ? data.live.pickup_place_name || null
+            : pickup.placeName || null,
+        to_place:
+          data.live && 'dropoff_place_name' in data.live
+            ? data.live.dropoff_place_name || null
+            : dropoff.placeName || null,
         phase: data.live?.phase || 'awaiting_payment',
         status_label: data.live?.status_label || t("Betaling"),
         quoted_price: data.live?.quoted_price ?? bookedOffer.price ?? null,
@@ -2236,7 +2249,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         onPress={() => {
           bookUserMoving.current = false;
           bookFingerDown.current = false;
-          void moveBookMapToCurrentLocation();
+          void moveBookMapToCurrentLocation(true);
         }}
         style={styles.locateBtn}
         accessibilityRole="button"
@@ -2732,6 +2745,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   function renderTripDetails(input: {
     from?: string | null;
     to?: string | null;
+    fromPlace?: string | null;
+    toPlace?: string | null;
     distanceKm?: number | null;
     durationSeconds?: number | null;
     passengers?: number | null;
@@ -2742,6 +2757,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }) {
     const pickupStop = splitRideAddress(input.from);
     const dropoffStop = splitRideAddress(input.to);
+    const pickupPlace = visiblePlaceName(input.fromPlace, input.from);
+    const dropoffPlace = visiblePlaceName(input.toPlace, input.to);
     const distance = formatTripDistance(input.distanceKm);
     const duration = formatTripDuration(input.durationSeconds);
     const passengerCount = Number(input.passengers || 0);
@@ -2761,6 +2778,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.tripLabel}>{t("Ophalen")}</Text>
             </View>
             <View style={styles.tripAddress}>
+              {pickupPlace ? <Text style={styles.tripPlace}>{pickupPlace}</Text> : null}
               <Text style={styles.tripMain}>{pickupStop.main}</Text>
               {pickupStop.sub ? <Text style={styles.tripSub}>{pickupStop.sub}</Text> : null}
             </View>
@@ -2773,6 +2791,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.tripLabel}>{t("Afzetten")}</Text>
             </View>
             <View style={styles.tripAddress}>
+              {dropoffPlace ? <Text style={styles.tripPlace}>{dropoffPlace}</Text> : null}
               <Text style={styles.tripMain}>{dropoffStop.main}</Text>
               {dropoffStop.sub ? <Text style={styles.tripSub}>{dropoffStop.sub}</Text> : null}
             </View>
@@ -2834,6 +2853,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     const phase = isLiveMatch ? live!.phase : ride.phase;
     const from = isLiveMatch ? live!.pickup_address || ride.from : ride.from;
     const to = isLiveMatch ? live!.dropoff_address || ride.to : ride.to;
+    const fromPlace = (isLiveMatch ? live?.pickup_place_name : null) || ride.from_place;
+    const toPlace = (isLiveMatch ? live?.dropoff_place_name : null) || ride.to_place;
     const price =
       isLiveMatch && live!.quoted_price != null ? live!.quoted_price : ride.quoted_price;
     const cancelled = phase === 'cancelled';
@@ -2913,6 +2934,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {renderTripDetails({
               from,
               to,
+              fromPlace,
+              toPlace,
               distanceKm,
               durationSeconds,
               passengers,
@@ -3103,6 +3126,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {renderTripDetails({
               from,
               to,
+              fromPlace,
+              toPlace,
               distanceKm,
               durationSeconds,
               passengers: (isLiveMatch ? live?.passengers : ride.passengers) ?? ride.passengers,
@@ -3332,6 +3357,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     ? activeRides.filter((ride) => ride.token !== trackToken)
     : activeRides;
 
+  const openGuestRide = trackToken
+    ? guestRides.find((ride) => ride.token === trackToken)
+    : undefined;
   const tripPanel =
     rideMapOpen && live ? (
       <View>
@@ -3507,6 +3535,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {renderTripDetails({
             from: live.pickup_address,
             to: live.dropoff_address,
+            fromPlace: live.pickup_place_name || openGuestRide?.from_place,
+            toPlace: live.dropoff_place_name || openGuestRide?.to_place,
             distanceKm: live.distance_km,
             durationSeconds: live.duration_seconds,
             passengers: live.passengers,
@@ -4419,6 +4449,13 @@ function makeStyles(colors: ColorPalette) {
     },
     tripAddress: {
       paddingLeft: 30,
+    },
+    tripPlace: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+      lineHeight: 21,
+      marginBottom: 2,
     },
     tripMain: {
       color: colors.text,

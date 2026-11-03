@@ -27,6 +27,8 @@ class TaxiDriverThrottleIsolationTest extends TestCase
                 ->middleware('throttle:taxi-driver-poll');
             Route::post('/_test/taxi-driver-accept', fn () => response()->json(['ok' => true]))
                 ->middleware('throttle:taxi-driver-accept');
+            Route::post('/_test/taxi-driver-cancel', fn () => response()->json(['ok' => true]))
+                ->middleware('throttle:taxi-driver-cancel');
             Route::post('/_test/taxi-driver-complete', fn () => response()->json(['ok' => true]))
                 ->middleware('throttle:taxi-driver-action');
             Route::post('/_test/taxi-driver-payment', fn () => response()->json(['ok' => true]))
@@ -78,6 +80,17 @@ class TaxiDriverThrottleIsolationTest extends TestCase
     }
 
     #[Test]
+    public function driver_can_cancel_twice_after_poll_location_and_action_limits_are_full(): void
+    {
+        $driver = User::factory()->create();
+        $this->actingAs($driver);
+        $this->fillSharedDriverLimits();
+
+        $this->postJson('/_test/taxi-driver-cancel')->assertOk();
+        $this->postJson('/_test/taxi-driver-cancel')->assertOk();
+    }
+
+    #[Test]
     public function accept_route_does_not_use_the_shared_driver_action_limiter(): void
     {
         if ($this->driverAcceptRoute() === null) {
@@ -90,6 +103,22 @@ class TaxiDriverThrottleIsolationTest extends TestCase
         $this->assertNotNull($route);
         $middleware = implode(' ', array_map('strval', $route->middleware()));
         $this->assertStringContainsString('taxi-driver-accept', $middleware);
+        $this->assertStringNotContainsString('taxi-driver-action', $middleware);
+    }
+
+    #[Test]
+    public function cancel_route_does_not_use_the_shared_driver_action_limiter(): void
+    {
+        if ($this->driverCancelRoute() === null) {
+            Route::middleware(['api', 'auth:sanctum'])
+                ->prefix('api/taxi')
+                ->group(app_path('Modules/NexaTaxi/Routes/api.php'));
+        }
+
+        $route = $this->driverCancelRoute();
+        $this->assertNotNull($route);
+        $middleware = implode(' ', array_map('strval', $route->middleware()));
+        $this->assertStringContainsString('taxi-driver-cancel', $middleware);
         $this->assertStringNotContainsString('taxi-driver-action', $middleware);
     }
 
@@ -112,6 +141,20 @@ class TaxiDriverThrottleIsolationTest extends TestCase
         );
         $this->assertStringNotContainsString('Too Many Attempts', (string) ($acceptBody['message'] ?? ''));
 
+        $cancel = $handler->render(
+            Request::create('/api/taxi/v1/driver/dispatch/rides/5/cancel', 'POST', server: [
+                'HTTP_ACCEPT' => 'application/json',
+            ]),
+            new ThrottleRequestsException('Too Many Attempts.')
+        );
+        $cancelBody = json_decode($cancel->getContent(), true);
+        $this->assertSame(429, $cancel->getStatusCode());
+        $this->assertSame(
+            'Te veel pogingen om deze rit te annuleren. Wacht even en probeer het opnieuw.',
+            $cancelBody['message'] ?? null
+        );
+        $this->assertStringNotContainsString('Too Many Attempts', (string) ($cancelBody['message'] ?? ''));
+
         $login = $handler->render(
             Request::create('/api/taxi/v1/driver/login', 'POST', server: [
                 'HTTP_ACCEPT' => 'application/json',
@@ -119,6 +162,26 @@ class TaxiDriverThrottleIsolationTest extends TestCase
             new ThrottleRequestsException('Too Many Attempts.')
         );
         $this->assertStringContainsString('Too Many Attempts', $login->getContent());
+    }
+
+    private function fillSharedDriverLimits(): void
+    {
+        for ($i = 0; $i < 180; $i++) {
+            $this->putJson('/_test/taxi-driver-location')->assertOk();
+            $this->getJson('/_test/taxi-driver-inbox')->assertOk();
+        }
+        $this->putJson('/_test/taxi-driver-location')->assertStatus(429);
+        $this->getJson('/_test/taxi-driver-inbox')->assertStatus(429);
+
+        for ($i = 0; $i < 90; $i++) {
+            $this->postJson('/_test/taxi-driver-payment')->assertOk();
+        }
+        $this->postJson('/_test/taxi-driver-payment')->assertStatus(429);
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/_test/taxi-driver-login', ['email' => 'chauffeur@example.test'])->assertOk();
+        }
+        $this->postJson('/_test/taxi-driver-login', ['email' => 'chauffeur@example.test'])->assertStatus(429);
     }
 
     private function routeUriExists(string $uri): bool
@@ -134,9 +197,18 @@ class TaxiDriverThrottleIsolationTest extends TestCase
 
     private function driverAcceptRoute(): ?\Illuminate\Routing\Route
     {
+        return $this->driverPostRoute('api/taxi/v1/driver/dispatch/offers/{offer}/accept');
+    }
+
+    private function driverCancelRoute(): ?\Illuminate\Routing\Route
+    {
+        return $this->driverPostRoute('api/taxi/v1/driver/dispatch/rides/{ride}/cancel');
+    }
+
+    private function driverPostRoute(string $uri): ?\Illuminate\Routing\Route
+    {
         foreach (Route::getRoutes() as $route) {
-            if ($route->uri() === 'api/taxi/v1/driver/dispatch/offers/{offer}/accept'
-                && in_array('POST', $route->methods(), true)) {
+            if ($route->uri() === $uri && in_array('POST', $route->methods(), true)) {
                 return $route;
             }
         }

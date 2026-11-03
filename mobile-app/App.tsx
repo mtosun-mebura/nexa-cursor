@@ -285,24 +285,20 @@ function AppShell() {
 }
 
 export default function App() {
-  const [baseReady, setBaseReady] = useState(false);
-
   useEffect(() => {
-    hydrateApiBase().finally(() => setBaseReady(true));
+    // De API-host staat al vast. Niet op AsyncStorage wachten: dat liet het
+    // scherm op het lege #0B1220-vlak staan als de eerste storage-call hing.
+    void hydrateApiBase();
   }, []);
 
   return (
     <SafeAreaProvider>
       <KeepScreenAwake />
-      {baseReady ? (
-        <ThemeProvider>
-          <LocaleProvider>
-            <AppShell />
-          </LocaleProvider>
-        </ThemeProvider>
-      ) : (
-        <View style={{ flex: 1, backgroundColor: '#0B1220' }} />
-      )}
+      <ThemeProvider>
+        <LocaleProvider>
+          <AppShell />
+        </LocaleProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
