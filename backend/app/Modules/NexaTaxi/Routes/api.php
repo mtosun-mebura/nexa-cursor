@@ -139,7 +139,7 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-read');
 
         Route::put('availability', [DriverAvailabilityController::class, 'update'])
-            ->middleware('throttle:taxi-driver-action');
+            ->middleware('throttle:taxi-driver-availability');
 
         Route::put('availability/location', [DriverAvailabilityController::class, 'updateLocation'])
             ->middleware('throttle:taxi-driver-location');

@@ -172,7 +172,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Accepteren en annuleren: nooit de Engelse Laravel-tekst "Too Many Attempts." in de app-popup.
+        // Accepteren, annuleren en online/offline: nooit de Engelse Laravel-tekst "Too Many Attempts." in de app-popup.
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
             if ($e->getStatusCode() !== 429) {
                 return null;
@@ -182,6 +182,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 $message = 'Te veel pogingen om deze rit te accepteren. Wacht even en probeer het opnieuw.';
             } elseif ($request->is('api/taxi/v1/driver/dispatch/rides/*/cancel')) {
                 $message = 'Te veel pogingen om deze rit te annuleren. Wacht even en probeer het opnieuw.';
+            } elseif ($request->is('api/taxi/v1/driver/availability')) {
+                $message = 'Te veel pogingen om online te gaan. Wacht even en probeer het opnieuw.';
             }
             if ($message === null) {
                 return null;

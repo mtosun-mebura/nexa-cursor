@@ -405,6 +405,15 @@ function cancelFailureMessage(error: unknown): string {
   return t('Annuleren mislukt.');
 }
 
+function availabilityThrottleMessage(error: unknown): string | null {
+  const status = apiErrorStatus(error);
+  const raw = error instanceof ApiError ? error.message.trim() : '';
+  if (status === 429 || /too many attempts/i.test(raw)) {
+    return t('Te veel pogingen om online te gaan. Wacht even en probeer het opnieuw.');
+  }
+  return null;
+}
+
 const VEHICLE_REQUIRED_ERROR = 'Kies eerst een voertuig voordat je online gaat.';
 const VEHICLE_FORM_NAME_ACCESSORY_ID = 'vehicle-form-name-keyboard';
 const VEHICLE_FORM_PLATE_ACCESSORY_ID = 'vehicle-form-plate-keyboard';
@@ -438,6 +447,7 @@ export function DriverHomeScreen() {
   const manualTabAtRef = useRef(0);
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
+  const onlineToggleInFlightRef = useRef(false);
   const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -1132,7 +1142,7 @@ export function DriverHomeScreen() {
   }
 
   async function toggleOnline(next: boolean) {
-    if (!driverToken) return;
+    if (!driverToken || onlineToggleInFlightRef.current) return;
     setError(null);
     if (next && !payoutIbanMasked) {
       setError(
@@ -1147,6 +1157,7 @@ export function DriverHomeScreen() {
       return;
     }
 
+    onlineToggleInFlightRef.current = true;
     const epoch = ++onlineEpochRef.current;
     onlinePendingEpochRef.current = epoch;
     const settle = () => {
@@ -1180,11 +1191,17 @@ export function DriverHomeScreen() {
     } catch (e) {
       settle();
       if (onlineEpochRef.current !== epoch) return;
-      setOnline(!next);
-      const message = e instanceof Error ? e.message : t("Online zetten mislukt.");
-      setError(message);
-      if (message === t(LOCATION_SETTINGS_HINT)) {
-        Linking.openSettings().catch(() => undefined);
+      setOnline(next ? false : true);
+      const limited = availabilityThrottleMessage(e);
+      if (limited) {
+        setError(null);
+        setFlowMessage(limited);
+      } else {
+        const message = e instanceof Error ? e.message : t("Online zetten mislukt.");
+        setError(message);
+        if (message === t(LOCATION_SETTINGS_HINT)) {
+          Linking.openSettings().catch(() => undefined);
+        }
       }
       if (next) {
         try {
@@ -1193,6 +1210,8 @@ export function DriverHomeScreen() {
           /* ignore */
         }
       }
+    } finally {
+      onlineToggleInFlightRef.current = false;
     }
   }
 

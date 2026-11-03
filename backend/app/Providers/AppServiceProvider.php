@@ -222,6 +222,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::none();
         });
 
+        // Online/offline deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur moet altijd kunnen schakelen.
+        RateLimiter::for('taxi-driver-availability', function () {
+            return Limit::none();
+        });
+
         RateLimiter::for('taxi-driver-read', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 

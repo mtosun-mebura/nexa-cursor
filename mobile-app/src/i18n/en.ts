@@ -510,6 +510,8 @@ export const EN: Record<string, string> = {
   'Te betalen bedrag': 'Amount due',
   'Te veel pogingen om deze rit te annuleren. Wacht even en probeer het opnieuw.':
     'Too many attempts to cancel this ride. Wait a moment and try again.',
+  'Te veel pogingen om online te gaan. Wacht even en probeer het opnieuw.':
+    'Too many attempts to go online. Wait a moment and try again.',
   Telefoon: 'Phone',
   Telefoonnummer: 'Phone number',
   Terug: 'Back',
