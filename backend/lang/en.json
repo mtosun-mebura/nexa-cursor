@@ -1238,7 +1238,7 @@
     "De einddatum moet na de startdatum liggen.": "The end date must be after the start date.",
     "De fee per rit is het": "The fee per ride is the",
     "De gekozen status is ongeldig. Kies een van de beschikbare statussen in de lijst.": "The selected status is invalid. Choose one of the available statuses in the list.",
-    "De gemarkeerde omgeving is de publieke host voor Mollie-terugkeer en webhooks. In de app kies je zelf welke server je aanroept.": "The marked environment is the public host for Mollie return URLs and webhooks. In the app you choose which server to call.",
+    "De gemarkeerde omgeving is alleen de publieke host voor Mollie-terugkeer en webhooks.": "The marked environment is only the public host for Mollie return URLs and webhooks.",
     "De geselecteerde gebruiker is geen klant van deze tenant.": "The selected user is not a customer of this tenant.",
     "De geselecteerde locatie bestaat niet.": "The selected location does not exist.",
     "De geselecteerde tenant kon niet worden gevonden. Selecteer een andere tenant of ga terug naar het overzicht.": "The selected tenant could not be found. Select another tenant or go back to the overview.",

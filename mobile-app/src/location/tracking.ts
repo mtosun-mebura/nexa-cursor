@@ -3,6 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { sendDriverLocation } from '../api/driver';
 import {
   clampGpsRefreshSeconds,
+  ensureBackgroundLocationRunning,
   ensureForegroundLocationPermission,
   prepareBackgroundLocation,
   resumeGrantedBackgroundLocation,
@@ -161,17 +162,24 @@ function bindAppState(opts: TrackingOpts) {
     appStateSub = null;
   }
   appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
-    if (state === 'active' && activeOpts) {
-      const opts = activeOpts;
-      void startForegroundWatch(opts).catch(() => undefined);
-      void resumeGrantedBackgroundLocation(opts.refreshSeconds).catch(() => undefined);
+    if (!activeOpts) return;
+    const current = activeOpts;
+    if (state === 'active') {
+      void startForegroundWatch(current).catch(() => undefined);
+      void resumeGrantedBackgroundLocation(current.refreshSeconds).catch(() => undefined);
+      return;
+    }
+    // Lock / home: keep the native location task alive so last_seen stays fresh
+    // on booking maps and GPS wakes can poll the inbox for offers.
+    if (state === 'inactive' || state === 'background') {
+      void ensureBackgroundLocationRunning(current.refreshSeconds).catch(() => undefined);
     }
   });
 }
 
 /**
- * Foreground watch posts to the driver location API while the app is in use.
- * While-using is enough. Always is not requested again after that choice.
+ * Foreground watch + background location task while Online.
+ * Asks for Always once so presence and offer alerts continue when backgrounded.
  */
 export async function startDriverLocationTracking(opts: TrackingOpts): Promise<void> {
   const generation = ++trackGeneration;

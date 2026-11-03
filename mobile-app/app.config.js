@@ -55,23 +55,16 @@ function withAlternateIconDeepLinks(config) {
 }
 
 /**
- * Personal Apple Development teams cannot sign Push Notifications.
- * expo-notifications always writes aps-environment; drop it after that plugin.
- *
- * One-line toggle once a paid Apple Developer Program membership and an APNs
- * key exist: EXPO_PUBLIC_IOS_PUSH=1 (optional EXPO_PUBLIC_IOS_PUSH_ENV=development).
- * Leave it unset on this Mac. Re-adding aps-environment without that membership
- * breaks signing.
+ * Remote push for lock screen / standby. This Mac signs device installs with an
+ * Apple Development certificate, so the matching value is development.
+ * App Store archives: EXPO_PUBLIC_IOS_PUSH_ENV=production.
+ * No other entitlements — a free Personal Team cannot sign Push.
  * @type {import('expo/config-plugins').ConfigPlugin}
  */
-function withoutPushEntitlement(config) {
+function withIosPushEntitlement(config) {
   return withEntitlementsPlist(config, (config) => {
-    if (process.env.EXPO_PUBLIC_IOS_PUSH === '1') {
-      config.modResults['aps-environment'] =
-        process.env.EXPO_PUBLIC_IOS_PUSH_ENV === 'development' ? 'development' : 'production';
-      return config;
-    }
-    delete config.modResults['aps-environment'];
+    config.modResults['aps-environment'] =
+      process.env.EXPO_PUBLIC_IOS_PUSH_ENV === 'production' ? 'production' : 'development';
     return config;
   });
 }
@@ -96,8 +89,7 @@ module.exports = () => {
 
   config.extra = {
     ...(config.extra || {}),
-    apiBaseUrl:
-      process.env.EXPO_PUBLIC_API_BASE_URL || config.extra?.apiBaseUrl || 'https://nexasuite.nl',
+    apiBaseUrl: 'https://nexasuite.online',
     // getExpoPushTokenAsync needs extra.eas.projectId (or EXPO_PUBLIC_EAS_PROJECT_ID).
     // Android also needs google-services.json plus an FCM v1 service account on the Expo project.
     // TODO (after eas init): set EXPO_PUBLIC_EAS_PROJECT_ID, or let `eas init` write projectId —
@@ -121,7 +113,7 @@ module.exports = () => {
     };
   }
 
-  config.plugins = [withoutPushEntitlement, ...(config.plugins || []), withAlternateIconDeepLinks];
+  config.plugins = [...(config.plugins || []), withAlternateIconDeepLinks, withIosPushEntitlement];
 
   return config;
 };

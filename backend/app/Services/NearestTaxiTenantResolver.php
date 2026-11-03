@@ -223,6 +223,45 @@ class NearestTaxiTenantResolver
     }
 
     /**
+     * Dichtstbijzijnde bookable tenant op vestigingscoördinaten (prijsindicatie als er
+     * geen online chauffeur in de straal is). Dispatch blijft chauffeur-GPS gebruiken.
+     *
+     * @return array{company: Company, distance_km: float}|null
+     */
+    public function nearestByHeadquarters(float $pickupLat, float $pickupLng, ?float $radiusKm = null): ?array
+    {
+        $best = null;
+        $bestDistance = null;
+        foreach ($this->bookableCompanies() as $company) {
+            $coords = $this->coordinatesFor($company);
+            if ($coords === null) {
+                continue;
+            }
+            $distanceKm = GeoHelper::calculateDistance(
+                $pickupLat,
+                $pickupLng,
+                (float) $coords['lat'],
+                (float) $coords['lng']
+            );
+            if ($radiusKm !== null && $radiusKm > 0 && $distanceKm > $radiusKm) {
+                continue;
+            }
+            if ($bestDistance === null || $distanceKm < $bestDistance) {
+                $bestDistance = $distanceKm;
+                $best = $company;
+            }
+        }
+        if (! $best instanceof Company || $bestDistance === null) {
+            return null;
+        }
+
+        return [
+            'company' => $best,
+            'distance_km' => round((float) $bestDistance, 2),
+        ];
+    }
+
+    /**
      * Vestigingscoördinaten (legacy / overige flows). Marketplace-matching gebruikt chauffeur-GPS.
      *
      * @return array{lat: float, lng: float}|null

@@ -137,6 +137,8 @@ type OfferModeProps = {
   busy?: boolean;
   highlighted?: boolean;
   onHighlightEnd?: () => void;
+  /** Eén keer openen (nieuwe rit via melding). Handmatig inklappen blijft daarna gelden. */
+  expandOnce?: boolean;
   fallbackVehicleLabel?: string | null;
   fallbackVehicleName?: string | null;
   onAccept: () => void;
@@ -157,6 +159,7 @@ type TripModeProps = {
   busy?: boolean;
   highlighted?: boolean;
   onHighlightEnd?: () => void;
+  expandOnce?: boolean;
   fallbackVehicleLabel?: string | null;
   fallbackVehicleName?: string | null;
   onAccept?: never;
@@ -175,9 +178,21 @@ export type DriverOfferCardProps = OfferModeProps | TripModeProps;
 
 /** Blijft behouden bij tab-wissels; nieuwe kaarten starten ingeklapt. */
 const cardExpandedByKey = new Map<string, boolean>();
+/** Handmatig ingeklapt: een latere render mag die kaart niet opnieuw openduwen. */
+const collapsedByUser = new Set<string>();
+
+export function driverOfferExpandKey(offerId: number): string {
+  return `offer-${offerId}`;
+}
+
+/** Zet de kaart al open vóór de eerste paint, tenzij de chauffeur haar zelf heeft ingeklapt. */
+export function primeDriverCardExpand(key: string): void {
+  if (!key || collapsedByUser.has(key)) return;
+  cardExpandedByKey.set(key, true);
+}
 
 function cardExpandKey(props: DriverOfferCardProps): string {
-  if (props.offer) return `offer-${props.offer.id}`;
+  if (props.offer) return driverOfferExpandKey(Number(props.offer.id));
   return `ride-${props.ride.id}`;
 }
 
@@ -186,19 +201,34 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   const accent = useDriverAccent();
   const styles = useMemo(() => makeStyles(colors, accent.hex), [colors, accent.hex]);
   const expandKey = cardExpandKey(props);
-  const [expanded, setExpanded] = useState(
-    () => cardExpandedByKey.get(expandKey) ?? false
-  );
+  const expandOnce = !!props.expandOnce;
+  const [expanded, setExpanded] = useState(() => {
+    if (collapsedByUser.has(expandKey)) return false;
+    return cardExpandedByKey.get(expandKey) ?? false;
+  });
 
   // Na remount (andere tab → terug) de opgeslagen stand herstellen.
   useEffect(() => {
+    if (collapsedByUser.has(expandKey)) {
+      setExpanded(false);
+      return;
+    }
     setExpanded(cardExpandedByKey.get(expandKey) ?? false);
   }, [expandKey]);
+
+  // Alleen de rit uit de melding: één keer uitklappen, daarna niet opnieuw forceren.
+  useEffect(() => {
+    if (!expandOnce || collapsedByUser.has(expandKey)) return;
+    cardExpandedByKey.set(expandKey, true);
+    setExpanded(true);
+  }, [expandOnce, expandKey]);
 
   function toggleExpanded() {
     setExpanded((prev) => {
       const next = !prev;
       cardExpandedByKey.set(expandKey, next);
+      if (next) collapsedByUser.delete(expandKey);
+      else collapsedByUser.add(expandKey);
       return next;
     });
   }
@@ -222,8 +252,6 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     }
     setHighlightActive(true);
     highlightOpacity.setValue(0);
-    cardExpandedByKey.set(expandKey, true);
-    setExpanded(true);
     const flash = (to: number) =>
       Animated.timing(highlightOpacity, {
         toValue: to,
@@ -245,7 +273,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     return () => {
       anim.stop();
     };
-  }, [highlighted, highlightOpacity, expandKey]);
+  }, [highlighted, highlightOpacity]);
 
   const marketplace = isTrip
     ? isMarketplaceRide(props.ride)

@@ -93,7 +93,12 @@ class CustomerMarketplaceBookingService
             'special_baggage' => $specialBaggage,
         ];
 
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $quoteInput, null);
+        // Prijsindicatie op tarieven van de dichtstbijzijnde kandidaat; rit blijft unclaimed.
+        $quotes = $this->pricing->buildQuotes(
+            $sectionConfig,
+            $quoteInput,
+            $settingsCompanyId > 0 ? $settingsCompanyId : null
+        );
         $offers = $quotes['offers'] ?? [];
         if ($offers === []) {
             throw ValidationException::withMessages([
@@ -356,6 +361,12 @@ class CustomerMarketplaceBookingService
 
         $sectionConfig = $this->pricing->getDefaultSectionConfig();
         $sectionConfig['logic']['offer_display_mode'] = 'person_range';
+        $nearestCompanyId = $candidateIds[0] ?? 0;
+        if ($nearestCompanyId <= 0) {
+            $hq = $this->nearestResolver->nearestByHeadquarters($lat, $lng, $radiusKm)
+                ?? $this->nearestResolver->nearestByHeadquarters($lat, $lng, null);
+            $nearestCompanyId = $hq ? (int) $hq['company']->id : 0;
+        }
         $quotes = $this->pricing->buildQuotes($sectionConfig, [
             'distance_meters' => (int) $data['distance_meters'],
             'duration_seconds' => (int) $data['duration_seconds'],
@@ -368,7 +379,7 @@ class CustomerMarketplaceBookingService
             'pickup_lng' => $lng,
             'baggage' => $this->normalizeBaggageMap($data['baggage'] ?? []),
             'special_baggage' => $this->normalizeBaggageMap($data['special_baggage'] ?? []),
-        ], null);
+        ], $nearestCompanyId > 0 ? $nearestCompanyId : null);
 
         $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForMarketplace();
         $taxiAvailable = $candidateIds !== [];
@@ -433,16 +444,47 @@ class CustomerMarketplaceBookingService
                 $normalized .= ':00';
             }
 
+            $this->assertPickupAtNotInPast($normalized);
+
             return $normalized;
         }
 
         try {
-            return Carbon::parse($raw)
+            $normalized = Carbon::parse($raw)
                 ->timezone(ContractTransportTimezone::TIMEZONE)
                 ->format('Y-m-d H:i:s');
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
                 'pickup_at' => ['Ongeldige ophaaltijd.'],
+            ]);
+        }
+
+        $this->assertPickupAtNotInPast($normalized);
+
+        return $normalized;
+    }
+
+    /**
+     * Alleen nu of toekomst; kleine grace voor klokverschil zodat "nu" niet false-failt.
+     */
+    protected function assertPickupAtNotInPast(string $amsterdamWallClock): void
+    {
+        try {
+            $pickup = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $amsterdamWallClock,
+                ContractTransportTimezone::TIMEZONE
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'pickup_at' => ['Ongeldige ophaaltijd.'],
+            ]);
+        }
+
+        $threshold = now(ContractTransportTimezone::TIMEZONE)->subSeconds(60);
+        if ($pickup->lt($threshold)) {
+            throw ValidationException::withMessages([
+                'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
             ]);
         }
     }

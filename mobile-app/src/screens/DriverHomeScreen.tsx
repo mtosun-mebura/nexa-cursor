@@ -75,7 +75,11 @@ import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
-import { ensureForegroundLocationPermission, LOCATION_SETTINGS_HINT } from '../location/background';
+import {
+  ensureForegroundLocationPermission,
+  LOCATION_SETTINGS_HINT,
+  requestBackgroundLocationUpgrade,
+} from '../location/background';
 import {
   clampGpsRefreshSeconds,
   readLastKnownDriverMapPosition,
@@ -85,6 +89,7 @@ import {
 import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
+  consumeInitialDriverNotificationResponse,
   ensureDriverNotificationPermission,
   prepareDriverNotificationChannels,
 } from '../notifications/driverOffers';
@@ -111,7 +116,7 @@ import { KeyboardDismissAccessory } from '../ui/KeyboardDismissAccessory';
 import { formatDutchPlate } from '../dutchPlate';
 import { ImageCropModal } from '../ui/ImageCropModal';
 import { Card, ErrorText, GhostButton, Screen } from '../ui/components';
-import { DriverOfferCard } from '../ui/DriverOfferCard';
+import { DriverOfferCard, primeDriverCardExpand, driverOfferExpandKey } from '../ui/DriverOfferCard';
 import { DriverPlanningPanel } from '../ui/DriverPlanningPanel';
 import { ContractHomeScreen } from './ContractHomeScreen';
 import { DriverEarningsPanel } from '../ui/DriverEarningsPanel';
@@ -350,6 +355,27 @@ function vehicleTypeForPersonRange(range: string): string {
   return 'car';
 }
 
+function offerMatchesRide(offer: DispatchOffer, rideId: number): boolean {
+  return Number(offer.ride_request_id || offer.ride?.id || 0) === rideId;
+}
+
+function newestDriverOffer(list: DispatchOffer[]): DispatchOffer | null {
+  let best: DispatchOffer | null = null;
+  for (const offer of list) {
+    if (Number(offer.id) <= 0) continue;
+    if (!best) {
+      best = offer;
+      continue;
+    }
+    const bestAt = Date.parse(best.offered_at || '') || 0;
+    const at = Date.parse(offer.offered_at || '') || 0;
+    if (at > bestAt || (at === bestAt && Number(offer.id) > Number(best.id))) {
+      best = offer;
+    }
+  }
+  return best;
+}
+
 const VEHICLE_REQUIRED_ERROR = 'Kies eerst een voertuig voordat je online gaat.';
 const VEHICLE_FORM_NAME_ACCESSORY_ID = 'vehicle-form-name-keyboard';
 const VEHICLE_FORM_PLATE_ACCESSORY_ID = 'vehicle-form-plate-keyboard';
@@ -370,6 +396,7 @@ export function DriverHomeScreen() {
   });
   const [focusRideId, setFocusRideId] = useState<number | null>(null);
   const [focusOfferId, setFocusOfferId] = useState<number | null>(null);
+  const [expandOfferId, setExpandOfferId] = useState<number | null>(null);
   const tripsScrollRef = useRef<ScrollView | null>(null);
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
@@ -440,7 +467,7 @@ export function DriverHomeScreen() {
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
-  const [pinError, setPinError] = useState<string | null>(null);
+  const [flowMessage, setFlowMessage] = useState<string | null>(null);
   const [pinBusy, setPinBusy] = useState(false);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
@@ -473,6 +500,15 @@ export function DriverHomeScreen() {
   const rideAlertToneRef = useRef<RideAlertTone>('classic');
   /** Aanvragen die deze sessie al naar het Aanvragen-tab zijn gebracht. */
   const surfacedOfferIdsRef = useRef<Set<number>>(new Set());
+  /** Aanvragen die al in de lijst stonden; een melding zonder id opent alleen een nieuwe. */
+  const knownOfferIdsRef = useRef<Set<number>>(new Set());
+  const offersRef = useRef<DispatchOffer[]>([]);
+  /** Eerste poll na een melding mag de gekozen rit niet overschrijven. */
+  const notificationExpandLockRef = useRef(false);
+  const pendingNotificationExpandRef = useRef<
+    null | { kind: 'ride'; rideId: number } | { kind: 'newest'; baseline: Set<number> }
+  >(null);
+  offersRef.current = offers;
   /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
   const rideToneDirtyRef = useRef(false);
   const styles = useMemo(() => makeStyles(colors, accentHex(accent)), [colors, accent]);
@@ -539,7 +575,17 @@ export function DriverHomeScreen() {
   const handleNewOffers = useCallback(async (offerList: DispatchOffer[], isOnlineNow: boolean) => {
     const ids = offerList.map((offer) => Number(offer.id)).filter((id) => id > 0);
     const fresh = await alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
+    const locked = notificationExpandLockRef.current;
+    if (locked) notificationExpandLockRef.current = false;
     if (!isOnlineNow) return false;
+    if (locked) {
+      ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
+      setShowArchived(false);
+      persistDriverArchive(false);
+      setTab('requests');
+      persistDriverTab('requests');
+      return true;
+    }
     const unseenSession = ids.filter((id) => !surfacedOfferIdsRef.current.has(id));
     const offerId = Number(fresh[0]?.id || unseenSession[0] || 0);
     if (offerId <= 0) return false;
@@ -796,23 +842,111 @@ export function DriverHomeScreen() {
     return () => sub.remove();
   }, [refresh]);
 
+  const revealNotifiedOffer = useCallback((offerId: number) => {
+    const id = Number(offerId);
+    if (id <= 0) return;
+    primeDriverCardExpand(driverOfferExpandKey(id));
+    setFocusOfferId(id);
+    setExpandOfferId(id);
+  }, []);
+
+  const openOfferFromNotification = useCallback((offerId?: number | null, rideId?: number | null) => {
+    goToArchive(false);
+    goToTab('requests');
+    notificationExpandLockRef.current = true;
+    const oid = Number(offerId || 0);
+    const rid = Number(rideId || 0);
+    if (oid > 0) {
+      pendingNotificationExpandRef.current = null;
+      revealNotifiedOffer(oid);
+      return;
+    }
+    if (rid > 0) {
+      const match = offersRef.current.find((offer) => offerMatchesRide(offer, rid));
+      if (match) {
+        pendingNotificationExpandRef.current = null;
+        revealNotifiedOffer(Number(match.id));
+        return;
+      }
+      pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
+      return;
+    }
+    const baseline = new Set(knownOfferIdsRef.current);
+    const list = offersRef.current;
+    const arrived = list.filter((offer) => {
+      const id = Number(offer.id);
+      return id > 0 && !baseline.has(id);
+    });
+    if (!list.length) {
+      pendingNotificationExpandRef.current = { kind: 'newest', baseline };
+      return;
+    }
+    pendingNotificationExpandRef.current = null;
+    const pick = newestDriverOffer(arrived.length ? arrived : list);
+    if (pick) revealNotifiedOffer(Number(pick.id));
+  }, [revealNotifiedOffer]);
+
+  useEffect(() => {
+    const pending = pendingNotificationExpandRef.current;
+    if (pending?.kind === 'ride') {
+      const match = offers.find((offer) => offerMatchesRide(offer, pending.rideId));
+      if (match) {
+        pendingNotificationExpandRef.current = null;
+        revealNotifiedOffer(Number(match.id));
+      }
+    } else if (pending?.kind === 'newest' && offers.length) {
+      const arrived = offers.filter((offer) => {
+        const id = Number(offer.id);
+        return id > 0 && !pending.baseline.has(id);
+      });
+      const pick = newestDriverOffer(arrived.length ? arrived : offers);
+      pendingNotificationExpandRef.current = null;
+      if (pick) revealNotifiedOffer(Number(pick.id));
+    }
+    if (offers.length) {
+      const next = new Set(knownOfferIdsRef.current);
+      for (const offer of offers) {
+        const id = Number(offer.id);
+        if (id > 0) next.add(id);
+      }
+      knownOfferIdsRef.current = next;
+    }
+  }, [offers, revealNotifiedOffer]);
+
   useEffect(() => {
     return addDriverOfferNotificationResponseListener(
-      () => {
-        goToArchive(false);
-        goToTab('requests');
-      },
+      (target) => openOfferFromNotification(target.offerId, target.rideId),
       () => {
         goToTab('trips');
       }
     );
-  }, []);
+  }, [openOfferFromNotification]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const initial = await consumeInitialDriverNotificationResponse();
+      if (cancelled || !initial) return;
+      if (initial.screen === 'requests') {
+        openOfferFromNotification(initial.offerId, initial.rideId);
+      } else {
+        goToTab('trips');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openOfferFromNotification]);
 
   // Houd GPS-posts gelijk met admin refresh_seconds zolang de chauffeur online is
   // (ook na heropenen van de app terwijl status al online was).
+  // Wacht tot availability op de server bevestigd is — optimistic online + IBAN-weigering
+  // startte anders al location-pings terwijl is_online false bleef (lege boekingskaart).
   useEffect(() => {
-    if (!driverToken || !online) {
-      void stopDriverLocationTracking();
+    if (!driverToken || !online || onlinePendingEpochRef.current != null) {
+      if (!online) {
+        void stopDriverLocationTracking();
+      }
       return;
     }
     void startDriverLocationTracking({
@@ -912,20 +1046,29 @@ export function DriverHomeScreen() {
     const settle = () => {
       if (onlinePendingEpochRef.current === epoch) onlinePendingEpochRef.current = null;
     };
-    setOnline(next);
+    // Offline: meteen UI + GPS stoppen. Online: pas na server-OK (IBAN/GPS-gate).
+    if (!next) {
+      setOnline(false);
+    }
 
     try {
       if (next) {
         await ensureDriverNotificationPermission();
         await ensureForegroundLocationPermission();
+        // One-time Always / all-the-time ask so maps + offers keep working backgrounded.
+        await requestBackgroundLocationUpgrade().catch(() => false);
         if (onlineEpochRef.current !== epoch) return;
         const position = await readLastKnownDriverMapPosition();
         if (onlineEpochRef.current !== epoch) return;
         await setDriverOnline(driverToken, true, selectedVehicleId, position);
+        if (onlineEpochRef.current !== epoch) return;
+        settle();
+        setOnline(true);
       } else {
         await setDriverOnline(driverToken, false, selectedVehicleId);
+        if (onlineEpochRef.current !== epoch) return;
+        settle();
       }
-      settle();
       if (onlineEpochRef.current !== epoch) return;
       void refresh();
     } catch (e) {
@@ -1073,7 +1216,21 @@ export function DriverHomeScreen() {
   function openPickupPin(rideId: number) {
     setPinRideId(rideId);
     setPickupPin('');
-    setPinError(null);
+    setFlowMessage(null);
+  }
+
+  function confirmPickupPin() {
+    if (pinRideId == null || pinBusy) return;
+    const digits = pickupPin.replace(/\D/g, '');
+    if (!digits) {
+      setFlowMessage(t("Pin is verplicht"));
+      return;
+    }
+    if (digits.length !== 4) {
+      setFlowMessage(t("Vul de 4-cijferige code in."));
+      return;
+    }
+    void submitStartRide(pinRideId, digits);
   }
 
   async function onStartRide(rideId: number) {
@@ -1102,7 +1259,7 @@ export function DriverHomeScreen() {
     if (usePin) setPinBusy(true);
     else setBusyRideId(rideId);
     setError(null);
-    setPinError(null);
+    setFlowMessage(null);
     try {
       const started = await startRide(driverToken, rideId, pin ? { pin } : undefined);
       setPinRideId(null);
@@ -1122,13 +1279,13 @@ export function DriverHomeScreen() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t("Rit starten mislukt.");
       if (usePin) {
-        setPinError(msg);
+        setFlowMessage(msg);
       } else {
         const blockingNow = blockingAssignedRide(rideId);
         if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
           warnRideAlreadyActive(blockingNow);
         } else if (!showRideConflictNotice(msg, blockingNow)) {
-          setError(msg);
+          setFlowMessage(msg);
         }
       }
     } finally {
@@ -1655,7 +1812,7 @@ export function DriverHomeScreen() {
   const requestsPanel = (
     <FlatList
       data={requestOffers}
-      extraData={focusOfferId}
+      extraData={`${focusOfferId ?? ''}:${expandOfferId ?? ''}`}
       keyExtractor={(item) => String(item.id)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
@@ -1694,6 +1851,7 @@ export function DriverHomeScreen() {
           offer={item}
           busy={busyId === item.id}
           highlighted={focusOfferId === item.id}
+          expandOnce={expandOfferId != null && Number(item.id) === expandOfferId}
           fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
           fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
           onAccept={() => onAccept(item.id)}
@@ -2547,16 +2705,19 @@ export function DriverHomeScreen() {
       }
     >
       <ErrorText>{shownError}</ErrorText>
-      <Pressable
-        onPress={() => goToArchive(false)}
-        style={styles.archiveNav}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={t("Terug naar ritten")}
-      >
-        <Ionicons name="chevron-back" size={22} color={colors.text} />
-        <Text style={styles.archiveNavTitle}>{t("Archief")}</Text>
-      </Pressable>
+      <ScreenHeader title={t("Archief")} />
+      <View style={styles.archiveSectionRow}>
+        <Text style={styles.archiveSectionTitle}>{t("Gearchiveerde ritten")}</Text>
+        <Pressable
+          onPress={() => goToArchive(false)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("Terug naar ritten")}
+          style={styles.archiveBackLinkPress}
+        >
+          <Text style={styles.archiveBackLink}>{t("Ritten →")}</Text>
+        </Pressable>
+      </View>
       <View style={styles.rideKindRow}>
         {RIDE_KIND_OPTIONS.map((opt) => {
           const active = rideKindFilter === opt.key;
@@ -3335,12 +3496,12 @@ export function DriverHomeScreen() {
       </AppModal>
 
       <AppModal
-        visible={pinRideId != null}
+        visible={pinRideId != null && flowMessage == null}
         onRequestClose={() => {
           if (pinBusy) return;
           setPinRideId(null);
           setPickupPin('');
-          setPinError(null);
+          setFlowMessage(null);
         }}
         dismissDisabled={pinBusy}
         panelStyle={styles.centeredSheet}
@@ -3349,10 +3510,7 @@ export function DriverHomeScreen() {
         <Text style={styles.noticeBody}>{t("Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.")}</Text>
         <TextInput
           value={pickupPin}
-          onChangeText={(v) => {
-            setPickupPin(v.replace(/\D/g, '').slice(0, 4));
-            setPinError(null);
-          }}
+          onChangeText={(v) => setPickupPin(v.replace(/\D/g, '').slice(0, 4))}
           keyboardType="number-pad"
           maxLength={4}
           placeholder="••••"
@@ -3361,7 +3519,6 @@ export function DriverHomeScreen() {
           editable={!pinBusy}
           autoFocus
         />
-        {pinError ? <Text style={styles.pinError}>{pinError}</Text> : null}
         <View style={styles.cancelActions}>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionGhost]}
@@ -3369,21 +3526,35 @@ export function DriverHomeScreen() {
             onPress={() => {
               setPinRideId(null);
               setPickupPin('');
-              setPinError(null);
+              setFlowMessage(null);
             }}
           >
             <Text style={styles.cancelActionGhostText}>{t("Annuleren")}</Text>
           </Pressable>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary, pinBusy && { opacity: 0.55 }]}
-            disabled={pinBusy || pickupPin.length !== 4 || pinRideId == null}
-            onPress={() => {
-              if (pinRideId != null) void submitStartRide(pinRideId, pickupPin);
-            }}
+            disabled={pinBusy || pinRideId == null}
+            onPress={confirmPickupPin}
           >
             <Text style={styles.cancelActionPrimaryText}>
               {pinBusy ? t("Bezig…") : t("Start rit")}
             </Text>
+          </Pressable>
+        </View>
+      </AppModal>
+
+      <AppModal
+        visible={flowMessage != null}
+        onRequestClose={() => setFlowMessage(null)}
+        panelStyle={styles.centeredSheet}
+      >
+        <Text style={styles.noticeBody}>{flowMessage}</Text>
+        <View style={styles.cancelActions}>
+          <Pressable
+            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
+            onPress={() => setFlowMessage(null)}
+          >
+            <Text style={styles.cancelActionGhostText}>{t("Sluiten")}</Text>
           </Pressable>
         </View>
       </AppModal>
@@ -3514,17 +3685,28 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontWeight: '800',
       color: '#FFFFFF',
     },
-    archiveNav: {
+    archiveSectionRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: 2,
-      marginBottom: 12,
-      marginLeft: -6,
+      columnGap: 12,
+      rowGap: 2,
+      marginTop: 0,
+      marginBottom: 8,
     },
-    archiveNavTitle: {
-      color: colors.text,
-      fontSize: 20,
+    archiveSectionTitle: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0,
+      flexShrink: 1,
+    },
+    archiveBackLinkPress: {
+      marginLeft: 'auto',
+    },
+    archiveBackLink: {
+      color: colors.primary,
+      fontSize: 13,
       fontWeight: '700',
     },
     archivedMeta: {
@@ -3805,12 +3987,6 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       textAlign: 'center',
       paddingVertical: 14,
       marginBottom: 10,
-    },
-    pinError: {
-      color: colors.danger,
-      fontSize: 14,
-      marginBottom: 10,
-      textAlign: 'center',
     },
     pickerItem: {
       flexDirection: 'row',

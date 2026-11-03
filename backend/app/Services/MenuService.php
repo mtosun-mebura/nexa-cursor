@@ -348,6 +348,29 @@ class MenuService
     }
 
     /**
+     * Of de huidige route bij een sidebar-item hoort.
+     * Specifiekere patterns in $except winnen (bijv. settings* naast een breed prefix.*).
+     *
+     * @param  string|list<string>  $patterns
+     * @param  string|list<string>  $exceptPatterns
+     */
+    public static function routeIsActive(string|array $patterns, string|array $exceptPatterns = []): bool
+    {
+        $patterns = array_values(array_filter((array) $patterns, fn ($p) => is_string($p) && $p !== ''));
+        $exceptPatterns = array_values(array_filter((array) $exceptPatterns, fn ($p) => is_string($p) && $p !== ''));
+
+        if ($patterns === []) {
+            return false;
+        }
+
+        if ($exceptPatterns !== [] && request()->routeIs(...$exceptPatterns)) {
+            return false;
+        }
+
+        return request()->routeIs(...$patterns);
+    }
+
+    /**
      * Of een submenu-item de huidige pagina is.
      * Index-kinderen mogen gerelateerde routes onder hetzelfde prefix actief maken,
      * behalve als een sibling een specifiekere route claimt
@@ -363,7 +386,7 @@ class MenuService
             return false;
         }
 
-        if (request()->routeIs($route) || request()->routeIs($route.'.*')) {
+        if (self::routeIsActive([$route, $route.'.*'])) {
             return true;
         }
 
@@ -372,7 +395,7 @@ class MenuService
         }
 
         $prefix = substr($route, 0, -strlen('.index'));
-        if (! request()->routeIs($prefix.'.*')) {
+        if (! self::routeIsActive($prefix.'.*')) {
             return false;
         }
 
@@ -381,7 +404,7 @@ class MenuService
             if ($siblingRoute === '' || $siblingRoute === $route) {
                 continue;
             }
-            if (request()->routeIs($siblingRoute) || request()->routeIs($siblingRoute.'.*')) {
+            if (self::routeIsActive([$siblingRoute, $siblingRoute.'.*'])) {
                 return false;
             }
         }

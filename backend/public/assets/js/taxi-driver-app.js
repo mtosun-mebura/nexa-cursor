@@ -889,7 +889,7 @@
                 || (data && data.errors && data.errors.profile_photo && data.errors.profile_photo[0])
                 || 'Er ging iets mis.';
             const err = new Error(msg);
-            err.code = data && data.error;
+            err.code = (data && (data.code || data.error)) || null;
             err.status = res.status;
             err.errors = data && data.errors ? data.errors : null;
             throw err;
@@ -5824,7 +5824,9 @@
             updateEmptyState();
             return;
         }
-        isOnline = !!value;
+        const previousOnline = isOnline;
+        const desiredOnline = !!value;
+        isOnline = desiredOnline;
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
         setOnlineUi();
         updateProfileOnlineStatus();
@@ -5871,9 +5873,21 @@
             if (e.code === 'driver_not_active') {
                 return;
             }
+            // Server weigerde (o.a. iban_required): UI terugzetten. Bij mislukte
+            // online-poging altijd offline — nooit localStorage "Online" laten staan
+            // terwijl is_online=false (nearby-taxis zou dan leeg blijven).
+            isOnline = desiredOnline ? false : previousOnline;
+            localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
+            setOnlineUi();
+            updateProfileOnlineStatus();
+            updateNotificationsHint();
+            stopGpsTracking();
+            alert(e.message || (desiredOnline ? 'Online zetten mislukt.' : 'Offline zetten mislukt.'));
             console.warn(e);
         }
-        if (token && accountActive) {
+        // GPS alleen bij échte online-status — location-pings zonder is_online
+        // vullen last_seen maar verschijnen niet op de boekingskaart.
+        if (token && accountActive && isOnline) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -10432,7 +10446,7 @@
         const data = await res.json();
         if (!res.ok) {
             const err = new Error(data.message || 'Inloggen mislukt.');
-            err.code = data.error;
+            err.code = data.code || data.error;
             throw err;
         }
         token = data.token;
@@ -11802,11 +11816,9 @@
     }
 
     function applyOnlineStateFromServer(isOnlineOnServer) {
-        if (typeof isOnlineOnServer !== 'boolean') {
-            isOnline = localStorage.getItem(ONLINE_KEY) === '1';
-        } else {
-            isOnline = isOnlineOnServer;
-        }
+        // Alleen true als de server dat expliciet zegt — geen localStorage-fallback
+        // die "Online" faked terwijl is_online=false (kaart blijft dan leeg).
+        isOnline = isOnlineOnServer === true;
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
         if (!isOnline) {
             inboxLoading = false;
@@ -11814,7 +11826,7 @@
         }
         setOnlineUi();
         updateProfileOnlineStatus();
-        if (token && accountActive) {
+        if (token && accountActive && isOnline) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -12171,7 +12183,7 @@
             renderProfileUser(me.user || null);
             const active = me.user && me.user.is_account_active !== false;
             setAccountInactive(!active);
-            applyOnlineStateFromServer(me.user && me.user.is_online);
+            applyOnlineStateFromServer(!!(me.user && me.user.is_online));
             if (me.user && me.user.app_modes && typeof me.user.app_modes === 'object') {
                 driverAppModes = Object.assign({}, driverAppModes, me.user.app_modes);
             }
