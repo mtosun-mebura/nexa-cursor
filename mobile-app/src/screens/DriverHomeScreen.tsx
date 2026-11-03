@@ -77,13 +77,7 @@ import { ApiError, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import {
-  ensureForegroundLocationPermission,
-  LOCATION_SETTINGS_HINT,
-  requestBackgroundLocationUpgrade,
-} from '../location/background';
-import {
   clampGpsRefreshSeconds,
-  readLastKnownDriverMapPosition,
   startDriverLocationTracking,
   stopDriverLocationTracking,
 } from '../location/tracking';
@@ -405,13 +399,14 @@ function cancelFailureMessage(error: unknown): string {
   return t('Annuleren mislukt.');
 }
 
-function availabilityThrottleMessage(error: unknown): string | null {
+function availabilityFailureMessage(error: unknown): string {
   const status = apiErrorStatus(error);
   const raw = error instanceof ApiError ? error.message.trim() : '';
   if (status === 429 || /too many attempts/i.test(raw)) {
     return t('Te veel pogingen om online te gaan. Wacht even en probeer het opnieuw.');
   }
-  return null;
+  if (raw && !/^HTTP \d+$/.test(raw)) return raw;
+  return t('Online zetten mislukt.');
 }
 
 const VEHICLE_REQUIRED_ERROR = 'Kies eerst een voertuig voordat je online gaat.';
@@ -1160,59 +1155,31 @@ export function DriverHomeScreen() {
     onlineToggleInFlightRef.current = true;
     const epoch = ++onlineEpochRef.current;
     onlinePendingEpochRef.current = epoch;
-    const settle = () => {
-      if (onlinePendingEpochRef.current === epoch) onlinePendingEpochRef.current = null;
-    };
-    // Offline: meteen UI + GPS stoppen. Online: pas na server-OK (IBAN/GPS-gate).
+    // Offline: meteen UI + GPS stoppen. Online: pas na server-OK.
     if (!next) {
       setOnline(false);
     }
 
+    // Eén availability-verzoek per tik, zonder GPS- of toestemmingswacht.
+    // Die throw of hang liet de schakelaar offline terwijl de server de tik aannam.
+    let accepted = false;
     try {
-      if (next) {
-        await ensureDriverNotificationPermission();
-        await ensureForegroundLocationPermission();
-        // One-time Always / all-the-time ask so maps + offers keep working backgrounded.
-        await requestBackgroundLocationUpgrade().catch(() => false);
-        if (onlineEpochRef.current !== epoch) return;
-        const position = await readLastKnownDriverMapPosition();
-        if (onlineEpochRef.current !== epoch) return;
-        await setDriverOnline(driverToken, true, selectedVehicleId, position);
-        if (onlineEpochRef.current !== epoch) return;
-        settle();
-        setOnline(true);
-      } else {
-        await setDriverOnline(driverToken, false, selectedVehicleId);
-        if (onlineEpochRef.current !== epoch) return;
-        settle();
-      }
-      if (onlineEpochRef.current !== epoch) return;
-      void refresh();
+      await setDriverOnline(driverToken, next, selectedVehicleId);
+      accepted = true;
     } catch (e) {
-      settle();
-      if (onlineEpochRef.current !== epoch) return;
-      setOnline(next ? false : true);
-      const limited = availabilityThrottleMessage(e);
-      if (limited) {
+      if (onlineEpochRef.current === epoch) {
+        setOnline(next ? false : true);
         setError(null);
-        setFlowMessage(limited);
-      } else {
-        const message = e instanceof Error ? e.message : t("Online zetten mislukt.");
-        setError(message);
-        if (message === t(LOCATION_SETTINGS_HINT)) {
-          Linking.openSettings().catch(() => undefined);
-        }
-      }
-      if (next) {
-        try {
-          await stopDriverLocationTracking();
-        } catch {
-          /* ignore */
-        }
+        setFlowMessage(availabilityFailureMessage(e));
       }
     } finally {
-      onlineToggleInFlightRef.current = false;
+      if (onlinePendingEpochRef.current === epoch) onlinePendingEpochRef.current = null;
+      if (onlineEpochRef.current === epoch) onlineToggleInFlightRef.current = false;
     }
+
+    if (!accepted || onlineEpochRef.current !== epoch) return;
+    if (next) setOnline(true);
+    void refresh();
   }
 
   function markArchiveSeen() {
