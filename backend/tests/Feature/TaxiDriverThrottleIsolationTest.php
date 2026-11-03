@@ -29,6 +29,8 @@ class TaxiDriverThrottleIsolationTest extends TestCase
                 ->middleware('throttle:taxi-driver-accept');
             Route::post('/_test/taxi-driver-cancel', fn () => response()->json(['ok' => true]))
                 ->middleware('throttle:taxi-driver-cancel');
+            Route::put('/_test/taxi-driver-availability', fn () => response()->json(['ok' => true]))
+                ->middleware('throttle:taxi-driver-availability');
             Route::post('/_test/taxi-driver-complete', fn () => response()->json(['ok' => true]))
                 ->middleware('throttle:taxi-driver-action');
             Route::post('/_test/taxi-driver-payment', fn () => response()->json(['ok' => true]))
@@ -88,6 +90,33 @@ class TaxiDriverThrottleIsolationTest extends TestCase
 
         $this->postJson('/_test/taxi-driver-cancel')->assertOk();
         $this->postJson('/_test/taxi-driver-cancel')->assertOk();
+    }
+
+    #[Test]
+    public function driver_can_go_online_after_the_shared_action_limit_is_full(): void
+    {
+        $driver = User::factory()->create();
+        $this->actingAs($driver);
+        $this->fillSharedDriverLimits();
+
+        $this->putJson('/_test/taxi-driver-availability', ['is_online' => true])->assertOk();
+        $this->putJson('/_test/taxi-driver-availability', ['is_online' => false])->assertOk();
+    }
+
+    #[Test]
+    public function availability_route_does_not_use_the_shared_driver_action_limiter(): void
+    {
+        if ($this->driverAvailabilityRoute() === null) {
+            Route::middleware(['api', 'auth:sanctum'])
+                ->prefix('api/taxi')
+                ->group(app_path('Modules/NexaTaxi/Routes/api.php'));
+        }
+
+        $route = $this->driverAvailabilityRoute();
+        $this->assertNotNull($route);
+        $middleware = implode(' ', array_map('strval', $route->middleware()));
+        $this->assertStringContainsString('taxi-driver-availability', $middleware);
+        $this->assertStringNotContainsString('taxi-driver-action', $middleware);
     }
 
     #[Test]
@@ -155,6 +184,28 @@ class TaxiDriverThrottleIsolationTest extends TestCase
         );
         $this->assertStringNotContainsString('Too Many Attempts', (string) ($cancelBody['message'] ?? ''));
 
+        $availability = $handler->render(
+            Request::create('/api/taxi/v1/driver/availability', 'PUT', server: [
+                'HTTP_ACCEPT' => 'application/json',
+            ]),
+            new ThrottleRequestsException('Too Many Attempts.')
+        );
+        $availabilityBody = json_decode($availability->getContent(), true);
+        $this->assertSame(429, $availability->getStatusCode());
+        $this->assertSame(
+            'Te veel pogingen om online te gaan. Wacht even en probeer het opnieuw.',
+            $availabilityBody['message'] ?? null
+        );
+        $this->assertStringNotContainsString('Too Many Attempts', (string) ($availabilityBody['message'] ?? ''));
+
+        $location = $handler->render(
+            Request::create('/api/taxi/v1/driver/availability/location', 'PUT', server: [
+                'HTTP_ACCEPT' => 'application/json',
+            ]),
+            new ThrottleRequestsException('Too Many Attempts.')
+        );
+        $this->assertStringContainsString('Too Many Attempts', $location->getContent());
+
         $login = $handler->render(
             Request::create('/api/taxi/v1/driver/login', 'POST', server: [
                 'HTTP_ACCEPT' => 'application/json',
@@ -203,6 +254,17 @@ class TaxiDriverThrottleIsolationTest extends TestCase
     private function driverCancelRoute(): ?\Illuminate\Routing\Route
     {
         return $this->driverPostRoute('api/taxi/v1/driver/dispatch/rides/{ride}/cancel');
+    }
+
+    private function driverAvailabilityRoute(): ?\Illuminate\Routing\Route
+    {
+        foreach (Route::getRoutes() as $route) {
+            if ($route->uri() === 'api/taxi/v1/driver/availability' && in_array('PUT', $route->methods(), true)) {
+                return $route;
+            }
+        }
+
+        return null;
     }
 
     private function driverPostRoute(string $uri): ?\Illuminate\Routing\Route
