@@ -908,6 +908,8 @@ class NetworkDispatchRadiusTest extends TestCase
                 && ($message['channelId'] ?? null) === 'driver-offers-alert'
                 && ($message['interruptionLevel'] ?? null) === 'time-sensitive'
                 && ($message['data']['type'] ?? null) === 'driver_offer'
+                && ($message['data']['pickup_address'] ?? null) === 'Damrak 1'
+                && (int) ($message['data']['offer_id'] ?? 0) > 0
                 && str_contains((string) ($message['body'] ?? ''), 'Damrak 1');
         });
     }

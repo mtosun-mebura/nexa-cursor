@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { Platform, Vibration } from 'react-native';
+import { AppState, Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
   rideAlertNotificationSound,
@@ -14,12 +14,17 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   Notifications = require('expo-notifications') as NotificationsModule;
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
+    handleNotification: async () => {
+      // Zichtbare app: iOS speelt de push niet. De in-app toon doet dat,
+      // zonder dat deze handler op de aanbod-beurt op geluid wacht.
+      const visible = AppState.currentState === 'active';
+      return {
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: !visible,
+        shouldSetBadge: !visible,
+      };
+    },
   });
 } catch {
   Notifications = null;
@@ -384,20 +389,54 @@ function positiveId(value: unknown): number | null {
   return Math.trunc(n);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/** Expo zet de payload soms in `body` of `data`, soms als JSON-string. */
+function unwrapNotificationData(data: Record<string, unknown> | undefined | null): Record<string, unknown> | null {
+  const root = asRecord(data);
+  if (!root) return null;
+  const nested: Record<string, unknown>[] = [];
+  const body = root.body;
+  if (typeof body === 'string') {
+    try {
+      const parsed = asRecord(JSON.parse(body));
+      if (parsed) nested.push(parsed);
+    } catch {
+      /* body is de meldingstekst */
+    }
+  } else {
+    const bodyObj = asRecord(body);
+    if (bodyObj) nested.push(bodyObj);
+  }
+  const dataObj = asRecord(root.data);
+  if (dataObj) nested.push(dataObj);
+  return nested.reduce<Record<string, unknown>>((acc, item) => ({ ...acc, ...item }), { ...root });
+}
+
 function targetFromNotificationData(data: Record<string, unknown> | undefined | null): DriverNotificationOpenTarget | null {
-  if (!data || typeof data !== 'object') return null;
-  const type = String(data.type || '');
-  if (type === 'driver_offer') {
+  const payload = unwrapNotificationData(data);
+  if (!payload) return null;
+  const type = String(payload.type || '');
+  const offerId = positiveId(payload.offer_id) ?? positiveId(payload.offerId);
+  const rideId =
+    positiveId(payload.ride_request_id) ??
+    positiveId(payload.rideRequestId) ??
+    positiveId(payload.ride_id) ??
+    positiveId(payload.rideId);
+  if (type === 'driver_offer' || offerId != null) {
     return {
       screen: 'requests',
-      offerId: positiveId(data.offer_id),
-      rideId: positiveId(data.ride_request_id) ?? positiveId(data.ride_id),
+      offerId,
+      rideId,
     };
   }
   if (type === 'pickup_denied' || type === 'pickup_departure') {
     return {
       screen: 'trips',
-      rideId: positiveId(data.ride_id) ?? positiveId(data.ride_request_id),
+      rideId,
     };
   }
   return null;
@@ -429,6 +468,52 @@ function takeNotificationOpenTarget(response: {
   if (!target) return null;
   lastHandledResponseKey = key;
   return target;
+}
+
+type ForegroundOfferListener = (offer: {
+  offerId: number | null;
+  rideId: number | null;
+  title?: string;
+  body?: string;
+  pickupAddress?: string;
+  placeName?: string;
+}) => void;
+
+let foregroundOfferListener: ForegroundOfferListener | null = null;
+let foregroundOfferSub: { remove: () => void } | null = null;
+
+/** Push terwijl de app open is: iOS speelt dan geen geluid. De luisteraar toont het aanbod. */
+export function setForegroundDriverOfferListener(listener: ForegroundOfferListener | null): void {
+  foregroundOfferListener = listener;
+  if (!Notifications) return;
+  if (listener && !foregroundOfferSub) {
+    foregroundOfferSub = Notifications.addNotificationReceivedListener((notification) => {
+      try {
+        const target = targetFromNotificationData(
+          notification.request.content.data as Record<string, unknown> | undefined
+        );
+        if (!target || target.screen !== 'requests') return;
+        const content = notification.request.content;
+        const payload = unwrapNotificationData(
+          content.data as Record<string, unknown> | undefined
+        );
+        foregroundOfferListener?.({
+          offerId: target.offerId ?? null,
+          rideId: target.rideId ?? null,
+          title: String(content.title || ''),
+          body: String(content.body || ''),
+          pickupAddress: String(payload?.pickup_address || ''),
+          placeName: String(payload?.pickup_place_name || ''),
+        });
+      } catch {
+        /* nooit crashen vanuit een push */
+      }
+    });
+  }
+  if (!listener && foregroundOfferSub) {
+    foregroundOfferSub.remove();
+    foregroundOfferSub = null;
+  }
 }
 
 export function addDriverOfferNotificationResponseListener(

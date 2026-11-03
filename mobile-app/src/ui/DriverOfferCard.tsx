@@ -139,6 +139,8 @@ type OfferModeProps = {
   onHighlightEnd?: () => void;
   /** Eén keer openen (nieuwe rit via melding). Handmatig inklappen blijft daarna gelden. */
   expandOnce?: boolean;
+  /** Als gezet: alleen dit aanbod staat open, de andere aanvragen blijven in de lijst. */
+  soloOfferId?: number | null;
   fallbackVehicleLabel?: string | null;
   fallbackVehicleName?: string | null;
   onAccept: () => void;
@@ -222,6 +224,19 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     cardExpandedByKey.set(expandKey, true);
     setExpanded(true);
   }, [expandOnce, expandKey]);
+
+  const soloOfferId = props.offer ? props.soloOfferId : null;
+  useEffect(() => {
+    if (!props.offer || soloOfferId == null || soloOfferId <= 0) return;
+    if (Number(props.offer.id) === soloOfferId) {
+      if (collapsedByUser.has(expandKey)) return;
+      cardExpandedByKey.set(expandKey, true);
+      setExpanded(true);
+      return;
+    }
+    cardExpandedByKey.set(expandKey, false);
+    setExpanded(false);
+  }, [soloOfferId, expandKey]);
 
   function toggleExpanded() {
     setExpanded((prev) => {

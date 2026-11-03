@@ -79,6 +79,7 @@ import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import {
   clampGpsRefreshSeconds,
   startDriverLocationTracking,
+  invalidateDriverLocationTracking,
   stopDriverLocationTracking,
 } from '../location/tracking';
 import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
@@ -87,11 +88,13 @@ import {
   consumeInitialDriverNotificationResponse,
   ensureDriverNotificationPermission,
   prepareDriverNotificationChannels,
+  setForegroundDriverOfferListener,
 } from '../notifications/driverOffers';
 import { registerDriverPushToken, retryDriverPushTokenIfNeeded } from '../notifications/driverPush';
 import {
   alertPickupDenials,
   alertUnseenDriverOffers,
+  playDriverOfferToneForIds,
   primeRideAlertAudio,
   rememberRideAlertTone,
   clearDriverOfferBadge,
@@ -433,13 +436,13 @@ export function DriverHomeScreen() {
   const tripsScrollRef = useRef<ScrollView | null>(null);
   const rideOffsets = useRef<Record<number, number>>({});
   const [online, setOnline] = useState(false);
+  const onlineRef = useRef(false);
+  onlineRef.current = online;
   const onlineEpochRef = useRef(0);
   const refreshGen = useRef(0);
   const refreshInFlight = useRef(false);
   const refreshQueued = useRef(false);
   const refreshFn = useRef<() => Promise<void>>(async () => undefined);
-  /** Laatste handmatige tab-tik. Een poll mag die keuze kort niet overschrijven. */
-  const manualTabAtRef = useRef(0);
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
   const onlineToggleInFlightRef = useRef(false);
@@ -540,15 +543,17 @@ export function DriverHomeScreen() {
   const rideAlertToneRef = useRef<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   /** Aanvragen die deze sessie al naar het Aanvragen-tab zijn gebracht. */
   const surfacedOfferIdsRef = useRef<Set<number>>(new Set());
-  /** Eerste inbox is de bestaande lijst; alleen een latere nieuwe aanvraag klapt open. */
-  const offersBootstrappedRef = useRef(false);
   /** Aanvragen die al in de lijst stonden; een melding zonder id opent alleen een nieuwe. */
   const knownOfferIdsRef = useRef<Set<number>>(new Set());
   const offersRef = useRef<DispatchOffer[]>([]);
+  const pushPreviewRef = useRef<Map<number, DispatchOffer>>(new Map());
   /** Eerste poll na een melding mag de gekozen rit niet overschrijven. */
   const notificationExpandLockRef = useRef(false);
   const pendingNotificationExpandRef = useRef<
-    null | { kind: 'ride'; rideId: number } | { kind: 'newest'; baseline: Set<number> }
+    | null
+    | { kind: 'offer'; offerId: number; rideId: number | null }
+    | { kind: 'ride'; rideId: number }
+    | { kind: 'newest'; baseline: Set<number> }
   >(null);
   offersRef.current = offers;
   /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
@@ -616,18 +621,24 @@ export function DriverHomeScreen() {
 
   const handleNewOffers = useCallback((offerList: DispatchOffer[], isOnlineNow: boolean) => {
     const ids = offerList.map((offer) => Number(offer.id)).filter((id) => id > 0);
-    const bootstrapped = offersBootstrappedRef.current;
     const unseenOffers = offerList.filter((offer) => {
       const id = Number(offer.id);
       return id > 0 && !surfacedOfferIdsRef.current.has(id);
     });
     ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
-    offersBootstrappedRef.current = true;
-    void alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
+    const showNow = isOnlineNow || onlineRef.current;
 
     const locked = notificationExpandLockRef.current;
     if (locked) notificationExpandLockRef.current = false;
-    if (!isOnlineNow) return false;
+    const pending = pendingNotificationExpandRef.current;
+    if (pending && (pending.kind === 'offer' || pending.kind === 'ride')) {
+      setShowArchived(false);
+      persistDriverArchive(false);
+      setTab('requests');
+      persistDriverTab('requests');
+      return true;
+    }
+    if (!showNow) return false;
     if (locked) {
       setShowArchived(false);
       persistDriverArchive(false);
@@ -635,19 +646,22 @@ export function DriverHomeScreen() {
       persistDriverTab('requests');
       return true;
     }
-    if (!bootstrapped || unseenOffers.length === 0) return false;
     const offerId = Number(newestDriverOffer(unseenOffers)?.id || 0);
-    if (offerId <= 0) return false;
-    primeDriverCardExpand(driverOfferExpandKey(offerId));
-    setFocusOfferId(offerId);
-    setExpandOfferId(offerId);
-    // De chauffeur tikte net een ander scherm. Niet terugtrekken naar Aanvragen.
-    if (Date.now() - manualTabAtRef.current < 10000) return false;
-    setShowArchived(false);
-    persistDriverArchive(false);
-    setTab('requests');
-    persistDriverTab('requests');
-    return true;
+    const openNow = showNow && !locked && offerId > 0 && unseenOffers.length > 0;
+    if (openNow) {
+      primeDriverCardExpand(driverOfferExpandKey(offerId));
+      setFocusOfferId(offerId);
+      setExpandOfferId(offerId);
+      setShowArchived(false);
+      persistDriverArchive(false);
+      setTab('requests');
+      persistDriverTab('requests');
+    }
+    // Geluid en SecureStore ná de paint. Niet in deze beurt: dat blokkeert de kaart.
+    setTimeout(() => {
+      void alertUnseenDriverOffers({ offers: offerList, online: showNow });
+    }, 0);
+    return openNow;
   }, []);
 
   const refresh = useCallback(async () => {
@@ -762,7 +776,14 @@ export function DriverHomeScreen() {
 
       const inboxData = inboxDataFromResponse(inbox);
       const openedRequest = handleNewOffers(inboxData.offers, isOnlineNow);
-      setOffers(inboxData.offers);
+      const incomingIds = new Set(inboxData.offers.map((offer) => Number(offer.id)));
+      for (const id of [...pushPreviewRef.current.keys()]) {
+        if (incomingIds.has(id)) pushPreviewRef.current.delete(id);
+      }
+      const previews = [...pushPreviewRef.current.values()].filter(
+        (offer) => !incomingIds.has(Number(offer.id))
+      );
+      setOffers(previews.length ? [...previews, ...inboxData.offers] : inboxData.offers);
       setArchivedOffers(inboxData.archivedOffers);
       setDeclinedOffers(inboxData.declinedOffers);
       setActiveRide(inboxData.activeRide);
@@ -770,72 +791,81 @@ export function DriverHomeScreen() {
       setScheduledRides(inboxData.scheduledRides);
       setOverdueScheduledRides(inboxData.overdueScheduledRides);
       setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
-      let completedFromPlanning: Array<{ id: number; status?: string } > = [];
-      try {
-        const monday = mondayIsoFrom();
-        const [thisWeek, lastWeek] = await Promise.all([
-          fetchDriverPlanningWeek(driverToken, monday, resolvedVehicleId),
-          fetchDriverPlanningWeek(driverToken, addDaysIso(monday, -7), resolvedVehicleId),
-        ]);
-        completedFromPlanning = [
-          ...(thisWeek?.data?.days || []).flatMap((day) => day.rides || []),
-          ...(lastWeek?.data?.days || []).flatMap((day) => day.rides || []),
-        ];
-      } catch {
-        completedFromPlanning = [];
-      }
-      if (gen !== refreshGen.current) return;
-      setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
       setCancelReasons(inboxData.cancelReasons);
-      if (gen !== refreshGen.current) return;
-      const pickupDenied = await alertPickupDenials({
-        rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
-        alert: inboxData.pickupDeniedAlert,
-      });
-      let showedPayout = false;
-      if (pickupDenied) {
-        setRideNotice({
-          title: pickupDenied.title,
-          body: pickupDenied.body,
-          primaryLabel: t("Begrepen"),
-          rideId: pickupDenied.rideId,
-        });
-        if (!openedRequest) {
-          setTab('trips');
-          persistDriverTab('trips');
-        }
-      } else {
-        const payout = await takeFreshPayoutNotice(inboxData.payoutNotices);
-        if (payout) {
-          showedPayout = true;
-          setRideNotice({
-            title: payout.title,
-            body: payout.body,
-            primaryLabel: t("Begrepen"),
-            rideId: payout.rideId,
-          });
-        }
-      }
-      if (!pickupDenied && !openedRequest && !showedPayout) {
+      // Planning en meldingen mogen de volgende inbox niet tegenhouden.
+      // Een trage SecureStore- of notificatie-aanroep hield de poll minuten vast,
+      // terwijl de rit al in het antwoord zat.
+      const noticeGen = gen;
+      const keepRequests = openedRequest || pendingNotificationExpandRef.current != null;
+      void (async () => {
+        let completedFromPlanning: Array<{ id: number; status?: string }> = [];
         try {
-          const departure = await alertNextPickupDeparture({
-            scheduled: inboxData.scheduledRides,
-            activeRide: inboxData.activeRide,
+          const monday = mondayIsoFrom();
+          const [thisWeek, lastWeek] = await Promise.all([
+            fetchDriverPlanningWeek(driverToken, monday, resolvedVehicleId),
+            fetchDriverPlanningWeek(driverToken, addDaysIso(monday, -7), resolvedVehicleId),
+          ]);
+          completedFromPlanning = [
+            ...(thisWeek?.data?.days || []).flatMap((day) => day.rides || []),
+            ...(lastWeek?.data?.days || []).flatMap((day) => day.rides || []),
+          ];
+        } catch {
+          completedFromPlanning = [];
+        }
+        if (noticeGen !== refreshGen.current) return;
+        setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
+        const pickupDenied = await alertPickupDenials({
+          rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
+          alert: inboxData.pickupDeniedAlert,
+        });
+        if (noticeGen !== refreshGen.current) return;
+        let showedPayout = false;
+        if (pickupDenied) {
+          setRideNotice({
+            title: pickupDenied.title,
+            body: pickupDenied.body,
+            primaryLabel: t("Begrepen"),
+            rideId: pickupDenied.rideId,
           });
-          if (departure) {
-            setRideNotice({
-              title: departure.title,
-              body: departure.body,
-              primaryLabel: t("Begrepen"),
-              rideId: departure.rideId,
-            });
+          if (!keepRequests) {
             setTab('trips');
             persistDriverTab('trips');
           }
-        } catch {
-          /* vertrekmelding mag de inbox niet breken */
+        } else {
+          const payout = await takeFreshPayoutNotice(inboxData.payoutNotices);
+          if (noticeGen !== refreshGen.current) return;
+          if (payout) {
+            showedPayout = true;
+            setRideNotice({
+              title: payout.title,
+              body: payout.body,
+              primaryLabel: t("Begrepen"),
+              rideId: payout.rideId,
+            });
+          }
         }
-      }
+        if (!pickupDenied && !keepRequests && !showedPayout) {
+          try {
+            const departure = await alertNextPickupDeparture({
+              scheduled: inboxData.scheduledRides,
+              activeRide: inboxData.activeRide,
+            });
+            if (noticeGen !== refreshGen.current) return;
+            if (departure) {
+              setRideNotice({
+                title: departure.title,
+                body: departure.body,
+                primaryLabel: t("Begrepen"),
+                rideId: departure.rideId,
+              });
+              setTab('trips');
+              persistDriverTab('trips');
+            }
+          } catch {
+            /* vertrekmelding mag de inbox niet breken */
+          }
+        }
+      })();
     } catch (e) {
       if (gen !== refreshGen.current) return;
       const status = apiErrorStatus(e);
@@ -876,15 +906,10 @@ export function DriverHomeScreen() {
   useEffect(() => {
     prepareDriverNotificationChannels().catch(() => undefined);
     ensureDriverNotificationPermission().catch(() => undefined);
-    primeRideAlertAudio();
     if (driverToken) {
       registerDriverPushToken(driverToken).catch(() => undefined);
     }
   }, [driverToken]);
-
-  useEffect(() => {
-    if (online) primeRideAlertAudio();
-  }, [online]);
 
   useEffect(() => {
     refresh().catch(() => undefined);
@@ -896,18 +921,17 @@ export function DriverHomeScreen() {
   }, [refresh, online]);
 
   useEffect(() => {
+    let lastAppRefresh = 0;
     const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' && state !== 'background') return;
+      const now = Date.now();
+      if (now - lastAppRefresh < 4000) return;
+      lastAppRefresh = now;
       if (state === 'active') {
         retryDriverPushTokenIfNeeded();
         clearDriverOfferBadge().catch(() => undefined);
-        refresh().catch(() => undefined);
-        return;
       }
-      // Lock/standby: meteen inbox ophalen zolang JS nog heel even leeft,
-      // zodat het aanbod er is vóór iOS de app bevriest.
-      if (state === 'inactive' || state === 'background') {
-        refresh().catch(() => undefined);
-      }
+      refresh().catch(() => undefined);
     });
     return () => sub.remove();
   }, [refresh]);
@@ -945,19 +969,19 @@ export function DriverHomeScreen() {
         setTab('requests');
         persistDriverTab('requests');
         notificationExpandLockRef.current = true;
-        if (oid > 0) {
-          pendingNotificationExpandRef.current = null;
-          revealNotifiedOffer(oid);
-          return;
-        }
-        if (rid > 0) {
-          const match = offersRef.current.find((offer) => offerMatchesRide(offer, rid));
+        if (oid > 0 || rid > 0) {
+          pendingNotificationExpandRef.current =
+            oid > 0
+              ? { kind: 'offer', offerId: oid, rideId: rid > 0 ? rid : null }
+              : { kind: 'ride', rideId: rid };
+          const match = offersRef.current.find(
+            (offer) =>
+              (oid > 0 && Number(offer.id) === oid) || (rid > 0 && offerMatchesRide(offer, rid))
+          );
           if (match) {
             pendingNotificationExpandRef.current = null;
             revealNotifiedOffer(Number(match.id));
-            return;
           }
-          pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
           return;
         }
         const baseline = new Set(knownOfferIdsRef.current);
@@ -982,10 +1006,17 @@ export function DriverHomeScreen() {
 
   useEffect(() => {
     const pending = pendingNotificationExpandRef.current;
-    if (pending?.kind === 'ride') {
-      const match = offers.find((offer) => offerMatchesRide(offer, pending.rideId));
+    if (pending?.kind === 'offer' || pending?.kind === 'ride') {
+      const match = offers.find((offer) => {
+        if (pending.kind === 'offer' && Number(offer.id) === pending.offerId) return true;
+        const rideId = pending.kind === 'offer' ? pending.rideId : pending.rideId;
+        return rideId != null && rideId > 0 && offerMatchesRide(offer, rideId);
+      });
       if (match) {
         pendingNotificationExpandRef.current = null;
+        setShowArchived(false);
+        setTab('requests');
+        persistDriverTab('requests');
         revealNotifiedOffer(Number(match.id));
       }
     } else if (pending?.kind === 'newest' && offers.length) {
@@ -1006,6 +1037,56 @@ export function DriverHomeScreen() {
       knownOfferIdsRef.current = next;
     }
   }, [offers, revealNotifiedOffer]);
+
+  useEffect(() => {
+    setForegroundDriverOfferListener(({ offerId, rideId, body, pickupAddress, placeName }) => {
+      if (AppState.currentState === 'background') return;
+      try {
+        const id = Number(offerId || 0);
+        const rid = Number(rideId || 0);
+        setShowArchived(false);
+        persistDriverArchive(false);
+        setTab('requests');
+        persistDriverTab('requests');
+        if (id > 0) {
+          const pickup = pickupAddress || body || undefined;
+          const preview: DispatchOffer = {
+            id,
+            status: 'pending',
+            ride_request_id: rid > 0 ? rid : undefined,
+            ride: {
+              id: rid > 0 ? rid : undefined,
+              status: 'offered',
+              pickup_address: pickup,
+              pickup_place_name: placeName || null,
+            },
+          };
+          const already = offersRef.current.some((offer) => Number(offer.id) === id);
+          if (!already) {
+            pushPreviewRef.current.set(id, preview);
+            setOffers((current) =>
+              current.some((offer) => Number(offer.id) === id) ? current : [preview, ...current]
+            );
+          }
+          primeDriverCardExpand(driverOfferExpandKey(id));
+          setFocusOfferId(id);
+          setExpandOfferId(id);
+          pendingNotificationExpandRef.current = null;
+        } else if (rid > 0) {
+          pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
+        }
+        requestAnimationFrame(() => {
+          if (id > 0) playDriverOfferToneForIds([id]);
+          setTimeout(() => {
+            void refreshFn.current();
+          }, 0);
+        });
+      } catch {
+        /* push mag het scherm niet laten crashen */
+      }
+    });
+    return () => setForegroundDriverOfferListener(null);
+  }, []);
 
   useEffect(() => {
     return addDriverOfferNotificationResponseListener(
@@ -1054,6 +1135,10 @@ export function DriverHomeScreen() {
   // Wacht tot availability op de server bevestigd is — optimistic online + IBAN-weigering
   // startte anders al location-pings terwijl is_online false bleef (lege boekingskaart).
   useEffect(() => {
+    if (online) primeRideAlertAudio();
+  }, [online]);
+
+  useEffect(() => {
     if (!driverToken || !online || onlinePendingEpochRef.current != null) {
       if (!online) {
         void stopDriverLocationTracking();
@@ -1065,6 +1150,9 @@ export function DriverHomeScreen() {
       vehicleId: selectedVehicleId,
       refreshSeconds: gpsRefreshSeconds,
     }).catch(() => undefined);
+    return () => {
+      invalidateDriverLocationTracking();
+    };
   }, [driverToken, online, selectedVehicleId, gpsRefreshSeconds]);
 
   useEffect(() => {
@@ -1164,6 +1252,13 @@ export function DriverHomeScreen() {
     // Die throw of hang liet de schakelaar offline terwijl de server de tik aannam.
     let accepted = false;
     try {
+      if (next) {
+        try {
+          primeRideAlertAudio();
+        } catch {
+          /* geluid mag de schakelaar niet tegenhouden */
+        }
+      }
       await setDriverOnline(driverToken, next, selectedVehicleId);
       accepted = true;
     } catch (e) {
@@ -1948,8 +2043,9 @@ export function DriverHomeScreen() {
 
   const requestsPanel = (
     <FlatList
+      style={{ flex: 1 }}
       data={requestOffers}
-      extraData={`${focusOfferId ?? ''}:${expandOfferId ?? ''}`}
+      extraData={`${focusOfferId ?? ''}:${expandOfferId ?? ''}:${offers.length}`}
       keyExtractor={(item) => String(item.id)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
@@ -1993,6 +2089,7 @@ export function DriverHomeScreen() {
             busy={busyId === item.id}
             highlighted={focusOfferId === item.id}
             expandOnce={expandOfferId != null && Number(item.id) === expandOfferId}
+            soloOfferId={expandOfferId}
             fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
             fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
             onAccept={() => onAccept(item.id)}
@@ -2020,9 +2117,7 @@ export function DriverHomeScreen() {
     rideAlertToneRef.current = key;
     rememberRideAlertTone(key);
     rideToneDirtyRef.current = true;
-    void playRideAlertTone(key).then((played) => {
-      if (!played && key !== 'alert') void playRideAlertTone('alert');
-    });
+    void playRideAlertTone(key);
     if (!driverToken) return;
     try {
       await updateDriverRideAlertTone(driverToken, key);
@@ -3133,7 +3228,6 @@ export function DriverHomeScreen() {
       <DriverTabBar
         active={tab}
         onChange={(key) => {
-          manualTabAtRef.current = Date.now();
           goToArchive(false);
           goToTab(key);
         }}
