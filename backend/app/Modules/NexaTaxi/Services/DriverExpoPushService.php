@@ -35,8 +35,15 @@ class DriverExpoPushService
         return $parts !== [] ? implode(' · ', $parts) : 'Er staat een nieuwe rit voor je klaar.';
     }
 
-    public function sendNewOffer(int $driverId, int $rideRequestId, ?int $offerId, string $title, string $body): void
-    {
+    public function sendNewOffer(
+        int $driverId,
+        int $rideRequestId,
+        ?int $offerId,
+        string $title,
+        string $body,
+        ?string $pickupAddress = null,
+        ?string $placeName = null
+    ): void {
         if ($driverId <= 0 || $rideRequestId <= 0 || $title === '') {
             return;
         }
@@ -44,7 +51,6 @@ class DriverExpoPushService
         $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
         $messages = [];
         $sentRows = [];
-        $tone = RideAlertTone::fromUser(User::query()->find($driverId));
         foreach ($rows as $row) {
             $token = trim((string) $row->token);
             if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -59,15 +65,18 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                'sound' => $tone.'.wav',
+                'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-'.$tone,
+                'channelId' => 'driver-offers-alert',
                 'interruptionLevel' => 'time-sensitive',
-                'data' => [
+                'data' => array_filter([
                     'type' => 'driver_offer',
+                    'screen' => 'requests',
                     'offer_id' => $offerId,
                     'ride_request_id' => $rideRequestId,
-                ],
+                    'pickup_address' => trim((string) $pickupAddress),
+                    'pickup_place_name' => trim((string) $placeName),
+                ], static fn ($value) => $value !== null && $value !== ''),
             ];
         }
 

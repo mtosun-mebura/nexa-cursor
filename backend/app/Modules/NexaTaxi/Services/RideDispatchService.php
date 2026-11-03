@@ -142,7 +142,7 @@ class RideDispatchService
         });
 
         $this->push->notifyDrivers($driverIds, (int) $ride->id);
-        $this->pushExpoOffers($conn, $ride, $driverIds);
+        $this->pushExpoOffers($conn, $ride, $driverIds, true);
     }
 
     /**
@@ -390,7 +390,7 @@ class RideDispatchService
             $this->push->notifyDriver($driverId, (int) $ride->id);
         }
         if ($driverIdsToNotify !== []) {
-            $this->pushExpoOffers($conn, $ride, $driverIdsToNotify);
+            $this->pushExpoOffers($conn, $ride, $driverIdsToNotify, true);
         }
 
         if ($ride->status === RideRequest::STATUS_PENDING_DISPATCH && $driverIdsToNotify !== []) {
@@ -489,7 +489,8 @@ class RideDispatchService
             }
 
             $this->push->notifyDriver($driverId, (int) $ride->id);
-            $this->pushExpoOffers($conn, $ride, [$driverId]);
+            // Inbox-poll mag niet op Expo wachten. De push gaat er direct na de response uit.
+            $this->pushExpoOffers($conn, $ride, [$driverId], false);
         }
     }
 
@@ -498,30 +499,55 @@ class RideDispatchService
      *
      * @param  list<int>  $driverIds
      */
-    private function pushExpoOffers(string $conn, RideRequest $ride, array $driverIds): void
+    private function pushExpoOffers(string $conn, RideRequest $ride, array $driverIds, bool $wait): void
     {
         $driverIds = array_values(array_unique(array_filter(array_map('intval', $driverIds))));
         if ($driverIds === []) {
             return;
         }
 
-        try {
-            $offers = RideDispatchOffer::on($conn)
-                ->where('ride_request_id', $ride->id)
-                ->whereIn('driver_id', $driverIds)
-                ->where('status', RideDispatchOffer::STATUS_PENDING)
-                ->get(['id', 'driver_id']);
-            $expo = app(DriverExpoPushService::class);
-            $body = $expo->offerBody($ride);
-            foreach ($offers as $offer) {
-                $expo->sendNewOffer((int) $offer->driver_id, (int) $ride->id, (int) $offer->id, 'Nieuwe rit', $body);
+        $pickup = $ride->driverLegPickupAddress();
+        $place = $ride->driverLegPickupPlaceName();
+        $rideId = (int) $ride->id;
+        $send = function () use ($conn, $rideId, $driverIds, $pickup, $place): void {
+            try {
+                $offers = RideDispatchOffer::on($conn)
+                    ->where('ride_request_id', $rideId)
+                    ->whereIn('driver_id', $driverIds)
+                    ->where('status', RideDispatchOffer::STATUS_PENDING)
+                    ->get(['id', 'driver_id']);
+                $ride = RideRequest::on($conn)->find($rideId);
+                if (! $ride) {
+                    return;
+                }
+                $expo = app(DriverExpoPushService::class);
+                $body = $expo->offerBody($ride);
+                foreach ($offers as $offer) {
+                    $expo->sendNewOffer(
+                        (int) $offer->driver_id,
+                        $rideId,
+                        (int) $offer->id,
+                        'Nieuwe rit',
+                        $body,
+                        $pickup,
+                        $place
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Expo-aanbodpush mislukt.', [
+                    'ride_request_id' => $rideId,
+                    'error' => $e->getMessage(),
+                ]);
             }
-        } catch (\Throwable $e) {
-            Log::warning('Expo-aanbodpush mislukt.', [
-                'ride_request_id' => $ride->id,
-                'error' => $e->getMessage(),
-            ]);
+        };
+
+        if ($wait) {
+            $send();
+
+            return;
         }
+
+        defer($send);
     }
 
     /**

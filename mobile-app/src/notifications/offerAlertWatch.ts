@@ -10,13 +10,16 @@ import {
 } from '../api/driver';
 import {
   normalizeRideAlertTone,
+  playPreparedRideAlert,
   playRideAlertTone,
   prepareRideAlertAudio,
+  primeRideAlertPlayer,
 } from '../audio/rideAlert';
 import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
 import { alertNextPickupDeparture } from './pickupDeparture';
 
 const SEEN_KEY = 'nexa_taxi_seen_offer_ids';
+const SOUNDED_KEY = 'nexa_taxi_sounded_offer_ids';
 const READY_KEY = 'nexa_taxi_offers_seen_ready';
 const TONE_KEY = 'nexa_taxi_ride_alert_tone';
 const DENIED_KEY = 'nexa_taxi_pickup_denied_notified';
@@ -29,18 +32,86 @@ let audioPrimed = false;
 /** Eén inbox-check tegelijk. Extra aanroepen (GPS-burst) vervangen de wachtende input. */
 let alertDraining = false;
 let queuedAlert: Parameters<typeof checkOnce>[0] | null = null;
+/** Aanbod-ids waarvan de toon deze installatie al is gestart. Geen tweede play. */
+const soundedOfferIds = new Set<number>();
+let soundedLoaded = false;
+
+function offerIds(offers: DispatchOffer[] | undefined): number[] {
+  if (!Array.isArray(offers)) return [];
+  const ids: number[] = [];
+  for (const offer of offers) {
+    const id = Number(offer?.id);
+    if (id > 0) ids.push(id);
+  }
+  return ids;
+}
 
 export function rememberRideAlertTone(tone?: string | null): void {
   SecureStore.setItemAsync(TONE_KEY, normalizeRideAlertTone(tone)).catch(() => undefined);
 }
 
-/** Roep aan bij online gaan zodat de eerste achtergrond-toon niet faalt. */
+/** Roep aan bij online gaan zodat de eerste toon geen audio-sessie opent. */
 export function primeRideAlertAudio(): void {
   if (audioPrimed) return;
   audioPrimed = true;
+  primeRideAlertPlayer();
+  void ensureSoundedLoaded();
   prepareRideAlertAudio().catch(() => {
     audioPrimed = false;
   });
+}
+
+async function ensureSoundedLoaded(): Promise<void> {
+  if (soundedLoaded) return;
+  soundedLoaded = true;
+  try {
+    const raw = await SecureStore.getItemAsync(SOUNDED_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) return;
+    for (const id of list) {
+      const n = Number(id);
+      if (n > 0) soundedOfferIds.add(n);
+    }
+  } catch {
+    /* lege set: een nieuw aanbod mag alsnog klinken */
+  }
+}
+
+async function persistSounded(): Promise<void> {
+  const ids = Array.from(soundedOfferIds).slice(-300);
+  await SecureStore.setItemAsync(SOUNDED_KEY, JSON.stringify(ids));
+}
+
+/**
+ * Eén Alert-toon per nieuw aanbod-id, ook als de app zichtbaar is.
+ * iOS speelt een push niet af zolang het scherm open is.
+ * Geen werk als elk id al geklonken heeft. Niet vanuit de GPS-taak aanroepen.
+ */
+/** Eén alert.wav per aanbod-id, ná de paint. Geen await, geen keten, geen download. */
+export function playDriverOfferToneForIds(ids: number[], _tone?: string | null): void {
+  const fresh = markOfferIdsSounded(ids);
+  if (!fresh.length) return;
+  requestAnimationFrame(() => {
+    try {
+      playPreparedRideAlert();
+    } catch {
+      /* één poging per id */
+    }
+    void persistSounded();
+  });
+}
+
+function markOfferIdsSounded(ids: number[]): number[] {
+  const fresh = ids.map((id) => Number(id)).filter((id) => id > 0 && !soundedOfferIds.has(id));
+  fresh.forEach((id) => soundedOfferIds.add(id));
+  return fresh;
+}
+
+async function rememberSoundedWithoutPlay(ids: number[]): Promise<void> {
+  await ensureSoundedLoaded();
+  const fresh = markOfferIdsSounded(ids);
+  if (!fresh.length) return;
+  await persistSounded().catch(() => undefined);
 }
 
 async function addOfferBadge(extra: number): Promise<number> {
@@ -85,8 +156,8 @@ async function saveSeen(seen: Set<number>): Promise<void> {
 
 /**
  * Nieuwe ritaanvragen:
- * - Voorgrond: gekozen ritgeluid via expo-audio (beltoon/luidspreker als de telefoon niet op stil staat), stille banner.
- * - Standby/achtergrond: lokale melding met dezelfde wav (hoorbaar als de ringer niet stil staat).
+ * - Zichtbare app (active/inactive/unknown): gekozen toon via de speler. iOS speelt een push dan niet.
+ * - Standby/achtergrond: lokale melding met dezelfde wav. De GPS-taak start de speler niet.
  */
 export function alertUnseenDriverOffers(input: {
   token?: string;
@@ -154,7 +225,7 @@ async function checkOnce(input: {
     }).catch(() => undefined);
   }
 
-  const ids = offers.map((offer) => Number(offer.id)).filter((id) => id > 0);
+  const ids = offerIds(offers);
   const ready = (await SecureStore.getItemAsync(READY_KEY)) === '1';
   const seen = await loadSeen();
   if (!ready) {
@@ -165,48 +236,44 @@ async function checkOnce(input: {
     const id = Number(offer.id);
     return id > 0 && !seen.has(id);
   });
+  const freshIds = fresh.map((offer) => Number(offer.id)).filter((id) => id > 0);
+  // Alleen op het actieve scherm de speler. Achtergrond: de melding draagt alert.wav.
+  // Eén keer per id; een mislukte play start geen tweede ronde.
+  const screenVisible = !input.fromBackground && AppState.currentState === 'active';
+  if (input.online !== false && freshIds.length) {
+    if (screenVisible) void playDriverOfferToneForIds(freshIds);
+    else void rememberSoundedWithoutPlay(freshIds);
+  }
   if (!fresh.length || input.online === false) return [];
 
   fresh.forEach((offer) => seen.add(Number(offer.id)));
   await saveSeen(seen);
 
+  // Zichtbaar scherm: de kaart opent Aanvragen en de toon speelt al.
+  // scheduleNotificationAsync hier wacht minuten en houdt de inbox-poll vast,
+  // zodat een nieuwe rit niet getekend wordt.
+  if (screenVisible) return fresh;
+
   const storedTone = await SecureStore.getItemAsync(TONE_KEY);
   const tone = normalizeRideAlertTone(storedTone);
   const priority = fresh[0];
-  const inForeground = !input.fromBackground && AppState.currentState === 'active';
-  const badge = inForeground ? undefined : await addOfferBadge(fresh.length);
+  const badge = await addOfferBadge(fresh.length);
 
   const offerId = Number(priority.id) || null;
   const rideRequestId = Number(priority.ride_request_id || priority.ride?.id || 0) || null;
 
-  if (inForeground) {
-    void playRideAlertTone(tone).then((played) => {
-      if (!played) void playRideAlertTone('alert');
-    });
-    await notifyNewDriverOffer({
-      count: fresh.length,
-      pickup: priority.ride?.pickup_address,
-      dropoff: priority.ride?.dropoff_address,
-      playSound: false,
-      tone,
-      badge,
-      offerId,
-      rideRequestId,
-    });
-  } else {
-    // Lokale melding met dezelfde wav. Niet wachten op de speler:
-    // die hangt de GPS-taak op en de melding is het geluid op de beltoon.
-    await notifyNewDriverOffer({
-      count: fresh.length,
-      pickup: priority.ride?.pickup_address,
-      dropoff: priority.ride?.dropoff_address,
-      playSound: true,
-      tone,
-      badge,
-      offerId,
-      rideRequestId,
-    });
-  }
+  // Achtergrond: de push is het signaal. Een lokale melding is alleen reserve
+  // en mag deze keten niet vasthouden.
+  void notifyNewDriverOffer({
+    count: fresh.length,
+    pickup: priority.ride?.pickup_address,
+    dropoff: priority.ride?.dropoff_address,
+    playSound: true,
+    tone,
+    badge,
+    offerId,
+    rideRequestId,
+  });
   return fresh;
 }
 
