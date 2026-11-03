@@ -66,13 +66,14 @@ import {
 } from '../api/driver';
 import { ibanFieldError } from '../iban';
 import {
+  DEFAULT_RIDE_ALERT_TONE,
   normalizeRideAlertTone,
   playRideAlertTone,
   RIDE_ALERT_OPTIONS,
   RideAlertTone,
 } from '../audio/rideAlert';
 import { fetchContractMe, userIsContractant } from '../api/contract';
-import { ApiError } from '../api/client';
+import { ApiError, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import {
@@ -359,6 +360,24 @@ function offerMatchesRide(offer: DispatchOffer, rideId: number): boolean {
   return Number(offer.ride_request_id || offer.ride?.id || 0) === rideId;
 }
 
+function offerRideRequestId(offer: DispatchOffer): number {
+  return Number(offer.ride_request_id || offer.ride?.id || 0);
+}
+
+/** Zelfde rit staat nog als open aanbod in de inbox: niet als geaccepteerde rit tonen. */
+function rideListedAsOpenOffer(ride: DriverActiveRide, openOfferRideIds: Set<number>): boolean {
+  const id = Number(ride.id || 0);
+  if (id > 0 && openOfferRideIds.has(id)) return true;
+  const status = String(ride.status || '').toLowerCase();
+  return (
+    status === 'offered' ||
+    status === 'pending_dispatch' ||
+    status === 'pending' ||
+    status === 'pending_payment' ||
+    status === 'searching'
+  );
+}
+
 function newestDriverOffer(list: DispatchOffer[]): DispatchOffer | null {
   let best: DispatchOffer | null = null;
   for (const offer of list) {
@@ -374,6 +393,16 @@ function newestDriverOffer(list: DispatchOffer[]): DispatchOffer | null {
     }
   }
   return best;
+}
+
+function cancelFailureMessage(error: unknown): string {
+  const status = apiErrorStatus(error);
+  const raw = error instanceof ApiError ? error.message.trim() : '';
+  if (status === 429 || /too many attempts/i.test(raw)) {
+    return t('Te veel pogingen om deze rit te annuleren. Wacht even en probeer het opnieuw.');
+  }
+  if (raw && !/^HTTP \d+$/.test(raw)) return raw;
+  return t('Annuleren mislukt.');
 }
 
 const VEHICLE_REQUIRED_ERROR = 'Kies eerst een voertuig voordat je online gaat.';
@@ -402,6 +431,11 @@ export function DriverHomeScreen() {
   const [online, setOnline] = useState(false);
   const onlineEpochRef = useRef(0);
   const refreshGen = useRef(0);
+  const refreshInFlight = useRef(false);
+  const refreshQueued = useRef(false);
+  const refreshFn = useRef<() => Promise<void>>(async () => undefined);
+  /** Laatste handmatige tab-tik. Een poll mag die keuze kort niet overschrijven. */
+  const manualTabAtRef = useRef(0);
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
   const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
@@ -410,7 +444,7 @@ export function DriverHomeScreen() {
   const [phone, setPhone] = useState('');
   const [accountActive, setAccountActive] = useState(true);
   const [accent, setAccent] = useState<string>('orange');
-  const [rideTone, setRideTone] = useState<RideAlertTone>('classic');
+  const [rideTone, setRideTone] = useState<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   const [company, setCompany] = useState('');
   const [payoutIbanMasked, setPayoutIbanMasked] = useState<string | null>(null);
   const [ibanDraft, setIbanDraft] = useState('');
@@ -454,6 +488,7 @@ export function DriverHomeScreen() {
   const [cancelRideId, setCancelRideId] = useState<number | null>(null);
   const [selectedCancelReason, setSelectedCancelReason] = useState<string | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const cancelInFlightRef = useRef(false);
   const [proposeRideId, setProposeRideId] = useState<number | null>(null);
   const [rideNotice, setRideNotice] = useState<{
     title: string;
@@ -497,9 +532,11 @@ export function DriverHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const rideAlertToneRef = useRef<RideAlertTone>('classic');
+  const rideAlertToneRef = useRef<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   /** Aanvragen die deze sessie al naar het Aanvragen-tab zijn gebracht. */
   const surfacedOfferIdsRef = useRef<Set<number>>(new Set());
+  /** Eerste inbox is de bestaande lijst; alleen een latere nieuwe aanvraag klapt open. */
+  const offersBootstrappedRef = useRef(false);
   /** Aanvragen die al in de lijst stonden; een melding zonder id opent alleen een nieuwe. */
   const knownOfferIdsRef = useRef<Set<number>>(new Set());
   const offersRef = useRef<DispatchOffer[]>([]);
@@ -572,34 +609,49 @@ export function DriverHomeScreen() {
     (selectedVehicleId ? ({ id: selectedVehicleId } as DriverVehicle) : null);
   const needsVehicle = !vehicleLocked && !selectedVehicleId;
 
-  const handleNewOffers = useCallback(async (offerList: DispatchOffer[], isOnlineNow: boolean) => {
+  const handleNewOffers = useCallback((offerList: DispatchOffer[], isOnlineNow: boolean) => {
     const ids = offerList.map((offer) => Number(offer.id)).filter((id) => id > 0);
-    const fresh = await alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
+    const bootstrapped = offersBootstrappedRef.current;
+    const unseenOffers = offerList.filter((offer) => {
+      const id = Number(offer.id);
+      return id > 0 && !surfacedOfferIdsRef.current.has(id);
+    });
+    ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
+    offersBootstrappedRef.current = true;
+    void alertUnseenDriverOffers({ offers: offerList, online: isOnlineNow });
+
     const locked = notificationExpandLockRef.current;
     if (locked) notificationExpandLockRef.current = false;
     if (!isOnlineNow) return false;
     if (locked) {
-      ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
       setShowArchived(false);
       persistDriverArchive(false);
       setTab('requests');
       persistDriverTab('requests');
       return true;
     }
-    const unseenSession = ids.filter((id) => !surfacedOfferIdsRef.current.has(id));
-    const offerId = Number(fresh[0]?.id || unseenSession[0] || 0);
+    if (!bootstrapped || unseenOffers.length === 0) return false;
+    const offerId = Number(newestDriverOffer(unseenOffers)?.id || 0);
     if (offerId <= 0) return false;
-    ids.forEach((id) => surfacedOfferIdsRef.current.add(id));
+    primeDriverCardExpand(driverOfferExpandKey(offerId));
+    setFocusOfferId(offerId);
+    setExpandOfferId(offerId);
+    // De chauffeur tikte net een ander scherm. Niet terugtrekken naar Aanvragen.
+    if (Date.now() - manualTabAtRef.current < 10000) return false;
     setShowArchived(false);
     persistDriverArchive(false);
     setTab('requests');
     persistDriverTab('requests');
-    setFocusOfferId(offerId);
     return true;
   }, []);
 
   const refresh = useCallback(async () => {
     if (!driverToken) return;
+    if (refreshInFlight.current) {
+      refreshQueued.current = true;
+      return;
+    }
+    refreshInFlight.current = true;
     const gen = ++refreshGen.current;
     const refreshEpoch = onlineEpochRef.current;
     const toggleWasPending = onlinePendingEpochRef.current !== null;
@@ -704,6 +756,7 @@ export function DriverHomeScreen() {
       setSelectedVehicleId(resolvedVehicleId);
 
       const inboxData = inboxDataFromResponse(inbox);
+      const openedRequest = handleNewOffers(inboxData.offers, isOnlineNow);
       setOffers(inboxData.offers);
       setArchivedOffers(inboxData.archivedOffers);
       setDeclinedOffers(inboxData.declinedOffers);
@@ -729,7 +782,6 @@ export function DriverHomeScreen() {
       if (gen !== refreshGen.current) return;
       setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
       setCancelReasons(inboxData.cancelReasons);
-      const openedRequest = await handleNewOffers(inboxData.offers, isOnlineNow);
       if (gen !== refreshGen.current) return;
       const pickupDenied = await alertPickupDenials({
         rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
@@ -781,9 +833,22 @@ export function DriverHomeScreen() {
       }
     } catch (e) {
       if (gen !== refreshGen.current) return;
-      setError(e instanceof ApiError ? e.message : t("Kon gegevens niet laden."));
+      const status = apiErrorStatus(e);
+      const raw = e instanceof ApiError ? e.message : '';
+      // Geen retry en geen Engelse 429 op het scherm: de interval pollt vanzelf opnieuw.
+      if (status === 429 || /too many attempts/i.test(raw)) return;
+      setError(raw || t("Kon gegevens niet laden."));
+    } finally {
+      refreshInFlight.current = false;
+      if (refreshQueued.current) {
+        refreshQueued.current = false;
+        setTimeout(() => {
+          void refreshFn.current();
+        }, 0);
+      }
     }
   }, [driverToken, handleNewOffers, selectedVehicleId]);
+  refreshFn.current = refresh;
 
   useEffect(() => {
     if (!contractToken) {
@@ -842,48 +907,72 @@ export function DriverHomeScreen() {
     return () => sub.remove();
   }, [refresh]);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const revealNotifiedOffer = useCallback((offerId: number) => {
     const id = Number(offerId);
-    if (id <= 0) return;
-    primeDriverCardExpand(driverOfferExpandKey(id));
-    setFocusOfferId(id);
-    setExpandOfferId(id);
+    if (id <= 0 || !mountedRef.current) return;
+    try {
+      primeDriverCardExpand(driverOfferExpandKey(id));
+      setFocusOfferId(id);
+      setExpandOfferId(id);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const openOfferFromNotification = useCallback((offerId?: number | null, rideId?: number | null) => {
-    goToArchive(false);
-    goToTab('requests');
-    notificationExpandLockRef.current = true;
-    const oid = Number(offerId || 0);
-    const rid = Number(rideId || 0);
-    if (oid > 0) {
-      pendingNotificationExpandRef.current = null;
-      revealNotifiedOffer(oid);
-      return;
-    }
-    if (rid > 0) {
-      const match = offersRef.current.find((offer) => offerMatchesRide(offer, rid));
-      if (match) {
+    // Na cold/warm start vanuit een melding: eerst native transition afronden,
+    // dan pas tab/state zetten — voorkomt crash bij setState tijdens mount.
+    const oid = Number(offerId || 0) || 0;
+    const rid = Number(rideId || 0) || 0;
+    const run = () => {
+      if (!mountedRef.current) return;
+      try {
+        setShowArchived(false);
+        persistDriverArchive(false);
+        setTab('requests');
+        persistDriverTab('requests');
+        notificationExpandLockRef.current = true;
+        if (oid > 0) {
+          pendingNotificationExpandRef.current = null;
+          revealNotifiedOffer(oid);
+          return;
+        }
+        if (rid > 0) {
+          const match = offersRef.current.find((offer) => offerMatchesRide(offer, rid));
+          if (match) {
+            pendingNotificationExpandRef.current = null;
+            revealNotifiedOffer(Number(match.id));
+            return;
+          }
+          pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
+          return;
+        }
+        const baseline = new Set(knownOfferIdsRef.current);
+        const list = offersRef.current;
+        const arrived = list.filter((offer) => {
+          const id = Number(offer.id);
+          return id > 0 && !baseline.has(id);
+        });
+        if (!list.length) {
+          pendingNotificationExpandRef.current = { kind: 'newest', baseline };
+          return;
+        }
         pendingNotificationExpandRef.current = null;
-        revealNotifiedOffer(Number(match.id));
-        return;
+        const pick = newestDriverOffer(arrived.length ? arrived : list);
+        if (pick) revealNotifiedOffer(Number(pick.id));
+      } catch {
+        /* deep-link mag de app niet laten crashen */
       }
-      pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
-      return;
-    }
-    const baseline = new Set(knownOfferIdsRef.current);
-    const list = offersRef.current;
-    const arrived = list.filter((offer) => {
-      const id = Number(offer.id);
-      return id > 0 && !baseline.has(id);
-    });
-    if (!list.length) {
-      pendingNotificationExpandRef.current = { kind: 'newest', baseline };
-      return;
-    }
-    pendingNotificationExpandRef.current = null;
-    const pick = newestDriverOffer(arrived.length ? arrived : list);
-    if (pick) revealNotifiedOffer(Number(pick.id));
+    };
+    setTimeout(run, 0);
   }, [revealNotifiedOffer]);
 
   useEffect(() => {
@@ -917,7 +1006,16 @@ export function DriverHomeScreen() {
     return addDriverOfferNotificationResponseListener(
       (target) => openOfferFromNotification(target.offerId, target.rideId),
       () => {
-        goToTab('trips');
+        if (!mountedRef.current) return;
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          try {
+            setTab('trips');
+            persistDriverTab('trips');
+          } catch {
+            /* ignore */
+          }
+        }, 0);
       }
     );
   }, [openOfferFromNotification]);
@@ -925,12 +1023,20 @@ export function DriverHomeScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const initial = await consumeInitialDriverNotificationResponse();
-      if (cancelled || !initial) return;
-      if (initial.screen === 'requests') {
-        openOfferFromNotification(initial.offerId, initial.rideId);
-      } else {
-        goToTab('trips');
+      try {
+        const initial = await consumeInitialDriverNotificationResponse();
+        if (cancelled || !initial || !mountedRef.current) return;
+        if (initial.screen === 'requests') {
+          openOfferFromNotification(initial.offerId, initial.rideId);
+        } else {
+          setTimeout(() => {
+            if (cancelled || !mountedRef.current) return;
+            setTab('trips');
+            persistDriverTab('trips');
+          }, 0);
+        }
+      } catch {
+        /* cold-start deep-link mag niet crashen */
       }
     })();
     return () => {
@@ -1120,9 +1226,24 @@ export function DriverHomeScreen() {
     if (!driverToken) return;
     setBusyId(id);
     try {
-      await acceptOffer(driverToken, id);
-      setOffers((list) => list.filter((offer) => Number(offer.id) !== id));
+      const accepted = await acceptOffer(driverToken, id);
+      const status = String(accepted.data?.ride?.status || '').toLowerCase();
+      if (status && status !== 'accepted' && status !== 'assigned') {
+        throw new ApiError(t("Accepteren mislukt."), 409, accepted);
+      }
       await refresh();
+      const rideId = Number(accepted.data?.ride?.id || 0);
+      const stillOffer = offersRef.current.some(
+        (offer) => Number(offer.id) === id || (rideId > 0 && offerMatchesRide(offer, rideId))
+      );
+      if (stillOffer) {
+        setRideNotice({
+          title: t("Accepteren mislukt."),
+          body: t("De rit staat nog open. De klant wacht nog op een chauffeur."),
+          primaryLabel: t("Begrepen"),
+        });
+        return;
+      }
       goToTab('trips');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t("Accepteren mislukt.");
@@ -1405,18 +1526,34 @@ export function DriverHomeScreen() {
         ? activeRide
         : parkedRides.find((ride) => ride.id === settleRideId) ?? null;
 
+  function removeRideFromDriverLists(rideId: number) {
+    setActiveRide((current) => (current?.id === rideId ? null : current));
+    setParkedRides((list) => list.filter((ride) => ride.id !== rideId));
+    setScheduledRides((list) => list.filter((ride) => ride.id !== rideId));
+    setOverdueScheduledRides((list) => list.filter((ride) => ride.id !== rideId));
+    setArchivedOverdueScheduledRides((list) => list.filter((ride) => ride.id !== rideId));
+  }
+
   async function confirmCancelRide() {
-    if (!driverToken || !cancelRideId || !selectedCancelReason) return;
+    if (cancelInFlightRef.current) return;
+    if (!driverToken || cancelRideId == null || !selectedCancelReason) return;
+    const rideId = cancelRideId;
+    const reason = selectedCancelReason;
+    cancelInFlightRef.current = true;
     setCancelBusy(true);
     setError(null);
     try {
-      await cancelAcceptedRide(driverToken, cancelRideId, selectedCancelReason);
+      await cancelAcceptedRide(driverToken, rideId, reason);
       setCancelRideId(null);
       setSelectedCancelReason(null);
-      await refresh();
+      removeRideFromDriverLists(rideId);
+      void refresh();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t("Annuleren mislukt."));
+      setCancelRideId(null);
+      setSelectedCancelReason(null);
+      setFlowMessage(cancelFailureMessage(e));
     } finally {
+      cancelInFlightRef.current = false;
       setCancelBusy(false);
     }
   }
@@ -1441,15 +1578,29 @@ export function DriverHomeScreen() {
     );
   }
 
+  const openOfferRideIds = new Set<number>();
+  for (const offer of offers) {
+    const id = offerRideRequestId(offer);
+    if (id > 0) openOfferRideIds.add(id);
+  }
+  const scheduledForTrips = scheduledRides.filter((r) => !rideListedAsOpenOffer(r, openOfferRideIds));
+  const overdueForTrips = overdueScheduledRides.filter((r) => !rideListedAsOpenOffer(r, openOfferRideIds));
+  const archivedOverdueForTrips = archivedOverdueScheduledRides.filter(
+    (r) => !rideListedAsOpenOffer(r, openOfferRideIds)
+  );
+  const activeForTrips =
+    activeRide && !rideListedAsOpenOffer(activeRide, openOfferRideIds) ? activeRide : null;
+  const parkedForTrips = parkedRides.filter((r) => !rideListedAsOpenOffer(r, openOfferRideIds));
+
   // Marketplace-ritten: nooit in "verlopen ophaalmoment" (geen overdue-UI).
-  const ownOverdueScheduledRides = overdueScheduledRides.filter((r) => !isMarketplaceRide(r));
+  const ownOverdueScheduledRides = overdueForTrips.filter((r) => !isMarketplaceRide(r));
   const overdueContractRides = ownOverdueScheduledRides.filter((r) => isContractRide(r));
   const overdueNonContractRidesAll = ownOverdueScheduledRides.filter((r) => !isContractRide(r));
-  const marketplaceOverdueAsScheduled = overdueScheduledRides.filter((r) => isMarketplaceRide(r));
-  const ownArchivedOverdueRides = archivedOverdueScheduledRides.filter((r) => !isMarketplaceRide(r));
-  const marketplaceArchivedOutstanding = archivedOverdueScheduledRides.filter((r) => isMarketplaceRide(r));
+  const marketplaceOverdueAsScheduled = overdueForTrips.filter((r) => isMarketplaceRide(r));
+  const ownArchivedOverdueRides = archivedOverdueForTrips.filter((r) => !isMarketplaceRide(r));
+  const marketplaceArchivedOutstanding = archivedOverdueForTrips.filter((r) => isMarketplaceRide(r));
   const plannedRideIds = new Set<number>();
-  const plannedRidesAll = [...scheduledRides, ...marketplaceOverdueAsScheduled, ...marketplaceArchivedOutstanding].filter(
+  const plannedRidesAll = [...scheduledForTrips, ...marketplaceOverdueAsScheduled, ...marketplaceArchivedOutstanding].filter(
     (ride) => {
       if (plannedRideIds.has(ride.id)) return false;
       plannedRideIds.add(ride.id);
@@ -1464,8 +1615,8 @@ export function DriverHomeScreen() {
   const archivedCompletedRides = completedRides.filter((r) => archivedCompletedSet.has(r.id));
 
   const hasAnyContractInTrips =
-    (!!activeRide && isContractRide(activeRide)) ||
-    parkedRides.some((r) => isContractRide(r)) ||
+    (!!activeForTrips && isContractRide(activeForTrips)) ||
+    parkedForTrips.some((r) => isContractRide(r)) ||
     plannedRidesAll.some((r) => isContractRide(r)) ||
     overdueNonContractRidesAll.some((r) => isContractRide(r)) ||
     visibleCompletedRidesAll.some((r) => isContractRide(r)) ||
@@ -1492,10 +1643,10 @@ export function DriverHomeScreen() {
 
   // Actieve/geparkeerde ritten altijd tonen (lopend werk), wel soortfilter toepassen.
   const activeRideFiltered =
-    activeRide && rideMatchesKindFilter(activeRide, effectiveRideKind) && keepDriverCard(activeRide)
-      ? activeRide
+    activeForTrips && rideMatchesKindFilter(activeForTrips, effectiveRideKind) && keepDriverCard(activeForTrips)
+      ? activeForTrips
       : null;
-  const parkedRidesFiltered = parkedRides.filter(
+  const parkedRidesFiltered = parkedForTrips.filter(
     (r) => rideMatchesKindFilter(r, effectiveRideKind) && keepDriverCard(r)
   );
   const plannedRides = plannedRidesAll.filter((r) => matchesTripFilters(r) && keepDriverCard(r));
@@ -1518,8 +1669,8 @@ export function DriverHomeScreen() {
   }, [offers, focusOfferId]);
 
   const hasTripsUnfiltered =
-    !!activeRide ||
-    parkedRides.length > 0 ||
+    !!activeForTrips ||
+    parkedForTrips.length > 0 ||
     plannedRidesAll.length > 0 ||
     overdueNonContractRidesAll.length > 0 ||
     overdueContractRides.length > 0 ||
@@ -1846,18 +1997,23 @@ export function DriverHomeScreen() {
           </Text>
         </Card>
       }
-      renderItem={({ item }) => (
-        <DriverOfferCard
-          offer={item}
-          busy={busyId === item.id}
-          highlighted={focusOfferId === item.id}
-          expandOnce={expandOfferId != null && Number(item.id) === expandOfferId}
-          fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
-          fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
-          onAccept={() => onAccept(item.id)}
-          onDecline={() => onDecline(item.id)}
-        />
-      )}
+      renderItem={({ item }) => {
+        if (!item || Number(item.id) <= 0) {
+          return <View />;
+        }
+        return (
+          <DriverOfferCard
+            offer={item}
+            busy={busyId === item.id}
+            highlighted={focusOfferId === item.id}
+            expandOnce={expandOfferId != null && Number(item.id) === expandOfferId}
+            fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
+            fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
+            onAccept={() => onAccept(item.id)}
+            onDecline={() => onDecline(item.id)}
+          />
+        );
+      }}
     />
   );
 
@@ -1878,8 +2034,9 @@ export function DriverHomeScreen() {
     rideAlertToneRef.current = key;
     rememberRideAlertTone(key);
     rideToneDirtyRef.current = true;
-    // Speel af zonder de selectie te blokkeren; save parallel zodat poll-refresh niet terugzet.
-    void playRideAlertTone(key);
+    void playRideAlertTone(key).then((played) => {
+      if (!played && key !== 'alert') void playRideAlertTone('alert');
+    });
     if (!driverToken) return;
     try {
       await updateDriverRideAlertTone(driverToken, key);
@@ -2658,7 +2815,7 @@ export function DriverHomeScreen() {
 
   // Alleen een lopende (gestarte) rit bovenaan — geen geplande/verlopen ritten.
   const jumpRideTarget =
-    activeRide && String(activeRide.status || '') === 'assigned' ? activeRide : null;
+    activeForTrips && String(activeForTrips.status || '') === 'assigned' ? activeForTrips : null;
   const showActiveRideBar = !!jumpRideTarget && (showArchived || tab !== 'trips');
   const declinedOffersFiltered = declinedOffers.filter((o) =>
     rideMatchesKindFilter(o.ride, rideKindFilter)
@@ -2990,6 +3147,7 @@ export function DriverHomeScreen() {
       <DriverTabBar
         active={tab}
         onChange={(key) => {
+          manualTabAtRef.current = Date.now();
           goToArchive(false);
           goToTab(key);
         }}
@@ -3455,7 +3613,10 @@ export function DriverHomeScreen() {
               !selectedCancelReason && styles.cancelActionDisabled,
             ]}
             disabled={cancelBusy || !selectedCancelReason}
-            onPress={() => confirmCancelRide()}
+            onPress={() => {
+              if (cancelInFlightRef.current) return;
+              void confirmCancelRide();
+            }}
           >
             <Text style={styles.cancelActionPrimaryText}>
               {cancelBusy ? t("Bezig…") : t("Bevestigen")}

@@ -70,6 +70,8 @@ export type DispatchOfferRide = {
   status?: string;
   pickup_address?: string;
   dropoff_address?: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
   pickup_lat?: number | null;
   pickup_lng?: number | null;
   dropoff_lat?: number | null;
@@ -508,7 +510,10 @@ export function inboxCancelReasonsFromResponse(inbox: {
 }
 
 export function acceptOffer(token: string, offerId: number) {
-  return apiRequest(`/api/taxi/v1/driver/dispatch/offers/${offerId}/accept`, {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: { id?: number; status?: string | null }; offer_id?: number };
+  }>(`/api/taxi/v1/driver/dispatch/offers/${offerId}/accept`, {
     method: 'POST',
     token,
   });

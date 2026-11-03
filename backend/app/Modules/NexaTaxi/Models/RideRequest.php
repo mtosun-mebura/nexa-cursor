@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Models;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -1269,6 +1270,34 @@ class RideRequest extends Model
         }
 
         return trim((string) $this->dropoff_address);
+    }
+
+    public function pickupPlaceName(): ?string
+    {
+        return RidePlaceName::fromPayload($this->booking_payload, 'pickup');
+    }
+
+    public function dropoffPlaceName(): ?string
+    {
+        return RidePlaceName::fromPayload($this->booking_payload, 'dropoff');
+    }
+
+    public function driverLegPickupPlaceName(): ?string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return $this->dropoffPlaceName();
+        }
+
+        return $this->pickupPlaceName();
+    }
+
+    public function driverLegDropoffPlaceName(): ?string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return $this->pickupPlaceName();
+        }
+
+        return $this->dropoffPlaceName();
     }
 
     public function canReleaseReturnLeg(?int $driverId = null): bool

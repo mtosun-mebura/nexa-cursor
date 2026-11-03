@@ -63,6 +63,8 @@ class CustomerRideController extends Controller
             'passengers' => 'required|integer|min:1|max:20',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
+            'pickup_place_name' => 'nullable|string|max:160',
+            'dropoff_place_name' => 'nullable|string|max:160',
             'pickup_at' => 'required|date',
             'pickup_lat' => 'required|numeric',
             'pickup_lng' => 'required|numeric',

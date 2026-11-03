@@ -95,9 +95,9 @@ class DriverExpoPushServiceTest extends TestCase
             $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
 
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
-                && ($message['sound'] ?? null) === 'default'
+                && ($message['sound'] ?? null) === 'alert.wav'
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-system';
+                && ($message['channelId'] ?? null) === 'driver-offers-alert';
         });
     }
 

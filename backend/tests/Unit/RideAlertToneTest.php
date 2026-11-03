@@ -13,8 +13,8 @@ class RideAlertToneTest extends TestCase
     public function it_normalizes_known_and_unknown_tones(): void
     {
         $this->assertSame('chime', RideAlertTone::normalize('Chime'));
-        $this->assertSame('classic', RideAlertTone::normalize('unknown'));
-        $this->assertSame('classic', RideAlertTone::normalize(null));
+        $this->assertSame('alert', RideAlertTone::normalize('unknown'));
+        $this->assertSame('alert', RideAlertTone::normalize(null));
         $this->assertSame('siren', RideAlertTone::normalize('siren'));
     }
 

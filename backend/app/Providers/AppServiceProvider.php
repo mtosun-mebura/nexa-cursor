@@ -216,6 +216,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::none();
         });
 
+        // Annuleren deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur (ook een dubbele tik) moet een rit kunnen annuleren.
+        RateLimiter::for('taxi-driver-cancel', function () {
+            return Limit::none();
+        });
+
         RateLimiter::for('taxi-driver-read', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 

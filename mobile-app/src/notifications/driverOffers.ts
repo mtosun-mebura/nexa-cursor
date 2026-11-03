@@ -84,7 +84,7 @@ async function ensureSystemOfferChannel(): Promise<string> {
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
     // Echt geluidsbestand. De string 'default' is alleen geldig in de Expo-serverpayload.
-    sound: rideAlertNotificationSound('classic'),
+    sound: rideAlertNotificationSound(null),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
@@ -124,7 +124,10 @@ export async function notifyNewDriverOffer(opts: {
   pickup?: string | null;
   dropoff?: string | null;
   playSound?: boolean;
-  /** Standby: meteen het systeemgeluid (`sound: true`), niet eerst een wav-bestandsnaam. */
+  /**
+   * Alleen als laatste redmiddel: standaard systeemgeluid i.p.v. gekozen wav.
+   * Prefer altijd custom tone (ritgeluid); Silent Mode dempt beide op iOS.
+   */
   systemSound?: boolean;
   tone?: string | null;
   badge?: number;
@@ -157,6 +160,7 @@ export async function notifyNewDriverOffer(opts: {
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
 
+  // Gekozen ritgeluid eerst; Alert-wav; dan pas systeemgeluid.
   const sounds: Array<string | boolean> = !playSound
     ? [false]
     : opts.systemSound
@@ -321,12 +325,12 @@ export async function notifyPickupDeparture(opts: {
 
   try {
     const channelId =
-      Platform.OS === 'android' ? await ensureOfferChannel('classic') : undefined;
+      Platform.OS === 'android' ? await ensureOfferChannel(normalizeRideAlertTone(null)) : undefined;
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: rideAlertNotificationSound('classic'),
+        sound: rideAlertNotificationSound(null),
         data: {
           type: 'pickup_departure',
           screen: 'trips',
@@ -358,7 +362,7 @@ export async function setupDriverNotificationChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: rideAlertNotificationSound('classic'),
+    sound: rideAlertNotificationSound(null),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
@@ -373,18 +377,58 @@ export type DriverNotificationOpenTarget = {
   rideId?: number | null;
 };
 
+function positiveId(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(String(value).trim());
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.trunc(n);
+}
+
 function targetFromNotificationData(data: Record<string, unknown> | undefined | null): DriverNotificationOpenTarget | null {
-  const type = data?.type;
+  if (!data || typeof data !== 'object') return null;
+  const type = String(data.type || '');
   if (type === 'driver_offer') {
-    const offerId = Number(data?.offer_id || 0) || null;
-    const rideId = Number(data?.ride_request_id || data?.ride_id || 0) || null;
-    return { screen: 'requests', offerId, rideId };
+    return {
+      screen: 'requests',
+      offerId: positiveId(data.offer_id),
+      rideId: positiveId(data.ride_request_id) ?? positiveId(data.ride_id),
+    };
   }
   if (type === 'pickup_denied' || type === 'pickup_departure') {
-    const rideId = Number(data?.ride_id || data?.ride_request_id || 0) || null;
-    return { screen: 'trips', rideId };
+    return {
+      screen: 'trips',
+      rideId: positiveId(data.ride_id) ?? positiveId(data.ride_request_id),
+    };
   }
   return null;
+}
+
+function responseDedupeKey(response: {
+  actionIdentifier?: string;
+  notification?: { date?: number; request?: { identifier?: string } };
+}): string {
+  const id = String(response.notification?.request?.identifier || '');
+  const date = Number(response.notification?.date || 0);
+  const action = String(response.actionIdentifier || '');
+  return `${id}|${date}|${action}`;
+}
+
+let lastHandledResponseKey: string | null = null;
+
+function takeNotificationOpenTarget(response: {
+  actionIdentifier?: string;
+  notification?: {
+    date?: number;
+    request?: { identifier?: string; content?: { data?: Record<string, unknown> } };
+  };
+}): DriverNotificationOpenTarget | null {
+  const key = responseDedupeKey(response);
+  if (lastHandledResponseKey === key) return null;
+  const data = response.notification?.request?.content?.data;
+  const target = targetFromNotificationData(data);
+  if (!target) return null;
+  lastHandledResponseKey = key;
+  return target;
 }
 
 export function addDriverOfferNotificationResponseListener(
@@ -393,13 +437,16 @@ export function addDriverOfferNotificationResponseListener(
 ): () => void {
   if (!Notifications) return () => undefined;
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-    const target = targetFromNotificationData(data);
-    if (!target) return;
-    if (target.screen === 'requests') {
-      onOpenRequests({ offerId: target.offerId ?? null, rideId: target.rideId ?? null });
-    } else {
-      onOpenTrips?.(target.rideId ?? null);
+    try {
+      const target = takeNotificationOpenTarget(response);
+      if (!target) return;
+      if (target.screen === 'requests') {
+        onOpenRequests({ offerId: target.offerId ?? null, rideId: target.rideId ?? null });
+      } else {
+        onOpenTrips?.(target.rideId ?? null);
+      }
+    } catch {
+      /* nooit crashen vanuit native notification callback */
     }
   });
   return () => sub.remove();
@@ -414,8 +461,17 @@ export async function consumeInitialDriverNotificationResponse(): Promise<Driver
   try {
     const response = await Notifications.getLastNotificationResponseAsync();
     if (!response) return null;
-    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-    return targetFromNotificationData(data);
+    const target = takeNotificationOpenTarget(response);
+    try {
+      await Notifications.clearLastNotificationResponseAsync();
+    } catch {
+      try {
+        Notifications.clearLastNotificationResponse();
+      } catch {
+        /* ignore */
+      }
+    }
+    return target;
   } catch {
     return null;
   }

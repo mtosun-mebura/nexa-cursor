@@ -69,6 +69,8 @@ export type LiveRide = {
   cancellation_reason?: string | null;
   pickup_address?: string;
   dropoff_address?: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
   pickup_lat?: number | null;
   pickup_lng?: number | null;
   dropoff_lat?: number | null;
@@ -146,6 +148,8 @@ export type BookPayload = {
   passengers: number;
   pickup_address: string;
   dropoff_address: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
   pickup_at: string;
   pickup_lat: number;
   pickup_lng: number;

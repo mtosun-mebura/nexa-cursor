@@ -3,7 +3,9 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\DriverDeviceToken;
+use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Support\RideAlertTone;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -42,6 +44,7 @@ class DriverExpoPushService
         $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
         $messages = [];
         $sentRows = [];
+        $tone = RideAlertTone::fromUser(User::query()->find($driverId));
         foreach ($rows as $row) {
             $token = trim((string) $row->token);
             if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -56,9 +59,9 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                'sound' => 'default',
+                'sound' => $tone.'.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-system',
+                'channelId' => 'driver-offers-'.$tone,
                 'interruptionLevel' => 'time-sensitive',
                 'data' => [
                     'type' => 'driver_offer',
@@ -89,6 +92,7 @@ class DriverExpoPushService
         $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
         $messages = [];
         $sentRows = [];
+        $tone = RideAlertTone::fromUser(User::query()->find($driverId));
         foreach ($rows as $row) {
             $token = trim((string) $row->token);
             if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -99,9 +103,9 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'default',
+                'sound' => $tone.'.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-system',
+                'channelId' => 'driver-offers-'.$tone,
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

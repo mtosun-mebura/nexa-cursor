@@ -17,6 +17,9 @@ export type GuestRide = {
   at: number;
   from: string;
   to: string;
+  /** Gekozen bedrijf/locatie, los van de straat. */
+  from_place?: string | null;
+  to_place?: string | null;
   phase: string;
   status_label: string;
   quoted_price?: number | null;
@@ -168,6 +171,8 @@ export async function saveGuestRide(
     at: Date.now(),
     from: meta.from || prev?.from || '',
     to: meta.to || prev?.to || '',
+    from_place: meta.from_place !== undefined ? meta.from_place : prev?.from_place ?? null,
+    to_place: meta.to_place !== undefined ? meta.to_place : prev?.to_place ?? null,
     phase: meta.phase || prev?.phase || 'searching',
     status_label: meta.status_label || prev?.status_label || t("Zoeken…"),
     quoted_price:
@@ -252,6 +257,8 @@ export function guestPatchFromLive(ride: {
   id?: number;
   pickup_address?: string | null;
   dropoff_address?: string | null;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
   phase?: string | null;
   status_label?: string | null;
   quoted_price?: number | null;
@@ -272,6 +279,8 @@ export function guestPatchFromLive(ride: {
     id: ride.id,
     from: ride.pickup_address || undefined,
     to: ride.dropoff_address || undefined,
+    from_place: 'pickup_place_name' in ride ? ride.pickup_place_name || null : undefined,
+    to_place: 'dropoff_place_name' in ride ? ride.dropoff_place_name || null : undefined,
     phase: ride.phase || undefined,
     status_label: ride.status_label || undefined,
     quoted_price: ride.quoted_price,

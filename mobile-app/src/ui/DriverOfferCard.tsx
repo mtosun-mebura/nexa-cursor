@@ -14,7 +14,7 @@ import {
   rideRequiresPaymentBeforeComplete,
 } from '../api/driver';
 import { ColorPalette } from '../config';
-import { formatEuroNl } from '../geo/route';
+import { formatEuroNl, visiblePlaceName } from '../geo/route';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
 import { useThemeColors } from '../theme/ThemeContext';
 
@@ -295,6 +295,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
 
   const pickup = splitAddress(ride?.pickup_address);
   const dropoff = splitAddress(ride?.dropoff_address);
+  const pickupPlace = visiblePlaceName(ride?.pickup_place_name, ride?.pickup_address);
+  const dropoffPlace = visiblePlaceName(ride?.dropoff_place_name, ride?.dropoff_address);
   const pickupCompact = compactAddress(ride?.pickup_address);
   const dropoffCompact = compactAddress(ride?.dropoff_address);
   const distance = formatDistanceKm(ride?.distance_km);
@@ -326,7 +328,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     !showOverdueUi &&
     tripVariant !== 'active' &&
     tripVariant !== 'completed' &&
-    (ride?.status === 'accepted' || tripVariant === 'scheduled');
+    ride?.status === 'accepted';
   const isCompletedTrip = isTrip && (tripVariant === 'completed' || ride?.status === 'completed');
   const statusBadgeLabel = isTrip
     ? isCompletedTrip
@@ -513,6 +515,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.routeLabel}>{t("Ophalen")}</Text>
               </View>
               <View style={styles.routeAddress}>
+                {pickupPlace ? <Text style={styles.routePlace}>{pickupPlace}</Text> : null}
                 <Text style={styles.routeMain}>{pickup.main}</Text>
                 {pickup.sub ? <Text style={styles.routeSub}>{pickup.sub}</Text> : null}
               </View>
@@ -525,6 +528,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.routeLabel}>{t("Afzetten")}</Text>
               </View>
               <View style={styles.routeAddress}>
+                {dropoffPlace ? <Text style={styles.routePlace}>{dropoffPlace}</Text> : null}
                 <Text style={styles.routeMain}>{dropoff.main}</Text>
                 {dropoff.sub ? <Text style={styles.routeSub}>{dropoff.sub}</Text> : null}
               </View>
@@ -1051,6 +1055,14 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     routeAddress: {
       paddingLeft: 30,
+    },
+    routePlace: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+      lineHeight: 21,
+      letterSpacing: -0.2,
+      marginBottom: 2,
     },
     routeMain: {
       color: colors.text,

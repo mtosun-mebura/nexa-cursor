@@ -314,6 +314,8 @@ class CustomerRideLiveStatusService
                 : null,
             'pickup_address' => (string) ($ride->pickup_address ?? ''),
             'dropoff_address' => (string) ($ride->dropoff_address ?? ''),
+            'pickup_place_name' => $ride->pickupPlaceName(),
+            'dropoff_place_name' => $ride->dropoffPlaceName(),
             'pickup_lat' => $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null,
             'pickup_lng' => $ride->pickup_lng !== null ? (float) $ride->pickup_lng : null,
             'dropoff_lat' => $ride->dropoff_lat !== null ? (float) $ride->dropoff_lat : null,
