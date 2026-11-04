@@ -1,5 +1,6 @@
 import { t } from '../i18n';
-import { Platform, Vibration } from 'react-native';
+import { AppState, Platform, Vibration } from 'react-native';
+import { playRideAlertTone } from '../audio/rideAlert';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -22,8 +23,8 @@ try {
 
 let permissionReady: Promise<boolean> | null = null;
 
-/** Nieuw id: 'contract-rides' hield sound 'default' vast als bestandsnaam. */
-const CONTRACT_RIDES_CHANNEL = 'contract-rides-v2';
+/** Nieuw id: v4 met systeemgeluid (Android wijzigt sound op bestaande kanalen niet). */
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v4';
 
 export function contractNotificationsAvailable(): boolean {
   return Notifications != null;
@@ -61,6 +62,7 @@ export async function notifyNewContractRide(opts: {
   const body = dropoff ? `${pickup} → ${dropoff}` : pickup;
   const title = opts.count > 1 ? `${opts.count} nieuwe ritten` : t("Nieuwe rit");
 
+  const playSound = opts.playSound !== false;
   try {
     if (Platform.OS === 'ios') {
       Vibration.vibrate();
@@ -71,17 +73,27 @@ export async function notifyNewContractRide(opts: {
     /* ignore */
   }
 
+  if (playSound && AppState.currentState === 'active') {
+    try {
+      playRideAlertTone('alert');
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!Notifications) return;
   const ok = await ensureContractNotificationPermission();
   if (!ok) return;
 
   try {
+    await setupContractNotificationChannel();
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: opts.playSound !== false,
+        sound: playSound,
         data: { type: 'contract_ride', screen: 'trips' },
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
         ...(Platform.OS === 'android'
           ? { channelId: CONTRACT_RIDES_CHANNEL, color: '#2563EB' }
           : {}),
@@ -97,8 +109,10 @@ export async function setupContractNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CONTRACT_RIDES_CHANNEL, {
     name: t("Contractritten"),
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120],
     lightColor: '#2563EB',
+    sound: 'default',
+    enableVibrate: true,
   });
 }

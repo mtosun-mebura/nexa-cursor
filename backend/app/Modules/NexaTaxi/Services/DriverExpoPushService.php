@@ -70,12 +70,11 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // Bundelgeluid (app.json expo-notifications) — speelt via APNs/FCM op sluimer/lock.
-                // Geen _contentAvailable: die vlag kan iOS als stille background-push behandelen.
-                'sound' => 'alert.wav',
+                // Systeemgeluid: custom alert.wav speelde stil op sluimer/achtergrond.
+                // Expo `sound` is iOS-only; Android gebruikt channelId (v4 = default sound).
+                'sound' => 'default',
                 'priority' => 'high',
-                // Nieuw kanaal-id: Android past sound op een bestaand kanaal niet meer aan.
-                'channelId' => 'driver-offers-alert-v3',
+                'channelId' => 'driver-offers-alert-v4',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => array_filter([
                     'type' => 'driver_offer',
@@ -146,10 +145,10 @@ class DriverExpoPushService
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
                     'body' => 'Dit aanbod is niet meer beschikbaar.',
-                    // Geen sound: alleen de kaart bijwerken, geen wektoon bij annulering.
+                    'sound' => 'default',
                     'priority' => 'high',
-                    'channelId' => 'driver-offers-silent',
-                    'interruptionLevel' => 'passive',
+                    'channelId' => 'driver-offers-alert-v4',
+                    'interruptionLevel' => 'time-sensitive',
                     'data' => array_filter([
                         'type' => 'driver_offer_closed',
                         'screen' => 'requests',
@@ -197,9 +196,9 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'alert.wav',
+                'sound' => 'default',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v3',
+                'channelId' => 'driver-offers-alert-v4',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

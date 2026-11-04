@@ -2,12 +2,14 @@ import { t } from '../i18n';
 import { Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
-  rideAlertNotificationSound,
   type RideAlertTone,
 } from '../audio/rideAlert';
 
-/** Android-kanaal met gebundeld alert.wav — id bump als sound wijzigt (OS past niet bij). */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v3';
+/**
+ * Android-kanaal met systeemgeluid.
+ * Custom alert.wav speelde stil op sluimer/achtergrond; id bump omdat OS sound niet wijzigt.
+ */
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v4';
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -103,8 +105,8 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    // Zelfde bestand als iOS-push (expo-notifications plugin → res/raw/alert).
-    sound: rideAlertNotificationSound(),
+    // Systeemgeluid — custom wav speelde stil op sluimer/achtergrond.
+    sound: 'default',
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
@@ -113,10 +115,9 @@ async function ensureSystemOfferChannel(): Promise<string> {
   return channelId;
 }
 
-function offerNotificationSound(play: boolean): string | boolean {
-  if (!play) return false;
-  // Expliciet alert.wav: boolean `true` speelt op sluimer/lock soms stil.
-  return rideAlertNotificationSound();
+/** Systeemgeluid voor remote/local meldingen (hoorbaar op sluimer/achtergrond). */
+function offerNotificationSound(play: boolean): boolean {
+  return play;
 }
 
 export async function setDriverOfferBadge(count: number): Promise<void> {
@@ -198,7 +199,7 @@ export async function notifyNewDriverOffer(opts: {
 async function scheduleOfferNotification(opts: {
   title: string;
   body: string;
-  sound: string | boolean;
+  sound: boolean;
   tone: RideAlertTone;
   badge?: number;
   offerId?: number | null;
@@ -221,7 +222,7 @@ async function scheduleOfferNotification(opts: {
   const content = {
     title: opts.title,
     body: opts.body,
-    // Expliciet alert.wav in de app-bundle — hoorbaar bij sluimer/lockscreen.
+    // true = systeemgeluid (hoorbaar op sluimer/achtergrond).
     sound: opts.sound,
     ...(opts.badge != null ? { badge: opts.badge } : {}),
     data: {
@@ -378,13 +379,13 @@ export async function prepareDriverNotificationChannels(): Promise<void> {
 export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   await ensureSystemOfferChannel();
-  // Legacy defaultChannel uit app.json — zelfde alert.wav als de push.
+  // Legacy defaultChannel uit app.json — zelfde systeemgeluid als de push.
   await Notifications.setNotificationChannelAsync('driver-offers', {
     name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: rideAlertNotificationSound(),
+    sound: 'default',
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });

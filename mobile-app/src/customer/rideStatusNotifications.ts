@@ -8,8 +8,8 @@ const SEEN_KEY = 'nexa_taxi_seen_status_events';
 let handlerReady = false;
 let permissionReady: Promise<boolean> | null = null;
 
-/** Nieuw id: het oude kanaal 'ride-status' is aangemaakt met sound 'default' (bestandsnaam) en Android wijzigt het geluid niet. */
-const RIDE_STATUS_CHANNEL = 'ride-status-v2';
+/** Nieuw id: v4 met systeemgeluid (Android past sound op bestaande kanalen niet meer aan). */
+const RIDE_STATUS_CHANNEL = 'ride-status-v4';
 
 async function notifications() {
   return import('expo-notifications');
@@ -46,11 +46,14 @@ async function ensureHandler(): Promise<void> {
 async function ensureRideStatusChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   const Notifications = await notifications();
+  // Nieuw kanaal-id: Android past sound op een bestaand kanaal niet meer aan.
   await Notifications.setNotificationChannelAsync(RIDE_STATUS_CHANNEL, {
     name: t("Ritstatus"),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 120, 80, 120],
     lightColor: '#2563EB',
+    sound: 'default',
+    enableVibrate: true,
   });
 }
 
@@ -139,9 +142,9 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
     if (!granted) continue;
     try {
       await ensureHandler();
-      if (update.event === 'invoice_sent' && foreground) {
+      // Voorgrond: apart systeemgeluid — iOS speelt lokale meldingen stil bij open app.
+      if (foreground) {
         await playSystemAttentionSound();
-        continue;
       }
       await ensureRideStatusChannel();
       const Notifications = await notifications();
@@ -153,7 +156,9 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
               ? `De chauffeur is onderweg naar jou. Aankomst over ${ride.eta_label}.`
               : update.label || ride.status_label || t("Status bijgewerkt"),
           data: { rideId: ride.id, event: update.event },
-          sound: true,
+          // Achtergrond: geluid via melding. Voorgrond: al via playSystemAttentionSound.
+          sound: !foreground,
+          ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
           ...(Platform.OS === 'android' ? { channelId: RIDE_STATUS_CHANNEL } : {}),
         },
         trigger: null,
