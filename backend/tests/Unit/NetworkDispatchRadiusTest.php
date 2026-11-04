@@ -905,8 +905,9 @@ class NetworkDispatchRadiusTest extends TestCase
                 && ($message['title'] ?? null) === 'Nieuwe rit'
                 && ($message['sound'] ?? null) === 'alert.wav'
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v3'
                 && ($message['interruptionLevel'] ?? null) === 'time-sensitive'
+                && ! array_key_exists('_contentAvailable', $message)
                 && ($message['data']['type'] ?? null) === 'driver_offer'
                 && ($message['data']['pickup_address'] ?? null) === 'Damrak 1'
                 && (int) ($message['data']['offer_id'] ?? 0) > 0

@@ -70,14 +70,13 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // Bundelgeluid (app.json expo-notifications sounds) — hoorbaar op lockscreen/sluimer.
+                // Bundelgeluid (app.json expo-notifications) — speelt via APNs/FCM op sluimer/lock.
+                // Geen _contentAvailable: die vlag kan iOS als stille background-push behandelen.
                 'sound' => 'alert.wav',
                 'priority' => 'high',
-                // Nieuw kanaal: Android past sound op een bestaand kanaal niet meer aan.
-                'channelId' => 'driver-offers-alert-v2',
+                // Nieuw kanaal-id: Android past sound op een bestaand kanaal niet meer aan.
+                'channelId' => 'driver-offers-alert-v3',
                 'interruptionLevel' => 'time-sensitive',
-                // Wekt de app kort zodat eventuele achtergrond-toon ook kan starten.
-                '_contentAvailable' => true,
                 'data' => array_filter([
                     'type' => 'driver_offer',
                     'screen' => 'requests',
@@ -147,9 +146,10 @@ class DriverExpoPushService
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
                     'body' => 'Dit aanbod is niet meer beschikbaar.',
+                    // Geen sound: alleen de kaart bijwerken, geen wektoon bij annulering.
                     'priority' => 'high',
-                    'channelId' => 'driver-offers-alert',
-                    'interruptionLevel' => 'time-sensitive',
+                    'channelId' => 'driver-offers-silent',
+                    'interruptionLevel' => 'passive',
                     'data' => array_filter([
                         'type' => 'driver_offer_closed',
                         'screen' => 'requests',
@@ -199,9 +199,8 @@ class DriverExpoPushService
                 'body' => 'Dit is een test van de chauffeur-push.',
                 'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v2',
+                'channelId' => 'driver-offers-alert-v3',
                 'interruptionLevel' => 'time-sensitive',
-                '_contentAvailable' => true,
                 'data' => ['type' => 'driver_offer_test'],
             ];
         }
