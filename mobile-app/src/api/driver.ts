@@ -391,6 +391,7 @@ export function setDriverOnline(
   return apiRequest('/api/taxi/v1/driver/availability', {
     method: 'PUT',
     token,
+    timeoutMs: 12000,
     body: {
       is_online: isOnline,
       ...(vehicleId ? { vehicle_id: vehicleId } : {}),
@@ -415,6 +416,7 @@ export function sendDriverLocation(
   return apiRequest('/api/taxi/v1/driver/availability/location', {
     method: 'PUT',
     token,
+    timeoutMs: 8000,
     body: {
       lat: coords.lat,
       lng: coords.lng,
@@ -445,7 +447,7 @@ export function fetchDriverInbox(token: string) {
       driver_cancel_reasons?: DriverCancelReason[];
       overdue_auto_archive_days?: number;
     };
-  }>('/api/taxi/v1/driver/dispatch/inbox', { token });
+  }>('/api/taxi/v1/driver/dispatch/inbox', { token, timeoutMs: 12000 });
 }
 
 /** Normaliseer inbox-payload (API: data.offers). */

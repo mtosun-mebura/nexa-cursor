@@ -1,10 +1,13 @@
 import { t } from '../i18n';
-import { AppState, Platform, Vibration } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
   rideAlertNotificationSound,
   type RideAlertTone,
 } from '../audio/rideAlert';
+
+/** Android-kanaal met gebundeld alert.wav — id bump als sound wijzigt (OS past niet bij). */
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v2';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -14,15 +17,25 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   Notifications = require('expo-notifications') as NotificationsModule;
   Notifications.setNotificationHandler({
-    handleNotification: async () => {
-      // Zichtbare app: iOS speelt de push niet. De in-app toon doet dat,
-      // zonder dat deze handler op de aanbod-beurt op geluid wacht.
-      const visible = AppState.currentState === 'active';
+    handleNotification: async (notification) => {
+      const payload = unwrapNotificationData(
+        notification.request.content.data as Record<string, unknown> | undefined
+      );
+      if (String(payload?.type || '') === 'driver_offer_closed') {
+        return {
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+      // Altijd geluid: iOS speelt anders geen push-toon met open app.
+      // Standaard systeemgeluid komt uit de push/local payload (sound: default/true).
       return {
         shouldShowBanner: true,
         shouldShowList: true,
-        shouldPlaySound: !visible,
-        shouldSetBadge: !visible,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
       };
     },
   });
@@ -53,6 +66,7 @@ export async function ensureDriverNotificationPermission(): Promise<boolean> {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
+          allowDisplayInCarPlay: true,
         },
       });
       return !!(
@@ -80,7 +94,7 @@ async function ensureSilentOfferChannel(): Promise<string> {
 }
 
 async function ensureSystemOfferChannel(): Promise<string> {
-  const channelId = 'driver-offers-system';
+  const channelId = OFFER_SOUND_CHANNEL;
   if (!Notifications || Platform.OS !== 'android') return channelId;
   if (channelReady.has(channelId)) return channelId;
   await Notifications.setNotificationChannelAsync(channelId, {
@@ -88,30 +102,20 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    // Echt geluidsbestand. De string 'default' is alleen geldig in de Expo-serverpayload.
-    sound: rideAlertNotificationSound(null),
+    // Zelfde bestand als iOS-push (expo-notifications plugin → res/raw/alert).
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    bypassDnd: false,
   });
   channelReady.add(channelId);
   return channelId;
 }
 
-async function ensureOfferChannel(tone: RideAlertTone): Promise<string> {
-  const channelId = `driver-offers-${tone}`;
-  if (!Notifications || Platform.OS !== 'android') return 'driver-offers';
-  if (channelReady.has(channelId)) return channelId;
-  await Notifications.setNotificationChannelAsync(channelId, {
-    name: t("Ritaanvragen"),
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 120, 60, 120, 60, 200],
-    lightColor: '#EF4444',
-    sound: rideAlertNotificationSound(tone),
-    enableVibrate: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-  });
-  channelReady.add(channelId);
-  return channelId;
+function offerNotificationSound(play: boolean): string | boolean {
+  if (!play) return false;
+  // Expliciet alert.wav: boolean `true` speelt op sluimer/lock soms stil.
+  return rideAlertNotificationSound();
 }
 
 export async function setDriverOfferBadge(count: number): Promise<void> {
@@ -128,6 +132,11 @@ export async function notifyNewDriverOffer(opts: {
   count: number;
   pickup?: string | null;
   dropoff?: string | null;
+  pickupPlaceName?: string | null;
+  dropoffPlaceName?: string | null;
+  pickupAt?: string | null;
+  quotedPrice?: number | null;
+  expiresAt?: string | null;
   playSound?: boolean;
   /**
    * Alleen als laatste redmiddel: standaard systeemgeluid i.p.v. gekozen wav.
@@ -165,27 +174,24 @@ export async function notifyNewDriverOffer(opts: {
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
 
-  // Gekozen ritgeluid eerst; Alert-wav; dan pas systeemgeluid.
-  const sounds: Array<string | boolean> = !playSound
-    ? [false]
-    : opts.systemSound
-      ? [true]
-      : [rideAlertNotificationSound(tone), rideAlertNotificationSound('alert'), true];
-  for (const sound of sounds) {
-    const shown = await scheduleOfferNotification({
-      title,
-      body,
-      sound,
-      tone,
-      badge,
-      offerId,
-      rideRequestId,
-    });
-    if (shown) {
-      if (badge != null) await setDriverOfferBadge(badge);
-      return;
-    }
-  }
+  // Standaard iOS/Android meldinggeluid (true). Geen custom wav — die speelde vaak stil.
+  const shown = await scheduleOfferNotification({
+    title,
+    body,
+    sound: offerNotificationSound(playSound),
+    tone,
+    badge,
+    offerId,
+    rideRequestId,
+    pickupAddress: opts.pickup,
+    pickupPlaceName: opts.pickupPlaceName,
+    dropoffAddress: opts.dropoff,
+    dropoffPlaceName: opts.dropoffPlaceName,
+    pickupAt: opts.pickupAt,
+    quotedPrice: opts.quotedPrice,
+    expiresAt: opts.expiresAt,
+  });
+  if (shown && badge != null) await setDriverOfferBadge(badge);
 }
 
 async function scheduleOfferNotification(opts: {
@@ -196,22 +202,25 @@ async function scheduleOfferNotification(opts: {
   badge?: number;
   offerId?: number | null;
   rideRequestId?: number | null;
+  pickupAddress?: string | null;
+  pickupPlaceName?: string | null;
+  dropoffAddress?: string | null;
+  dropoffPlaceName?: string | null;
+  pickupAt?: string | null;
+  quotedPrice?: number | null;
+  expiresAt?: string | null;
 }): Promise<boolean> {
   if (!Notifications) return false;
   const channelId =
     Platform.OS === 'android'
-      ? opts.sound === true
+      ? opts.sound
         ? await ensureSystemOfferChannel()
-        : opts.sound
-          ? await ensureOfferChannel(
-              opts.sound === rideAlertNotificationSound('alert') ? 'alert' : opts.tone
-            )
-          : await ensureSilentOfferChannel()
+        : await ensureSilentOfferChannel()
       : undefined;
   const content = {
     title: opts.title,
     body: opts.body,
-    // iOS standby: `true` is het systeemgeluid. De string 'default' is een bestandsnaam.
+    // Expliciet alert.wav in de app-bundle — hoorbaar bij sluimer/lockscreen.
     sound: opts.sound,
     ...(opts.badge != null ? { badge: opts.badge } : {}),
     data: {
@@ -219,9 +228,16 @@ async function scheduleOfferNotification(opts: {
       screen: 'requests',
       offer_id: opts.offerId ?? null,
       ride_request_id: opts.rideRequestId ?? null,
+      pickup_address: String(opts.pickupAddress || '').trim() || null,
+      pickup_place_name: String(opts.pickupPlaceName || '').trim() || null,
+      dropoff_address: String(opts.dropoffAddress || '').trim() || null,
+      dropoff_place_name: String(opts.dropoffPlaceName || '').trim() || null,
+      pickup_at: String(opts.pickupAt || '').trim() || null,
+      quoted_price: opts.quotedPrice ?? null,
+      expires_at: String(opts.expiresAt || '').trim() || null,
     },
     ...(Platform.OS === 'android'
-      ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
+      ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#EF4444' }
       : {}),
   };
   try {
@@ -259,7 +275,6 @@ export async function notifyPickupDenied(opts: {
   const body = String(opts.body || '').trim();
   if (!body) return;
   const playSound = opts.playSound !== false;
-  const tone = normalizeRideAlertTone(opts.tone);
 
   try {
     if (Platform.OS === 'ios') {
@@ -279,14 +294,14 @@ export async function notifyPickupDenied(opts: {
     const channelId =
       Platform.OS === 'android'
         ? playSound
-          ? await ensureOfferChannel(tone)
+          ? await ensureSystemOfferChannel()
           : await ensureSilentOfferChannel()
         : undefined;
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: playSound ? rideAlertNotificationSound(tone) : false,
+        sound: offerNotificationSound(playSound),
         data: {
           type: 'pickup_denied',
           screen: 'trips',
@@ -294,7 +309,7 @@ export async function notifyPickupDenied(opts: {
         },
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
         ...(Platform.OS === 'android'
-          ? { channelId: channelId || 'driver-offers', color: '#EF4444' }
+          ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#EF4444' }
           : {}),
       },
       trigger: null,
@@ -329,13 +344,12 @@ export async function notifyPickupDeparture(opts: {
   if (!ok) return;
 
   try {
-    const channelId =
-      Platform.OS === 'android' ? await ensureOfferChannel(normalizeRideAlertTone(null)) : undefined;
+    const channelId = Platform.OS === 'android' ? await ensureSystemOfferChannel() : undefined;
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: rideAlertNotificationSound(null),
+        sound: offerNotificationSound(true),
         data: {
           type: 'pickup_departure',
           screen: 'trips',
@@ -343,7 +357,7 @@ export async function notifyPickupDeparture(opts: {
         },
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
         ...(Platform.OS === 'android'
-          ? { channelId: channelId || 'driver-offers', color: '#F59E0B' }
+          ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#F59E0B' }
           : {}),
       },
       trigger: null,
@@ -361,25 +375,39 @@ export async function prepareDriverNotificationChannels(): Promise<void> {
 
 export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
-  // Fallback-kanaal + alle toonvarianten (sound zit vast op channel-creatie)
+  await ensureSystemOfferChannel();
+  // Legacy defaultChannel uit app.json — zelfde alert.wav als de push.
   await Notifications.setNotificationChannelAsync('driver-offers', {
     name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: rideAlertNotificationSound(null),
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
-  for (const tone of ['classic', 'chime', 'alert', 'soft', 'siren'] as RideAlertTone[]) {
-    await ensureOfferChannel(tone);
-  }
 }
+
+/** Rit-snapshot uit push/local melding — genoeg om de kaart te tonen vóór inbox. */
+export type DriverOfferPushPreview = {
+  offerId?: number | null;
+  rideId?: number | null;
+  pickupAddress?: string;
+  pickupPlaceName?: string;
+  dropoffAddress?: string;
+  dropoffPlaceName?: string;
+  pickupAt?: string;
+  quotedPrice?: number | null;
+  expiresAt?: string;
+  title?: string;
+  body?: string;
+};
 
 export type DriverNotificationOpenTarget = {
   screen: 'requests' | 'trips';
   offerId?: number | null;
   rideId?: number | null;
+  preview?: DriverOfferPushPreview;
 };
 
 function positiveId(value: unknown): number | null {
@@ -416,21 +444,63 @@ function unwrapNotificationData(data: Record<string, unknown> | undefined | null
   return nested.reduce<Record<string, unknown>>((acc, item) => ({ ...acc, ...item }), { ...root });
 }
 
-function targetFromNotificationData(data: Record<string, unknown> | undefined | null): DriverNotificationOpenTarget | null {
+function stringField(payload: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const raw = payload[key];
+    if (raw == null) continue;
+    const text = String(raw).trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function numberField(payload: Record<string, unknown>, ...keys: string[]): number | null {
+  for (const key of keys) {
+    const n = Number(payload[key]);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+export function offerPreviewFromNotificationData(
+  data: Record<string, unknown> | undefined | null
+): DriverOfferPushPreview | null {
   const payload = unwrapNotificationData(data);
   if (!payload) return null;
-  const type = String(payload.type || '');
   const offerId = positiveId(payload.offer_id) ?? positiveId(payload.offerId);
   const rideId =
     positiveId(payload.ride_request_id) ??
     positiveId(payload.rideRequestId) ??
     positiveId(payload.ride_id) ??
     positiveId(payload.rideId);
+  if (offerId == null && rideId == null) return null;
+  return {
+    offerId,
+    rideId,
+    pickupAddress: stringField(payload, 'pickup_address', 'pickupAddress') || undefined,
+    pickupPlaceName: stringField(payload, 'pickup_place_name', 'pickupPlaceName') || undefined,
+    dropoffAddress: stringField(payload, 'dropoff_address', 'dropoffAddress') || undefined,
+    dropoffPlaceName: stringField(payload, 'dropoff_place_name', 'dropoffPlaceName') || undefined,
+    pickupAt: stringField(payload, 'pickup_at', 'pickupAt') || undefined,
+    quotedPrice: numberField(payload, 'quoted_price', 'quotedPrice'),
+    expiresAt: stringField(payload, 'expires_at', 'expiresAt') || undefined,
+  };
+}
+
+function targetFromNotificationData(data: Record<string, unknown> | undefined | null): DriverNotificationOpenTarget | null {
+  const payload = unwrapNotificationData(data);
+  if (!payload) return null;
+  const type = String(payload.type || '');
+  const preview = offerPreviewFromNotificationData(payload);
+  const offerId = preview?.offerId ?? null;
+  const rideId = preview?.rideId ?? null;
+  if (type === 'driver_offer_closed') return null;
   if (type === 'driver_offer' || offerId != null) {
     return {
       screen: 'requests',
       offerId,
       rideId,
+      preview: preview ?? undefined,
     };
   }
   if (type === 'pickup_denied' || type === 'pickup_departure') {
@@ -470,13 +540,8 @@ function takeNotificationOpenTarget(response: {
   return target;
 }
 
-type ForegroundOfferListener = (offer: {
-  offerId: number | null;
-  rideId: number | null;
-  title?: string;
-  body?: string;
-  pickupAddress?: string;
-  placeName?: string;
+type ForegroundOfferListener = (offer: DriverOfferPushPreview & {
+  closed?: boolean;
 }) => void;
 
 let foregroundOfferListener: ForegroundOfferListener | null = null;
@@ -489,21 +554,32 @@ export function setForegroundDriverOfferListener(listener: ForegroundOfferListen
   if (listener && !foregroundOfferSub) {
     foregroundOfferSub = Notifications.addNotificationReceivedListener((notification) => {
       try {
-        const target = targetFromNotificationData(
-          notification.request.content.data as Record<string, unknown> | undefined
-        );
-        if (!target || target.screen !== 'requests') return;
         const content = notification.request.content;
         const payload = unwrapNotificationData(
           content.data as Record<string, unknown> | undefined
         );
+        if (String(payload?.type || '') === 'driver_offer_closed') {
+          foregroundOfferListener?.({
+            offerId: positiveId(payload?.offer_id) ?? positiveId(payload?.offerId),
+            rideId:
+              positiveId(payload?.ride_request_id) ??
+              positiveId(payload?.rideRequestId) ??
+              positiveId(payload?.ride_id),
+            closed: true,
+          });
+          return;
+        }
+        const target = targetFromNotificationData(
+          content.data as Record<string, unknown> | undefined
+        );
+        if (!target || target.screen !== 'requests') return;
         foregroundOfferListener?.({
-          offerId: target.offerId ?? null,
-          rideId: target.rideId ?? null,
+          ...(target.preview || {
+            offerId: target.offerId ?? null,
+            rideId: target.rideId ?? null,
+          }),
           title: String(content.title || ''),
           body: String(content.body || ''),
-          pickupAddress: String(payload?.pickup_address || ''),
-          placeName: String(payload?.pickup_place_name || ''),
         });
       } catch {
         /* nooit crashen vanuit een push */
@@ -517,7 +593,7 @@ export function setForegroundDriverOfferListener(listener: ForegroundOfferListen
 }
 
 export function addDriverOfferNotificationResponseListener(
-  onOpenRequests: (target: { offerId?: number | null; rideId?: number | null }) => void,
+  onOpenRequests: (target: DriverNotificationOpenTarget) => void,
   onOpenTrips?: (rideId?: number | null) => void
 ): () => void {
   if (!Notifications) return () => undefined;
@@ -526,7 +602,7 @@ export function addDriverOfferNotificationResponseListener(
       const target = takeNotificationOpenTarget(response);
       if (!target) return;
       if (target.screen === 'requests') {
-        onOpenRequests({ offerId: target.offerId ?? null, rideId: target.rideId ?? null });
+        onOpenRequests(target);
       } else {
         onOpenTrips?.(target.rideId ?? null);
       }

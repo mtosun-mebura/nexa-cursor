@@ -15,7 +15,7 @@ const MIN_SPEED_MPS = 20;
 const MAX_SPEED_MPS = 40;
 const ACCEPT_EVERY_MS: [number, number] = [3000, 6000];
 const RESPAWN_AFTER_MS: [number, number] = [2000, 5000];
-/** Beperkt het aantal gedraaide Android-bitmaps (zie androidTaxiUri). */
+/** Beperkt heading-updates (minder marker-redraws). */
 const HEADING_STEP = 15;
 const M_PER_DEG_LAT = 111320;
 

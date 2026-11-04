@@ -393,12 +393,14 @@ class TaxiRideCancellationService
             ]);
         }
 
+        $closedOffers = [];
         $fresh = DB::connection($conn)->transaction(function () use (
             $conn,
             $driver,
             $rideId,
             $reasonCode,
-            $message
+            $message,
+            &$closedOffers
         ) {
             $locked = RideRequest::on($conn)->whereKey($rideId)->lockForUpdate()->first();
             if (! $locked || ! $this->canCancelAcceptedByDriver($locked, $driver)) {
@@ -418,6 +420,17 @@ class TaxiRideCancellationService
                     'responded_at' => $now,
                     'decline_reason' => $message,
                 ]);
+
+            $closedOffers = RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $locked->id)
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->get(['id', 'driver_id', 'ride_request_id'])
+                ->map(fn ($row) => [
+                    'id' => (int) $row->id,
+                    'driver_id' => (int) $row->driver_id,
+                    'ride_request_id' => (int) $row->ride_request_id,
+                ])
+                ->all();
 
             RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $locked->id)
@@ -450,6 +463,8 @@ class TaxiRideCancellationService
 
             return $locked->fresh() ?? $locked;
         });
+
+        app(DriverExpoPushService::class)->sendOffersClosed($closedOffers);
 
         $refunded = false;
         $refundError = null;
@@ -566,8 +581,9 @@ class TaxiRideCancellationService
         bool $notifyCustomer = true
     ): array {
         $driverIds = [];
+        $closedOffers = [];
 
-        $fresh = DB::connection($conn)->transaction(function () use ($conn, $ride, $reason, &$driverIds) {
+        $fresh = DB::connection($conn)->transaction(function () use ($conn, $ride, $reason, &$driverIds, &$closedOffers) {
             $locked = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
 
             if (! $this->isUnacceptedOpenBooking($locked)) {
@@ -576,9 +592,17 @@ class TaxiRideCancellationService
                 ]);
             }
 
-            $driverIds = RideDispatchOffer::on($conn)
+            $closedOffers = RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $locked->id)
                 ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->get(['id', 'driver_id', 'ride_request_id'])
+                ->map(fn ($row) => [
+                    'id' => (int) $row->id,
+                    'driver_id' => (int) $row->driver_id,
+                    'ride_request_id' => (int) $row->ride_request_id,
+                ])
+                ->all();
+            $driverIds = collect($closedOffers)
                 ->pluck('driver_id')
                 ->map(fn ($id) => (int) $id)
                 ->filter(fn (int $id) => $id > 0)
@@ -607,6 +631,8 @@ class TaxiRideCancellationService
 
             return $locked->fresh() ?? $locked;
         });
+
+        app(DriverExpoPushService::class)->sendOffersClosed($closedOffers);
 
         $refunded = false;
         $refundError = null;

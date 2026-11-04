@@ -1067,15 +1067,19 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
     if (!canOperateRides || !contractToken) return;
     let stopped = false;
     let sub: Location.LocationSubscription | null = null;
+    let lastUiAt = 0;
 
     const remember = (lat: number, lng: number, post: boolean) => {
       if (stopped || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
       driverGpsRef.current = { lat, lng };
       if (simActiveRef.current) return;
       lastFixRef.current = { lat, lng };
-      setDriverFix({ latitude: lat, longitude: lng });
-      if (!post) return;
       const now = Date.now();
+      if (now - lastUiAt >= 4000) {
+        lastUiAt = now;
+        setDriverFix({ latitude: lat, longitude: lng });
+      }
+      if (!post) return;
       if (now - lastLocationPostRef.current < 15000) return;
       lastLocationPostRef.current = now;
       void postContractLocation(contractToken, lat, lng)
@@ -1095,15 +1099,19 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
       sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.Balanced,
-          distanceInterval: 8,
-          timeInterval: 3000,
+          distanceInterval: 25,
+          timeInterval: 4000,
         },
-        (pos) => remember(pos.coords.latitude, pos.coords.longitude, true)
+        (pos) => {
+          if (stopped) return;
+          remember(pos.coords.latitude, pos.coords.longitude, true);
+        }
       );
-
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-        .then((current) => remember(current.coords.latitude, current.coords.longitude, true))
-        .catch(() => undefined);
+      if (stopped) {
+        sub.remove();
+        sub = null;
+        return;
+      }
     })().catch(() => undefined);
 
     return () => {
@@ -2537,6 +2545,9 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
           }
         />
       )}
+      {embedded ? (
+        <Text style={styles.sectionLabel}>{t("Contractritten vandaag")}</Text>
+      ) : null}
       <View style={styles.statusFilterRow}>
         {TRIP_STATUS_OPTIONS.map((opt) => {
           const active = tripStatusFilter === opt.key;

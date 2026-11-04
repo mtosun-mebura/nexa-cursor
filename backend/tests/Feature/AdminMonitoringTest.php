@@ -116,7 +116,16 @@ class AdminMonitoringTest extends TestCase
             ->assertOk()
             ->assertSee(route('admin.monitoring.index'), false)
             ->assertSee('onopgeloste monitoringfout', false)
+            ->assertSee('Bekijk fouten', false)
             ->assertSee('Queue worker testfout', false);
+
+        // Banner is monitoring-only; CSS class name may still appear in layout styles.
+        $this->actingAs($admin)
+            ->withSession(['selected_tenant' => $company->id])
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('onopgeloste monitoringfout', false)
+            ->assertDontSee('Bekijk fouten', false);
 
         $tenantAdmin = User::factory()->create(['company_id' => $company->id]);
         $tenantAdmin->assignRole('company-admin');

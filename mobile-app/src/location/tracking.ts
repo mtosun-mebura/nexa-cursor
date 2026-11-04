@@ -7,7 +7,7 @@ import {
   ensureForegroundLocationPermission,
   pauseBackgroundLocationUpdates,
   prepareBackgroundLocation,
-  startBackgroundLocation,
+  requestBackgroundLocationUpgrade,
   stopBackgroundLocation,
 } from './background';
 
@@ -19,12 +19,18 @@ type TrackingOpts = {
   refreshSeconds?: number;
 };
 
-let watchSub: Location.LocationSubscription | null = null;
 let appStateSub: { remove: () => void } | null = null;
+let foregroundTicker: ReturnType<typeof setInterval> | null = null;
+let tickerStartPending = false;
+let postInFlight = false;
+let postToken = 0;
 let lastSentAt = 0;
-let refreshMs = 1000;
+let appliedAppState: AppStateStatus | null = null;
+let refreshMs = 8000;
 let activeOpts: TrackingOpts | null = null;
 let trackGeneration = 0;
+/** Eerste fix na online: forceer verse GPS als last-known leeg is (anders geen marker op klantkaart). */
+let needsMapFix = false;
 
 export type DriverMapPosition = {
   lat: number;
@@ -108,115 +114,191 @@ async function postFix(
   }
 }
 
-async function stopForegroundWatch() {
-  if (watchSub) {
-    watchSub.remove();
-    watchSub = null;
+function stopForegroundTicker() {
+  if (foregroundTicker) {
+    clearInterval(foregroundTicker);
+    foregroundTicker = null;
   }
 }
 
-async function startForegroundWatch(opts: TrackingOpts) {
-  await stopForegroundWatch();
-  await ensureForegroundLocationPermission();
-
-  watchSub = await Location.watchPositionAsync(
-    {
-      // BestForNavigation + distanceInterval 0 levert tientallen fixes per seconde
-      // en vult de JS-wachtrij tot navigatie vastloopt.
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: Math.max(refreshMs, 3000),
-      distanceInterval: 20,
-      mayShowUserSettingsDialog: true,
-    },
-    (loc) => {
-      void postFix(opts.token, loc, opts.vehicleId);
-    }
-  );
-
-  try {
-    const last = await Location.getLastKnownPositionAsync({
-      maxAge: 1000 * 60 * 10,
-      requiredAccuracy: 1500,
+/**
+ * Eén last-known fix per interval. Geen getCurrentPosition en geen watch:
+ * die maken per GPS-sample een Promise en die stapelt zolang het scherm open is.
+ * postInFlight wordt synchroon gezet, vóór de eerste await.
+ */
+function kickForegroundPost(): void {
+  if (!activeOpts || postInFlight || AppState.currentState !== 'active') return;
+  postInFlight = true;
+  const tokenId = ++postToken;
+  const token = activeOpts.token;
+  const vehicleId = activeOpts.vehicleId;
+  // Alleen last-known in de interval — getCurrentPosition in een loop crashte iOS na ~2–3 min.
+  // Verse fix gebeurt éénmalig via publishDriverLocationForMap bij online.
+  void Promise.race([
+    Location.getLastKnownPositionAsync({
+      maxAge: 1000 * 60 * 5,
+      requiredAccuracy: 2500,
+    }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+  ])
+    .then((loc) => {
+      if (
+        tokenId !== postToken ||
+        !loc ||
+        activeOpts?.token !== token ||
+        AppState.currentState !== 'active'
+      ) {
+        return;
+      }
+      return postFix(token, loc, vehicleId, true).then(() => {
+        needsMapFix = false;
+      });
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      if (tokenId === postToken) postInFlight = false;
     });
-    if (last) await postFix(opts.token, last, opts.vehicleId, true);
-  } catch {
-    /* last-known mag ontbreken */
-  }
-
-  // Verse meting volgt. Niet awaiten: de online-schakelaar mag hier niet op wachten.
-  void (async () => {
-    try {
-      const current = await Promise.race([
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
-      ]);
-      if (!current || activeOpts?.token !== opts.token) return;
-      await postFix(opts.token, current, activeOpts.vehicleId, true);
-    } catch {
-      /* eerste fix mag falen; watch blijft actief */
-    }
-  })();
 }
 
-function bindAppState(opts: TrackingOpts) {
+/**
+ * Interval pas zetten ná de await, en meteen na stopForegroundTicker.
+ * Een await ertussen liet een tweede setInterval de eerste overschrijven
+ * zonder clear — elke herstart (tab/focus/online) hield de vorige timer.
+ */
+async function startForegroundTicker(generation: number) {
+  if (tickerStartPending || foregroundTicker) return;
+  if (generation !== trackGeneration || AppState.currentState !== 'active') return;
+  tickerStartPending = true;
+  try {
+    await ensureForegroundLocationPermission();
+    if (generation !== trackGeneration || AppState.currentState !== 'active' || foregroundTicker) return;
+    const every = Math.max(10000, refreshMs);
+    const timer = setInterval(() => {
+      if (foregroundTicker !== timer) return;
+      if (generation !== trackGeneration || AppState.currentState !== 'active') {
+        if (foregroundTicker === timer) stopForegroundTicker();
+        return;
+      }
+      kickForegroundPost();
+    }, every);
+    if (generation !== trackGeneration || AppState.currentState !== 'active' || foregroundTicker) {
+      clearInterval(timer);
+      return;
+    }
+    foregroundTicker = timer;
+    kickForegroundPost();
+  } finally {
+    tickerStartPending = false;
+  }
+}
+
+function bindAppState() {
   if (appStateSub) {
     appStateSub.remove();
     appStateSub = null;
   }
   appStateSub = AppState.addEventListener('change', (state: AppStateStatus) => {
     if (!activeOpts) return;
+    if (state === appliedAppState && !(state === 'active' && !foregroundTicker)) return;
+    appliedAppState = state;
     const current = activeOpts;
-    if (state === 'active') {
-      void startForegroundWatch(current).catch(() => undefined);
-      // De achtergrondtaak (elke GPS-sample) mag niet meelopen zolang het scherm open is.
+    if (state === 'background') {
+      stopForegroundTicker();
+      postToken += 1;
+      void ensureBackgroundLocationRunning(current.refreshSeconds).catch(() => undefined);
+      return;
+    }
+    if (state !== 'active') {
+      stopForegroundTicker();
+      postToken += 1;
       void pauseBackgroundLocationUpdates().catch(() => undefined);
       return;
     }
-    // Lock / home: keep the native location task alive so last_seen stays fresh
-    // on booking maps and GPS wakes can poll the inbox for offers.
-    if (state === 'inactive' || state === 'background') {
-      void ensureBackgroundLocationRunning(current.refreshSeconds).catch(() => undefined);
-    }
+    void startForegroundTicker(trackGeneration).catch(() => undefined);
   });
 }
 
 /**
  * Foreground watch + background location task while Online.
- * Asks for Always once so presence and offer alerts continue when backgrounded.
+ * Always-prompt gebeurt deferred — niet in deze call, anders hangt/crasht de online-schuif.
  */
 export async function startDriverLocationTracking(opts: TrackingOpts): Promise<void> {
   const generation = ++trackGeneration;
   const seconds = clampGpsRefreshSeconds(opts.refreshSeconds);
   refreshMs = seconds * 1000;
   activeOpts = { ...opts, refreshSeconds: seconds };
+  needsMapFix = true;
+
+  // Eerst de native taak uit. Die levert bij distanceInterval 0 een sample per
+  // GPS-fix en blokkeert de UI als hij meeloopt terwijl het scherm open is.
+  if (AppState.currentState !== 'background') {
+    await pauseBackgroundLocationUpdates();
+  }
+  if (generation !== trackGeneration) return;
 
   await prepareBackgroundLocation(opts.token, opts.vehicleId);
   if (generation !== trackGeneration) return;
-  await startForegroundWatch(activeOpts);
-  if (generation !== trackGeneration) {
-    await stopForegroundWatch();
-    return;
-  }
-  await startBackgroundLocation(opts.token, opts.vehicleId, seconds);
-  if (generation !== trackGeneration) {
-    await stopForegroundWatch();
-    await stopBackgroundLocation();
-    return;
-  }
-  if (AppState.currentState === 'active') {
+  if (AppState.currentState === 'background') {
+    await ensureBackgroundLocationRunning(seconds);
+  } else {
+    await startForegroundTicker(generation);
     await pauseBackgroundLocationUpdates();
   }
-  bindAppState(activeOpts);
+  if (generation !== trackGeneration) return;
+  bindAppState();
+
+  // Always-prompt zelden en laat — systeembalk tijdens actief gebruik liet de app crashen.
+  setTimeout(() => {
+    if (generation !== trackGeneration || !activeOpts) return;
+    if (AppState.currentState !== 'active') return;
+    void requestBackgroundLocationUpgrade().catch(() => false);
+  }, 45000);
+}
+
+/** Stopt een lopende start zonder het opgeslagen token te wissen. */
+export function invalidateDriverLocationTracking(): void {
+  trackGeneration += 1;
+  stopForegroundTicker();
+  postToken += 1;
+  postInFlight = false;
 }
 
 export async function stopDriverLocationTracking() {
   trackGeneration += 1;
   activeOpts = null;
+  needsMapFix = false;
   if (appStateSub) {
     appStateSub.remove();
     appStateSub = null;
   }
-  await stopForegroundWatch();
+  stopForegroundTicker();
+  postToken += 1;
+  postInFlight = false;
   await stopBackgroundLocation();
   lastSentAt = 0;
+}
+
+/**
+ * Directe locatie voor de klantkaart bij online gaan (blokkeert de schuif niet
+ * als je ’m fire-and-forget aanroept). Vraagt zo nodig while-using toestemming.
+ */
+export async function publishDriverLocationForMap(
+  token: string,
+  vehicleId?: number | null
+): Promise<boolean> {
+  try {
+    await ensureForegroundLocationPermission();
+  } catch {
+    return false;
+  }
+  const coords = await readDriverMapPosition();
+  if (!coords) return false;
+  try {
+    await sendDriverLocation(token, coords, vehicleId);
+    needsMapFix = false;
+    lastSentAt = Date.now();
+    return true;
+  } catch {
+    return false;
+  }
 }

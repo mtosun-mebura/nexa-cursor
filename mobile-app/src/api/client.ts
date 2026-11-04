@@ -63,6 +63,8 @@ export async function apiRequest<T>(
     method?: string;
     token?: string | null;
     body?: unknown;
+    /** Hard cut-off — voorkomt oneindige hangs (GPS-loop / inbox). */
+    timeoutMs?: number;
   } = {}
 ): Promise<T> {
   const headers: Record<string, string> = {
@@ -76,11 +78,34 @@ export async function apiRequest<T>(
   }
 
   const base = await resolveApiBaseUrl();
-  const res = await fetch(`${base}${path}`, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  const timeoutMs = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 0;
+  const controller = timeoutMs > 0 ? new AbortController() : null;
+  const timer =
+    controller && timeoutMs > 0
+      ? setTimeout(() => {
+          try {
+            controller.abort();
+          } catch {
+            /* ignore */
+          }
+        }, timeoutMs)
+      : null;
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: options.method || 'GET',
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } catch (e) {
+    if (controller?.signal.aborted) {
+      throw new ApiError('Request timeout', 408);
+    }
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

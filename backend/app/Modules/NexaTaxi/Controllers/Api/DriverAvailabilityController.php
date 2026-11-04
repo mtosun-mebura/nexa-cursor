@@ -94,10 +94,24 @@ class DriverAvailabilityController extends Controller
                 (float) $data['lng']
             );
         }
-        if ($hasCoords && $accuracy !== null && $existing && $existing->lat !== null && $existing->lng !== null) {
-            if ($accuracy > 250.0 && $moveMeters < 15.0) {
+        // Zonder bekende/verse locatie: altijd accepteren — anders blijft een online
+        // chauffeur onzichtbaar voor dispatch/kaart (geen lat/lng).
+        $locationStale = ! $existing
+            || $existing->lat === null
+            || $existing->lng === null
+            || ! $existing->location_updated_at
+            || $existing->location_updated_at->lt(now()->subSeconds(90));
+        if (
+            $hasCoords
+            && ! $locationStale
+            && $accuracy !== null
+            && $existing
+            && $existing->lat !== null
+            && $existing->lng !== null
+        ) {
+            if ($accuracy > 400.0 && $moveMeters < 12.0) {
                 $hasCoords = false;
-            } elseif ($accuracy > 600.0 && $moveMeters < 80.0) {
+            } elseif ($accuracy > 800.0 && $moveMeters < 60.0) {
                 $hasCoords = false;
             } elseif ($moveMeters > 2500.0 && $accuracy > 80.0) {
                 $hasCoords = false;
@@ -134,10 +148,14 @@ class DriverAvailabilityController extends Controller
 
             if ($lockedVehicleId) {
                 if ($requestedVehicleId && $requestedVehicleId !== $lockedVehicleId) {
-                    return response()->json([
-                        'message' => 'Je bent ingepland op een ander voertuig. Je kunt nu geen andere auto kiezen.',
-                        'code' => 'vehicle_locked',
-                    ], 422);
+                    // Online-toggle: hard weigeren. Location-ping: toch GPS opslaan
+                    // (anders verdwijnt de taxi van de klantkaart).
+                    if ($requireOnline) {
+                        return response()->json([
+                            'message' => 'Je bent ingepland op een ander voertuig. Je kunt nu geen andere auto kiezen.',
+                            'code' => 'vehicle_locked',
+                        ], 422);
+                    }
                 }
                 $payload['vehicle_id'] = $lockedVehicleId;
             } elseif (array_key_exists('vehicle_id', $data)) {
@@ -150,10 +168,13 @@ class DriverAvailabilityController extends Controller
                     if (! $exists) {
                         $payload['vehicle_id'] = null;
                     } elseif ($this->schedules->isVehicleOccupiedByOther($conn, $companyId, (int) $user->id, $vehicleId)) {
-                        return response()->json([
-                            'message' => 'Dit voertuig is al in gebruik door een andere chauffeur.',
-                            'code' => 'vehicle_occupied',
-                        ], 422);
+                        if ($requireOnline) {
+                            return response()->json([
+                                'message' => 'Dit voertuig is al in gebruik door een andere chauffeur.',
+                                'code' => 'vehicle_occupied',
+                            ], 422);
+                        }
+                        // Location-ping: lat/lng wél opslaan, voertuigveld overslaan.
                     } else {
                         $payload['vehicle_id'] = $vehicleId;
                     }

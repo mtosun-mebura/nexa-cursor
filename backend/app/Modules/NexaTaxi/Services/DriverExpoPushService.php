@@ -3,9 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\DriverDeviceToken;
-use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
-use App\Modules\NexaTaxi\Support\RideAlertTone;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -42,7 +40,12 @@ class DriverExpoPushService
         string $title,
         string $body,
         ?string $pickupAddress = null,
-        ?string $placeName = null
+        ?string $placeName = null,
+        ?string $dropoffAddress = null,
+        ?string $dropoffPlaceName = null,
+        ?string $pickupAt = null,
+        ?float $quotedPrice = null,
+        ?string $expiresAt = null
     ): void {
         if ($driverId <= 0 || $rideRequestId <= 0 || $title === '') {
             return;
@@ -61,14 +64,20 @@ class DriverExpoPushService
                 continue;
             }
             $sentRows[] = $row;
+            // Volledige rit-snapshot in data: app toont de kaart direct bij tikken,
+            // zonder te wachten op de eerste inbox-poll.
             $messages[] = [
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
+                // Bundelgeluid (app.json expo-notifications sounds) — hoorbaar op lockscreen/sluimer.
                 'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert',
+                // Nieuw kanaal: Android past sound op een bestaand kanaal niet meer aan.
+                'channelId' => 'driver-offers-alert-v2',
                 'interruptionLevel' => 'time-sensitive',
+                // Wekt de app kort zodat eventuele achtergrond-toon ook kan starten.
+                '_contentAvailable' => true,
                 'data' => array_filter([
                     'type' => 'driver_offer',
                     'screen' => 'requests',
@@ -76,6 +85,11 @@ class DriverExpoPushService
                     'ride_request_id' => $rideRequestId,
                     'pickup_address' => trim((string) $pickupAddress),
                     'pickup_place_name' => trim((string) $placeName),
+                    'dropoff_address' => trim((string) $dropoffAddress),
+                    'dropoff_place_name' => trim((string) $dropoffPlaceName),
+                    'pickup_at' => $pickupAt,
+                    'quoted_price' => $quotedPrice,
+                    'expires_at' => $expiresAt,
                 ], static fn ($value) => $value !== null && $value !== ''),
             ];
         }
@@ -85,6 +99,78 @@ class DriverExpoPushService
         }
 
         $this->postMessages($driverId, $rideRequestId, $messages, $sentRows);
+    }
+
+    /**
+     * Aanbod is niet meer pending (geannuleerd, verlopen, ingetrokken of door een ander gepakt).
+     * Eén stille-zichtbare push per apparaat, zodat de kaart niet op de volgende inbox-poll wacht.
+     *
+     * @param  iterable<int, array{id?: int, driver_id?: int, ride_request_id?: int}|object>  $offers
+     */
+    public function sendOffersClosed(iterable $offers): void
+    {
+        $rows = [];
+        foreach ($offers as $offer) {
+            $id = (int) (is_array($offer) ? ($offer['id'] ?? 0) : ($offer->id ?? 0));
+            $driverId = (int) (is_array($offer) ? ($offer['driver_id'] ?? 0) : ($offer->driver_id ?? 0));
+            $rideId = (int) (is_array($offer) ? ($offer['ride_request_id'] ?? 0) : ($offer->ride_request_id ?? 0));
+            if ($id <= 0 || $driverId <= 0) {
+                continue;
+            }
+            $rows[] = ['id' => $id, 'driver_id' => $driverId, 'ride_request_id' => $rideId];
+        }
+        if ($rows === []) {
+            return;
+        }
+
+        $tokens = DriverDeviceToken::query()
+            ->whereIn('user_id', array_values(array_unique(array_column($rows, 'driver_id'))))
+            ->get()
+            ->groupBy('user_id');
+
+        $messages = [];
+        $sentRows = [];
+        $dedupeKeys = [];
+        foreach ($rows as $row) {
+            foreach ($tokens->get($row['driver_id'], []) as $device) {
+                $token = trim((string) $device->token);
+                if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
+                    continue;
+                }
+                $dedupe = 'taxi_expo_offer_closed:'.$row['id'].':'.sha1($token);
+                if (! Cache::add($dedupe, 1, now()->addSeconds(30))) {
+                    continue;
+                }
+                $dedupeKeys[] = $dedupe;
+                $sentRows[] = $device;
+                $messages[] = [
+                    'to' => $token,
+                    'title' => 'Rit geannuleerd',
+                    'body' => 'Dit aanbod is niet meer beschikbaar.',
+                    'priority' => 'high',
+                    'channelId' => 'driver-offers-alert',
+                    'interruptionLevel' => 'time-sensitive',
+                    'data' => array_filter([
+                        'type' => 'driver_offer_closed',
+                        'screen' => 'requests',
+                        'offer_id' => $row['id'],
+                        'ride_request_id' => $row['ride_request_id'] > 0 ? $row['ride_request_id'] : null,
+                    ], static fn ($value) => $value !== null && $value !== ''),
+                ];
+            }
+        }
+
+        if ($messages === []) {
+            return;
+        }
+
+        // rideRequestId null: een mislukte sluit-push mag de dedupe van de nieuwe-rit-push niet wissen.
+        $result = $this->postMessages(0, null, $messages, $sentRows);
+        if ($result['error'] !== null) {
+            foreach ($dedupeKeys as $key) {
+                Cache::forget($key);
+            }
+        }
     }
 
     /**
@@ -101,7 +187,6 @@ class DriverExpoPushService
         $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
         $messages = [];
         $sentRows = [];
-        $tone = RideAlertTone::fromUser(User::query()->find($driverId));
         foreach ($rows as $row) {
             $token = trim((string) $row->token);
             if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -112,10 +197,11 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => $tone.'.wav',
+                'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-'.$tone,
+                'channelId' => 'driver-offers-alert-v2',
                 'interruptionLevel' => 'time-sensitive',
+                '_contentAvailable' => true,
                 'data' => ['type' => 'driver_offer_test'],
             ];
         }

@@ -141,8 +141,8 @@ class RideDispatchService
             $locked->update($updates);
         });
 
-        $this->push->notifyDrivers($driverIds, (int) $ride->id);
         $this->pushExpoOffers($conn, $ride, $driverIds, true);
+        $this->push->notifyDrivers($driverIds, (int) $ride->id);
     }
 
     /**
@@ -247,11 +247,13 @@ class RideDispatchService
         }
 
         $rideIds = (clone $query)->pluck('ride_request_id')->unique()->map(fn ($id) => (int) $id)->all();
+        $closing = (clone $query)->get(['id', 'driver_id', 'ride_request_id']);
 
         $count = $query->update([
             'status' => RideDispatchOffer::STATUS_EXPIRED,
             'responded_at' => now(),
         ]);
+        app(DriverExpoPushService::class)->sendOffersClosed($closing);
 
         foreach ($rideIds as $waitingRideId) {
             $this->escalateWaitingRide($conn, $waitingRideId);
@@ -386,11 +388,11 @@ class RideDispatchService
         }
 
         $driverIdsToNotify = array_values(array_unique($driverIdsToNotify));
-        foreach ($driverIdsToNotify as $driverId) {
-            $this->push->notifyDriver($driverId, (int) $ride->id);
-        }
         if ($driverIdsToNotify !== []) {
             $this->pushExpoOffers($conn, $ride, $driverIdsToNotify, true);
+        }
+        foreach ($driverIdsToNotify as $driverId) {
+            $this->push->notifyDriver($driverId, (int) $ride->id);
         }
 
         if ($ride->status === RideRequest::STATUS_PENDING_DISPATCH && $driverIdsToNotify !== []) {
@@ -438,14 +440,20 @@ class RideDispatchService
             }
 
             if (! $this->driverFitsPassengerCapacity($conn, $companyId, $driverId, $ride)) {
-                RideDispatchOffer::on($conn)
+                $closing = RideDispatchOffer::on($conn)
                     ->where('ride_request_id', $ride->id)
                     ->where('driver_id', $driverId)
                     ->where('status', RideDispatchOffer::STATUS_PENDING)
-                    ->update([
-                        'status' => RideDispatchOffer::STATUS_EXPIRED,
-                        'responded_at' => $now,
-                    ]);
+                    ->get(['id', 'driver_id', 'ride_request_id']);
+                if ($closing->isNotEmpty()) {
+                    RideDispatchOffer::on($conn)
+                        ->whereIn('id', $closing->modelKeys())
+                        ->update([
+                            'status' => RideDispatchOffer::STATUS_EXPIRED,
+                            'responded_at' => $now,
+                        ]);
+                    app(DriverExpoPushService::class)->sendOffersClosed($closing);
+                }
                 continue;
             }
 
@@ -488,9 +496,9 @@ class RideDispatchService
                 $ride->update(['status' => RideRequest::STATUS_OFFERED]);
             }
 
+            // De kaart moet verschijnen zodra de rij bestaat, niet pas na de inbox-response.
+            $this->pushExpoOffers($conn, $ride, [$driverId], true);
             $this->push->notifyDriver($driverId, (int) $ride->id);
-            // Inbox-poll mag niet op Expo wachten. De push gaat er direct na de response uit.
-            $this->pushExpoOffers($conn, $ride, [$driverId], false);
         }
     }
 
@@ -508,20 +516,25 @@ class RideDispatchService
 
         $pickup = $ride->driverLegPickupAddress();
         $place = $ride->driverLegPickupPlaceName();
+        $dropoff = $ride->driverLegDropoffAddress();
+        $dropoffPlace = $ride->driverLegDropoffPlaceName();
         $rideId = (int) $ride->id;
-        $send = function () use ($conn, $rideId, $driverIds, $pickup, $place): void {
+        $send = function () use ($conn, $rideId, $driverIds, $pickup, $place, $dropoff, $dropoffPlace): void {
             try {
                 $offers = RideDispatchOffer::on($conn)
                     ->where('ride_request_id', $rideId)
                     ->whereIn('driver_id', $driverIds)
                     ->where('status', RideDispatchOffer::STATUS_PENDING)
-                    ->get(['id', 'driver_id']);
+                    ->get(['id', 'driver_id', 'expires_at']);
                 $ride = RideRequest::on($conn)->find($rideId);
                 if (! $ride) {
                     return;
                 }
                 $expo = app(DriverExpoPushService::class);
                 $body = $expo->offerBody($ride);
+                $quoted = $ride->quoted_price ?? $ride->final_price ?? null;
+                $quotedPrice = is_numeric($quoted) ? round((float) $quoted, 2) : null;
+                $pickupAt = $ride->pickup_at?->toIso8601String();
                 foreach ($offers as $offer) {
                     $expo->sendNewOffer(
                         (int) $offer->driver_id,
@@ -530,7 +543,12 @@ class RideDispatchService
                         'Nieuwe rit',
                         $body,
                         $pickup,
-                        $place
+                        $place,
+                        $dropoff,
+                        $dropoffPlace,
+                        $pickupAt,
+                        $quotedPrice,
+                        $offer->expires_at?->toIso8601String()
                     );
                 }
             } catch (\Throwable $e) {
@@ -561,18 +579,22 @@ class RideDispatchService
 
         $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
 
-        return RideDispatchOffer::on($conn)
+        $pending = RideDispatchOffer::on($conn)
             ->where('company_id', $companyId)
             ->where('status', RideDispatchOffer::STATUS_PENDING)
             ->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
                 $q->whereNull('driver_id')
                     ->whereNotNull('pickup_at')
                     ->where('pickup_at', '<', $pickupCutoff);
-            })
-            ->update([
-                'status' => RideDispatchOffer::STATUS_EXPIRED,
-                'responded_at' => now(),
-            ]);
+            });
+        $closing = (clone $pending)->get(['id', 'driver_id', 'ride_request_id']);
+        $count = $pending->update([
+            'status' => RideDispatchOffer::STATUS_EXPIRED,
+            'responded_at' => now(),
+        ]);
+        app(DriverExpoPushService::class)->sendOffersClosed($closing);
+
+        return $count;
     }
 
     /**

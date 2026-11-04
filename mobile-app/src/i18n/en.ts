@@ -137,6 +137,7 @@ export const EN: Record<string, string> = {
   Contractouder: 'Contract parent',
   Contractrit: 'Contract ride',
   Contractritten: 'Contract rides',
+  'Contractritten vandaag': "Today's contract rides",
   'Contractrit: geen betaling in de app. Je kunt deze rit afronden.':
     'Contract ride: no in-app payment. You can complete this ride.',
   'Controleer de bestemming': 'Check the destination',
@@ -537,6 +538,8 @@ export const EN: Record<string, string> = {
   'Typ een adres en kies een suggestie': 'Type an address and choose a suggestion',
   Uitklappen: 'Expand',
   Uitloggen: 'Log out',
+  'Bij een nieuwe aanvraag speelt het standaard alarm. Geen aparte geluidskiezer — die liet de app vastlopen.':
+    'New requests play the standard alert. No sound picker — that was freezing the app.',
   Uitvoerder: 'Operator',
   Uitzoomen: 'Zoom out',
   'Van (jjjj-mm-dd)': 'From (yyyy-mm-dd)',

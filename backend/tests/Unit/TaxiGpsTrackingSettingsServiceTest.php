@@ -52,7 +52,8 @@ class TaxiGpsTrackingSettingsServiceTest extends TestCase
         $this->assertSame('#1d4ed8', $appearance['type_colors']['sedan']);
         $this->assertSame('#1d4ed8', $appearance['type_colors']['bus']);
         $this->assertSame('#ffffff', $appearance['plate_background']);
-        $this->assertSame(1, $appearance['refresh_seconds']);
+        // 1s wordt naar MIN (10) geklemd — voorkomt native crash door te snelle GPS.
+        $this->assertSame(10, $appearance['refresh_seconds']);
     }
 
     #[Test]

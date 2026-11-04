@@ -89,18 +89,9 @@
                                 {{ __('Kenteken *') }}
                             </td>
                             <td class="min-w-48 w-full">
-                                <input type="text"
-                                       name="license_plate"
-                                       class="kt-input @error('license_plate') border-destructive @enderror"
-                                       value="{{ old('license_plate') }}"
-                                       style="text-transform: uppercase"
-                                       maxlength="20"
-                                       required
-                                       oninput="this.value = this.value.toUpperCase()"
-                                       @error('license_plate') data-server-error="1" @enderror>
-                                @error('license_plate')
-                                    <div class="text-xs text-destructive mt-1" data-validation-error="1" data-validation-error-for="license_plate">{{ $message }}</div>
-                                @enderror
+                                @include('taxi::admin.vehicles.partials.license-plate-input', [
+                                    'value' => old('license_plate'),
+                                ])
                             </td>
                         </tr>
                         <tr>
@@ -164,6 +155,7 @@
                 <div class="kt-card-content p-0">
                     <div class="px-3 sm:px-5 pt-3 pb-3 min-w-0 flex flex-col gap-3">
                     <p class="text-xs text-muted-foreground mb-0">{{ __('Optioneel. Leeglaten = algemene standaardtarieven worden gebruikt.') }}</p>
+                    @include('taxi::admin.vehicles.partials.default-rates-disclosure')
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">

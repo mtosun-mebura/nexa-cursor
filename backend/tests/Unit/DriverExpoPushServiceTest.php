@@ -97,7 +97,7 @@ class DriverExpoPushServiceTest extends TestCase
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
                 && ($message['sound'] ?? null) === 'alert.wav'
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert';
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v2';
         });
     }
 
@@ -111,5 +111,39 @@ class DriverExpoPushServiceTest extends TestCase
             ->assertFailed();
 
         Http::assertNothingSent();
+    }
+
+    #[Test]
+    public function a_closed_offer_push_names_the_offer_and_does_not_play_the_alert(): void
+    {
+        $user = User::factory()->create();
+        DriverDeviceToken::query()->create([
+            'user_id' => $user->id,
+            'token' => 'ExponentPushToken[closed]',
+            'platform' => 'ios',
+        ]);
+
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-closed']],
+            ]),
+        ]);
+
+        app(DriverExpoPushService::class)->sendOffersClosed([[
+            'id' => 15,
+            'driver_id' => $user->id,
+            'ride_request_id' => 9,
+        ]]);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return ($message['data']['type'] ?? null) === 'driver_offer_closed'
+                && (int) ($message['data']['offer_id'] ?? 0) === 15
+                && (int) ($message['data']['ride_request_id'] ?? 0) === 9
+                && ! array_key_exists('sound', $message);
+        });
     }
 }

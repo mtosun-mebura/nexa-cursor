@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { BootstrapSession, Capabilities } from '../api/auth';
 import { setUnauthorizedHandler } from '../api/client';
-import { stopDriverLocationTracking } from '../location/tracking';
 import { unregisterDriverPushToken } from '../notifications/driverPush';
 
 const SESSION_KEY = 'nexa_taxi_native_session';
@@ -61,12 +60,35 @@ function sanitizeSession(session: BootstrapSession): BootstrapSession | null {
   return { ...session, tokens };
 }
 
+function cleanupDriverSideEffects(driverTok: string | null | undefined) {
+  void (async () => {
+    try {
+      await unregisterDriverPushToken(driverTok);
+    } catch {
+      /* ignore */
+    }
+    try {
+      // Lazy: sync import van tracking→background blokkeerde het eerste frame (zwart scherm).
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { stopDriverLocationTracking } = require('../location/tracking') as {
+        stopDriverLocationTracking: () => Promise<void>;
+      };
+      await stopDriverLocationTracking();
+    } catch {
+      /* ignore */
+    }
+  })();
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSessionState] = useState<BootstrapSession | null>(null);
   const [activeScreen, setActiveScreen] = useState<string | null>(null);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const setSession = useCallback(async (next: BootstrapSession | null) => {
+    sessionRef.current = next;
     setSessionState(next);
     if (!next) {
       setActiveScreen(null);
@@ -82,40 +104,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const forceReLogin = useCallback(async () => {
-    try {
-      await unregisterDriverPushToken(session?.tokens?.driver?.token);
-    } catch {
-      /* ignore */
-    }
-    try {
-      await stopDriverLocationTracking();
-    } catch {
-      /* ignore */
-    }
+    const current = sessionRef.current;
+    if (!current) return;
+    const driverTok = current.tokens?.driver?.token;
     await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'login').catch(() => undefined);
     await setSession(null);
-  }, [session, setSession]);
+    cleanupDriverSideEffects(driverTok);
+  }, [setSession]);
 
   const logout = useCallback(async () => {
-    try {
-      await unregisterDriverPushToken(session?.tokens?.driver?.token);
-    } catch {
-      /* ignore */
-    }
-    try {
-      await stopDriverLocationTracking();
-    } catch {
-      /* ignore */
-    }
-    // Altijd terug naar de startpagina (niet login/marktplaats).
+    const driverTok = sessionRef.current?.tokens?.driver?.token;
+    // Eerst de sessie wissen: GPS-stop en push-unregister mogen de UI niet blokkeren.
     await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'welcome').catch(() => undefined);
     await setSession(null);
-  }, [session, setSession]);
+    cleanupDriverSideEffects(driverTok);
+  }, [setSession]);
 
   useEffect(() => {
+    let cancelled = false;
+    const failsafe = setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, 2500);
     (async () => {
       try {
         const raw = await SecureStore.getItemAsync(SESSION_KEY);
+        if (cancelled) return;
         if (raw) {
           const parsed = JSON.parse(raw) as BootstrapSession & { activeScreen?: string };
           const sanitized = sanitizeSession(parsed);
@@ -140,9 +153,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         /* ignore */
       } finally {
-        setReady(true);
+        if (!cancelled) setReady(true);
+        clearTimeout(failsafe);
       }
     })();
+    return () => {
+      cancelled = true;
+      clearTimeout(failsafe);
+    };
   }, []);
 
   useEffect(() => {
