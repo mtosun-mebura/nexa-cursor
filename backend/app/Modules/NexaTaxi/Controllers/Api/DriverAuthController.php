@@ -168,7 +168,7 @@ class DriverAuthController extends Controller
             TaxiGpsTrackingSettingsService::MIN_REFRESH_SECONDS,
             min(
                 TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS,
-                (int) ($gpsAppearance['refresh_seconds'] ?? 1)
+                (int) ($gpsAppearance['refresh_seconds'] ?? 10)
             )
         );
 

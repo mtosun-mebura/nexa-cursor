@@ -5,7 +5,6 @@ import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import { resolveApiBaseUrl } from '../config';
 import { t } from '../i18n';
-import { alertUnseenDriverOffers } from '../notifications/offerAlertWatch';
 
 /** Shown only after iOS/Android will no longer present the system prompt. */
 export const LOCATION_SETTINGS_HINT =
@@ -26,38 +25,32 @@ const TOKEN_KEY = 'nexa_taxi_location_token';
 const VEHICLE_KEY = 'nexa_taxi_location_vehicle';
 
 /**
- * De taak levert bij distanceInterval 0 een fix per GPS-sample.
- * Zonder deze vlag stapelen SecureStore-, fetch- en inbox-promises zich op
- * de JS-microtaskqueue (geheugen naar meerdere GB, taps komen niet meer aan).
+ * Eén achtergrond-run tegelijk. De handler zelf is synchroon: een async
+ * functie maakt ook bij een vroege return een Promise per GPS-sample, en die
+ * wachtrij bevriest de UI zolang de native taak in de voorgrond meeloopt.
  */
 let locationTaskBusy = false;
 
+/** Minimaal 10s — snellere GPS-poll crashte de native app tijdens idle online. */
 export function clampGpsRefreshSeconds(value: unknown): number {
   const n = Number(value);
-  if (!Number.isFinite(n) || n < 1) return 1;
-  return Math.min(30, Math.max(1, Math.round(n)));
+  if (!Number.isFinite(n) || n < 10) return 10;
+  return Math.min(30, Math.max(10, Math.round(n)));
 }
 
-TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
-  if (error || locationTaskBusy) {
-    return;
-  }
-  // Open app: de voorgrond-watch post de locatie en de inbox pollt op een timer.
-  // Deze taak hier óók laten lopen blokkeert de JS-thread tot de app crasht.
-  if (AppState.currentState === 'active') {
+// De typedefinitie eist een Promise, maar een thenable per sample plant microtasks.
+// De runtime accepteert void; alleen de achtergrond start één async post.
+TaskManager.defineTask(LOCATION_TASK, (({ data, error }: { data?: unknown; error?: unknown }) => {
+  if (error || locationTaskBusy || AppState.currentState !== 'background') {
     return;
   }
   const locations = (data as { locations?: Location.LocationObject[] })?.locations;
-  if (!locations?.length) {
-    return;
-  }
+  if (!locations?.length) return;
   locationTaskBusy = true;
-  try {
-    await runLocationTask(locations[locations.length - 1]);
-  } finally {
+  void runLocationTask(locations[locations.length - 1]).finally(() => {
     locationTaskBusy = false;
-  }
-});
+  });
+}) as unknown as Parameters<typeof TaskManager.defineTask>[1]);
 
 async function runLocationTask(latest: Location.LocationObject): Promise<void> {
   const token = await SecureStore.getItemAsync(TOKEN_KEY);
@@ -69,6 +62,8 @@ async function runLocationTask(latest: Location.LocationObject): Promise<void> {
   const heading = latest.coords.heading;
   const speed = latest.coords.speed;
 
+  // Alleen GPS posten. Inbox/SecureStore hier liet de JS-wachtrij vollopen
+  // (freeze/crash). Nieuwe ritten komen via push + voorgrondpoll.
   try {
     const base = await resolveApiBaseUrl();
     await fetch(`${base}/api/taxi/v1/driver/availability/location`, {
@@ -89,21 +84,6 @@ async function runLocationTask(latest: Location.LocationObject): Promise<void> {
     });
   } catch {
     /* ignore network errors in background */
-  }
-
-  // GPS-wake is de enige JS die op het vergrendelscherm nog draait.
-  try {
-    await alertUnseenDriverOffers({
-      token,
-      minIntervalMs: 4000,
-      fromBackground: true,
-      origin: {
-        lat: latest.coords.latitude,
-        lng: latest.coords.longitude,
-      },
-    });
-  } catch {
-    /* inbox-check mag de locatiepost niet breken */
   }
 }
 
@@ -198,37 +178,100 @@ export async function isBackgroundLocationGranted(): Promise<boolean> {
   return background.status === 'granted';
 }
 
-async function stopLocationTask() {
-  const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
-  if (started) {
+let locationOps: Promise<void> = Promise.resolve();
+let wantBackgroundTask = false;
+const LOCATION_OP_TIMEOUT_MS = 2500;
+
+function runLocationOp(work: () => Promise<void>): Promise<void> {
+  // Elke native start/stop mag de wachtrij max. kort vasthouden. Een hangende
+  // stopLocationUpdatesAsync blokkeerde anders online/offline en alle taps.
+  const timed = async () => {
+    try {
+      await Promise.race([
+        work(),
+        new Promise<void>((resolve) => setTimeout(resolve, LOCATION_OP_TIMEOUT_MS)),
+      ]);
+    } catch {
+      /* native kan al gestopt/gestart zijn */
+    }
+  };
+  const run = locationOps.then(timed, timed);
+  locationOps = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+async function stopLocationTaskNow(): Promise<void> {
+  // Altijd stoppen. hasStarted is soms false terwijl CLLocationManager nog
+  // elke fix naar JS stuurt; die check liet de taak in de voorgrond doorlopen.
+  try {
     await Location.stopLocationUpdatesAsync(LOCATION_TASK);
+  } catch {
+    /* taak kan al gestopt zijn */
   }
 }
 
-async function startLocationTask(refreshSeconds: number) {
+async function startLocationTask(refreshSeconds: number): Promise<void> {
+  wantBackgroundTask = true;
   const seconds = clampGpsRefreshSeconds(refreshSeconds);
-  const intervalMs = seconds * 1000;
+  await runLocationOp(async () => {
+    if (!wantBackgroundTask || AppState.currentState !== 'background') {
+      wantBackgroundTask = false;
+      await stopLocationTaskNow();
+      return;
+    }
+    await stopLocationTaskNow();
+    if (!wantBackgroundTask || AppState.currentState !== 'background') return;
 
-  await stopLocationTask();
-  await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-    accuracy: Location.Accuracy.BestForNavigation,
-    timeInterval: intervalMs,
-    // 0 = ook stilstaand een fix. iOS levert een achtergrond-fix alleen aan JS als
-    // deferredUpdatesInterval 0 is: één sample heeft tijdsverschil 0 en wordt
-    // anders ingeslikt tot de telefoon weer beweegt.
-    distanceInterval: 0,
-    deferredUpdatesInterval: 0,
-    deferredUpdatesDistance: 0,
-    showsBackgroundLocationIndicator: true,
-    pausesUpdatesAutomatically: false,
-    activityType: Location.ActivityType.AutomotiveNavigation,
-    foregroundService: {
-      notificationTitle: 'Nexa Taxi',
-      notificationBody: 'Locatie actief zodat klanten je taxi kunnen vinden.',
-      notificationColor: '#2563EB',
-    },
+    // Minimaal 4s. deferredUpdatesInterval 0 laat iOS elke sample naar JS sturen;
+    // in de voorgrond negeert iOS die interval zelfs en is BestForNavigation een vloed.
+    const intervalMs = Math.max(seconds * 1000, 4000);
+    await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+      accuracy: Location.Accuracy.Balanced,
+      timeInterval: intervalMs,
+      // 0 zodat een stilstaande chauffeur op het slotscherm nog fixes krijgt.
+      // In de voorgrond draait deze taak niet; deferred interval bundelt de rest.
+      distanceInterval: 0,
+      deferredUpdatesInterval: intervalMs,
+      deferredUpdatesDistance: 0,
+      showsBackgroundLocationIndicator: true,
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.AutomotiveNavigation,
+      foregroundService: {
+        notificationTitle: 'Nexa Taxi',
+        notificationBody: 'Locatie actief zodat klanten je taxi kunnen vinden.',
+        notificationColor: '#2563EB',
+      },
+    });
+    if (!wantBackgroundTask || AppState.currentState !== 'background') {
+      await stopLocationTaskNow();
+    }
   });
 }
+
+/** Eén stop per voorgrond-periode. Elke AppState-tik opnieuw stoppen stapelde native promises. */
+let foregroundPauseSent = false;
+
+function stopHighRateTaskUnlessBackground(): void {
+  if (AppState.currentState === 'background') {
+    foregroundPauseSent = false;
+    return;
+  }
+  if (foregroundPauseSent) return;
+  foregroundPauseSent = true;
+  void pauseBackgroundLocationUpdates().catch(() => undefined);
+}
+
+// Niet synchroon bij import: stopLocationUpdatesAsync bij boot blokkeerde het
+// eerste frame (zwart splash-scherm). Eerst paint, dan native ops.
+setTimeout(() => {
+  stopHighRateTaskUnlessBackground();
+  AppState.addEventListener('change', () => {
+    stopHighRateTaskUnlessBackground();
+  });
+}, 0);
 
 /**
  * Foreground permission is required to go Online.
@@ -246,8 +289,8 @@ export async function startBackgroundLocation(
   const backgroundGranted = await requestBackgroundLocationUpgrade();
 
   const startTask = backgroundGranted || Platform.OS === 'android';
-  if (!startTask) {
-    await stopLocationTask();
+  if (!startTask || AppState.currentState !== 'background') {
+    await pauseBackgroundLocationUpdates();
     return false;
   }
 
@@ -255,7 +298,7 @@ export async function startBackgroundLocation(
     await startLocationTask(refreshSeconds);
   } catch (error) {
     if (backgroundGranted) throw error;
-    await stopLocationTask().catch(() => undefined);
+    await pauseBackgroundLocationUpdates().catch(() => undefined);
     return false;
   }
 
@@ -264,9 +307,11 @@ export async function startBackgroundLocation(
 
 /** Start the background task only when Always is already granted. Does not prompt. */
 export async function resumeGrantedBackgroundLocation(refreshSeconds: number = 1): Promise<boolean> {
+  if (AppState.currentState !== 'background') {
+    await pauseBackgroundLocationUpdates();
+    return false;
+  }
   if (!(await isBackgroundLocationGranted())) return false;
-  const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
-  if (started) return true;
   await startLocationTask(refreshSeconds);
   return true;
 }
@@ -276,13 +321,15 @@ export async function resumeGrantedBackgroundLocation(refreshSeconds: number = 1
  * iOS needs Always; Android may run the foreground-service task with while-in-use.
  */
 export async function ensureBackgroundLocationRunning(refreshSeconds: number = 1): Promise<boolean> {
+  if (AppState.currentState !== 'background') {
+    await pauseBackgroundLocationUpdates();
+    return false;
+  }
   const backgroundGranted = await isBackgroundLocationGranted();
   if (!backgroundGranted && Platform.OS !== 'android') return false;
-  const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK).catch(() => false);
-  if (started) return true;
   try {
     await startLocationTask(refreshSeconds);
-    return true;
+    return AppState.currentState === 'background';
   } catch {
     return false;
   }
@@ -290,10 +337,12 @@ export async function ensureBackgroundLocationRunning(refreshSeconds: number = 1
 
 /** Stop high-rate updates while the app is open. Keeps the stored token for standby. */
 export async function pauseBackgroundLocationUpdates(): Promise<void> {
-  await stopLocationTask();
+  wantBackgroundTask = false;
+  await runLocationOp(() => stopLocationTaskNow());
 }
 
 export async function stopBackgroundLocation() {
-  await stopLocationTask();
+  wantBackgroundTask = false;
+  await runLocationOp(() => stopLocationTaskNow());
   await SecureStore.deleteItemAsync(TOKEN_KEY);
 }

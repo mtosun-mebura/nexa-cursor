@@ -122,10 +122,12 @@ class RideClaimService
                 (int) $ride->id
             );
 
-            $withdrawnDriverIds = RideDispatchOffer::on($conn)
+            $withdrawnOffers = RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
                 ->where('id', '!=', $offer->id)
                 ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->get(['id', 'driver_id', 'ride_request_id']);
+            $withdrawnDriverIds = $withdrawnOffers
                 ->pluck('driver_id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
@@ -187,6 +189,11 @@ class RideClaimService
                 'propose_pickup_at' => $proposePickupAt,
                 'force_customer_notify' => $requiresNewPickup && $proposePickupAt === null,
                 'withdrawn_driver_ids' => $withdrawnDriverIds,
+                'withdrawn_offers' => $withdrawnOffers->map(fn ($row) => [
+                    'id' => (int) $row->id,
+                    'driver_id' => (int) $row->driver_id,
+                    'ride_request_id' => (int) $row->ride_request_id,
+                ])->all(),
             ];
         });
 
@@ -195,6 +202,7 @@ class RideClaimService
             static fn (int $id): bool => $id > 0
         ));
         if ($withdrawnDriverIds !== [] && ! empty($result['ride'])) {
+            app(DriverExpoPushService::class)->sendOffersClosed($result['withdrawn_offers'] ?? []);
             app(TaxiDriverInboxPushService::class)->notifyDrivers(
                 $withdrawnDriverIds,
                 (int) $result['ride']->id

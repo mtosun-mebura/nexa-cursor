@@ -118,8 +118,9 @@ class VehicleController extends Controller
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
         $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
+        $defaultRatesByPersonRange = $this->defaultRatesByPersonRangeForForm($conn, $resolvedCompanyId, $personRangeLabels);
 
-        return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
+        return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels', 'defaultRatesByPersonRange'));
     }
 
     public function store(Request $request)
@@ -205,8 +206,9 @@ class VehicleController extends Controller
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
         $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
+        $defaultRatesByPersonRange = $this->defaultRatesByPersonRangeForForm($conn, $resolvedCompanyId, $personRangeLabels);
 
-        return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
+        return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels', 'defaultRatesByPersonRange'));
     }
 
     public function update(Request $request, Vehicle $vehicle)
@@ -335,6 +337,41 @@ class VehicleController extends Controller
         $labels[Vehicle::PERSON_RANGE_OVER_8] = Vehicle::personRangeLabels()[Vehicle::PERSON_RANGE_OVER_8];
 
         return $labels;
+    }
+
+    /**
+     * Standaardtarieven per personenbereik (zelfde fallback als pricing: range → company default → platform).
+     *
+     * @param  array<string, string>  $personRangeLabels
+     * @return array<string, array{label: string, available: bool, base_fare: string, min_fare: string, price_per_km: string, price_per_min: string, cleaning_costs: string}>
+     */
+    private function defaultRatesByPersonRangeForForm(string $conn, mixed $companyId, array $personRangeLabels): array
+    {
+        $out = [];
+        foreach ($personRangeLabels as $range => $label) {
+            $rate = DefaultRate::getByPersonRange($conn, (string) $range, $companyId)
+                ?? DefaultRate::getDefault($conn, $companyId);
+            $out[(string) $range] = [
+                'label' => __($label),
+                'available' => $rate !== null,
+                'base_fare' => $this->formatDefaultRateAmount($rate?->base_fare),
+                'min_fare' => $this->formatDefaultRateAmount($rate?->min_fare),
+                'price_per_km' => $this->formatDefaultRateAmount($rate?->price_per_km),
+                'price_per_min' => $this->formatDefaultRateAmount($rate?->price_per_min),
+                'cleaning_costs' => $this->formatDefaultRateAmount($rate?->cleaning_costs),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function formatDefaultRateAmount(mixed $amount): string
+    {
+        if ($amount === null || $amount === '') {
+            return '—';
+        }
+
+        return '€ '.number_format((float) $amount, 2, ',', '.');
     }
 
     private function seatsForPersonRange(string $range): int

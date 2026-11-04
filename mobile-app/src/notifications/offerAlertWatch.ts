@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { AppState } from 'react-native';
+import { AppState, Platform, Vibration } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {
   fetchDriverInbox,
@@ -10,7 +10,6 @@ import {
 } from '../api/driver';
 import {
   normalizeRideAlertTone,
-  playPreparedRideAlert,
   playRideAlertTone,
   prepareRideAlertAudio,
   primeRideAlertPlayer,
@@ -87,13 +86,19 @@ async function persistSounded(): Promise<void> {
  * iOS speelt een push niet af zolang het scherm open is.
  * Geen werk als elk id al geklonken heeft. Niet vanuit de GPS-taak aanroepen.
  */
-/** Eén alert.wav per aanbod-id, ná de paint. Geen await, geen keten, geen download. */
+/** Standaard alarm per nieuw aanbod-id. Tril + speel (bereidt audio indien nodig). */
 export function playDriverOfferToneForIds(ids: number[], _tone?: string | null): void {
   const fresh = markOfferIdsSounded(ids);
   if (!fresh.length) return;
   requestAnimationFrame(() => {
     try {
-      playPreparedRideAlert();
+      if (Platform.OS === 'ios') Vibration.vibrate();
+      else Vibration.vibrate([0, 120, 60, 120]);
+    } catch {
+      /* ignore */
+    }
+    try {
+      playRideAlertTone('alert');
     } catch {
       /* één poging per id */
     }
@@ -237,8 +242,8 @@ async function checkOnce(input: {
     return id > 0 && !seen.has(id);
   });
   const freshIds = fresh.map((offer) => Number(offer.id)).filter((id) => id > 0);
-  // Alleen op het actieve scherm de speler. Achtergrond: de melding draagt alert.wav.
-  // Eén keer per id; een mislukte play start geen tweede ronde.
+  // Voorgrond: tril + in-app alarm. Achtergrond: lokale melding met systeemgeluid
+  // (reserve naast de remote push).
   const screenVisible = !input.fromBackground && AppState.currentState === 'active';
   if (input.online !== false && freshIds.length) {
     if (screenVisible) void playDriverOfferToneForIds(freshIds);
@@ -249,27 +254,27 @@ async function checkOnce(input: {
   fresh.forEach((offer) => seen.add(Number(offer.id)));
   await saveSeen(seen);
 
-  // Zichtbaar scherm: de kaart opent Aanvragen en de toon speelt al.
-  // scheduleNotificationAsync hier wacht minuten en houdt de inbox-poll vast,
-  // zodat een nieuwe rit niet getekend wordt.
+  // Voorgrond: geen lokale melding — die stapelde en liet de app vastlopen bij tikken.
+  // Achtergrond: lokale melding met systeemgeluid als reserve naast Expo-push.
   if (screenVisible) return fresh;
 
-  const storedTone = await SecureStore.getItemAsync(TONE_KEY);
-  const tone = normalizeRideAlertTone(storedTone);
   const priority = fresh[0];
   const badge = await addOfferBadge(fresh.length);
-
   const offerId = Number(priority.id) || null;
   const rideRequestId = Number(priority.ride_request_id || priority.ride?.id || 0) || null;
 
-  // Achtergrond: de push is het signaal. Een lokale melding is alleen reserve
-  // en mag deze keten niet vasthouden.
   void notifyNewDriverOffer({
     count: fresh.length,
     pickup: priority.ride?.pickup_address,
     dropoff: priority.ride?.dropoff_address,
+    pickupPlaceName: priority.ride?.pickup_place_name,
+    dropoffPlaceName: priority.ride?.dropoff_place_name,
+    pickupAt: priority.ride?.pickup_at,
+    quotedPrice: priority.ride?.quoted_price ?? null,
+    expiresAt: priority.expires_at,
     playSound: true,
-    tone,
+    systemSound: true,
+    tone: 'alert',
     badge,
     offerId,
     rideRequestId,
@@ -342,27 +347,21 @@ async function notifyFreshPickupDenials(input: {
   const body =
     (alertMatches ? alertBody : '') ||
     `${name || 'De klant'} zegt dat die niet is opgehaald. Tik opnieuw op Klant opgehaald.`;
-  const storedTone = await SecureStore.getItemAsync(TONE_KEY);
-  const tone = normalizeRideAlertTone(storedTone);
   const inForeground = AppState.currentState === 'active';
   if (inForeground) {
-    void playRideAlertTone(tone);
-    await notifyPickupDenied({
-      title,
-      body,
-      rideId,
-      playSound: false,
-      tone,
-    });
-  } else {
-    await notifyPickupDenied({
-      title,
-      body,
-      rideId,
-      playSound: true,
-      tone,
-    });
+    try {
+      playRideAlertTone('alert');
+    } catch {
+      /* ignore */
+    }
   }
+  await notifyPickupDenied({
+    title,
+    body,
+    rideId,
+    playSound: true,
+    tone: 'alert',
+  });
   return { title, body, rideId };
 }
 

@@ -8,6 +8,7 @@ import {
   Linking,
   Platform,
   StatusBar,
+  Text,
   View,
   type AppStateStatus,
 } from 'react-native';
@@ -18,17 +19,23 @@ import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext'
 import { hydrateApiBase } from './src/config';
 import { DemoProvider, useDemo } from './src/demo/DemoContext';
 import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
-// Register the driver GPS TaskManager task at bundle load (needed for background wakes).
-import './src/location/background';
 import { parseAppDeepLink } from './src/linking';
 import { LocaleProvider } from './src/i18n';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MarketplaceRegisterScreen } from './src/screens/MarketplaceRegisterScreen';
-import { DriverHomeScreen } from './src/screens/DriverHomeScreen';
-import { ContractHomeScreen } from './src/screens/ContractHomeScreen';
-import { CustomerHomeScreen } from './src/screens/CustomerHomeScreen';
+
+/** Zware schermen (GPS/maps) pas laden als ze nodig zijn — anders blijft splash #0B1220 hangen. */
+const DriverHomeScreen = React.lazy(() =>
+  import('./src/screens/DriverHomeScreen').then((m) => ({ default: m.DriverHomeScreen }))
+);
+const ContractHomeScreen = React.lazy(() =>
+  import('./src/screens/ContractHomeScreen').then((m) => ({ default: m.ContractHomeScreen }))
+);
+const CustomerHomeScreen = React.lazy(() =>
+  import('./src/screens/CustomerHomeScreen').then((m) => ({ default: m.CustomerHomeScreen }))
+);
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -91,6 +98,9 @@ function RootNavigator() {
 
   useEffect(() => {
     let cancelled = false;
+    const failsafe = setTimeout(() => {
+      if (!cancelled) setGuestRoute((current) => current ?? 'welcome');
+    }, 2500);
     (async () => {
       try {
         const initialUrl = await Linking.getInitialURL();
@@ -107,6 +117,8 @@ function RootNavigator() {
         }
       } catch {
         if (!cancelled) setGuestRoute('welcome');
+      } finally {
+        clearTimeout(failsafe);
       }
     })();
 
@@ -118,6 +130,7 @@ function RootNavigator() {
 
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
       sub.remove();
     };
   }, []);
@@ -165,8 +178,8 @@ function RootNavigator() {
 
   if (!ready || guestRoute === null) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.text} size="large" />
+      <View style={{ flex: 1, backgroundColor: colors.bg || '#0B1220', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.text || '#FFFFFF'} size="large" />
       </View>
     );
   }
@@ -192,8 +205,15 @@ function RootNavigator() {
               ? 'MarketplaceRegister'
               : 'Welcome';
 
+  const bootFallback = (
+    <View style={{ flex: 1, backgroundColor: colors.bg || '#0B1220', alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator color={colors.text || '#FFFFFF'} size="large" />
+    </View>
+  );
+
   return (
     <NavigationContainer theme={navTheme}>
+      <React.Suspense fallback={bootFallback}>
       <Stack.Navigator
         key={initialRouteName}
         initialRouteName={initialRouteName}
@@ -261,6 +281,7 @@ function RootNavigator() {
           </>
         )}
       </Stack.Navigator>
+      </React.Suspense>
     </NavigationContainer>
   );
 }
@@ -284,6 +305,41 @@ function AppShell() {
   );
 }
 
+/** Vangt render-fouten op zodat de app niet hard crasht tijdens idle online. */
+class AppErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    /* gelogd door native; UI blijft bruikbaar */
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B1220', padding: 24 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 16, textAlign: 'center', marginBottom: 16 }}>
+            Er ging iets mis. Heropen het scherm om door te gaan.
+          </Text>
+          <Text
+            onPress={() => this.setState({ failed: false })}
+            style={{ color: '#38BDF8', fontSize: 16, fontWeight: '600' }}
+          >
+            Opnieuw proberen
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   useEffect(() => {
     // De API-host staat al vast. Niet op AsyncStorage wachten: dat liet het
@@ -291,14 +347,36 @@ export default function App() {
     void hydrateApiBase();
   }, []);
 
+  useEffect(() => {
+    // Voorkom dat niet-fatale JS-fouten de hele app killen.
+    const g = globalThis as {
+      ErrorUtils?: {
+        getGlobalHandler?: () => ((error: Error, isFatal?: boolean) => void) | undefined;
+        setGlobalHandler?: (handler: (error: Error, isFatal?: boolean) => void) => void;
+      };
+    };
+    const utils = g.ErrorUtils;
+    if (!utils?.getGlobalHandler || !utils.setGlobalHandler) return;
+    const previous = utils.getGlobalHandler();
+    utils.setGlobalHandler((error, isFatal) => {
+      if (!isFatal) return;
+      previous?.(error, isFatal);
+    });
+    return () => {
+      if (previous) utils.setGlobalHandler?.(previous);
+    };
+  }, []);
+
   return (
     <SafeAreaProvider>
-      <KeepScreenAwake />
-      <ThemeProvider>
-        <LocaleProvider>
-          <AppShell />
-        </LocaleProvider>
-      </ThemeProvider>
+      <AppErrorBoundary>
+        <KeepScreenAwake />
+        <ThemeProvider>
+          <LocaleProvider>
+            <AppShell />
+          </LocaleProvider>
+        </ThemeProvider>
+      </AppErrorBoundary>
     </SafeAreaProvider>
   );
 }

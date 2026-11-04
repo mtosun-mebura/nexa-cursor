@@ -89,11 +89,14 @@ export async function unregisterDriverPushToken(authToken: string | null | undef
   const stored = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
   if (authToken) {
     try {
-      await apiRequest('/api/taxi/v1/driver/push-token', {
-        method: 'DELETE',
-        token: authToken,
-        body: stored ? { token: stored } : {},
-      });
+      await Promise.race([
+        apiRequest('/api/taxi/v1/driver/push-token', {
+          method: 'DELETE',
+          token: authToken,
+          body: stored ? { token: stored } : {},
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ]);
     } catch {
       /* logout mag niet blijven hangen */
     }

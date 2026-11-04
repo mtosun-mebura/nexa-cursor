@@ -983,7 +983,9 @@
                         </div>
                     @endif
 
-                    @if((int) ($adminMonitoringUnresolvedErrors ?? 0) > 0 && auth()->user()?->isSuperAdmin())
+                    @if(request()->routeIs('admin.monitoring.*')
+                        && (int) ($adminMonitoringUnresolvedErrors ?? 0) > 0
+                        && auth()->user()?->isSuperAdmin())
                         <div class="kt-alert kt-alert-danger admin-monitoring-error-banner mb-5 flex flex-wrap items-center justify-between gap-3" role="alert">
                             <div class="flex min-w-0 items-center gap-2">
                                 <i class="ki-filled ki-information shrink-0" aria-hidden="true"></i>

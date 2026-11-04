@@ -7,86 +7,76 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 
-export const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'] as const;
+/** Eén vaste toon — geen chip-preview / replace (dat liet de app vastlopen). */
+export const RIDE_ALERT_TONES = ['alert'] as const;
 export type RideAlertTone = (typeof RIDE_ALERT_TONES)[number];
 
-/** Nieuwe installatie / geen opgeslagen keuze. Een gekozen chip blijft staan. */
 export const DEFAULT_RIDE_ALERT_TONE: RideAlertTone = 'alert';
 
 export const RIDE_ALERT_OPTIONS: { key: RideAlertTone; label: string }[] = [
-  { key: 'classic', label: 'Klassiek' },
-  { key: 'chime', label: 'Bel' },
   { key: 'alert', label: 'Alert' },
-  { key: 'soft', label: 'Zacht' },
-  { key: 'siren', label: 'Sirene' },
 ];
 
-/** Zelfde wav als de lokale melding (classic.wav … siren.wav in de app-bundle). */
-const FILE_NAME: Record<RideAlertTone, string> = {
-  classic: 'classic.wav',
-  chime: 'chime.wav',
-  alert: 'alert.wav',
-  soft: 'soft.wav',
-  siren: 'siren.wav',
-};
+const ALERT_FILE = 'alert.wav';
 
-/** Eén speler voor alle chips. Geen nieuwe sessie of listener per tik. */
 let player: AudioPlayer | null = null;
 let modePromise: Promise<void> | null = null;
 let modeReady = false;
-let wantedKey: RideAlertTone | null = null;
 
-export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
-  const key = String(value || '').toLowerCase();
-  return (RIDE_ALERT_TONES as readonly string[]).includes(key)
-    ? (key as RideAlertTone)
-    : DEFAULT_RIDE_ALERT_TONE;
+export function normalizeRideAlertTone(_value?: string | null): RideAlertTone {
+  return DEFAULT_RIDE_ALERT_TONE;
 }
 
-/** Bestandsnaam voor expo-notifications (wav in app.json sounds). */
-export function rideAlertNotificationSound(tone?: string | null): string {
-  return FILE_NAME[normalizeRideAlertTone(tone)];
+/** Bestandsnaam voor expo-notifications én Expo-push (in app-bundle). */
+export function rideAlertNotificationSound(_tone?: string | null): string {
+  return ALERT_FILE;
 }
 
-/**
- * iOS: de notificatie-plugin kopieert de wav naar de app-root
- * (NexaTaxi.app/alert.wav). Dat is een echt bestand. Asset.downloadAsync
- * en de expo-asset-URL (https://expo.dev/assets/…) niet gebruiken:
- * AVPlayer speelt die niet, dus de chip blijft stil.
- */
-function bundledToneUri(key: RideAlertTone): string | null {
-  const fileName = FILE_NAME[key];
+function bundledAlertUri(): string | null {
   if (Platform.OS === 'ios') {
     try {
-      // Release-bundle: file://…/NexaTaxi.app/main.jsbundle
       const source = TurboModuleRegistry.get<{
         getConstants: () => { scriptURL?: string };
       }>('SourceCode');
       const scriptURL = String(source?.getConstants()?.scriptURL || '');
       if (scriptURL.startsWith('file')) {
         const slash = scriptURL.lastIndexOf('/');
-        if (slash > 0) return `${scriptURL.slice(0, slash + 1)}${fileName}`;
+        if (slash > 0) return `${scriptURL.slice(0, slash + 1)}${ALERT_FILE}`;
       }
     } catch {
-      return null;
+      /* fallback hieronder */
     }
-    return null;
+  } else {
+    const pkg = Constants.expoConfig?.android?.package || 'nl.nexasuite.taxi';
+    return `android.resource://${pkg}/raw/alert`;
   }
-  const pkg = Constants.expoConfig?.android?.package || 'nl.nexasuite.taxi';
-  return `android.resource://${pkg}/raw/${key}`;
+  // Dev/Metro: scriptURL is http — bundel via require.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('../../assets/sounds/alert.wav') as number | { uri?: string };
+    if (typeof mod === 'number') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Asset = require('expo-asset').Asset as {
+        fromModule: (m: number) => { uri?: string; localUri?: string; downloadAsync: () => Promise<unknown> };
+      };
+      const asset = Asset.fromModule(mod);
+      return asset.localUri || asset.uri || null;
+    }
+    if (mod && typeof mod === 'object' && typeof mod.uri === 'string') return mod.uri;
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
-/**
- * iOS soloAmbient: beltoonvolume. Stille schakelaar uit = geluid.
- * Playback (playsInSilentMode) volgt alleen het mediavolume.
- * Eén keer configureren — niet bij elke tik.
- */
 export function prepareRideAlertAudio(): Promise<void> {
   if (modeReady) return Promise.resolve();
   if (!modePromise) {
     modePromise = setAudioModeAsync({
       allowsRecording: false,
-      playsInSilentMode: false,
+      // Stille schakelaar mag het rit-alarm niet dempen (zoals een melding).
+      playsInSilentMode: true,
+      // Geen background-audio-sessie — die liet de app crashen tijdens idle online.
       shouldPlayInBackground: false,
       shouldRouteThroughEarpiece: false,
       interruptionMode: 'doNotMix',
@@ -104,27 +94,43 @@ export function prepareRideAlertAudio(): Promise<void> {
   return modePromise;
 }
 
-function ensurePlayer(key: RideAlertTone): boolean {
+function ensurePlayer(): boolean {
   if (player) return true;
-  const uri = bundledToneUri(key);
-  if (!uri) return false;
-  // Eén speler, lange interval: de native time-observer anders elke 500ms naar JS.
-  // Geen playbackStatusUpdate-listener.
-  player = createAudioPlayer(
-    { uri },
-    { updateInterval: 30000, keepAudioSessionActive: true }
-  );
+  try {
+    // Prefer require (werkt in Metro én release).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('../../assets/sounds/alert.wav');
+    player = createAudioPlayer(mod, { updateInterval: 30000, keepAudioSessionActive: true });
+  } catch {
+    const uri = bundledAlertUri();
+    if (!uri) return false;
+    player = createAudioPlayer(
+      { uri },
+      { updateInterval: 30000, keepAudioSessionActive: true }
+    );
+  }
   player.volume = 1;
   player.loop = false;
   return true;
 }
 
-/** Maak de speler alvast bij online gaan, niet op het moment dat een aanbod binnenkomt. */
 export function primeRideAlertPlayer(): void {
   void prepareRideAlertAudio().then(
-    () => {
+    async () => {
       try {
-        ensurePlayer('alert');
+        // Dev: asset downloaden zodat localUri klaar is.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const Asset = require('expo-asset').Asset as {
+            fromModule: (m: number) => { downloadAsync: () => Promise<unknown> };
+          };
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const mod = require('../../assets/sounds/alert.wav');
+          if (typeof mod === 'number') await Asset.fromModule(mod).downloadAsync();
+        } catch {
+          /* release heeft file:// */
+        }
+        ensurePlayer();
       } catch {
         /* volgende play probeert het opnieuw */
       }
@@ -133,41 +139,31 @@ export function primeRideAlertPlayer(): void {
   );
 }
 
-function startPlayback(key: RideAlertTone): boolean {
-  const uri = bundledToneUri(key);
-  if (!uri) return false;
-  if (!player) {
-    if (!ensurePlayer(key)) return false;
-  } else if (key !== 'alert') {
-    player.replace({ uri });
-  }
-  if (key === 'alert' && player) {
-    void player.seekTo(0).catch(() => undefined);
-  }
+function startPlayback(): boolean {
+  if (!player && !ensurePlayer()) return false;
+  void player?.seekTo(0).catch(() => undefined);
   player?.play();
   return true;
 }
 
-/**
- * Eén keer afspelen. Wacht niet op setAudioMode of een nieuwe speler:
- * die native calls blokkeren de JS-thread als ze in de aanbod-beurt lopen.
- */
-/** Alleen de speler die bij online gaan klaarstaat. Geen sessie of nieuwe speler. */
+/** Alleen als speler al klaar is (geen native setup op de aanbod-beurt). */
 export function playPreparedRideAlert(): void {
-  if (!modeReady || !player) return;
+  if (!modeReady || !player) {
+    playRideAlertTone('alert');
+    return;
+  }
   try {
-    startPlayback('alert');
+    startPlayback();
   } catch {
     /* één poging */
   }
 }
 
-export function playRideAlertTone(tone?: string | null): void {
-  const key = normalizeRideAlertTone(tone);
-  wantedKey = key;
+/** Bereidt audio indien nodig, speelt daarna alert.wav. */
+export function playRideAlertTone(_tone?: string | null): void {
   if (modeReady && player) {
     try {
-      startPlayback(key);
+      startPlayback();
     } catch {
       /* één poging */
     }
@@ -175,9 +171,8 @@ export function playRideAlertTone(tone?: string | null): void {
   }
   void prepareRideAlertAudio().then(
     () => {
-      if (wantedKey !== key) return;
       try {
-        startPlayback(key);
+        startPlayback();
       } catch {
         /* één poging */
       }
@@ -186,7 +181,6 @@ export function playRideAlertTone(tone?: string | null): void {
   );
 }
 
-/** Pauzeer de gedeelde speler (bijv. bij schermwissels). Niet weggooien. */
 export function stopRideAlertTone(): void {
   try {
     player?.pause();

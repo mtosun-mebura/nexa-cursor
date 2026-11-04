@@ -57,7 +57,6 @@ import {
   isRideInvoiceSent,
   rideRequiresPaymentBeforeComplete,
   updateDriverAccent,
-  updateDriverRideAlertTone,
   uploadDriverCompanyLogo,
   uploadDriverProfilePhoto,
   uploadDriverVehiclePhoto,
@@ -65,19 +64,15 @@ import {
   vehicleDisplayName,
 } from '../api/driver';
 import { ibanFieldError } from '../iban';
-import {
-  DEFAULT_RIDE_ALERT_TONE,
-  normalizeRideAlertTone,
-  playRideAlertTone,
-  RIDE_ALERT_OPTIONS,
-  RideAlertTone,
-} from '../audio/rideAlert';
+import { DEFAULT_RIDE_ALERT_TONE } from '../audio/rideAlert';
 import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import {
   clampGpsRefreshSeconds,
+  publishDriverLocationForMap,
+  readLastKnownDriverMapPosition,
   startDriverLocationTracking,
   invalidateDriverLocationTracking,
   stopDriverLocationTracking,
@@ -89,6 +84,8 @@ import {
   ensureDriverNotificationPermission,
   prepareDriverNotificationChannels,
   setForegroundDriverOfferListener,
+  type DriverNotificationOpenTarget,
+  type DriverOfferPushPreview,
 } from '../notifications/driverOffers';
 import { registerDriverPushToken, retryDriverPushTokenIfNeeded } from '../notifications/driverPush';
 import {
@@ -361,6 +358,34 @@ function offerRideRequestId(offer: DispatchOffer): number {
   return Number(offer.ride_request_id || offer.ride?.id || 0);
 }
 
+/** Bouw een zichtbare aanvraagkaart uit push-data (vóór inbox-antwoord). */
+function dispatchOfferFromPushPreview(preview: DriverOfferPushPreview): DispatchOffer | null {
+  const oid = Number(preview.offerId || 0);
+  if (oid <= 0) return null;
+  const rid = Number(preview.rideId || 0);
+  const pickup =
+    String(preview.pickupAddress || '').trim() ||
+    String(preview.body || '').trim() ||
+    undefined;
+  const quoted = preview.quotedPrice;
+  return {
+    id: oid,
+    status: 'pending',
+    ride_request_id: rid > 0 ? rid : undefined,
+    expires_at: preview.expiresAt || undefined,
+    ride: {
+      id: rid > 0 ? rid : undefined,
+      status: 'offered',
+      pickup_address: pickup,
+      pickup_place_name: preview.pickupPlaceName || null,
+      dropoff_address: String(preview.dropoffAddress || '').trim() || undefined,
+      dropoff_place_name: preview.dropoffPlaceName || null,
+      pickup_at: preview.pickupAt || undefined,
+      quoted_price: quoted != null && Number.isFinite(Number(quoted)) ? Number(quoted) : null,
+    },
+  };
+}
+
 /** Zelfde rit staat nog als open aanbod in de inbox: niet als geaccepteerde rit tonen. */
 function rideListedAsOpenOffer(ride: DriverActiveRide, openOfferRideIds: Set<number>): boolean {
   const id = Number(ride.id || 0);
@@ -446,13 +471,12 @@ export function DriverHomeScreen() {
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
   const onlineToggleInFlightRef = useRef(false);
-  const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(1);
+  const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(10);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [accountActive, setAccountActive] = useState(true);
   const [accent, setAccent] = useState<string>('orange');
-  const [rideTone, setRideTone] = useState<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   const [company, setCompany] = useState('');
   const [payoutIbanMasked, setPayoutIbanMasked] = useState<string | null>(null);
   const [ibanDraft, setIbanDraft] = useState('');
@@ -540,13 +564,13 @@ export function DriverHomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const rideAlertToneRef = useRef<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   /** Aanvragen die deze sessie al naar het Aanvragen-tab zijn gebracht. */
   const surfacedOfferIdsRef = useRef<Set<number>>(new Set());
   /** Aanvragen die al in de lijst stonden; een melding zonder id opent alleen een nieuwe. */
   const knownOfferIdsRef = useRef<Set<number>>(new Set());
   const offersRef = useRef<DispatchOffer[]>([]);
   const pushPreviewRef = useRef<Map<number, DispatchOffer>>(new Map());
+  const closedOfferIdsRef = useRef<Set<number>>(new Set());
   /** Eerste poll na een melding mag de gekozen rit niet overschrijven. */
   const notificationExpandLockRef = useRef(false);
   const pendingNotificationExpandRef = useRef<
@@ -556,8 +580,6 @@ export function DriverHomeScreen() {
     | { kind: 'newest'; baseline: Set<number> }
   >(null);
   offersRef.current = offers;
-  /** Voorkomt dat poll-refresh een net gekozen toon terugzet vóór de API bij is. */
-  const rideToneDirtyRef = useRef(false);
   const styles = useMemo(() => makeStyles(colors, accentHex(accent)), [colors, accent]);
 
   useEffect(() => {
@@ -693,24 +715,19 @@ export function DriverHomeScreen() {
       ) {
         setOnline(isOnlineNow);
       }
-      setGpsRefreshSeconds(clampGpsRefreshSeconds(me.meta?.gps_refresh_seconds));
+      // Alleen updaten bij échte wijziging — anders herstart GPS-effect en crasht native.
+      setGpsRefreshSeconds((prev) => {
+        const next = clampGpsRefreshSeconds(me.meta?.gps_refresh_seconds ?? 10);
+        return prev === next ? prev : next;
+      });
       setName(me.user.name);
       setEmail(me.user.email || '');
       setPhone(me.user.phone || '');
       setAccountActive(me.user.is_account_active !== false);
       const nextAccent = normalizeDriverAccent(me.user.pwa_accent);
-      const nextTone = normalizeRideAlertTone(me.user.ride_alert_tone);
       setAccent(nextAccent);
       persistDriverAccent(nextAccent);
-      if (rideToneDirtyRef.current) {
-        if (nextTone === rideAlertToneRef.current) {
-          rideToneDirtyRef.current = false;
-        }
-      } else {
-        setRideTone(nextTone);
-        rideAlertToneRef.current = nextTone;
-        rememberRideAlertTone(nextTone);
-      }
+      rememberRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
       setCompany(me.user.company_name || '');
       setPayoutIbanMasked(me.user.payout_iban_masked || null);
       setLogoLight(me.user.company_logo_url || null);
@@ -775,15 +792,23 @@ export function DriverHomeScreen() {
       setSelectedVehicleId(resolvedVehicleId);
 
       const inboxData = inboxDataFromResponse(inbox);
-      const openedRequest = handleNewOffers(inboxData.offers, isOnlineNow);
       const incomingIds = new Set(inboxData.offers.map((offer) => Number(offer.id)));
+      for (const id of [...closedOfferIdsRef.current]) {
+        if (!incomingIds.has(id)) closedOfferIdsRef.current.delete(id);
+      }
+      const liveOffers = inboxData.offers.filter(
+        (offer) => !closedOfferIdsRef.current.has(Number(offer.id))
+      );
+      const openedRequest = handleNewOffers(liveOffers, isOnlineNow);
       for (const id of [...pushPreviewRef.current.keys()]) {
-        if (incomingIds.has(id)) pushPreviewRef.current.delete(id);
+        if (incomingIds.has(id) || closedOfferIdsRef.current.has(id)) {
+          pushPreviewRef.current.delete(id);
+        }
       }
       const previews = [...pushPreviewRef.current.values()].filter(
-        (offer) => !incomingIds.has(Number(offer.id))
+        (offer) => !incomingIds.has(Number(offer.id)) && !closedOfferIdsRef.current.has(Number(offer.id))
       );
-      setOffers(previews.length ? [...previews, ...inboxData.offers] : inboxData.offers);
+      setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
       setArchivedOffers(inboxData.archivedOffers);
       setDeclinedOffers(inboxData.declinedOffers);
       setActiveRide(inboxData.activeRide);
@@ -885,6 +910,54 @@ export function DriverHomeScreen() {
   }, [driverToken, handleNewOffers, selectedVehicleId]);
   refreshFn.current = refresh;
 
+  /** Alleen inbox — geen me/fleet/planning. Voor snelle ritupdates. */
+  const refreshInboxOnly = useCallback(async () => {
+    if (!driverToken || refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    const gen = ++refreshGen.current;
+    try {
+      const inbox = await fetchDriverInbox(driverToken);
+      if (gen !== refreshGen.current) return;
+      const inboxData = inboxDataFromResponse(inbox);
+      const incomingIds = new Set(inboxData.offers.map((offer) => Number(offer.id)));
+      for (const id of [...closedOfferIdsRef.current]) {
+        if (!incomingIds.has(id)) closedOfferIdsRef.current.delete(id);
+      }
+      const liveOffers = inboxData.offers.filter(
+        (offer) => !closedOfferIdsRef.current.has(Number(offer.id))
+      );
+      handleNewOffers(liveOffers, onlineRef.current);
+      for (const id of [...pushPreviewRef.current.keys()]) {
+        if (incomingIds.has(id) || closedOfferIdsRef.current.has(id)) {
+          pushPreviewRef.current.delete(id);
+        }
+      }
+      const previews = [...pushPreviewRef.current.values()].filter(
+        (offer) => !incomingIds.has(Number(offer.id)) && !closedOfferIdsRef.current.has(Number(offer.id))
+      );
+      setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
+      setArchivedOffers(inboxData.archivedOffers);
+      setDeclinedOffers(inboxData.declinedOffers);
+      setActiveRide(inboxData.activeRide);
+      setParkedRides(inboxData.parkedAssignedRides);
+      setScheduledRides(inboxData.scheduledRides);
+      setOverdueScheduledRides(inboxData.overdueScheduledRides);
+      setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
+      setCancelReasons(inboxData.cancelReasons);
+      setCompletedRides((prev) => mergeCompletedRides(inboxData.completedRides, prev));
+    } catch {
+      /* lichte poll: stil falen, volgende tick opnieuw */
+    } finally {
+      refreshInFlight.current = false;
+      if (refreshQueued.current) {
+        refreshQueued.current = false;
+        setTimeout(() => {
+          void refreshFn.current();
+        }, 0);
+      }
+    }
+  }, [driverToken, handleNewOffers]);
+
   useEffect(() => {
     if (!contractToken) {
       setContractantDriver(false);
@@ -911,14 +984,27 @@ export function DriverHomeScreen() {
     }
   }, [driverToken]);
 
+  // Rustige poll: te vaak inbox+GPS crashte de app tijdens gewoon online blijven.
   useEffect(() => {
     refresh().catch(() => undefined);
-    const intervalMs = online ? 2500 : 5000;
+    const inboxMs = online ? 8000 : 12000;
+    const fullMs = online ? 40000 : 45000;
+    let ticks = 0;
+    let tickInFlight = false;
     const t = setInterval(() => {
-      refresh().catch(() => undefined);
-    }, intervalMs);
+      if (tickInFlight) return;
+      tickInFlight = true;
+      ticks += 1;
+      const run =
+        ticks % Math.max(1, Math.round(fullMs / inboxMs)) === 0
+          ? refresh()
+          : refreshInboxOnly();
+      void run.finally(() => {
+        tickInFlight = false;
+      });
+    }, inboxMs);
     return () => clearInterval(t);
-  }, [refresh, online]);
+  }, [refresh, refreshInboxOnly, online]);
 
   useEffect(() => {
     let lastAppRefresh = 0;
@@ -956,53 +1042,162 @@ export function DriverHomeScreen() {
     }
   }, []);
 
-  const openOfferFromNotification = useCallback((offerId?: number | null, rideId?: number | null) => {
-    // Na cold/warm start vanuit een melding: eerst native transition afronden,
-    // dan pas tab/state zetten — voorkomt crash bij setState tijdens mount.
-    const oid = Number(offerId || 0) || 0;
-    const rid = Number(rideId || 0) || 0;
-    const run = () => {
-      if (!mountedRef.current) return;
-      try {
-        setShowArchived(false);
-        persistDriverArchive(false);
-        setTab('requests');
-        persistDriverTab('requests');
-        notificationExpandLockRef.current = true;
-        if (oid > 0 || rid > 0) {
-          pendingNotificationExpandRef.current =
-            oid > 0
-              ? { kind: 'offer', offerId: oid, rideId: rid > 0 ? rid : null }
-              : { kind: 'ride', rideId: rid };
-          const match = offersRef.current.find(
+  const applyPushOfferPreview = useCallback(
+    (preview: DriverOfferPushPreview | null | undefined) => {
+      if (!preview || !mountedRef.current) return 0;
+      const built = dispatchOfferFromPushPreview(preview);
+      if (!built) return 0;
+      const oid = Number(built.id);
+      if (closedOfferIdsRef.current.has(oid)) return 0;
+      const existing = offersRef.current.find((offer) => Number(offer.id) === oid);
+      if (existing?.ride?.pickup_address) {
+        revealNotifiedOffer(oid);
+        return oid;
+      }
+      pushPreviewRef.current.set(oid, built);
+      setOffers((current) => {
+        const idx = current.findIndex((offer) => Number(offer.id) === oid);
+        if (idx < 0) return [built, ...current];
+        const prior = current[idx];
+        const merged: DispatchOffer = {
+          ...built,
+          ...prior,
+          ride: { ...(built.ride || {}), ...(prior.ride || {}) },
+        };
+        const next = current.slice();
+        next[idx] = merged;
+        pushPreviewRef.current.set(oid, merged);
+        return next;
+      });
+      revealNotifiedOffer(oid);
+      return oid;
+    },
+    [revealNotifiedOffer]
+  );
+
+  /** Inbox direct ophalen tot het aanbod erin zit — melding ⇒ rit moet zichtbaar zijn. */
+  const hydrateOfferFromInbox = useCallback(
+    async (offerId: number, rideId: number) => {
+      const token = driverToken;
+      if (!token) return;
+      const delays = [0, 200, 500, 1000, 1800];
+      for (let i = 0; i < delays.length; i += 1) {
+        if (delays[i] > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delays[i]));
+        }
+        if (!mountedRef.current) return;
+        try {
+          const inbox = await fetchDriverInbox(token);
+          if (!mountedRef.current) return;
+          const inboxData = inboxDataFromResponse(inbox);
+          const incomingIds = new Set(inboxData.offers.map((offer) => Number(offer.id)));
+          for (const id of [...closedOfferIdsRef.current]) {
+            if (!incomingIds.has(id)) closedOfferIdsRef.current.delete(id);
+          }
+          const liveOffers = inboxData.offers.filter(
+            (offer) => !closedOfferIdsRef.current.has(Number(offer.id))
+          );
+          handleNewOffers(liveOffers, onlineRef.current);
+          for (const id of [...pushPreviewRef.current.keys()]) {
+            if (incomingIds.has(id) || closedOfferIdsRef.current.has(id)) {
+              pushPreviewRef.current.delete(id);
+            }
+          }
+          const previews = [...pushPreviewRef.current.values()].filter(
             (offer) =>
-              (oid > 0 && Number(offer.id) === oid) || (rid > 0 && offerMatchesRide(offer, rid))
+              !incomingIds.has(Number(offer.id)) && !closedOfferIdsRef.current.has(Number(offer.id))
+          );
+          setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
+          setArchivedOffers(inboxData.archivedOffers);
+          setDeclinedOffers(inboxData.declinedOffers);
+          setActiveRide(inboxData.activeRide);
+          setParkedRides(inboxData.parkedAssignedRides);
+          setScheduledRides(inboxData.scheduledRides);
+          setOverdueScheduledRides(inboxData.overdueScheduledRides);
+          setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
+          setCancelReasons(inboxData.cancelReasons);
+          const match = liveOffers.find(
+            (offer) =>
+              (offerId > 0 && Number(offer.id) === offerId) ||
+              (rideId > 0 && offerMatchesRide(offer, rideId))
           );
           if (match) {
             pendingNotificationExpandRef.current = null;
             revealNotifiedOffer(Number(match.id));
+            return;
           }
-          return;
+        } catch {
+          /* volgende poging */
         }
-        const baseline = new Set(knownOfferIdsRef.current);
-        const list = offersRef.current;
-        const arrived = list.filter((offer) => {
-          const id = Number(offer.id);
-          return id > 0 && !baseline.has(id);
-        });
-        if (!list.length) {
-          pendingNotificationExpandRef.current = { kind: 'newest', baseline };
-          return;
-        }
-        pendingNotificationExpandRef.current = null;
-        const pick = newestDriverOffer(arrived.length ? arrived : list);
-        if (pick) revealNotifiedOffer(Number(pick.id));
-      } catch {
-        /* deep-link mag de app niet laten crashen */
       }
-    };
-    setTimeout(run, 0);
-  }, [revealNotifiedOffer]);
+    },
+    [driverToken, handleNewOffers, revealNotifiedOffer]
+  );
+
+  const openOfferFromNotification = useCallback(
+    (target: DriverNotificationOpenTarget | { offerId?: number | null; rideId?: number | null }) => {
+      const preview =
+        'preview' in target && target.preview
+          ? target.preview
+          : {
+              offerId: target.offerId ?? null,
+              rideId: target.rideId ?? null,
+            };
+      const oid = Number(preview.offerId || target.offerId || 0) || 0;
+      const rid = Number(preview.rideId || target.rideId || 0) || 0;
+      const run = () => {
+        if (!mountedRef.current) return;
+        try {
+          setShowArchived(false);
+          persistDriverArchive(false);
+          setTab('requests');
+          persistDriverTab('requests');
+          notificationExpandLockRef.current = true;
+          if (oid > 0 || rid > 0) {
+            const applied = applyPushOfferPreview({ ...preview, offerId: oid || preview.offerId });
+            if (applied > 0) {
+              pendingNotificationExpandRef.current = null;
+            } else {
+              pendingNotificationExpandRef.current =
+                oid > 0
+                  ? { kind: 'offer', offerId: oid, rideId: rid > 0 ? rid : null }
+                  : { kind: 'ride', rideId: rid };
+              const match = offersRef.current.find(
+                (offer) =>
+                  (oid > 0 && Number(offer.id) === oid) || (rid > 0 && offerMatchesRide(offer, rid))
+              );
+              if (match) {
+                pendingNotificationExpandRef.current = null;
+                revealNotifiedOffer(Number(match.id));
+              }
+            }
+            // Directe dispatch: inbox nu ophalen (met retries), niet wachten op de poll.
+            void hydrateOfferFromInbox(oid, rid);
+            return;
+          }
+          const baseline = new Set(knownOfferIdsRef.current);
+          const list = offersRef.current;
+          const arrived = list.filter((offer) => {
+            const id = Number(offer.id);
+            return id > 0 && !baseline.has(id);
+          });
+          if (!list.length) {
+            pendingNotificationExpandRef.current = { kind: 'newest', baseline };
+            void hydrateOfferFromInbox(0, 0);
+            return;
+          }
+          pendingNotificationExpandRef.current = null;
+          const pick = newestDriverOffer(arrived.length ? arrived : list);
+          if (pick) revealNotifiedOffer(Number(pick.id));
+        } catch {
+          /* deep-link mag de app niet laten crashen */
+        }
+      };
+      // Direct — geen 250ms-vertraging: melding ⇒ rit moet er al staan.
+      run();
+    },
+    [applyPushOfferPreview, hydrateOfferFromInbox, revealNotifiedOffer]
+  );
 
   useEffect(() => {
     const pending = pendingNotificationExpandRef.current;
@@ -1039,58 +1234,65 @@ export function DriverHomeScreen() {
   }, [offers, revealNotifiedOffer]);
 
   useEffect(() => {
-    setForegroundDriverOfferListener(({ offerId, rideId, body, pickupAddress, placeName }) => {
-      if (AppState.currentState === 'background') return;
+    setForegroundDriverOfferListener((payload) => {
+      if (payload.closed) {
+        const id = Number(payload.offerId || 0);
+        const rid = Number(payload.rideId || 0);
+        if (id > 0) closedOfferIdsRef.current.add(id);
+        pushPreviewRef.current.delete(id);
+        setOffers((current) =>
+          current.filter((offer) => {
+            const offerIdNum = Number(offer.id);
+            if (id > 0 && offerIdNum === id) return false;
+            const offerRideId = Number(offer.ride_request_id || offer.ride?.id || 0);
+            return !(rid > 0 && offerRideId === rid);
+          })
+        );
+        if (id > 0) {
+          setFocusOfferId((current) => (current === id ? null : current));
+          setExpandOfferId((current) => (current === id ? null : current));
+        }
+        return;
+      }
       try {
-        const id = Number(offerId || 0);
-        const rid = Number(rideId || 0);
+        const id = Number(payload.offerId || 0);
+        const rid = Number(payload.rideId || 0);
+        if (id > 0 && closedOfferIdsRef.current.has(id)) return;
+        // Sluimer/achtergrond: toch toon + hydrate (push content-available wekt JS kort).
+        if (AppState.currentState !== 'active') {
+          if (id > 0) {
+            applyPushOfferPreview(payload);
+            playDriverOfferToneForIds([id]);
+          }
+          void hydrateOfferFromInbox(id, rid);
+          return;
+        }
         setShowArchived(false);
         persistDriverArchive(false);
         setTab('requests');
         persistDriverTab('requests');
         if (id > 0) {
-          const pickup = pickupAddress || body || undefined;
-          const preview: DispatchOffer = {
-            id,
-            status: 'pending',
-            ride_request_id: rid > 0 ? rid : undefined,
-            ride: {
-              id: rid > 0 ? rid : undefined,
-              status: 'offered',
-              pickup_address: pickup,
-              pickup_place_name: placeName || null,
-            },
-          };
-          const already = offersRef.current.some((offer) => Number(offer.id) === id);
-          if (!already) {
-            pushPreviewRef.current.set(id, preview);
-            setOffers((current) =>
-              current.some((offer) => Number(offer.id) === id) ? current : [preview, ...current]
-            );
-          }
-          primeDriverCardExpand(driverOfferExpandKey(id));
-          setFocusOfferId(id);
-          setExpandOfferId(id);
+          applyPushOfferPreview(payload);
           pendingNotificationExpandRef.current = null;
         } else if (rid > 0) {
           pendingNotificationExpandRef.current = { kind: 'ride', rideId: rid };
         }
-        requestAnimationFrame(() => {
+        // Geluid + directe inbox-hydrate — rit moet er staan zodra de push binnen is.
+        setTimeout(() => {
+          if (!mountedRef.current) return;
           if (id > 0) playDriverOfferToneForIds([id]);
-          setTimeout(() => {
-            void refreshFn.current();
-          }, 0);
-        });
+          void hydrateOfferFromInbox(id, rid);
+        }, 0);
       } catch {
         /* push mag het scherm niet laten crashen */
       }
     });
     return () => setForegroundDriverOfferListener(null);
-  }, []);
+  }, [applyPushOfferPreview, hydrateOfferFromInbox]);
 
   useEffect(() => {
     return addDriverOfferNotificationResponseListener(
-      (target) => openOfferFromNotification(target.offerId, target.rideId),
+      (target) => openOfferFromNotification(target),
       () => {
         if (!mountedRef.current) return;
         setTimeout(() => {
@@ -1113,7 +1315,7 @@ export function DriverHomeScreen() {
         const initial = await consumeInitialDriverNotificationResponse();
         if (cancelled || !initial || !mountedRef.current) return;
         if (initial.screen === 'requests') {
-          openOfferFromNotification(initial.offerId, initial.rideId);
+          openOfferFromNotification(initial);
         } else {
           setTimeout(() => {
             if (cancelled || !mountedRef.current) return;
@@ -1139,12 +1341,13 @@ export function DriverHomeScreen() {
   }, [online]);
 
   useEffect(() => {
-    if (!driverToken || !online || onlinePendingEpochRef.current != null) {
+    if (!driverToken || !online) {
       if (!online) {
         void stopDriverLocationTracking();
       }
       return;
     }
+    // Niet wachten op pending-ref: die werd nooit state, dus GPS startte soms nooit.
     void startDriverLocationTracking({
       token: driverToken,
       vehicleId: selectedVehicleId,
@@ -1225,7 +1428,7 @@ export function DriverHomeScreen() {
   }
 
   async function toggleOnline(next: boolean) {
-    if (!driverToken || onlineToggleInFlightRef.current) return;
+    if (!driverToken) return;
     setError(null);
     if (next && !payoutIbanMasked) {
       setError(
@@ -1239,31 +1442,55 @@ export function DriverHomeScreen() {
       setVehiclePickerOpen(true);
       return;
     }
+    // Al in die stand én geen lopende tik → negeren (voorkomt 3× schuiven).
+    if (next === online && onlinePendingEpochRef.current === null) return;
 
-    onlineToggleInFlightRef.current = true;
     const epoch = ++onlineEpochRef.current;
     onlinePendingEpochRef.current = epoch;
-    // Offline: meteen UI + GPS stoppen. Online: pas na server-OK.
+    onlineToggleInFlightRef.current = true;
+    // Optimistic: schuif beweegt meteen. Bij fout terugzetten.
+    setOnline(next);
     if (!next) {
-      setOnline(false);
+      void stopDriverLocationTracking();
     }
 
-    // Eén availability-verzoek per tik, zonder GPS- of toestemmingswacht.
-    // Die throw of hang liet de schakelaar offline terwijl de server de tik aannam.
-    let accepted = false;
     try {
+      // Snelle last-known (max ~0,4s) mee in online-PUT — zonder lat/lng geen marker op de klantkaart.
+      let quickCoords: Awaited<ReturnType<typeof readLastKnownDriverMapPosition>> = null;
       if (next) {
-        try {
-          primeRideAlertAudio();
-        } catch {
-          /* geluid mag de schakelaar niet tegenhouden */
-        }
+        quickCoords = await Promise.race([
+          readLastKnownDriverMapPosition(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 400)),
+        ]).catch(() => null);
       }
-      await setDriverOnline(driverToken, next, selectedVehicleId);
-      accepted = true;
+      await Promise.race([
+        setDriverOnline(driverToken, next, selectedVehicleId, quickCoords),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(t('Online zetten mislukt.'))), 8000)
+        ),
+      ]);
+      if (onlineEpochRef.current !== epoch) return;
+      if (next) {
+        // Verse GPS op de achtergrond (last-known kan leeg zijn na cold start).
+        void (async () => {
+          try {
+            primeRideAlertAudio();
+          } catch {
+            /* ignore */
+          }
+          if (onlineEpochRef.current !== epoch || !onlineRef.current) return;
+          const published = await publishDriverLocationForMap(driverToken, selectedVehicleId);
+          if (!published && onlineEpochRef.current === epoch && onlineRef.current) {
+            setFlowMessage(
+              t('Locatie is nodig om op de klantkaart te verschijnen. Controleer of locatie aan staat.')
+            );
+          }
+        })();
+      }
     } catch (e) {
       if (onlineEpochRef.current === epoch) {
-        setOnline(next ? false : true);
+        setOnline(!next);
+        if (next) void stopDriverLocationTracking();
         setError(null);
         setFlowMessage(availabilityFailureMessage(e));
       }
@@ -1271,10 +1498,6 @@ export function DriverHomeScreen() {
       if (onlinePendingEpochRef.current === epoch) onlinePendingEpochRef.current = null;
       if (onlineEpochRef.current === epoch) onlineToggleInFlightRef.current = false;
     }
-
-    if (!accepted || onlineEpochRef.current !== epoch) return;
-    if (next) setOnline(true);
-    void refresh();
   }
 
   function markArchiveSeen() {
@@ -1705,8 +1928,9 @@ export function DriverHomeScreen() {
     ownArchivedOverdueRides.some((r) => isContractRide(r));
   const showRideKindFilter = canFilterContractRides || hasAnyContractInTrips;
   const effectiveRideKind: RideKindFilter = showRideKindFilter ? rideKindFilter : 'all';
-  // Chauffeur + contractant: contractritten via het passagiersoverzicht, niet de ritkaart.
-  const showContractPassengerBoard = contractantDriver && effectiveRideKind !== 'taxi';
+  // Alleen bij filter Contract: passagiersbord. Bij Alles/Normaal één ritlijst —
+  // anders liggen Openstaand/Verlopen over de chauffeurfilters heen.
+  const showContractPassengerBoard = contractantDriver && effectiveRideKind === 'contract';
   const todayIso = toIsoDate(new Date());
   const weekFromIso = mondayIsoFrom();
   const weekToIso = addDaysIso(weekFromIso, 6);
@@ -1812,6 +2036,7 @@ export function DriverHomeScreen() {
       <ScreenHeader
         title={t("Ritten")}
         right={
+          showContractPassengerBoard ? undefined : (
           <View style={styles.periodToggle}>
             {RIDE_PERIOD_OPTIONS.map((opt) => {
               const active = ridePeriodFilter === opt.key;
@@ -1830,6 +2055,7 @@ export function DriverHomeScreen() {
               );
             })}
           </View>
+          )
         }
       />
       {showRideKindFilter ? (
@@ -1853,10 +2079,10 @@ export function DriverHomeScreen() {
         </View>
       ) : null}
     </View>
-    {hasDriverTripCards || !showContractPassengerBoard ? (
+    {showContractPassengerBoard ? null : (
     <ScrollView
       ref={tripsScrollRef}
-      style={showContractPassengerBoard && hasDriverTripCards ? { maxHeight: 280 } : { flex: 1 }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.scroll}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
@@ -2021,7 +2247,7 @@ export function DriverHomeScreen() {
         </>
       )}
     </ScrollView>
-    ) : null}
+    )}
     {showContractPassengerBoard ? (
       <View style={{ flex: 1, minHeight: 0 }}>
         <ContractHomeScreen embedded />
@@ -2109,20 +2335,6 @@ export function DriverHomeScreen() {
       await updateDriverAccent(driverToken, next);
     } catch {
       /* keuze blijft lokaal zichtbaar */
-    }
-  };
-
-  const chooseTone = async (key: RideAlertTone) => {
-    setRideTone(key);
-    rideAlertToneRef.current = key;
-    rememberRideAlertTone(key);
-    rideToneDirtyRef.current = true;
-    void playRideAlertTone(key);
-    if (!driverToken) return;
-    try {
-      await updateDriverRideAlertTone(driverToken, key);
-    } catch {
-      /* lokale keuze blijft via rideToneDirtyRef */
     }
   };
 
@@ -2848,28 +3060,9 @@ export function DriverHomeScreen() {
 
         <View style={styles.profileDivider} />
         <Text style={styles.profileSection}>{t("Ritgeluid")}</Text>
-        <Text style={styles.themeHint}>{t("Kies het geluid bij een nieuwe rit. Tik om te beluisteren.")}</Text>
-        <View style={styles.toneRow}>
-          {RIDE_ALERT_OPTIONS.map((item) => {
-            const selected = rideTone === item.key;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => chooseTone(item.key)}
-                style={[
-                  styles.toneChip,
-                  selected && { backgroundColor: accentHex(accent), borderColor: accentHex(accent) },
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-              >
-                <Text style={[styles.toneChipText, selected && styles.toneChipTextOn]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Text style={styles.themeHint}>
+          {t("Bij een nieuwe aanvraag speelt het standaard alarm. Geen aparte geluidskiezer — die liet de app vastlopen.")}
+        </Text>
 
         <DemoModeRow />
         <Pressable
@@ -2881,11 +3074,9 @@ export function DriverHomeScreen() {
         </Pressable>
         <Pressable
           style={styles.logoutBtn}
-          onPress={async () => {
+          onPress={() => {
             resetDriverTabToTrips();
-            setTab('trips');
-            await stopDriverLocationTracking();
-            await logout();
+            void logout();
           }}
         >
           <Text style={styles.logoutBtnText}>{t("Uitloggen")}</Text>

@@ -8,7 +8,6 @@ import {
   Image,
   Keyboard,
   Linking,
-  PixelRatio,
   Platform,
   Pressable,
   ScrollView,
@@ -18,8 +17,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Asset } from 'expo-asset';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type { TextInput as TextInputType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -142,6 +139,8 @@ function contactDetailsFilled(
 }
 const TAB_KEY = 'nexa_taxi_customer_tab';
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
+/** Bundled map icon for Android Marker.image (~26×39 @3x). Full PNG is too large as a bitmap descriptor. */
+const taxiCarYellowMarker = require('../../assets/taxi-car-yellow-marker.png');
 const dropPinGreen = require('../../assets/marker-drop-green.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
@@ -186,64 +185,6 @@ const taxiMarkerFrameStyle = {
 };
 const taxiMarkerImageStyle = { width: 26, height: 39 };
 
-/**
- * Android Fabric snapshots a custom marker view once, often before the car
- * image is painted, and then freezes that empty bitmap. Stationary online
- * taxis therefore never appear. A real bitmap icon (same yellow car, sized
- * like the 26×39 layout) is drawn by Google Maps itself.
- */
-let androidTaxiBasePromise: Promise<string | null> | null = null;
-const androidTaxiHeadingCache = new Map<number, Promise<string | null>>();
-
-function androidTaxiBaseUri(): Promise<string | null> {
-  if (!androidTaxiBasePromise) {
-    androidTaxiBasePromise = (async () => {
-      const asset = Asset.fromModule(taxiCarYellow);
-      if (!asset.localUri) await asset.downloadAsync();
-      const source = asset.localUri || asset.uri;
-      if (!source) return null;
-      const resized = await manipulateAsync(
-        source,
-        [
-          {
-            resize: {
-              width: Math.max(1, PixelRatio.getPixelSizeForLayoutSize(taxiMarkerImageStyle.width)),
-              height: Math.max(1, PixelRatio.getPixelSizeForLayoutSize(taxiMarkerImageStyle.height)),
-            },
-          },
-        ],
-        { format: SaveFormat.PNG, compress: 1 }
-      );
-      return resized.uri;
-    })().catch(() => {
-      androidTaxiBasePromise = null;
-      return null;
-    });
-  }
-  return androidTaxiBasePromise;
-}
-
-function androidTaxiUri(heading: number): Promise<string | null> {
-  const deg = ((Math.round(heading) % 360) + 360) % 360;
-  const cached = androidTaxiHeadingCache.get(deg);
-  if (cached) return cached;
-  const pending = (async () => {
-    const base = await androidTaxiBaseUri();
-    if (!base) return null;
-    if (deg === 0) return base;
-    const rotated = await manipulateAsync(base, [{ rotate: deg }], {
-      format: SaveFormat.PNG,
-      compress: 1,
-    });
-    return rotated.uri;
-  })().catch(() => null);
-  androidTaxiHeadingCache.set(deg, pending);
-  pending.then((uri) => {
-    if (!uri) androidTaxiHeadingCache.delete(deg);
-  });
-  return pending;
-}
-
 function CustomerTaxiMarker({
   taxi,
   title = t("Taxi beschikbaar"),
@@ -262,25 +203,6 @@ function CustomerTaxiMarker({
     taxi.heading != null && Number.isFinite(taxi.heading) ? taxi.heading : 0
   );
   const [trackView, setTrackView] = useState(true);
-  const [androidIcon, setAndroidIcon] = useState<string | null>(null);
-  const [androidIconFailed, setAndroidIconFailed] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    let cancelled = false;
-    const giveUp = setTimeout(() => {
-      if (!cancelled) setAndroidIconFailed(true);
-    }, 2000);
-    androidTaxiUri(heading).then((uri) => {
-      if (cancelled) return;
-      if (uri) setAndroidIcon(uri);
-      else setAndroidIconFailed(true);
-    });
-    return () => {
-      cancelled = true;
-      clearTimeout(giveUp);
-    };
-  }, [heading]);
 
   useEffect(() => {
     const from = posRef.current;
@@ -308,22 +230,26 @@ function CustomerTaxiMarker({
       clearInterval(timer);
       clearTimeout(off);
     };
-  }, [taxi.lat, taxi.lng, taxi.heading]);
+  }, [taxi.lat, taxi.lng, taxi.heading, smoothMs, stepMs]);
 
-  if (Platform.OS === 'android' && androidIcon) {
+  // Android: custom marker views often snapshot empty under Fabric. Use a
+  // bundled Marker.image (local resource) + native rotation — same pattern as
+  // the green drop pin. Cache file:// bitmaps are unreliable as descriptors.
+  if (Platform.OS === 'android') {
     return (
       <Marker
         coordinate={{ latitude: pos.lat, longitude: pos.lng }}
         title={title}
         description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
         anchor={{ x: 0.5, y: 0.5 }}
-        image={{ uri: androidIcon }}
+        image={taxiCarYellowMarker}
+        rotation={heading}
+        flat
         tracksViewChanges={false}
         zIndex={20}
       />
     );
   }
-  if (Platform.OS === 'android' && !androidIconFailed) return null;
 
   return (
     <Marker
@@ -331,14 +257,12 @@ function CustomerTaxiMarker({
       title={title}
       description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
       anchor={{ x: 0.5, y: 0.5 }}
-      tracksViewChanges={Platform.OS === 'android' ? true : trackView}
-      style={Platform.OS === 'android' ? { width: 56, height: 56 } : undefined}
+      tracksViewChanges={trackView}
       zIndex={20}
     >
       <View style={taxiMarkerFrameStyle} collapsable={false}>
         <Image
           source={taxiCarYellow}
-          fadeDuration={Platform.OS === 'android' ? 0 : undefined}
           onLoad={() => {
             setTimeout(() => setTrackView(false), 300);
           }}
@@ -799,7 +723,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     ? []
     : nearbyTaxis.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc));
   const freeNearby = demoActive ? demoCount : freeTaxis.length;
-  const canDispatch = freeNearby > 0;
+  const marketplaceBlocksDispatch =
+    quote?.marketplace?.taxi_available === false ||
+    !!quote?.payment?.deferred_until_taxi;
+  const canDispatch = freeNearby > 0 && !marketplaceBlocksDispatch;
+  const showNoTaxiWarn = !!(pickup && dropoff && !canDispatch);
 
   // Chauffeur heeft "ophalen" geklikt (customer_event en_route, status nog accepted).
   const followTaxiMode = !!(driverComing && activeTaxiLoc);
@@ -1818,14 +1746,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
-    if (!canDispatch) {
-      const msg =
-        t("Er zijn geen taxi’s in de buurt beschikbaar. We sturen nu geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.");
-      setFieldErrors({ dispatch: msg });
-      setError(msg);
-      Alert.alert('Geen taxi’s beschikbaar', msg);
-      return;
-    }
+    // Button is disabled when !canDispatch; yellow warn above covers UX — no red/alert duplicate.
+    if (!canDispatch) return;
 
     if (demoActive && pickup) {
       // Demo: nooit een echte rit, betaling of dispatch. Alleen de dichtstbijzijnde demo-taxi 'accepteert'.
@@ -2404,9 +2326,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </Text>
 
       {fieldErrors.offer ? <Text style={styles.fieldErrorText}>{fieldErrors.offer}</Text> : null}
-      {fieldErrors.dispatch ? (
-        <Text style={styles.fieldErrorText}>{fieldErrors.dispatch}</Text>
-      ) : null}
     </Card>
   ) : null;
 
@@ -2706,14 +2625,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </Card>
 
       {locationError ? <ErrorText>{locationError}</ErrorText> : null}
-      {error ? <ErrorText>{error}</ErrorText> : null}
-      {fieldErrors.dispatch ? (
-        <Text style={styles.fieldErrorText}>{fieldErrors.dispatch}</Text>
+      {error && !showNoTaxiWarn ? <ErrorText>{error}</ErrorText> : null}
+      {showNoTaxiWarn ? (
+        <Text style={[styles.warnText, { marginBottom: 10 }]}>
+          {t("Geen taxi’s beschikbaar. We sturen geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.")}
+        </Text>
       ) : null}
-      {pickup && dropoff && !canDispatch ? (
-        <Text style={[styles.warnText, { marginBottom: 10 }]}>{t("Geen taxi’s beschikbaar. We sturen geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.")}</Text>
-      ) : null}
-      <PrimaryButton title={t("Taxi aanvragen")} onPress={onBook} loading={busy} />
+      <PrimaryButton
+        title={t("Taxi aanvragen")}
+        onPress={onBook}
+        loading={busy}
+        disabled={!canDispatch}
+      />
     </>
   );
 
