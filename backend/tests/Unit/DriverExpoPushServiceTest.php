@@ -95,9 +95,9 @@ class DriverExpoPushServiceTest extends TestCase
             $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
 
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
-                && ($message['sound'] ?? null) === 'alert.wav'
+                && ($message['sound'] ?? null) === 'default'
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v3'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v4'
                 && ! array_key_exists('_contentAvailable', $message);
         });
     }
@@ -115,7 +115,7 @@ class DriverExpoPushServiceTest extends TestCase
     }
 
     #[Test]
-    public function a_closed_offer_push_names_the_offer_and_does_not_play_the_alert(): void
+    public function a_closed_offer_push_names_the_offer_and_plays_default_sound(): void
     {
         $user = User::factory()->create();
         DriverDeviceToken::query()->create([
@@ -144,8 +144,8 @@ class DriverExpoPushServiceTest extends TestCase
             return ($message['data']['type'] ?? null) === 'driver_offer_closed'
                 && (int) ($message['data']['offer_id'] ?? 0) === 15
                 && (int) ($message['data']['ride_request_id'] ?? 0) === 9
-                && ! array_key_exists('sound', $message)
-                && ($message['channelId'] ?? null) === 'driver-offers-silent';
+                && ($message['sound'] ?? null) === 'default'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v4';
         });
     }
 }
