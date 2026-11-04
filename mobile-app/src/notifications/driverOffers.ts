@@ -7,7 +7,8 @@ import {
 } from '../audio/rideAlert';
 
 /** Android-kanaal met gebundeld alert.wav — id bump als sound wijzigt (OS past niet bij). */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v2';
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v3';
+const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -23,9 +24,9 @@ try {
       );
       if (String(payload?.type || '') === 'driver_offer_closed') {
         return {
-          shouldShowBanner: false,
-          shouldShowList: false,
-          shouldPlaySound: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
           shouldSetBadge: false,
         };
       }
@@ -79,11 +80,11 @@ export async function ensureDriverNotificationPermission(): Promise<boolean> {
 }
 
 async function ensureSilentOfferChannel(): Promise<string> {
-  const channelId = 'driver-offers-silent';
+  const channelId = OFFER_SILENT_CHANNEL;
   if (!Notifications || Platform.OS !== 'android') return channelId;
   if (channelReady.has(channelId)) return channelId;
   await Notifications.setNotificationChannelAsync(channelId, {
-    name: t("Ritaanvragen"),
+    name: t("Ritaanvragen (stil)"),
     importance: Notifications.AndroidImportance.HIGH,
     sound: null,
     enableVibrate: false,
@@ -367,9 +368,10 @@ export async function notifyPickupDeparture(opts: {
   }
 }
 
-/** Kanaal moet bestaan vóór een remote push, dus bij elke app-start. */
+/** Kanalen moeten bestaan vóór een remote push, dus bij elke app-start. */
 export async function prepareDriverNotificationChannels(): Promise<void> {
   await ensureSystemOfferChannel();
+  await ensureSilentOfferChannel();
   await setupDriverNotificationChannel();
 }
 
