@@ -70,11 +70,10 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // Systeemgeluid: custom alert.wav speelde stil op sluimer/achtergrond.
-                // Expo `sound` is iOS-only; Android gebruikt channelId (v4 = default sound).
-                'sound' => 'default',
+                // alert.wav in app-bundle (44.1 kHz PCM). Expo `sound` = iOS; Android = channelId.
+                'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v4',
+                'channelId' => 'driver-offers-alert-v5',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => array_filter([
                     'type' => 'driver_offer',
@@ -145,9 +144,9 @@ class DriverExpoPushService
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
                     'body' => 'Dit aanbod is niet meer beschikbaar.',
-                    'sound' => 'default',
+                    'sound' => 'alert.wav',
                     'priority' => 'high',
-                    'channelId' => 'driver-offers-alert-v4',
+                    'channelId' => 'driver-offers-alert-v5',
                     'interruptionLevel' => 'time-sensitive',
                     'data' => array_filter([
                         'type' => 'driver_offer_closed',
@@ -196,9 +195,9 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'default',
+                'sound' => 'alert.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v4',
+                'channelId' => 'driver-offers-alert-v5',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

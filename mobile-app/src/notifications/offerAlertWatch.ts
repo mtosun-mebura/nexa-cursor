@@ -14,6 +14,7 @@ import {
   prepareRideAlertAudio,
   primeRideAlertPlayer,
 } from '../audio/rideAlert';
+import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
 import { alertNextPickupDeparture } from './pickupDeparture';
 
@@ -51,6 +52,7 @@ export function rememberRideAlertTone(tone?: string | null): void {
 
 /** Roep aan bij online gaan zodat de eerste toon geen audio-sessie opent. */
 export function primeRideAlertAudio(): void {
+  if (!DRIVER_BG.rideAlertAudio) return;
   if (audioPrimed) return;
   audioPrimed = true;
   primeRideAlertPlayer();
@@ -242,11 +244,10 @@ async function checkOnce(input: {
     return id > 0 && !seen.has(id);
   });
   const freshIds = fresh.map((offer) => Number(offer.id)).filter((id) => id > 0);
-  // Voorgrond: tril + in-app alarm. Achtergrond: lokale melding met systeemgeluid
-  // (reserve naast de remote push).
+  // Altijd alert.wav bij nieuw aanbod (voorgrond én als JS nog draait op achtergrond).
   const screenVisible = !input.fromBackground && AppState.currentState === 'active';
   if (input.online !== false && freshIds.length) {
-    if (screenVisible) void playDriverOfferToneForIds(freshIds);
+    if (DRIVER_BG.rideAlertAudio) void playDriverOfferToneForIds(freshIds);
     else void rememberSoundedWithoutPlay(freshIds);
   }
   if (!fresh.length || input.online === false) return [];
