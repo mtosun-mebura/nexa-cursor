@@ -2,46 +2,54 @@ import { t } from '../i18n';
 import { Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
+  playRideAlertTone,
+  rideAlertNotificationSound,
   type RideAlertTone,
 } from '../audio/rideAlert';
 
-/**
- * Android-kanaal met systeemgeluid.
- * Custom alert.wav speelde stil op sluimer/achtergrond; id bump omdat OS sound niet wijzigt.
- */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v4';
+/** Android-kanaal met alert.wav — id bump als sound wijzigt (OS past niet bij). */
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v5';
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
 
 let Notifications: NotificationsModule | null = null;
+let alertOnReceiveAttached = false;
+
+function buzzAndPlayAlert(): void {
+  try {
+    if (Platform.OS === 'ios') Vibration.vibrate();
+    else Vibration.vibrate([0, 120, 60, 120, 60, 200]);
+  } catch {
+    /* ignore */
+  }
+  try {
+    playRideAlertTone('alert');
+  } catch {
+    /* ignore */
+  }
+}
+
 try {
   // Native module ontbreekt tot een rebuild met expo-notifications — crash dan niet.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   Notifications = require('expo-notifications') as NotificationsModule;
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      const payload = unwrapNotificationData(
-        notification.request.content.data as Record<string, unknown> | undefined
-      );
-      if (String(payload?.type || '') === 'driver_offer_closed') {
-        return {
-          shouldShowBanner: true,
-          shouldShowList: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-        };
-      }
-      // Altijd geluid: iOS speelt anders geen push-toon met open app.
-      // Standaard systeemgeluid komt uit de push/local payload (sound: default/true).
-      return {
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      };
-    },
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
   });
+  // Elke binnengekomen melding (voorgrond/achtergrond in geheugen) → alert.wav.
+  // Lockscreen zonder JS vertrouwt op de push `sound: alert.wav`.
+  if (!alertOnReceiveAttached) {
+    alertOnReceiveAttached = true;
+    Notifications.addNotificationReceivedListener(() => {
+      buzzAndPlayAlert();
+    });
+  }
 } catch {
   Notifications = null;
 }
@@ -57,24 +65,26 @@ export async function ensureDriverNotificationPermission(): Promise<boolean> {
   if (!Notifications) return false;
   if (!permissionReady) {
     permissionReady = (async () => {
-      const current = await Notifications!.getPermissionsAsync();
-      if (
+      const ask = () =>
+        Notifications!.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+            allowDisplayInCarPlay: true,
+          },
+        });
+      let current = await Notifications!.getPermissionsAsync();
+      const ok =
+        current.granted ||
+        current.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL;
+      // iOS kan `granted` zijn terwijl Sounds in Instellingen uit staat.
+      if (!ok || current.ios?.allowsSound === false) {
+        current = await ask();
+      }
+      return !!(
         current.granted ||
         current.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
-      ) {
-        return true;
-      }
-      const asked = await Notifications!.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-          allowDisplayInCarPlay: true,
-        },
-      });
-      return !!(
-        asked.granted ||
-        asked.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
       );
     })().catch(() => false);
   }
@@ -105,19 +115,23 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    // Systeemgeluid — custom wav speelde stil op sluimer/achtergrond.
-    sound: 'default',
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
+    audioAttributes: {
+      usage: Notifications.AndroidAudioUsage.NOTIFICATION_EVENT,
+      contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      flags: { enforceAudibility: true },
+    },
   });
   channelReady.add(channelId);
   return channelId;
 }
 
-/** Systeemgeluid voor remote/local meldingen (hoorbaar op sluimer/achtergrond). */
-function offerNotificationSound(play: boolean): boolean {
-  return play;
+/** Bundelbestand alert.wav — hoorbaar via APNs/FCM op sluimer/achtergrond. */
+function offerNotificationSound(play: boolean): string | false {
+  return play ? rideAlertNotificationSound() : false;
 }
 
 export async function setDriverOfferBadge(count: number): Promise<void> {
@@ -162,21 +176,12 @@ export async function notifyNewDriverOffer(opts: {
   const offerId = Number(opts.offerId || 0) || null;
   const rideRequestId = Number(opts.rideRequestId || 0) || null;
 
-  try {
-    if (Platform.OS === 'ios') {
-      Vibration.vibrate();
-    } else {
-      Vibration.vibrate([0, 120, 60, 120, 60, 200]);
-    }
-  } catch {
-    /* ignore */
-  }
+  if (playSound) buzzAndPlayAlert();
 
   if (!Notifications) return;
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
 
-  // Standaard iOS/Android meldinggeluid (true). Geen custom wav — die speelde vaak stil.
   const shown = await scheduleOfferNotification({
     title,
     body,
@@ -199,7 +204,7 @@ export async function notifyNewDriverOffer(opts: {
 async function scheduleOfferNotification(opts: {
   title: string;
   body: string;
-  sound: boolean;
+  sound: string | false;
   tone: RideAlertTone;
   badge?: number;
   offerId?: number | null;
@@ -222,8 +227,7 @@ async function scheduleOfferNotification(opts: {
   const content = {
     title: opts.title,
     body: opts.body,
-    // true = systeemgeluid (hoorbaar op sluimer/achtergrond).
-    sound: opts.sound,
+    sound: opts.sound === false ? false : opts.sound,
     ...(opts.badge != null ? { badge: opts.badge } : {}),
     data: {
       type: 'driver_offer',
@@ -379,13 +383,13 @@ export async function prepareDriverNotificationChannels(): Promise<void> {
 export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   await ensureSystemOfferChannel();
-  // Legacy defaultChannel uit app.json — zelfde systeemgeluid als de push.
+  // Legacy defaultChannel uit app.json — zelfde alert.wav als de push.
   await Notifications.setNotificationChannelAsync('driver-offers', {
     name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: 'default',
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });

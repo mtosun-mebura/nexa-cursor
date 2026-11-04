@@ -1,6 +1,6 @@
 import { t } from '../i18n';
 import { AppState, Platform, Vibration } from 'react-native';
-import { playRideAlertTone } from '../audio/rideAlert';
+import { playRideAlertTone, rideAlertNotificationSound } from '../audio/rideAlert';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -23,8 +23,8 @@ try {
 
 let permissionReady: Promise<boolean> | null = null;
 
-/** Nieuw id: v4 met systeemgeluid (Android wijzigt sound op bestaande kanalen niet). */
-const CONTRACT_RIDES_CHANNEL = 'contract-rides-v4';
+/** Nieuw id: v5 met alert.wav (Android wijzigt sound op bestaande kanalen niet). */
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v5';
 
 export function contractNotificationsAvailable(): boolean {
   return Notifications != null;
@@ -91,7 +91,7 @@ export async function notifyNewContractRide(opts: {
       content: {
         title,
         body,
-        sound: playSound,
+        sound: playSound ? rideAlertNotificationSound() : false,
         data: { type: 'contract_ride', screen: 'trips' },
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
         ...(Platform.OS === 'android'
@@ -112,7 +112,7 @@ export async function setupContractNotificationChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120],
     lightColor: '#2563EB',
-    sound: 'default',
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
   });
 }
