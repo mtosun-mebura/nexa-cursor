@@ -92,6 +92,7 @@ import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
   addDriverOfferNotificationResponseListener,
   consumeInitialDriverNotificationResponse,
+  driverNotificationSoundBlocked,
   ensureDriverNotificationPermission,
   prepareDriverNotificationChannels,
   setForegroundDriverOfferListener,
@@ -1051,7 +1052,28 @@ export function DriverHomeScreen() {
   useEffect(() => {
     if (!DRIVER_BG.pushRegister) return;
     prepareDriverNotificationChannels().catch(() => undefined);
-    ensureDriverNotificationPermission().catch(() => undefined);
+    ensureDriverNotificationPermission()
+      .then(async (ok) => {
+        if (ok || Platform.OS !== 'ios') return;
+        const soundOff = await driverNotificationSoundBlocked();
+        if (!soundOff) return;
+        Alert.alert(
+          t('Meldingsgeluid uit'),
+          t(
+            'iOS mag Nexa Taxi tonen, maar geluid staat uit. Zet Sounds aan in Instellingen, anders hoor je op slot/standby niets bij een nieuwe rit.'
+          ),
+          [
+            { text: t('Later'), style: 'cancel' },
+            {
+              text: t('Open Instellingen'),
+              onPress: () => {
+                Linking.openSettings().catch(() => undefined);
+              },
+            },
+          ]
+        );
+      })
+      .catch(() => undefined);
     if (driverToken) {
       registerDriverPushToken(driverToken).catch(() => undefined);
     }

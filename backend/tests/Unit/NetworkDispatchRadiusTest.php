@@ -903,7 +903,7 @@ class NetworkDispatchRadiusTest extends TestCase
             return str_contains($request->url(), 'exp.host/--/api/v2/push/send')
                 && ($message['to'] ?? null) === $token
                 && ($message['title'] ?? null) === 'Nieuwe rit'
-                && ($message['sound'] ?? null) === 'chime.wav'
+                && ($message['sound'] ?? null) === 'default'
                 && ($message['priority'] ?? null) === 'high'
                 && ($message['channelId'] ?? null) === 'driver-offers-alert-v9'
                 && ($message['interruptionLevel'] ?? null) === 'time-sensitive'
