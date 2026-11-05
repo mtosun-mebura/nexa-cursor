@@ -353,6 +353,7 @@ export const EN: Record<string, string> = {
   'Wil je blijven wachten (tot ca. {time}) of de rit annuleren?':
     'Do you want to keep waiting (until approx. {time}) or cancel the ride?',
   'Nu opnieuw zoeken': 'Search again now',
+  'Rit opnieuw indienen': 'Resubmit ride',
   'Zet dezelfde rit klaar met ophaaltijd van nu.':
     'Prepares the same ride with pickup time set to now.',
   'Ophaaladres ontbreekt.': 'Pickup address is missing.',
@@ -360,6 +361,7 @@ export const EN: Record<string, string> = {
   'De rit kon niet opnieuw worden klaargezet. Probeer het handmatig via Boeken.':
     'Could not prepare the ride again. Try booking manually.',
   'Opnieuw zoeken mislukt': 'Search again failed',
+  'Opnieuw indienen mislukt': 'Resubmit failed',
   'Naar Boeken': 'To Book',
   'Naar ritten': 'To rides',
   'Naar startpagina': 'To start page',
