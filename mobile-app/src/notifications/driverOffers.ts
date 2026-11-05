@@ -453,6 +453,8 @@ export type DriverNotificationOpenTarget = {
   offerId?: number | null;
   rideId?: number | null;
   preview?: DriverOfferPushPreview;
+  /** Tik op “Rit geannuleerd”: toon grijze kaart, niet als open aanbod. */
+  closed?: boolean;
 };
 
 function positiveId(value: unknown): number | null {
@@ -539,7 +541,16 @@ function targetFromNotificationData(data: Record<string, unknown> | undefined | 
   const preview = offerPreviewFromNotificationData(payload);
   const offerId = preview?.offerId ?? null;
   const rideId = preview?.rideId ?? null;
-  if (type === 'driver_offer_closed') return null;
+  if (type === 'driver_offer_closed') {
+    // Tik op “Rit geannuleerd”: open Aanvragen zodat de grijze kaart zichtbaar is.
+    return {
+      screen: 'requests',
+      offerId,
+      rideId,
+      preview: preview ?? undefined,
+      closed: true,
+    };
+  }
   if (type === 'driver_offer' || offerId != null) {
     return {
       screen: 'requests',
@@ -604,12 +615,23 @@ export function setForegroundDriverOfferListener(listener: ForegroundOfferListen
           content.data as Record<string, unknown> | undefined
         );
         if (String(payload?.type || '') === 'driver_offer_closed') {
+          const preview = offerPreviewFromNotificationData(payload);
           foregroundOfferListener?.({
-            offerId: positiveId(payload?.offer_id) ?? positiveId(payload?.offerId),
+            offerId:
+              preview?.offerId ??
+              positiveId(payload?.offer_id) ??
+              positiveId(payload?.offerId),
             rideId:
+              preview?.rideId ??
               positiveId(payload?.ride_request_id) ??
               positiveId(payload?.rideRequestId) ??
               positiveId(payload?.ride_id),
+            pickupAddress: preview?.pickupAddress,
+            pickupPlaceName: preview?.pickupPlaceName,
+            dropoffAddress: preview?.dropoffAddress,
+            dropoffPlaceName: preview?.dropoffPlaceName,
+            pickupAt: preview?.pickupAt,
+            quotedPrice: preview?.quotedPrice,
             closed: true,
           });
           return;

@@ -59,6 +59,12 @@ return [
     'marketplace_max_wait_minutes' => (int) env('TAXI_DISPATCH_MARKETPLACE_MAX_WAIT_MINUTES', 30),
 
     /**
+     * Minuten dat een geannuleerde marktplaats-/dispatch-aanbieding nog in de
+     * chauffeur-inbox blijft (grijs, niet klikbaar) vóór die uit de lijst verdwijnt.
+     */
+    'recently_cancelled_offer_minutes' => (int) env('TAXI_DISPATCH_RECENTLY_CANCELLED_OFFER_MINUTES', 5),
+
+    /**
      * Werkdagen waarbinnen een terugbetaling na annulering doorgaans zichtbaar is
      * (communicatie naar klant; Mollie/bank kan afwijken).
      */

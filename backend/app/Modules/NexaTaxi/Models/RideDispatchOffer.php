@@ -181,4 +181,21 @@ class RideDispatchOffer extends Model
             ->whereIn('status', [self::STATUS_DECLINED, self::STATUS_EXPIRED])
             ->whereNotNull('archived_at');
     }
+
+    /**
+     * Kort zichtbaar na klant-/auto-annulering: superseded offers van geannuleerde ritten.
+     */
+    public function scopeRecentlyCancelledForDriver($query, int $driverId, int $withinMinutes = 5)
+    {
+        $minutes = max(1, min(60, $withinMinutes));
+
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_SUPERSEDED)
+            ->whereNotNull('responded_at')
+            ->where('responded_at', '>=', now()->subMinutes($minutes))
+            ->whereHas('rideRequest', function ($q) {
+                $q->where('status', RideRequest::STATUS_CANCELLED);
+            });
+    }
 }

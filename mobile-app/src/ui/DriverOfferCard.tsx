@@ -141,10 +141,12 @@ type OfferModeProps = {
   expandOnce?: boolean;
   /** Als gezet: alleen dit aanbod staat open, de andere aanvragen blijven in de lijst. */
   soloOfferId?: number | null;
+  /** Geannuleerd: grijs, rood label, geen actieknoppen, start ingeklapt. */
+  cancelled?: boolean;
   fallbackVehicleLabel?: string | null;
   fallbackVehicleName?: string | null;
-  onAccept: () => void;
-  onDecline: () => void;
+  onAccept?: () => void;
+  onDecline?: () => void;
   onStart?: never;
   onComplete?: never;
   onOpenMaps?: never;
@@ -218,15 +220,27 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     setExpanded(cardExpandedByKey.get(expandKey) ?? false);
   }, [expandKey]);
 
+  const isCancelledOffer = !!props.offer && !!props.cancelled;
+
+  // Geannuleerde kaarten altijd ingeklapt starten (chauffeur ziet adres + rood label).
+  useEffect(() => {
+    if (!isCancelledOffer) return;
+    collapsedByUser.add(expandKey);
+    cardExpandedByKey.set(expandKey, false);
+    setExpanded(false);
+  }, [isCancelledOffer, expandKey]);
+
   // Alleen de rit uit de melding: één keer uitklappen, daarna niet opnieuw forceren.
   useEffect(() => {
+    if (isCancelledOffer) return;
     if (!expandOnce || collapsedByUser.has(expandKey)) return;
     cardExpandedByKey.set(expandKey, true);
     setExpanded(true);
-  }, [expandOnce, expandKey]);
+  }, [expandOnce, expandKey, isCancelledOffer]);
 
   const soloOfferId = props.offer ? props.soloOfferId : null;
   useEffect(() => {
+    if (isCancelledOffer) return;
     if (!props.offer || soloOfferId == null || soloOfferId <= 0) return;
     if (Number(props.offer.id) === soloOfferId) {
       if (collapsedByUser.has(expandKey)) return;
@@ -236,7 +250,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     }
     cardExpandedByKey.set(expandKey, false);
     setExpanded(false);
-  }, [soloOfferId, expandKey]);
+  }, [soloOfferId, expandKey, isCancelledOffer]);
 
   function toggleExpanded() {
     setExpanded((prev) => {
@@ -345,7 +359,9 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     tripVariant !== 'completed' &&
     ride?.status === 'accepted';
   const isCompletedTrip = isTrip && (tripVariant === 'completed' || ride?.status === 'completed');
-  const statusBadgeLabel = isTrip
+  const statusBadgeLabel = isCancelledOffer
+    ? null
+    : isTrip
     ? isCompletedTrip
       ? t("Afgerond")
       : tripVariant === 'active'
@@ -363,7 +379,8 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   const showBaggage = baggage.length > 0 && !(baggage.length === 1 && baggage[0] === 'Geen');
   const showMetrics = true;
   const showStats = showMetrics || showBaggage;
-  const showOfferSecondary = !isTrip && !marketplace;
+  const showOfferSecondary = !isTrip && !marketplace && !isCancelledOffer;
+  const showOfferActions = !isTrip && !isCancelledOffer && !!props.onAccept;
   const proposalStatus = String(ride?.pickup_proposal?.status || '');
   const canProposePickup = isTrip && showOverdueUi && !!props.onProposePickup && !isCompletedTrip;
   const canRelease = isTrip && showOverdueUi && !!props.onRelease && !isCompletedTrip;
@@ -394,10 +411,20 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     <View
       style={[
         styles.card,
-        { borderColor: showOverdueUi ? OVERDUE_RED : isCompletedTrip ? colors.muted : cardBorder },
+        {
+          borderColor: isCancelledOffer
+            ? OVERDUE_RED
+            : showOverdueUi
+              ? OVERDUE_RED
+              : isCompletedTrip
+                ? colors.muted
+                : cardBorder,
+        },
         showOverdueUi && styles.cardOverdue,
         isCompletedTrip && styles.cardCompleted,
+        isCancelledOffer && styles.cardCancelled,
       ]}
+      pointerEvents={isCancelledOffer ? 'box-none' : 'auto'}
     >
       {highlightActive ? (
         <Animated.View
@@ -409,7 +436,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
         style={[
           styles.accentBar,
           {
-            backgroundColor: showOverdueUi
+            backgroundColor: isCancelledOffer || showOverdueUi
               ? OVERDUE_RED
               : network
                 ? '#3B82F6'
@@ -426,17 +453,24 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       >
         <View style={styles.headerText}>
           <View style={styles.badgeRow}>
-            {showOverdueUi && !isTrip ? (
+            {isCancelledOffer ? (
+              <View style={[styles.badge, styles.badgeDanger]}>
+                <Text style={styles.badgeDangerText}>{t("Geannuleerd")}</Text>
+              </View>
+            ) : null}
+            {showOverdueUi && !isTrip && !isCancelledOffer ? (
               <View style={[styles.badge, styles.badgeDanger]}>
                 <OverdueFlickerDot />
                 <Text style={styles.badgeDangerText}>{t("Ophaalmoment verlopen")}</Text>
               </View>
             ) : null}
-            <View style={[styles.badge, kindBadgeStyle, { maxWidth: '78%' }]}>
-              <Text style={kindTextStyle} numberOfLines={1}>
-                {kindLabel}
-              </Text>
-            </View>
+            {!isCancelledOffer ? (
+              <View style={[styles.badge, kindBadgeStyle, { maxWidth: '78%' }]}>
+                <Text style={kindTextStyle} numberOfLines={1}>
+                  {kindLabel}
+                </Text>
+              </View>
+            ) : null}
             {isTrip && isRidePaid(ride) && kind !== 'contract' ? (
               <View style={[styles.badge, styles.badgeSuccess]}>
                 <Text style={styles.badgeSuccessText}>{t("Betaald")}</Text>
@@ -487,12 +521,24 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           {!expanded && (pickupCompact || dropoffCompact) ? (
             <View style={styles.collapsedRoute}>
               {pickupCompact ? (
-                <Text style={styles.collapsedRouteLine} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.collapsedRouteLine,
+                    isCancelledOffer && styles.cancelledMutedText,
+                  ]}
+                  numberOfLines={1}
+                >
                   {pickupCompact}
                 </Text>
               ) : null}
               {dropoffCompact ? (
-                <Text style={styles.collapsedRouteLine} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.collapsedRouteLine,
+                    isCancelledOffer && styles.cancelledMutedText,
+                  ]}
+                  numberOfLines={1}
+                >
                   →  {dropoffCompact}
                 </Text>
               ) : null}
@@ -500,7 +546,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          {!expanded && primaryPrice ? (
+          {!expanded && primaryPrice && !isCancelledOffer ? (
             <View style={styles.collapsedPriceCol}>
               <Text style={styles.collapsedPrice}>{primaryPrice}</Text>
               {customerPrice ? (
@@ -764,7 +810,11 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               </Pressable>
             ) : null}
           </>
-        ) : (
+        ) : isCancelledOffer ? (
+          <View style={styles.cancelledBanner} accessibilityRole="text">
+            <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
+          </View>
+        ) : showOfferActions ? (
           <>
             {showOfferSecondary ? (
               <Pressable
@@ -783,7 +833,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               <Text style={styles.btnPrimaryText}>{primaryLabel}</Text>
             </Pressable>
           </>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -807,6 +857,30 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     cardCompleted: {
       opacity: 0.78,
+    },
+    cardCancelled: {
+      opacity: 0.72,
+      backgroundColor: colors.card,
+      borderWidth: 1.5,
+    },
+    cancelledMutedText: {
+      color: colors.muted,
+    },
+    cancelledBanner: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(239, 68, 68, 0.35)',
+    },
+    cancelledBannerText: {
+      color: OVERDUE_RED,
+      fontSize: 13,
+      fontWeight: '700',
     },
     highlightRing: {
       position: 'absolute',

@@ -44,6 +44,8 @@ import {
   inboxDataFromResponse,
   mergeCompletedRides,
   isMarketplaceRide,
+  isCancelledOffer,
+  cancelledOfferStillVisible,
   proposePickup,
   releaseAcceptedRide,
   setDriverOnline,
@@ -426,6 +428,39 @@ function newestDriverOffer(list: DispatchOffer[]): DispatchOffer | null {
   return best;
 }
 
+function markOfferCancelled(offer: DispatchOffer, closedAt?: string | null): DispatchOffer {
+  return {
+    ...offer,
+    status: 'superseded',
+    ui_cancelled: true,
+    closed_at: closedAt || offer.closed_at || new Date().toISOString(),
+  };
+}
+
+function mergeCancelledOffers(current: DispatchOffer[], incoming: DispatchOffer[]): DispatchOffer[] {
+  const byId = new Map<number, DispatchOffer>();
+  const now = Date.now();
+  for (const offer of [...current, ...incoming]) {
+    const id = Number(offer.id);
+    if (id <= 0) continue;
+    const marked = markOfferCancelled(offer, offer.closed_at);
+    if (!cancelledOfferStillVisible(marked, now)) continue;
+    const prev = byId.get(id);
+    if (!prev) {
+      byId.set(id, marked);
+      continue;
+    }
+    const prevAt = Date.parse(String(prev.closed_at || '')) || 0;
+    const nextAt = Date.parse(String(marked.closed_at || '')) || 0;
+    if (nextAt >= prevAt) byId.set(id, marked);
+  }
+  return [...byId.values()].sort((a, b) => {
+    const aAt = Date.parse(String(a.closed_at || '')) || 0;
+    const bAt = Date.parse(String(b.closed_at || '')) || 0;
+    return bAt - aAt;
+  });
+}
+
 function cancelFailureMessage(error: unknown): string {
   const status = apiErrorStatus(error);
   const raw = error instanceof ApiError ? error.message.trim() : '';
@@ -515,6 +550,7 @@ export function DriverHomeScreen() {
   const [showEarnings, setShowEarnings] = useState(false);
   const [canViewMonthEarnings, setCanViewMonthEarnings] = useState(false);
   const [offers, setOffers] = useState<DispatchOffer[]>([]);
+  const [cancelledOffers, setCancelledOffers] = useState<DispatchOffer[]>([]);
   const [archivedOffers, setArchivedOffers] = useState<DispatchOffer[]>([]);
   const [declinedOffers, setDeclinedOffers] = useState<DispatchOffer[]>([]);
   const [activeRide, setActiveRide] = useState<DriverActiveRide | null>(null);
@@ -842,6 +878,7 @@ export function DriverHomeScreen() {
       setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
       setArchivedOffers(inboxData.archivedOffers);
       setDeclinedOffers(inboxData.declinedOffers);
+      setCancelledOffers((current) => mergeCancelledOffers(current, inboxData.cancelledOffers));
       setActiveRide(inboxData.activeRide);
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
@@ -969,6 +1006,7 @@ export function DriverHomeScreen() {
       setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
       setArchivedOffers(inboxData.archivedOffers);
       setDeclinedOffers(inboxData.declinedOffers);
+      setCancelledOffers((current) => mergeCancelledOffers(current, inboxData.cancelledOffers));
       setActiveRide(inboxData.activeRide);
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
@@ -1148,6 +1186,7 @@ export function DriverHomeScreen() {
           setOffers(previews.length ? [...previews, ...liveOffers] : liveOffers);
           setArchivedOffers(inboxData.archivedOffers);
           setDeclinedOffers(inboxData.declinedOffers);
+          setCancelledOffers((current) => mergeCancelledOffers(current, inboxData.cancelledOffers));
           setActiveRide(inboxData.activeRide);
           setParkedRides(inboxData.parkedAssignedRides);
           setScheduledRides(inboxData.scheduledRides);
@@ -1183,6 +1222,7 @@ export function DriverHomeScreen() {
             };
       const oid = Number(preview.offerId || target.offerId || 0) || 0;
       const rid = Number(preview.rideId || target.rideId || 0) || 0;
+      const fromClosed = 'closed' in target && target.closed === true;
       const run = () => {
         if (!mountedRef.current) return;
         try {
@@ -1190,6 +1230,57 @@ export function DriverHomeScreen() {
           persistDriverArchive(false);
           setTab('requests');
           persistDriverTab('requests');
+          if (fromClosed) {
+            // Geannuleerde rit: grijs in Aanvragen, niet als open aanbod uitklappen.
+            if (oid > 0) closedOfferIdsRef.current.add(oid);
+            const closedAt = new Date().toISOString();
+            const existing = offersRef.current.find(
+              (offer) =>
+                (oid > 0 && Number(offer.id) === oid) || (rid > 0 && offerMatchesRide(offer, rid))
+            );
+            if (existing) {
+              setOffers((current) =>
+                current.filter(
+                  (offer) =>
+                    !(oid > 0 && Number(offer.id) === oid) &&
+                    !(rid > 0 && offerMatchesRide(offer, rid))
+                )
+              );
+              setCancelledOffers((prev) =>
+                mergeCancelledOffers(prev, [markOfferCancelled(existing, closedAt)])
+              );
+            } else if (oid > 0 || rid > 0) {
+              setCancelledOffers((prev) =>
+                mergeCancelledOffers(prev, [
+                  markOfferCancelled(
+                    {
+                      id: oid > 0 ? oid : rid,
+                      ride_request_id: rid > 0 ? rid : undefined,
+                      status: 'superseded',
+                      closed_at: closedAt,
+                      ui_cancelled: true,
+                      ride: {
+                        id: rid > 0 ? rid : undefined,
+                        pickup_address: String(preview.pickupAddress || ''),
+                        pickup_place_name: String(preview.pickupPlaceName || '') || null,
+                        dropoff_address: String(preview.dropoffAddress || ''),
+                        dropoff_place_name: String(preview.dropoffPlaceName || '') || null,
+                        pickup_at: preview.pickupAt || undefined,
+                        quoted_price:
+                          preview.quotedPrice != null && Number.isFinite(Number(preview.quotedPrice))
+                            ? Number(preview.quotedPrice)
+                            : null,
+                        status: 'cancelled',
+                      },
+                    },
+                    closedAt
+                  ),
+                ])
+              );
+            }
+            void hydrateOfferFromInbox(oid, rid);
+            return;
+          }
           notificationExpandLockRef.current = true;
           if (oid > 0 || rid > 0) {
             const applied = applyPushOfferPreview({ ...preview, offerId: oid || preview.offerId });
@@ -1278,18 +1369,57 @@ export function DriverHomeScreen() {
         const rid = Number(payload.rideId || 0);
         if (id > 0) closedOfferIdsRef.current.add(id);
         pushPreviewRef.current.delete(id);
-        setOffers((current) =>
-          current.filter((offer) => {
-            const offerIdNum = Number(offer.id);
-            if (id > 0 && offerIdNum === id) return false;
-            const offerRideId = Number(offer.ride_request_id || offer.ride?.id || 0);
-            return !(rid > 0 && offerRideId === rid);
-          })
-        );
+        const closedAt = new Date().toISOString();
+        const currentOffers = offersRef.current;
+        const kept: DispatchOffer[] = [];
+        const moved: DispatchOffer[] = [];
+        for (const offer of currentOffers) {
+          const offerIdNum = Number(offer.id);
+          const offerRideId = Number(offer.ride_request_id || offer.ride?.id || 0);
+          const match =
+            (id > 0 && offerIdNum === id) || (rid > 0 && offerRideId === rid);
+          if (match) moved.push(markOfferCancelled(offer, closedAt));
+          else kept.push(offer);
+        }
+        setOffers(kept);
+        if (moved.length) {
+          setCancelledOffers((prev) => mergeCancelledOffers(prev, moved));
+        } else if (id > 0 || rid > 0) {
+          // Push kwam binnen vóór de lokale kaart: stub met adres uit de melding.
+          setCancelledOffers((prev) =>
+            mergeCancelledOffers(prev, [
+              markOfferCancelled(
+                {
+                  id: id > 0 ? id : rid,
+                  ride_request_id: rid > 0 ? rid : undefined,
+                  status: 'superseded',
+                  closed_at: closedAt,
+                  ui_cancelled: true,
+                  ride: {
+                    id: rid > 0 ? rid : undefined,
+                    pickup_address: String(payload.pickupAddress || ''),
+                    pickup_place_name: String(payload.pickupPlaceName || '') || null,
+                    dropoff_address: String(payload.dropoffAddress || ''),
+                    dropoff_place_name: String(payload.dropoffPlaceName || '') || null,
+                    pickup_at: payload.pickupAt || undefined,
+                    quoted_price:
+                      payload.quotedPrice != null && Number.isFinite(Number(payload.quotedPrice))
+                        ? Number(payload.quotedPrice)
+                        : null,
+                    status: 'cancelled',
+                  },
+                },
+                closedAt
+              ),
+            ])
+          );
+        }
         if (id > 0) {
           setFocusOfferId((current) => (current === id ? null : current));
           setExpandOfferId((current) => (current === id ? null : current));
         }
+        setTab('requests');
+        persistDriverTab('requests');
         return;
       }
       try {
@@ -2026,12 +2156,35 @@ export function DriverHomeScreen() {
     (r) => matchesTripFilters(r) && keepDriverCard(r)
   );
 
+  const visibleCancelledOffers = useMemo(
+    () => cancelledOffers.filter((offer) => cancelledOfferStillVisible(offer)),
+    [cancelledOffers]
+  );
+
   const requestOffers = useMemo(() => {
-    if (!focusOfferId) return offers;
-    const index = offers.findIndex((o) => Number(o.id) === focusOfferId);
-    if (index <= 0) return offers;
-    return [offers[index], ...offers.filter((o) => Number(o.id) !== focusOfferId)];
-  }, [offers, focusOfferId]);
+    let live = offers;
+    if (focusOfferId) {
+      const index = offers.findIndex((o) => Number(o.id) === focusOfferId);
+      if (index > 0) {
+        live = [offers[index], ...offers.filter((o) => Number(o.id) !== focusOfferId)];
+      }
+    }
+    const liveIds = new Set(live.map((o) => Number(o.id)));
+    const cancelledOnly = visibleCancelledOffers.filter((o) => !liveIds.has(Number(o.id)));
+    return [...live, ...cancelledOnly];
+  }, [offers, focusOfferId, visibleCancelledOffers]);
+
+  // Geannuleerde kaarten na 5 min uit Aanvragen halen.
+  useEffect(() => {
+    if (cancelledOffers.length === 0) return;
+    const timer = setInterval(() => {
+      setCancelledOffers((current) => {
+        const next = current.filter((offer) => cancelledOfferStillVisible(offer));
+        return next.length === current.length ? current : next;
+      });
+    }, 15_000);
+    return () => clearInterval(timer);
+  }, [cancelledOffers.length]);
 
   const hasTripsUnfiltered =
     !!activeForTrips ||
@@ -2331,7 +2484,7 @@ export function DriverHomeScreen() {
     <FlatList
       style={{ flex: 1 }}
       data={requestOffers}
-      extraData={`${focusOfferId ?? ''}:${expandOfferId ?? ''}:${offers.length}`}
+      extraData={`${focusOfferId ?? ''}:${expandOfferId ?? ''}:${offers.length}:${visibleCancelledOffers.length}`}
       keyExtractor={(item) => String(item.id)}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews={false}
@@ -2369,17 +2522,21 @@ export function DriverHomeScreen() {
         if (!item || Number(item.id) <= 0) {
           return <View />;
         }
+        const cancelled = isCancelledOffer(item);
         return (
           <DriverOfferCard
             offer={item}
-            busy={busyId === item.id}
-            highlighted={focusOfferId === item.id}
-            expandOnce={expandOfferId != null && Number(item.id) === expandOfferId}
-            soloOfferId={expandOfferId}
+            cancelled={cancelled}
+            busy={!cancelled && busyId === item.id}
+            highlighted={!cancelled && focusOfferId === item.id}
+            expandOnce={
+              !cancelled && expandOfferId != null && Number(item.id) === expandOfferId
+            }
+            soloOfferId={cancelled ? null : expandOfferId}
             fallbackVehicleLabel={vehicleDisplayLabel(selectedVehicle) || null}
             fallbackVehicleName={vehicleDisplayName(selectedVehicle) || null}
-            onAccept={() => onAccept(item.id)}
-            onDecline={() => onDecline(item.id)}
+            onAccept={cancelled ? undefined : () => onAccept(item.id)}
+            onDecline={cancelled ? undefined : () => onDecline(item.id)}
           />
         );
       }}

@@ -103,6 +103,19 @@ class DriverDispatchController extends Controller
             })
             ->values();
 
+        $recentlyCancelledMinutes = max(
+            1,
+            min(60, (int) config('taxi-dispatch.recently_cancelled_offer_minutes', 5))
+        );
+        $cancelledOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->recentlyCancelledForDriver((int) $user->id, $recentlyCancelledMinutes)
+            ->get()
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->responded_at?->timestamp ?? 0;
+            })
+            ->values();
+
         $unclaimedRides = Cache::remember(
             'taxi_unclaimed:'.$companyId,
             20,
@@ -224,6 +237,7 @@ class DriverDispatchController extends Controller
             ->concat($customerDeclinedProposalOffers)
             ->concat($overdueReleasedOffers)
             ->concat($archivedOffers)
+            ->concat($cancelledOffers)
             ->map(fn (RideDispatchOffer $offer) => $offer->rideRequest)
             ->filter(fn ($ride) => $ride && ! $ride->driver_id)
             ->map(fn (RideRequest $ride) => (int) $ride->id)
@@ -244,6 +258,15 @@ class DriverDispatchController extends Controller
                     'declined_offers' => $declinedOffers
                         ->concat($customerDeclinedProposalOffers)
                         ->map(fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest))
+                        ->values(),
+                    'cancelled_offers' => $cancelledOffers
+                        ->map(function (RideDispatchOffer $o) {
+                            $data = TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest);
+                            $data['closed_at'] = $o->responded_at?->toIso8601String();
+                            $data['ui_cancelled'] = true;
+
+                            return $data;
+                        })
                         ->values(),
                     'active_ride' => $activeRide
                         ? TaxiDispatchOfferResource::rideSummary($activeRide)

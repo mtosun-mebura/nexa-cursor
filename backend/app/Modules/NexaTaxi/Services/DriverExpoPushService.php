@@ -33,6 +33,41 @@ class DriverExpoPushService
         return $parts !== [] ? implode(' · ', $parts) : 'Er staat een nieuwe rit voor je klaar.';
     }
 
+    /**
+     * Zichtbare tekst bij “Rit geannuleerd”: welke rit, geen vage “niet beschikbaar”.
+     *
+     * @param  array{pickup_address?: string|null, pickup_at?: string|null, quoted_price?: float|int|string|null}  $meta
+     */
+    public function closedOfferBody(array $meta = []): string
+    {
+        $pickup = trim((string) ($meta['pickup_address'] ?? ''));
+        if ($pickup !== '') {
+            $comma = strpos($pickup, ',');
+            if ($comma !== false && $comma > 0) {
+                $pickup = trim(substr($pickup, 0, $comma));
+            }
+        }
+        $when = '';
+        $rawWhen = trim((string) ($meta['pickup_at'] ?? ''));
+        if ($rawWhen !== '') {
+            try {
+                $when = \Carbon\Carbon::parse($rawWhen)->format('d-m H:i');
+            } catch (\Throwable) {
+                $when = '';
+            }
+        }
+        $amount = $meta['quoted_price'] ?? null;
+        $price = is_numeric($amount) ? '€ '.number_format((float) $amount, 2, ',', '') : null;
+        $parts = array_values(array_filter(
+            [$pickup !== '' ? $pickup : null, $when !== '' ? $when : null, $price],
+            static fn ($part) => $part !== null && $part !== ''
+        ));
+
+        return $parts !== []
+            ? implode(' · ', $parts)
+            : 'De rit is geannuleerd.';
+    }
+
     public function sendNewOffer(
         int $driverId,
         int $rideRequestId,
@@ -99,10 +134,10 @@ class DriverExpoPushService
     }
 
     /**
-     * Aanbod is niet meer pending (geannuleerd, verlopen, ingetrokken of door een ander gepakt).
-     * Eén stille-zichtbare push per apparaat, zodat de kaart niet op de volgende inbox-poll wacht.
+     * Aanbod is niet meer pending (geannuleerd). Push noemt de rit (adres/tijd),
+     * zodat de chauffeur weet welke kaart grijs/geannuleerd wordt.
      *
-     * @param  iterable<int, array{id?: int, driver_id?: int, ride_request_id?: int}|object>  $offers
+     * @param  iterable<int, array{id?: int, driver_id?: int, ride_request_id?: int, pickup_address?: string|null, pickup_at?: string|null, quoted_price?: float|int|string|null}|object>  $offers
      */
     public function sendOffersClosed(iterable $offers): void
     {
@@ -114,7 +149,20 @@ class DriverExpoPushService
             if ($id <= 0 || $driverId <= 0) {
                 continue;
             }
-            $rows[] = ['id' => $id, 'driver_id' => $driverId, 'ride_request_id' => $rideId];
+            $rows[] = [
+                'id' => $id,
+                'driver_id' => $driverId,
+                'ride_request_id' => $rideId,
+                'pickup_address' => trim((string) (is_array($offer)
+                    ? ($offer['pickup_address'] ?? '')
+                    : ($offer->pickup_address ?? ''))),
+                'pickup_at' => trim((string) (is_array($offer)
+                    ? ($offer['pickup_at'] ?? '')
+                    : ($offer->pickup_at ?? ''))),
+                'quoted_price' => is_array($offer)
+                    ? ($offer['quoted_price'] ?? null)
+                    : ($offer->quoted_price ?? null),
+            ];
         }
         if ($rows === []) {
             return;
@@ -129,6 +177,7 @@ class DriverExpoPushService
         $sentRows = [];
         $dedupeKeys = [];
         foreach ($rows as $row) {
+            $body = $this->closedOfferBody($row);
             foreach ($tokens->get($row['driver_id'], []) as $device) {
                 $token = trim((string) $device->token);
                 if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -143,7 +192,7 @@ class DriverExpoPushService
                 $messages[] = [
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
-                    'body' => 'Dit aanbod is niet meer beschikbaar.',
+                    'body' => $body,
                     'sound' => 'chime.wav',
                     'priority' => 'high',
                     'channelId' => 'driver-offers-alert-v9',
@@ -153,6 +202,9 @@ class DriverExpoPushService
                         'screen' => 'requests',
                         'offer_id' => $row['id'],
                         'ride_request_id' => $row['ride_request_id'] > 0 ? $row['ride_request_id'] : null,
+                        'pickup_address' => $row['pickup_address'] !== '' ? $row['pickup_address'] : null,
+                        'pickup_at' => $row['pickup_at'] !== '' ? $row['pickup_at'] : null,
+                        'quoted_price' => is_numeric($row['quoted_price']) ? (float) $row['quoted_price'] : null,
                     ], static fn ($value) => $value !== null && $value !== ''),
                 ];
             }
