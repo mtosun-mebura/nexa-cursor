@@ -121,6 +121,18 @@ async function rememberSoundedWithoutPlay(ids: number[]): Promise<void> {
   await persistSounded().catch(() => undefined);
 }
 
+/** Markeer aanbod als al geklonken (OS-push / BG) — geen tweede play bij openen via melding. */
+export function rememberDriverOfferSounded(ids: number[]): void {
+  markOfferIdsSounded(ids);
+  void persistSounded().catch(() => undefined);
+  void ensureSoundedLoaded();
+}
+
+export function driverOfferAlreadySounded(id: number): boolean {
+  const n = Number(id);
+  return n > 0 && soundedOfferIds.has(n);
+}
+
 async function addOfferBadge(extra: number): Promise<number> {
   const add = Math.max(0, Math.round(extra));
   let current = 0;
@@ -273,8 +285,9 @@ async function checkOnce(input: {
     pickupAt: priority.ride?.pickup_at,
     quotedPrice: priority.ride?.quoted_price ?? null,
     expiresAt: priority.expires_at,
-    playSound: true,
-    systemSound: true,
+    // Toon al via playDriverOfferToneForIds; lokale melding stil om dubbel geluid te voorkomen.
+    playSound: false,
+    systemSound: false,
     badge,
     offerId,
     rideRequestId,

@@ -239,6 +239,7 @@ class RideDispatchService
         }
 
         $query = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
             ->where('status', RideDispatchOffer::STATUS_PENDING)
             ->where('expires_at', '<=', now());
 
@@ -246,17 +247,66 @@ class RideDispatchService
             $query->where('ride_request_id', $rideId);
         }
 
-        $rideIds = (clone $query)->pluck('ride_request_id')->unique()->map(fn ($id) => (int) $id)->all();
-        $closing = (clone $query)->get(['id', 'driver_id', 'ride_request_id']);
+        $pending = $query->get();
+        if ($pending->isEmpty()) {
+            return 0;
+        }
 
-        $count = $query->update([
-            'status' => RideDispatchOffer::STATUS_EXPIRED,
-            'responded_at' => now(),
-        ]);
-        app(DriverExpoPushService::class)->sendOffersClosed($closing);
+        $extendByCompany = [];
+        $expireIds = [];
+        $escalateRideIds = [];
 
-        foreach ($rideIds as $waitingRideId) {
-            $this->escalateWaitingRide($conn, $waitingRideId);
+        foreach ($pending as $offer) {
+            $ride = $offer->rideRequest;
+            $stillOpen = $ride
+                && ! $ride->driver_id
+                && in_array($ride->status, [
+                    RideRequest::STATUS_PENDING_DISPATCH,
+                    RideRequest::STATUS_OFFERED,
+                ], true);
+
+            if ($stillOpen) {
+                // Open zoekrit: verleng i.p.v. “Rit geannuleerd” + opnieuw aanbieden.
+                $companyId = (int) ($offer->company_id ?: $ride->company_id ?: 0);
+                if ($companyId > 0) {
+                    $this->promoteRidePickupIntoDriverQueue($ride, $companyId);
+                }
+                $extendByCompany[$companyId][] = (int) $offer->id;
+                continue;
+            }
+
+            $expireIds[] = (int) $offer->id;
+            $escalateRideIds[] = (int) $offer->ride_request_id;
+        }
+
+        $count = 0;
+        foreach ($extendByCompany as $companyId => $ids) {
+            $ids = array_values(array_unique(array_filter($ids)));
+            if ($ids === []) {
+                continue;
+            }
+            $ttl = $this->dispatchSettings->offerTtlSeconds($companyId > 0 ? $companyId : null);
+            $count += RideDispatchOffer::on($conn)
+                ->whereIn('id', $ids)
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->update([
+                    'expires_at' => now()->addSeconds(max(30, $ttl)),
+                ]);
+        }
+
+        if ($expireIds !== []) {
+            $count += RideDispatchOffer::on($conn)
+                ->whereIn('id', array_values(array_unique($expireIds)))
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->update([
+                    'status' => RideDispatchOffer::STATUS_EXPIRED,
+                    'responded_at' => now(),
+                ]);
+            // Geen sendOffersClosed: die melding alleen bij echte klant-/auto-annulering.
+        }
+
+        foreach (array_unique(array_filter($escalateRideIds)) as $waitingRideId) {
+            $this->escalateWaitingRide($conn, (int) $waitingRideId);
         }
 
         return $count;
@@ -454,20 +504,14 @@ class RideDispatchService
             }
 
             if (! $this->driverFitsPassengerCapacity($conn, $companyId, $driverId, $ride)) {
-                $closing = RideDispatchOffer::on($conn)
+                RideDispatchOffer::on($conn)
                     ->where('ride_request_id', $ride->id)
                     ->where('driver_id', $driverId)
                     ->where('status', RideDispatchOffer::STATUS_PENDING)
-                    ->get(['id', 'driver_id', 'ride_request_id']);
-                if ($closing->isNotEmpty()) {
-                    RideDispatchOffer::on($conn)
-                        ->whereIn('id', $closing->modelKeys())
-                        ->update([
-                            'status' => RideDispatchOffer::STATUS_EXPIRED,
-                            'responded_at' => $now,
-                        ]);
-                    app(DriverExpoPushService::class)->sendOffersClosed($closing);
-                }
+                    ->update([
+                        'status' => RideDispatchOffer::STATUS_EXPIRED,
+                        'responded_at' => $now,
+                    ]);
                 continue;
             }
 
@@ -623,15 +667,13 @@ class RideDispatchService
             return 0;
         }
 
-        $count = RideDispatchOffer::on($conn)
+        // Stil verlopen: rit staat nog open of is al weg — geen “Rit geannuleerd”-push.
+        return RideDispatchOffer::on($conn)
             ->whereIn('id', $closing->modelKeys())
             ->update([
                 'status' => RideDispatchOffer::STATUS_EXPIRED,
                 'responded_at' => now(),
             ]);
-        app(DriverExpoPushService::class)->sendOffersClosed($closing);
-
-        return $count;
     }
 
     /**

@@ -80,6 +80,10 @@ class DispatchSettingsController extends Controller
             'envDefaultCustomerUnacceptedDecisionMinutes' => (int) config('taxi-dispatch.customer_unaccepted_decision_minutes', 30),
             'minCustomerUnacceptedDecisionMinutes' => TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
             'maxCustomerUnacceptedDecisionMinutes' => TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
+            'marketplaceMaxWaitMinutes' => $this->dispatchSettings->marketplaceMaxWaitMinutes($companyId),
+            'envDefaultMarketplaceMaxWaitMinutes' => (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30),
+            'minMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
+            'maxMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES,
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'paymentBookingEnabled' => $this->dispatchSettings->paymentBookingEnabled($companyId),
@@ -213,6 +217,8 @@ class DispatchSettingsController extends Controller
         $maxAutoCancelMinutes = TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES;
         $minDecisionMinutes = TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES;
         $maxDecisionMinutes = TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES;
+        $minMarketplaceMaxWait = TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES;
+        $maxMarketplaceMaxWait = TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES;
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
         $rules = [
@@ -220,6 +226,7 @@ class DispatchSettingsController extends Controller
             'past_pickup_grace_minutes' => ['required', 'integer', 'min:'.$minGraceMinutes, 'max:'.$maxGraceMinutes],
             'unaccepted_auto_cancel_minutes' => ['required', 'integer', 'min:'.$minAutoCancelMinutes, 'max:'.$maxAutoCancelMinutes],
             'customer_unaccepted_decision_minutes' => ['required', 'integer', 'min:'.$minDecisionMinutes, 'max:'.$maxDecisionMinutes],
+            'marketplace_max_wait_minutes' => ['required', 'integer', 'min:'.$minMarketplaceMaxWait, 'max:'.$maxMarketplaceMaxWait],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
             'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
@@ -266,6 +273,9 @@ class DispatchSettingsController extends Controller
             'customer_unaccepted_decision_minutes.required' => __('Vul in hoe lang de klant mag reageren (wachten of annuleren).'),
             'customer_unaccepted_decision_minutes.min' => __('Reactietijd moet minimaal :min minuten zijn (0 = nooit automatisch annuleren).', ['min' => $minDecisionMinutes]),
             'customer_unaccepted_decision_minutes.max' => __('Reactietijd mag maximaal :max minuten zijn.', ['max' => $maxDecisionMinutes]),
+            'marketplace_max_wait_minutes.required' => __('Vul de marktplaats max. wachttijd in.'),
+            'marketplace_max_wait_minutes.min' => __('Max. wachttijd moet minimaal :min minuten zijn (0 = uit).', ['min' => $minMarketplaceMaxWait]),
+            'marketplace_max_wait_minutes.max' => __('Max. wachttijd mag maximaal :max minuten zijn.', ['max' => $maxMarketplaceMaxWait]),
             'customer_login_code_expires_minutes.required' => __('Vul de geldigheid van de inlogcode in.'),
             'customer_login_code_expires_minutes.min' => __('Geldigheid moet minimaal :min minuten zijn.', ['min' => $minLoginCodeMinutes]),
             'customer_login_code_expires_minutes.max' => __('Geldigheid mag maximaal :max minuten zijn.', ['max' => $maxLoginCodeMinutes]),
@@ -289,6 +299,10 @@ class DispatchSettingsController extends Controller
         );
         $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes(
             (int) $validated['customer_unaccepted_decision_minutes'],
+            $companyId
+        );
+        $this->dispatchSettings->setMarketplaceMaxWaitMinutes(
+            (int) $validated['marketplace_max_wait_minutes'],
             $companyId
         );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
@@ -346,6 +360,7 @@ class DispatchSettingsController extends Controller
             $rules['past_pickup_grace_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES];
             $rules['unaccepted_auto_cancel_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES];
             $rules['customer_unaccepted_decision_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES];
+            $rules['marketplace_max_wait_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES];
             if ($companyId !== null) {
                 $rules['overdue_auto_archive_days'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, 'max:'.TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS];
             }
@@ -391,6 +406,7 @@ class DispatchSettingsController extends Controller
             }
             $this->dispatchSettings->setUnacceptedAutoCancelMinutes((int) $validated['unaccepted_auto_cancel_minutes'], $companyId);
             $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes((int) $validated['customer_unaccepted_decision_minutes'], $companyId);
+            $this->dispatchSettings->setMarketplaceMaxWaitMinutes((int) $validated['marketplace_max_wait_minutes'], $companyId);
         }
         if (in_array('customer_login', $mutating, true)) {
             $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes((int) $validated['customer_login_code_expires_minutes'], $companyId);

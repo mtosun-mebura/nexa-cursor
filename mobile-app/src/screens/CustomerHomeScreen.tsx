@@ -139,8 +139,13 @@ function contactDetailsFilled(
 }
 const TAB_KEY = 'nexa_taxi_customer_tab';
 const taxiCarYellow = require('../../assets/taxi-car-yellow.png');
-/** Bundled map icon for Android Marker.image (~26×39 @3x). Full PNG is too large as a bitmap descriptor. */
+/**
+ * Android Marker.image: density-set 26×39 / @2x / @3x.
+ * Eén losse @3x-PNG werd als mdpi gedecodeerd → 3× te groot op scherm.
+ */
 const taxiCarYellowMarker = require('../../assets/taxi-car-yellow-marker.png');
+/** Flat illustrated taxi thumb when vehicle photo is missing/fails (not a real car photo). */
+const taxiVehiclePlaceholder = require('../../assets/taxi-vehicle-placeholder.png');
 const dropPinGreen = require('../../assets/marker-drop-green.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
@@ -363,6 +368,12 @@ function AcceptedRideIdentity({
   const carPhoto = resolveCustomerMediaUrl(live.vehicle?.photo_url);
   const logo = resolveCustomerMediaUrl(live.driver?.company_logo_url);
   const plate = String(live.vehicle?.license_plate || '').trim();
+  const [carPhotoFailed, setCarPhotoFailed] = useState(false);
+  const showCarPhoto = Boolean(carPhoto) && !carPhotoFailed;
+
+  useEffect(() => {
+    setCarPhotoFailed(false);
+  }, [carPhoto]);
 
   return (
     <View style={[styles.driverCard, styles.acceptedDriverCard]}>
@@ -407,18 +418,34 @@ function AcceptedRideIdentity({
         </View>
         <View style={styles.acceptedAlignRow}>
           <Pressable
-            disabled={!carPhoto}
+            disabled={!showCarPhoto}
             onPress={() => {
-              if (carPhoto) onPreview(carPhoto);
+              if (showCarPhoto && carPhoto) onPreview(carPhoto);
             }}
-            accessibilityRole={carPhoto ? 'button' : 'image'}
-            accessibilityLabel={carPhoto ? t("Autofoto vergroten") : t("Auto")}
+            accessibilityRole={showCarPhoto ? 'button' : 'image'}
+            accessibilityLabel={
+              showCarPhoto ? t("Autofoto vergroten") : t("Geen foto van dit voertuig")
+            }
           >
-            <Image
-              source={carPhoto ? { uri: carPhoto } : taxiCarYellow}
-              style={styles.acceptedVehicleThumb}
-              resizeMode="cover"
-            />
+            {showCarPhoto ? (
+              <Image
+                source={{ uri: carPhoto! }}
+                style={styles.acceptedVehicleThumb}
+                resizeMode="cover"
+                onError={() => setCarPhotoFailed(true)}
+              />
+            ) : (
+              <View style={styles.acceptedVehiclePlaceholderWrap}>
+                <View style={styles.acceptedVehiclePlaceholderFrame}>
+                  <Image
+                    source={taxiVehiclePlaceholder}
+                    style={styles.acceptedVehiclePlaceholderThumb}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.acceptedVehiclePlaceholderLabel}>{t("Geen foto")}</Text>
+              </View>
+            )}
           </Pressable>
           <DutchPlateBadge plate={plate} accessibilityLabel={t("Kenteken")} />
         </View>
@@ -604,6 +631,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [contactConfirmed, setContactConfirmed] = useState(false);
   const contactSnapshot = useRef<ContactSnapshot | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  /** Auto-annulering na lang wachten: alleen OK, daarna uit de lijst. */
+  const [longWaitCancelRide, setLongWaitCancelRide] = useState<GuestRide | null>(null);
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
@@ -886,6 +915,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     if (!rideMapOpen || tab !== 'rides') return;
+    // Bij "ophalen" (en_route) hoort de kaart bovenaan — niet scrollen naar de statuskaart.
+    if (driverComing) return;
     const scrollToStatus = () => {
       const y =
         tripStatusY.current > 0 ? tripStatusY.current : Math.max(0, tripMapHeight + 12);
@@ -893,7 +924,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     };
     const timers = [0, 80, 280, 500].map((ms) => setTimeout(scrollToStatus, ms));
     return () => timers.forEach(clearTimeout);
-  }, [rideMapOpen, tab, trackToken, tripMapHeight]);
+  }, [rideMapOpen, tab, trackToken, tripMapHeight, driverComing]);
+
+  // Chauffeur klikt "ophalen": klant meteen naar de kaart (status staat eronder).
+  useEffect(() => {
+    if (!driverComing || !rideMapOpen) return;
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+    setShowArchivedRides(false);
+    const reveal = () => ridesScrollRef.current?.scrollTo({ y: 0, animated: true });
+    requestAnimationFrame(reveal);
+    const timers = [80, 280, 500].map((ms) => setTimeout(reveal, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [driverComing, rideMapOpen, trackToken]);
 
   useEffect(() => {
     if (!rideMapOpen || live?.pickup_lat == null || live?.pickup_lng == null || live?.dropoff_lat == null || live?.dropoff_lng == null) {
@@ -2646,6 +2689,29 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const visiblePast = pastRides.filter((r) => !archivedSet.has(rideArchiveKey(r)));
   const archivedPast = pastRides.filter((r) => archivedSet.has(rideArchiveKey(r)));
 
+  useEffect(() => {
+    if (longWaitCancelRide) return;
+    const candidate =
+      guestRides.find(
+        (r) =>
+          r.phase === 'cancelled' &&
+          r.cancellation_reason === 'auto_unaccepted' &&
+          !archivedSet.has(rideArchiveKey(r))
+      ) || null;
+    if (
+      !candidate &&
+      live?.phase === 'cancelled' &&
+      live.cancellation_reason === 'auto_unaccepted'
+    ) {
+      const fromLive = guestRides.find((r) => Number(r.id) === Number(live.id));
+      if (fromLive && !archivedSet.has(rideArchiveKey(fromLive))) {
+        setLongWaitCancelRide(fromLive);
+      }
+      return;
+    }
+    if (candidate) setLongWaitCancelRide(candidate);
+  }, [guestRides, archivedKeys, longWaitCancelRide, live]);
+
   function renderRatingResult(stars: number, comment?: string | null) {
     return (
       <View style={styles.statusTimeline}>
@@ -2832,7 +2898,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               : ''
           } of annuleren?`
         : waitingOn
-          ? t("Je rit blijft op de marktplaats tot een taxi accepteert. Je kunt alsnog annuleren.")
+          ? t(
+              "Je rit blijft op de marktplaats tot een taxi accepteert. Duurt het te lang, dan wordt de rit automatisch geannuleerd. Je kunt alsnog zelf annuleren."
+            )
           : t("Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.");
 
       return (
@@ -3401,13 +3469,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             <Text style={styles.liveTitle}>{invoiceSentLabel}</Text>
           ) : tripStarted ? (
             <Text style={styles.liveTitle}>{t("De rit is gestart.")}</Text>
-          ) : (
+          ) : driverComing ? (
             <DriverComingText
               eta={arrivalEtaText(live)}
               headlineStyle={styles.arrivalHeadline}
               detailStyle={styles.arrivalType}
             />
+          ) : (
+            <Text style={styles.liveTitle}>{t("De chauffeur heeft je rit geaccepteerd.")}</Text>
           )}
+          {driverComing || tripStarted ? (
           <View style={styles.followMapBlock}>
             <Pressable
               onPress={focusAcceptedMap}
@@ -3420,6 +3491,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.followMapLink}>{t("Volg chauffeur op de kaart.")}</Text>
             </Pressable>
           </View>
+          ) : null}
           <AcceptedRideIdentity live={live} onPreview={setPhotoPreviewUri} />
           <View style={styles.rideCardFoot}>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -3777,6 +3849,39 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       </AppModal>
 
       <AppModal
+        visible={!!longWaitCancelRide}
+        onRequestClose={() => undefined}
+        dismissOnBackdrop={false}
+        dismissDisabled
+        panelStyle={styles.confirmBanner}
+      >
+        <Text style={styles.confirmTitle}>{t("Rit geannuleerd")}</Text>
+        <Text style={styles.confirmText}>
+          {String(
+            longWaitCancelRide?.cancellation_message ||
+              live?.cancellation_message ||
+              'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.'
+          ).trim()}
+        </Text>
+        <View style={{ marginTop: 14 }}>
+          <PrimaryButton
+            title={t("OK")}
+            onPress={() => {
+              const ride = longWaitCancelRide;
+              setLongWaitCancelRide(null);
+              if (!ride) return;
+              void toggleArchiveRide(ride, true);
+              if (trackToken && (ride.token === trackToken || Number(live?.id) === Number(ride.id))) {
+                setTrackToken(null);
+                setLive(null);
+                void AsyncStorage.removeItem(TRACK_KEY);
+              }
+            }}
+          />
+        </View>
+      </AppModal>
+
+      <AppModal
         visible={!!rateModalToken}
         onRequestClose={() => {
           if (!busy) setRateModalToken(null);
@@ -3944,7 +4049,7 @@ function ActiveRideBanner({
           {ride.phase === 'accepted'
             ? etaLabel
               ? t("De chauffeur is onderweg naar jou.")
-              : ride.status_label || t("Taxi onderweg")
+              : t("De chauffeur heeft je rit geaccepteerd.")
             : t("Openstaande rit")}
         </Text>
         {etaLabel ? (
@@ -4805,6 +4910,36 @@ function makeStyles(colors: ColorPalette) {
       height: ACCEPTED_CAR_HEIGHT,
       borderRadius: 6,
       backgroundColor: 'transparent',
+    },
+    acceptedVehiclePlaceholderWrap: {
+      width: ACCEPTED_CAR_WIDTH,
+      alignItems: 'center',
+      gap: 4,
+    },
+    acceptedVehiclePlaceholderFrame: {
+      width: ACCEPTED_CAR_WIDTH,
+      height: ACCEPTED_CAR_HEIGHT,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      // Dashed + radius is unreliable on Android (drawPath crash / yellowbox).
+      borderStyle: Platform.OS === 'android' ? 'solid' : 'dashed',
+      borderColor: colors.border,
+      backgroundColor: colors.inputBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    acceptedVehiclePlaceholderThumb: {
+      width: ACCEPTED_CAR_WIDTH - 8,
+      height: ACCEPTED_CAR_HEIGHT - 10,
+      opacity: 0.85,
+    },
+    acceptedVehiclePlaceholderLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '600',
+      letterSpacing: 0.2,
+      textAlign: 'center',
     },
     driverName: {
       color: colors.text,

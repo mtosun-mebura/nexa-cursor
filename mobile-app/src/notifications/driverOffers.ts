@@ -1,5 +1,5 @@
 import { t } from '../i18n';
-import { Platform, Vibration } from 'react-native';
+import { AppState, Platform, Vibration } from 'react-native';
 import {
   normalizeRideAlertTone,
   playRideAlertTone,
@@ -7,7 +7,7 @@ import {
   type RideAlertTone,
 } from '../audio/rideAlert';
 
-/** Android-kanaal met alert.wav — id bump als sound wijzigt (OS past niet bij). */
+/** Android-kanaal met ritgeluid — id bump als sound wijzigt (OS past niet bij). */
 const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v6';
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
@@ -16,7 +16,13 @@ type NotificationsModule = typeof import('expo-notifications');
 let Notifications: NotificationsModule | null = null;
 let alertOnReceiveAttached = false;
 
-function buzzAndPlayAlert(): void {
+function offerAlertWatch() {
+  // Lazy: voorkomt circulaire import met offerAlertWatch → driverOffers.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./offerAlertWatch') as typeof import('./offerAlertWatch');
+}
+
+function buzzAndPlaySelectedTone(): void {
   try {
     if (Platform.OS === 'ios') Vibration.vibrate();
     else Vibration.vibrate([0, 120, 60, 120, 60, 200]);
@@ -24,10 +30,17 @@ function buzzAndPlayAlert(): void {
     /* ignore */
   }
   try {
-    playRideAlertTone('alert');
+    playRideAlertTone();
   } catch {
     /* ignore */
   }
+}
+
+function offerIdFromNotificationData(data: Record<string, unknown> | undefined): number {
+  if (!data || typeof data !== 'object') return 0;
+  const raw = data.offer_id ?? data.offerId;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 try {
@@ -42,12 +55,28 @@ try {
       shouldSetBadge: true,
     }),
   });
-  // Elke binnengekomen melding (voorgrond/achtergrond in geheugen) → alert.wav.
-  // Lockscreen zonder JS vertrouwt op de push `sound: alert.wav`.
+  // Alleen nieuwe ritaanvraag: gekozen ritgeluid (Bel). Geen play bij “Rit geannuleerd”.
+  // Als het id al geklonken heeft (OS-push / eerdere play), geen tweede keer.
   if (!alertOnReceiveAttached) {
     alertOnReceiveAttached = true;
-    Notifications.addNotificationReceivedListener(() => {
-      buzzAndPlayAlert();
+    Notifications.addNotificationReceivedListener((notification) => {
+      try {
+        const data = (notification.request.content.data || {}) as Record<string, unknown>;
+        const type = String(data.type || '');
+        if (type === 'driver_offer_closed') return;
+        if (type && type !== 'driver_offer') return;
+        const offerId = offerIdFromNotificationData(data);
+        if (offerId > 0) {
+          const watch = offerAlertWatch();
+          if (watch.driverOfferAlreadySounded(offerId)) return;
+          watch.playDriverOfferToneForIds([offerId]);
+          return;
+        }
+        // Zonder offer-id: alleen in voorgrond (iOS speelt push-sound dan niet).
+        if (AppState.currentState === 'active') buzzAndPlaySelectedTone();
+      } catch {
+        /* never crash from push */
+      }
     });
   }
 } catch {
@@ -176,7 +205,13 @@ export async function notifyNewDriverOffer(opts: {
   const offerId = Number(opts.offerId || 0) || null;
   const rideRequestId = Number(opts.rideRequestId || 0) || null;
 
-  if (playSound) buzzAndPlayAlert();
+  // Voorgrond: speel gekozen toon. Achtergrond: OS/push speelt al — niet dubbel.
+  if (playSound && AppState.currentState === 'active') {
+    if (offerId && offerId > 0) offerAlertWatch().playDriverOfferToneForIds([offerId]);
+    else buzzAndPlaySelectedTone();
+  } else if (offerId && offerId > 0) {
+    offerAlertWatch().rememberDriverOfferSounded([offerId]);
+  }
 
   if (!Notifications) return;
   const ok = await ensureDriverNotificationPermission();
@@ -608,6 +643,9 @@ export function addDriverOfferNotificationResponseListener(
     try {
       const target = takeNotificationOpenTarget(response);
       if (!target) return;
+      // Tik op melding: OS heeft al geluid afgespeeld — niet opnieuw.
+      const oid = Number(target.offerId || target.preview?.offerId || 0);
+      if (oid > 0) offerAlertWatch().rememberDriverOfferSounded([oid]);
       if (target.screen === 'requests') {
         onOpenRequests(target);
       } else {
@@ -630,6 +668,8 @@ export async function consumeInitialDriverNotificationResponse(): Promise<Driver
     const response = await Notifications.getLastNotificationResponseAsync();
     if (!response) return null;
     const target = takeNotificationOpenTarget(response);
+    const oid = Number(target?.offerId || target?.preview?.offerId || 0);
+    if (oid > 0) offerAlertWatch().rememberDriverOfferSounded([oid]);
     try {
       await Notifications.clearLastNotificationResponseAsync();
     } catch {

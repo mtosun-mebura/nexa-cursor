@@ -183,10 +183,36 @@
                             value="{{ old('customer_unaccepted_decision_minutes', $customerUnacceptedDecisionMinutes) }}"
                         >
                         <p class="text-xs text-muted-foreground mt-1">
-                            {{ __('Als de klant na de keuze-prompt niet reageert, wordt de rit na deze tijd automatisch geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”, dan blijft de rit open. Standaard server: :default minuten. 0 = nooit automatisch. Tussen :min en :max minuten.', ['default' => $envDefaultCustomerUnacceptedDecisionMinutes, 'min' => $minCustomerUnacceptedDecisionMinutes, 'max' => $maxCustomerUnacceptedDecisionMinutes]) }}
+                            {{ __('Als de klant na de keuze-prompt niet reageert, wordt de rit na deze tijd automatisch geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”, dan geldt hieronder de marktplaats max. wachttijd. Standaard server: :default minuten. 0 = nooit automatisch. Tussen :min en :max minuten.', ['default' => $envDefaultCustomerUnacceptedDecisionMinutes, 'min' => $minCustomerUnacceptedDecisionMinutes, 'max' => $maxCustomerUnacceptedDecisionMinutes]) }}
                         </p>
                         @error('customer_unaccepted_decision_minutes')
                             <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                        @enderror
+                    </td>
+                </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Marktplaats max. wachten (minuten)') }}</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="marketplace_max_wait_minutes"
+                            id="marketplace_max_wait_minutes"
+                            class="kt-input w-64 @error('marketplace_max_wait_minutes') border-destructive @enderror"
+                            min="{{ $minMarketplaceMaxWaitMinutes }}"
+                            max="{{ $maxMarketplaceMaxWaitMinutes }}"
+                            step="1"
+                            required
+                            value="{{ old('marketplace_max_wait_minutes', $marketplaceMaxWaitMinutes) }}"
+                            aria-invalid="{{ $errors->has('marketplace_max_wait_minutes') ? 'true' : 'false' }}"
+                        >
+                        <div class="field-feedback text-sm mt-1" data-field="marketplace_max_wait_minutes" aria-live="polite"></div>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            {{ __('Nexa Taxi marktplaats: na “blijven wachten” (of vanaf ophaalmoment) wordt de rit na deze tijd automatisch geannuleerd. De klant ziet alleen OK en de rit verdwijnt uit de lijst. Chauffeurs krijgen dan “Rit geannuleerd”. Standaard: :default minuten. 0 = uit. Tussen :min en :max.', ['default' => $envDefaultMarketplaceMaxWaitMinutes, 'min' => $minMarketplaceMaxWaitMinutes, 'max' => $maxMarketplaceMaxWaitMinutes]) }}
+                        </p>
+                        @error('marketplace_max_wait_minutes')
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="marketplace_max_wait_minutes"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
                         @enderror
                     </td>
                 </tr>

@@ -51,6 +51,13 @@ return [
     'customer_unaccepted_decision_minutes' => (int) env('TAXI_CUSTOMER_UNACCEPTED_DECISION_MINUTES', 30),
 
     /**
+     * Marktplaats (Nexa Taxi): minuten na “blijven wachten” waarna de rit automatisch
+     * wordt geannuleerd (klant krijgt alleen OK). 0 = nooit.
+     * Admin → NexaTaxi → Chauffeur dispatch (`taxi_dispatch_marketplace_max_wait_minutes`).
+     */
+    'marketplace_max_wait_minutes' => (int) env('TAXI_DISPATCH_MARKETPLACE_MAX_WAIT_MINUTES', 30),
+
+    /**
      * Werkdagen waarbinnen een terugbetaling na annulering doorgaans zichtbaar is
      * (communicatie naar klant; Mollie/bank kan afwijken).
      */
