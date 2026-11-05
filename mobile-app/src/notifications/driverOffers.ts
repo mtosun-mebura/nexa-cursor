@@ -72,8 +72,8 @@ try {
           watch.playDriverOfferToneForIds([offerId]);
           return;
         }
-        // Zonder offer-id: alleen in voorgrond (iOS speelt push-sound dan niet).
-        if (AppState.currentState === 'active') buzzAndPlaySelectedTone();
+        // Ook in background/inactive: iOS speelt APNs-sound soms stil (Silent/Focus).
+        buzzAndPlaySelectedTone();
       } catch {
         /* never crash from push */
       }
@@ -181,9 +181,14 @@ async function ensureSystemOfferChannel(): Promise<string> {
   return channelId;
 }
 
-/** Bundelbestand chime.wav — hoorbaar via APNs/FCM op sluimer/achtergrond. */
+/**
+ * iOS: altijd systeemgeluid (`default`) — custom wav speelt op slot/achtergrond stil.
+ * Android: Bel via notification channel (dit veld wordt daar genegeerd t.o.v. channelId).
+ */
 function offerNotificationSound(play: boolean): string | false {
-  return play ? rideAlertNotificationSound() : false;
+  if (!play) return false;
+  if (Platform.OS === 'ios') return 'default';
+  return rideAlertNotificationSound();
 }
 
 export async function setDriverOfferBadge(count: number): Promise<void> {

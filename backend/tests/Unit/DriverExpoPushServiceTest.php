@@ -96,9 +96,9 @@ class DriverExpoPushServiceTest extends TestCase
 
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
                 && ($message['sound'] ?? null) === 'default'
+                && ($message['_contentAvailable'] ?? null) === true
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v9'
-                && ! array_key_exists('_contentAvailable', $message);
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v9';
         });
     }
 
@@ -152,6 +152,7 @@ class DriverExpoPushServiceTest extends TestCase
                 && str_contains((string) $message['body'], 'Stationsplein 1')
                 && ($message['data']['pickup_address'] ?? null) === 'Stationsplein 1, Amsterdam'
                 && ($message['sound'] ?? null) === 'default'
+                && ($message['_contentAvailable'] ?? null) === true
                 && ($message['channelId'] ?? null) === 'driver-offers-alert-v9';
         });
     }
