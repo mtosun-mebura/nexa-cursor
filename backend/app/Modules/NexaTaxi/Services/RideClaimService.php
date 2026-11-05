@@ -202,7 +202,8 @@ class RideClaimService
             static fn (int $id): bool => $id > 0
         ));
         if ($withdrawnDriverIds !== [] && ! empty($result['ride'])) {
-            app(DriverExpoPushService::class)->sendOffersClosed($result['withdrawn_offers'] ?? []);
+            // Geen “Rit geannuleerd”-push: die is alleen voor echte annulering.
+            // Inbox-poll / silent notify haalt het aanbod weg bij andere chauffeurs.
             app(TaxiDriverInboxPushService::class)->notifyDrivers(
                 $withdrawnDriverIds,
                 (int) $result['ride']->id

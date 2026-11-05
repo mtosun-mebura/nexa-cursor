@@ -156,6 +156,9 @@ class CustomerMarketplaceBookingService
             'customer_unaccepted_decision_minutes' => $dispatchSettings->customerUnacceptedDecisionMinutes(
                 $settingsCompanyId > 0 ? $settingsCompanyId : null
             ),
+            'marketplace_max_wait_minutes' => $dispatchSettings->marketplaceMaxWaitMinutes(
+                $settingsCompanyId > 0 ? $settingsCompanyId : null
+            ),
         ];
 
         $returnUrl = isset($data['return_url']) ? trim((string) $data['return_url']) : '';

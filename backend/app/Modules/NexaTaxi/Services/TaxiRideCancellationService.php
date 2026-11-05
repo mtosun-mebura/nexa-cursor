@@ -124,8 +124,18 @@ class TaxiRideCancellationService
             return false;
         }
 
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        // Na “blijven wachten”: marktplaats max. wacht (admin) → auto-annuleren.
         if ($this->customerChoseWait($ride)) {
-            return false;
+            $maxWaitAt = $this->marketplaceMaxWaitDeadlineAt($ride);
+            if (! $maxWaitAt) {
+                return false;
+            }
+
+            return $maxWaitAt->lte($base);
         }
 
         $timeoutAt = $this->decisionTimeoutAt($ride);
@@ -133,11 +143,17 @@ class TaxiRideCancellationService
             return false;
         }
 
-        $base = $now
-            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
-            : now(ContractTransportTimezone::TIMEZONE);
-
         return $timeoutAt->lte($base);
+    }
+
+    public function marketplaceMaxWaitDeadlineAt(RideRequest $ride): ?CarbonInterface
+    {
+        $companyId = $this->settingsCompanyIdForRide($ride);
+
+        return $this->dispatchSettings->marketplaceMaxWaitAt(
+            $ride,
+            $companyId > 0 ? $companyId : null
+        );
     }
 
     public function customerDecisionMinutes(?int $companyId = null): int
@@ -569,7 +585,7 @@ class TaxiRideCancellationService
 
         $reason = (string) ($cancellation['reason'] ?? '');
         if ($reason === self::REASON_AUTO_UNACCEPTED) {
-            return 'Er is binnen de beschikbare tijd geen chauffeur gevonden.';
+            return 'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.';
         }
         if ($reason === self::REASON_CUSTOMER) {
             return 'Je hebt deze rit geannuleerd.';
@@ -671,7 +687,7 @@ class TaxiRideCancellationService
 
         if ($notifyCustomer) {
             $extra = $reason === self::REASON_AUTO_UNACCEPTED
-                ? ['Er is binnen de beschikbare tijd geen chauffeur gevonden.']
+                ? ['De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.']
                 : ['U heeft deze rit geannuleerd.'];
             if ($refunded) {
                 $days = app(TaxiCustomerRideCancelledMailer::class)->refundBusinessDays();

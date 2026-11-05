@@ -33,6 +33,9 @@ class TaxiDispatchSettingsService
 
     public const KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 'taxi_dispatch_customer_unaccepted_decision_minutes';
 
+    /** Marktplaats: max. wachten na “blijven wachten” vóór auto-annulering (minuten). */
+    public const KEY_MARKETPLACE_MAX_WAIT_MINUTES = 'taxi_dispatch_marketplace_max_wait_minutes';
+
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
     public const KEY_BOOKING_WHATSAPP_NUMBER = 'taxi_dispatch_booking_whatsapp_number';
@@ -120,6 +123,10 @@ class TaxiDispatchSettingsService
 
     /** 0 = geen auto-annulering na de klantprompt */
     public const MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 0;
+
+    public const MIN_MARKETPLACE_MAX_WAIT_MINUTES = 0;
+
+    public const MAX_MARKETPLACE_MAX_WAIT_MINUTES = 1440; // 24 uur
 
     public const MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 180;
 
@@ -411,6 +418,104 @@ class TaxiDispatchSettingsService
             self::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
             min(self::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES, $minutes)
         );
+    }
+
+    public function marketplaceMaxWaitMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30);
+        $raw = GeneralSetting::get(self::KEY_MARKETPLACE_MAX_WAIT_MINUTES, null, $companyId);
+        if ($raw === null || $raw === '') {
+            return $this->clampMarketplaceMaxWaitMinutes($default);
+        }
+
+        return $this->clampMarketplaceMaxWaitMinutes((int) $raw);
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     */
+    public function marketplaceMaxWaitMinutesForCompanies(array $companyIds, ?int $fallbackCompanyId = null): int
+    {
+        foreach ($companyIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid <= 0) {
+                continue;
+            }
+            $raw = $this->companyScopedSetting(self::KEY_MARKETPLACE_MAX_WAIT_MINUTES, $cid);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampMarketplaceMaxWaitMinutes((int) $raw);
+            }
+        }
+
+        return $this->marketplaceMaxWaitMinutes($fallbackCompanyId);
+    }
+
+    public function marketplaceMaxWaitMinutesForRide(RideRequest $ride, ?int $companyId = null): int
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $snap = $payload['dispatch_timers']['marketplace_max_wait_minutes'] ?? null;
+        if ($snap !== null && $snap !== '') {
+            return $this->clampMarketplaceMaxWaitMinutes((int) $snap);
+        }
+
+        return $this->marketplaceMaxWaitMinutesForCompanies(
+            $this->dispatchSettingsCompanyIdsForRide($ride, $companyId),
+            $companyId
+        );
+    }
+
+    public function setMarketplaceMaxWaitMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_MARKETPLACE_MAX_WAIT_MINUTES,
+            (string) $this->clampMarketplaceMaxWaitMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function clampMarketplaceMaxWaitMinutes(int $minutes): int
+    {
+        return max(
+            self::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
+            min(self::MAX_MARKETPLACE_MAX_WAIT_MINUTES, $minutes)
+        );
+    }
+
+    /**
+     * Deadline na “blijven wachten” (marktplaats max. wacht). Null = uit of geen startpunt.
+     */
+    public function marketplaceMaxWaitAt(RideRequest $ride, ?int $companyId = null): ?CarbonInterface
+    {
+        $minutes = $this->marketplaceMaxWaitMinutesForRide($ride, $companyId);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $decision = is_array($payload['unaccepted_customer_decision'] ?? null)
+            ? $payload['unaccepted_customer_decision']
+            : [];
+        $choiceAt = $decision['choice_at'] ?? null;
+        if (! is_string($choiceAt) || $choiceAt === '') {
+            $choiceAt = $decision['prompt_at'] ?? null;
+        }
+        if (is_string($choiceAt) && $choiceAt !== '') {
+            try {
+                return Carbon::parse($choiceAt)
+                    ->timezone(ContractTransportTimezone::TIMEZONE)
+                    ->addMinutes($minutes);
+            } catch (\Throwable) {
+                // val terug op zoekdeadline / ophaalmoment
+            }
+        }
+
+        // Geen choice_at: plafond vanaf ophaalmoment (marktplaats max. wacht).
+        $dueAt = $this->effectiveDispatchDueAt($ride);
+        if (! $dueAt) {
+            return null;
+        }
+
+        return $dueAt->copy()->addMinutes($minutes);
     }
 
     /**

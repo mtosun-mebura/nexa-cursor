@@ -31,6 +31,7 @@ export type GuestRide = {
   pickup_at?: string | null;
   rating?: GuestRideRating | null;
   cancellation_message?: string | null;
+  cancellation_reason?: string | null;
   refund_message?: string | null;
   refund_business_days?: number | null;
   payment_status?: string | null;
@@ -189,6 +190,10 @@ export async function saveGuestRide(
       meta.cancellation_message !== undefined
         ? meta.cancellation_message
         : prev?.cancellation_message ?? null,
+    cancellation_reason:
+      meta.cancellation_reason !== undefined
+        ? meta.cancellation_reason
+        : prev?.cancellation_reason ?? null,
     refund_message:
       meta.refund_message !== undefined ? meta.refund_message : prev?.refund_message ?? null,
     refund_business_days:
@@ -270,6 +275,7 @@ export function guestPatchFromLive(ride: {
   distance_km?: number | null;
   duration_seconds?: number | null;
   cancellation_message?: string | null;
+  cancellation_reason?: string | null;
   refund_message?: string | null;
   refund_business_days?: number | null;
   payment_status?: string | null;
@@ -291,6 +297,7 @@ export function guestPatchFromLive(ride: {
     distance_km: ride.distance_km ?? undefined,
     duration_seconds: ride.duration_seconds ?? undefined,
     cancellation_message: ride.cancellation_message ?? undefined,
+    cancellation_reason: ride.cancellation_reason ?? undefined,
     refund_message: ride.refund_message ?? undefined,
     refund_business_days: ride.refund_business_days ?? undefined,
     payment_status: ride.payment_status ?? undefined,
