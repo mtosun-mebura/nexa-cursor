@@ -320,6 +320,10 @@ export const EN: Record<string, string> = {
   'Laat de klant deze QR scannen': 'Let the customer scan this QR code',
   'Laden…': 'Loading…',
   Later: 'Later',
+  'Meldingsgeluid uit': 'Notification sound off',
+  'iOS mag Nexa Taxi tonen, maar geluid staat uit. Zet Sounds aan in Instellingen, anders hoor je op slot/standby niets bij een nieuwe rit.':
+    'iOS can show Nexa Taxi alerts, but sound is off. Turn Sounds on in Settings, or you will hear nothing for new rides on the lock screen/StandBy.',
+  'Open Instellingen': 'Open Settings',
   Licht: 'Light',
   'Locatie ophalen mislukt.': 'Could not get the location.',
   'Locatie staat uit. Zet locatie aan in Instellingen om online te gaan.':

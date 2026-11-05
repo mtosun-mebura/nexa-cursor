@@ -111,13 +111,33 @@ export async function ensureDriverNotificationPermission(): Promise<boolean> {
       if (!ok || current.ios?.allowsSound === false) {
         current = await ask();
       }
-      return !!(
+      const granted = !!(
         current.granted ||
         current.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
       );
+      // Zonder allowsSound speelt APNs op slot/standby stil — push komt wel binnen.
+      if (granted && Platform.OS === 'ios' && current.ios?.allowsSound === false) {
+        return false;
+      }
+      return granted;
     })().catch(() => false);
   }
   return permissionReady;
+}
+
+/** true als iOS meldingen mag tonen maar geluid in Instellingen uit staat. */
+export async function driverNotificationSoundBlocked(): Promise<boolean> {
+  if (!Notifications || Platform.OS !== 'ios') return false;
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    const granted = !!(
+      current.granted ||
+      current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    );
+    return granted && current.ios?.allowsSound === false;
+  } catch {
+    return false;
+  }
 }
 
 async function ensureSilentOfferChannel(): Promise<string> {

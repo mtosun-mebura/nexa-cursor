@@ -105,8 +105,10 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // Bel (chime.wav) — standaard ritgeluid. Expo `sound` = iOS; Android = channelId.
-                'sound' => 'chime.wav',
+                // iOS-lock/standby: alleen `default` is betrouwbaar hoorbaar.
+                // Custom chime.wav speelde stil als het bestand/rechten niet matchten.
+                // Android-geluid komt uit channelId (Bel), niet uit dit veld.
+                'sound' => 'default',
                 'priority' => 'high',
                 'channelId' => 'driver-offers-alert-v9',
                 'interruptionLevel' => 'time-sensitive',
@@ -193,7 +195,7 @@ class DriverExpoPushService
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
                     'body' => $body,
-                    'sound' => 'chime.wav',
+                    'sound' => 'default',
                     'priority' => 'high',
                     'channelId' => 'driver-offers-alert-v9',
                     'interruptionLevel' => 'time-sensitive',
@@ -247,7 +249,7 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'chime.wav',
+                'sound' => 'default',
                 'priority' => 'high',
                 'channelId' => 'driver-offers-alert-v9',
                 'interruptionLevel' => 'time-sensitive',
