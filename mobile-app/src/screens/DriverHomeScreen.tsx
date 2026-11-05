@@ -60,22 +60,31 @@ import {
   uploadDriverCompanyLogo,
   uploadDriverProfilePhoto,
   uploadDriverVehiclePhoto,
+  updateDriverRideAlertTone,
   vehicleDisplayLabel,
   vehicleDisplayName,
 } from '../api/driver';
 import { ibanFieldError } from '../iban';
-import { DEFAULT_RIDE_ALERT_TONE } from '../audio/rideAlert';
+import {
+  DEFAULT_RIDE_ALERT_TONE,
+  RIDE_ALERT_OPTIONS,
+  normalizeRideAlertTone,
+  playRideAlertTone,
+  setActiveRideAlertTone,
+  type RideAlertTone,
+} from '../audio/rideAlert';
 import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
 import {
   clampGpsRefreshSeconds,
   publishDriverLocationForMap,
   readLastKnownDriverMapPosition,
   startDriverLocationTracking,
-  invalidateDriverLocationTracking,
   stopDriverLocationTracking,
+  updateDriverLocationTrackingOpts,
 } from '../location/tracking';
 import { defaultPickupDate, formatPickupAtPayload } from '../geo/route';
 import {
@@ -466,17 +475,19 @@ export function DriverHomeScreen() {
   const onlineEpochRef = useRef(0);
   const refreshGen = useRef(0);
   const refreshInFlight = useRef(false);
+  const inboxInFlight = useRef(false);
   const refreshQueued = useRef(false);
   const refreshFn = useRef<() => Promise<void>>(async () => undefined);
   // Epoch van een lopend online/offline-verzoek (null = geen). Zolang gezet is de tik leidend.
   const onlinePendingEpochRef = useRef<number | null>(null);
   const onlineToggleInFlightRef = useRef(false);
-  const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(10);
+  const [gpsRefreshSeconds, setGpsRefreshSeconds] = useState(15);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [accountActive, setAccountActive] = useState(true);
   const [accent, setAccent] = useState<string>('orange');
+  const [rideAlertTone, setRideAlertTone] = useState<RideAlertTone>(DEFAULT_RIDE_ALERT_TONE);
   const [company, setCompany] = useState('');
   const [payoutIbanMasked, setPayoutIbanMasked] = useState<string | null>(null);
   const [ibanDraft, setIbanDraft] = useState('');
@@ -534,6 +545,7 @@ export function DriverHomeScreen() {
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
+  const [pinFormError, setPinFormError] = useState<string | null>(null);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
   const [pinBusy, setPinBusy] = useState(false);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
@@ -727,7 +739,10 @@ export function DriverHomeScreen() {
       const nextAccent = normalizeDriverAccent(me.user.pwa_accent);
       setAccent(nextAccent);
       persistDriverAccent(nextAccent);
-      rememberRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
+      const tone = normalizeRideAlertTone(me.user.ride_alert_tone);
+      setRideAlertTone(tone);
+      setActiveRideAlertTone(tone);
+      rememberRideAlertTone(tone);
       setCompany(me.user.company_name || '');
       setPayoutIbanMasked(me.user.payout_iban_masked || null);
       setLogoLight(me.user.company_logo_url || null);
@@ -757,12 +772,20 @@ export function DriverHomeScreen() {
       const list = Array.isArray(vehiclesRes.data) ? vehiclesRes.data : [];
       const withoutClearedPhoto = (vehicle: DriverVehicle) =>
         clearedPhotos.current.vehicles.has(vehicle.id) ? { ...vehicle, photo_url: null } : vehicle;
+      // Altijd server-waarden (kenteken/naam/type) — alleen foto mag lokaal blijven
+      // tot de upload-URL binnen is, anders blijft een oud admin-kenteken zichtbaar.
       setVehicles((previous) =>
         list.map((vehicle) => {
           const prior = previous.find((item) => item.id === vehicle.id);
           const next = withoutClearedPhoto(vehicle);
           return {
             ...next,
+            license_plate: next.license_plate ?? null,
+            name: next.name,
+            type: next.type,
+            type_label: next.type_label,
+            person_range: next.person_range,
+            person_range_label: next.person_range_label,
             photo_url: clearedPhotos.current.vehicles.has(vehicle.id)
               ? null
               : next.photo_url || prior?.photo_url || null,
@@ -838,7 +861,9 @@ export function DriverHomeScreen() {
           completedFromPlanning = [];
         }
         if (noticeGen !== refreshGen.current) return;
-        setCompletedRides(mergeCompletedRides(inboxData.completedRides, completedFromPlanning));
+        setCompletedRides(
+          mergeCompletedRides(inboxData.completedRides, completedFromPlanning).slice(0, 40)
+        );
         const pickupDenied = await alertPickupDenials({
           rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
           alert: inboxData.pickupDeniedAlert,
@@ -910,14 +935,12 @@ export function DriverHomeScreen() {
   }, [driverToken, handleNewOffers, selectedVehicleId]);
   refreshFn.current = refresh;
 
-  /** Alleen inbox — geen me/fleet/planning. Voor snelle ritupdates. */
+  /** Alleen inbox — eigen lock, mag nooit door zware refresh geblokkeerd worden (presence/last_seen). */
   const refreshInboxOnly = useCallback(async () => {
-    if (!driverToken || refreshInFlight.current) return;
-    refreshInFlight.current = true;
-    const gen = ++refreshGen.current;
+    if (!driverToken || inboxInFlight.current) return;
+    inboxInFlight.current = true;
     try {
       const inbox = await fetchDriverInbox(driverToken);
-      if (gen !== refreshGen.current) return;
       const inboxData = inboxDataFromResponse(inbox);
       const incomingIds = new Set(inboxData.offers.map((offer) => Number(offer.id)));
       for (const id of [...closedOfferIdsRef.current]) {
@@ -944,17 +967,13 @@ export function DriverHomeScreen() {
       setOverdueScheduledRides(inboxData.overdueScheduledRides);
       setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
       setCancelReasons(inboxData.cancelReasons);
-      setCompletedRides((prev) => mergeCompletedRides(inboxData.completedRides, prev));
+      setCompletedRides((prev) =>
+        mergeCompletedRides(inboxData.completedRides, prev).slice(0, 40)
+      );
     } catch {
       /* lichte poll: stil falen, volgende tick opnieuw */
     } finally {
-      refreshInFlight.current = false;
-      if (refreshQueued.current) {
-        refreshQueued.current = false;
-        setTimeout(() => {
-          void refreshFn.current();
-        }, 0);
-      }
+      inboxInFlight.current = false;
     }
   }, [driverToken, handleNewOffers]);
 
@@ -976,7 +995,15 @@ export function DriverHomeScreen() {
     };
   }, [contractToken]);
 
+  // Crash-isolatie: forceer alle periodieke achtergrondwerk uit bij boot.
   useEffect(() => {
+    if (!DRIVER_BG.locationTracking) {
+      void stopDriverLocationTracking();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!DRIVER_BG.pushRegister) return;
     prepareDriverNotificationChannels().catch(() => undefined);
     ensureDriverNotificationPermission().catch(() => undefined);
     if (driverToken) {
@@ -984,40 +1011,43 @@ export function DriverHomeScreen() {
     }
   }, [driverToken]);
 
-  // Rustige poll: te vaak inbox+GPS crashte de app tijdens gewoon online blijven.
+  // Inbox en full refresh — kill-switch voor crash-isolatie (driverBgKillSwitch).
   useEffect(() => {
+    // Eén keer laden zodat het scherm data heeft; daarna alleen poll als enabled.
     refresh().catch(() => undefined);
-    const inboxMs = online ? 8000 : 12000;
-    const fullMs = online ? 40000 : 45000;
+    if (!DRIVER_BG.inboxPoll && !DRIVER_BG.fullRefreshPoll) return;
+    const inboxMs = online ? 15000 : 20000;
+    const fullMs = online ? 60000 : 60000;
     let ticks = 0;
-    let tickInFlight = false;
     const t = setInterval(() => {
-      if (tickInFlight) return;
-      tickInFlight = true;
       ticks += 1;
-      const run =
-        ticks % Math.max(1, Math.round(fullMs / inboxMs)) === 0
-          ? refresh()
-          : refreshInboxOnly();
-      void run.finally(() => {
-        tickInFlight = false;
-      });
+      const doFull =
+        DRIVER_BG.fullRefreshPoll &&
+        ticks % Math.max(1, Math.round(fullMs / inboxMs)) === 0;
+      if (doFull) {
+        void refresh();
+      } else if (DRIVER_BG.inboxPoll) {
+        void refreshInboxOnly();
+      }
     }, inboxMs);
     return () => clearInterval(t);
   }, [refresh, refreshInboxOnly, online]);
 
   useEffect(() => {
+    if (!DRIVER_BG.appStateRefresh && !DRIVER_BG.pushRegister) return;
     let lastAppRefresh = 0;
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active' && state !== 'background') return;
       const now = Date.now();
       if (now - lastAppRefresh < 4000) return;
       lastAppRefresh = now;
-      if (state === 'active') {
+      if (state === 'active' && DRIVER_BG.pushRegister) {
         retryDriverPushTokenIfNeeded();
         clearDriverOfferBadge().catch(() => undefined);
       }
-      refresh().catch(() => undefined);
+      if (DRIVER_BG.appStateRefresh) {
+        refresh().catch(() => undefined);
+      }
     });
     return () => sub.remove();
   }, [refresh]);
@@ -1337,25 +1367,39 @@ export function DriverHomeScreen() {
   // Wacht tot availability op de server bevestigd is — optimistic online + IBAN-weigering
   // startte anders al location-pings terwijl is_online false bleef (lege boekingskaart).
   useEffect(() => {
-    if (online) primeRideAlertAudio();
+    if (online && DRIVER_BG.rideAlertAudio) primeRideAlertAudio();
   }, [online]);
 
+  // Tracking één keer starten bij online. Voertuig/interval alleen updaten — geen herstart
+  // (herstart via invalidate crashte/liet presence doodgaan).
   useEffect(() => {
+    if (!DRIVER_BG.locationTracking) {
+      void stopDriverLocationTracking();
+      return;
+    }
     if (!driverToken || !online) {
       if (!online) {
         void stopDriverLocationTracking();
       }
       return;
     }
-    // Niet wachten op pending-ref: die werd nooit state, dus GPS startte soms nooit.
     void startDriverLocationTracking({
       token: driverToken,
       vehicleId: selectedVehicleId,
       refreshSeconds: gpsRefreshSeconds,
     }).catch(() => undefined);
     return () => {
-      invalidateDriverLocationTracking();
+      void stopDriverLocationTracking();
     };
+  }, [driverToken, online]);
+
+  useEffect(() => {
+    if (!DRIVER_BG.locationTracking || !online || !driverToken) return;
+    updateDriverLocationTrackingOpts({
+      token: driverToken,
+      vehicleId: selectedVehicleId,
+      refreshSeconds: gpsRefreshSeconds,
+    });
   }, [driverToken, online, selectedVehicleId, gpsRefreshSeconds]);
 
   useEffect(() => {
@@ -1391,11 +1435,13 @@ export function DriverHomeScreen() {
     if (!driverToken || !online) return;
     try {
       await setDriverOnline(driverToken, true, id);
-      await startDriverLocationTracking({
-        token: driverToken,
-        vehicleId: id,
-        refreshSeconds: gpsRefreshSeconds,
-      });
+      if (DRIVER_BG.locationTracking) {
+        await startDriverLocationTracking({
+          token: driverToken,
+          vehicleId: id,
+          refreshSeconds: gpsRefreshSeconds,
+        });
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("Voertuig opslaan mislukt."));
     }
@@ -1457,7 +1503,7 @@ export function DriverHomeScreen() {
     try {
       // Snelle last-known (max ~0,4s) mee in online-PUT — zonder lat/lng geen marker op de klantkaart.
       let quickCoords: Awaited<ReturnType<typeof readLastKnownDriverMapPosition>> = null;
-      if (next) {
+      if (next && DRIVER_BG.locationTracking) {
         quickCoords = await Promise.race([
           readLastKnownDriverMapPosition(),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 400)),
@@ -1471,13 +1517,15 @@ export function DriverHomeScreen() {
       ]);
       if (onlineEpochRef.current !== epoch) return;
       if (next) {
-        // Verse GPS op de achtergrond (last-known kan leeg zijn na cold start).
         void (async () => {
-          try {
-            primeRideAlertAudio();
-          } catch {
-            /* ignore */
+          if (DRIVER_BG.rideAlertAudio) {
+            try {
+              primeRideAlertAudio();
+            } catch {
+              /* ignore */
+            }
           }
+          if (!DRIVER_BG.locationTracking) return;
           if (onlineEpochRef.current !== epoch || !onlineRef.current) return;
           const published = await publishDriverLocationForMap(driverToken, selectedVehicleId);
           if (!published && onlineEpochRef.current === epoch && onlineRef.current) {
@@ -1535,19 +1583,18 @@ export function DriverHomeScreen() {
       if (status && status !== 'accepted' && status !== 'assigned') {
         throw new ApiError(t("Accepteren mislukt."), 409, accepted);
       }
-      await refresh();
       const rideId = Number(accepted.data?.ride?.id || 0);
-      const stillOffer = offersRef.current.some(
-        (offer) => Number(offer.id) === id || (rideId > 0 && offerMatchesRide(offer, rideId))
+      // API OK = geaccepteerd. offersRef na refresh() is nog stale (setState),
+      // dus géén stillOffer-check — die gaf vals "Accepteren mislukt".
+      closedOfferIdsRef.current.add(id);
+      pushPreviewRef.current.delete(id);
+      setOffers((current) =>
+        current.filter(
+          (offer) =>
+            Number(offer.id) !== id && !(rideId > 0 && offerMatchesRide(offer, rideId))
+        )
       );
-      if (stillOffer) {
-        setRideNotice({
-          title: t("Accepteren mislukt."),
-          body: t("De rit staat nog open. De klant wacht nog op een chauffeur."),
-          primaryLabel: t("Begrepen"),
-        });
-        return;
-      }
+      await refresh();
       goToTab('trips');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t("Accepteren mislukt.");
@@ -1641,6 +1688,7 @@ export function DriverHomeScreen() {
   function openPickupPin(rideId: number) {
     setPinRideId(rideId);
     setPickupPin('');
+    setPinFormError(null);
     setFlowMessage(null);
   }
 
@@ -1648,13 +1696,14 @@ export function DriverHomeScreen() {
     if (pinRideId == null || pinBusy) return;
     const digits = pickupPin.replace(/\D/g, '');
     if (!digits) {
-      setFlowMessage(t("Pin is verplicht"));
+      setPinFormError(t("Pin is verplicht"));
       return;
     }
     if (digits.length !== 4) {
-      setFlowMessage(t("Vul de 4-cijferige code in."));
+      setPinFormError(t("Vul de 4-cijferige code in."));
       return;
     }
+    setPinFormError(null);
     void submitStartRide(pinRideId, digits);
   }
 
@@ -1685,10 +1734,12 @@ export function DriverHomeScreen() {
     else setBusyRideId(rideId);
     setError(null);
     setFlowMessage(null);
+    if (usePin) setPinFormError(null);
     try {
       const started = await startRide(driverToken, rideId, pin ? { pin } : undefined);
       setPinRideId(null);
       setPickupPin('');
+      setPinFormError(null);
       await refresh();
       goToTab('trips');
       const pickupWarning = String(
@@ -1704,7 +1755,8 @@ export function DriverHomeScreen() {
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : t("Rit starten mislukt.");
       if (usePin) {
-        setFlowMessage(msg);
+        // Fout in dezelfde pin-modal houden — geen tweede Modal (iOS blokkeert dan de UI).
+        setPinFormError(msg);
       } else {
         const blockingNow = blockingAssignedRide(rideId);
         if (blockingNow && /al een (lopende )?rit/i.test(msg)) {
@@ -2971,8 +3023,14 @@ export function DriverHomeScreen() {
 
         <View style={styles.profileDivider} />
         <View style={styles.fleetHeader}>
-          <Text style={styles.profileSection}>{t("Voertuigen")}</Text>
-          <Pressable onPress={() => openVehicleForm()} accessibilityRole="button" accessibilityLabel={t("Voertuig toevoegen")}>
+          <Text style={[styles.profileSection, styles.fleetHeaderTitle]}>{t("Voertuigen")}</Text>
+          <Pressable
+            onPress={() => openVehicleForm()}
+            accessibilityRole="button"
+            accessibilityLabel={t("Voertuig toevoegen")}
+            hitSlop={8}
+            style={styles.fleetAddPress}
+          >
             <Text style={[styles.fleetAdd, { color: accentHex(accent) }]}>{t("Toevoegen")}</Text>
           </Pressable>
         </View>
@@ -3061,8 +3119,34 @@ export function DriverHomeScreen() {
         <View style={styles.profileDivider} />
         <Text style={styles.profileSection}>{t("Ritgeluid")}</Text>
         <Text style={styles.themeHint}>
-          {t("Bij een nieuwe aanvraag speelt het standaard alarm. Geen aparte geluidskiezer — die liet de app vastlopen.")}
+          {t("Kies het geluid bij een nieuwe rit. Tik om te beluisteren.")}
         </Text>
+        <View style={styles.toneRow}>
+          {RIDE_ALERT_OPTIONS.map((opt) => {
+            const selected = rideAlertTone === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => {
+                  setRideAlertTone(opt.key);
+                  setActiveRideAlertTone(opt.key);
+                  rememberRideAlertTone(opt.key);
+                  playRideAlertTone(opt.key);
+                  if (driverToken) {
+                    void updateDriverRideAlertTone(driverToken, opt.key).catch(() => undefined);
+                  }
+                }}
+                style={[styles.toneChip, selected && styles.toneChipOn]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.toneChipText, selected && styles.toneChipTextOn]}>
+                  {t(opt.label)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         <DemoModeRow />
         <Pressable
@@ -3906,7 +3990,7 @@ export function DriverHomeScreen() {
       >
         <Text style={styles.pickerTitle}>{t("Nieuw ophaalmoment")}</Text>
         <Text style={styles.hint}>{t("De klant krijgt dit tijdstip via WhatsApp ter goedkeuring.")}</Text>
-        <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} />
+        <PickupAtField value={proposePickupAt} onChange={setProposePickupAt} embedded />
         <View style={styles.cancelActions}>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionGhost]}
@@ -3928,12 +4012,12 @@ export function DriverHomeScreen() {
       </AppModal>
 
       <AppModal
-        visible={pinRideId != null && flowMessage == null}
+        visible={pinRideId != null}
         onRequestClose={() => {
           if (pinBusy) return;
           setPinRideId(null);
           setPickupPin('');
-          setFlowMessage(null);
+          setPinFormError(null);
         }}
         dismissDisabled={pinBusy}
         panelStyle={styles.centeredSheet}
@@ -3942,7 +4026,10 @@ export function DriverHomeScreen() {
         <Text style={styles.noticeBody}>{t("Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.")}</Text>
         <TextInput
           value={pickupPin}
-          onChangeText={(v) => setPickupPin(v.replace(/\D/g, '').slice(0, 4))}
+          onChangeText={(v) => {
+            setPickupPin(v.replace(/\D/g, '').slice(0, 4));
+            if (pinFormError) setPinFormError(null);
+          }}
           keyboardType="number-pad"
           maxLength={4}
           placeholder="••••"
@@ -3951,6 +4038,7 @@ export function DriverHomeScreen() {
           editable={!pinBusy}
           autoFocus
         />
+        {pinFormError ? <Text style={[styles.noticeBody, { color: colors.danger }]}>{pinFormError}</Text> : null}
         <View style={styles.cancelActions}>
           <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionGhost]}
@@ -3958,7 +4046,7 @@ export function DriverHomeScreen() {
             onPress={() => {
               setPinRideId(null);
               setPickupPin('');
-              setFlowMessage(null);
+              setPinFormError(null);
             }}
           >
             <Text style={styles.cancelActionGhostText}>{t("Annuleren")}</Text>
@@ -3976,7 +4064,7 @@ export function DriverHomeScreen() {
       </AppModal>
 
       <AppModal
-        visible={flowMessage != null}
+        visible={flowMessage != null && pinRideId == null}
         onRequestClose={() => setFlowMessage(null)}
         panelStyle={styles.centeredSheet}
       >
@@ -4295,10 +4383,22 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginBottom: 10,
+      gap: 12,
+    },
+    fleetHeaderTitle: {
+      marginBottom: 0,
+      flexShrink: 1,
+    },
+    fleetAddPress: {
+      justifyContent: 'center',
+      paddingVertical: 0,
     },
     fleetAdd: {
-      fontSize: 14,
+      fontSize: 12,
       fontWeight: '700',
+      letterSpacing: 0.5,
+      lineHeight: 16,
     },
     fleetRow: {
       flexDirection: 'row',
@@ -4740,6 +4840,10 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingVertical: 8,
       paddingHorizontal: 14,
       backgroundColor: colors.card,
+    },
+    toneChipOn: {
+      backgroundColor: accentHex,
+      borderColor: accentHex,
     },
     toneChipText: {
       color: colors.text,

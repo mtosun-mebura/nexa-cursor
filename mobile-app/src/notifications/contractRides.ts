@@ -24,7 +24,7 @@ try {
 let permissionReady: Promise<boolean> | null = null;
 
 /** Nieuw id: v5 met alert.wav (Android wijzigt sound op bestaande kanalen niet). */
-const CONTRACT_RIDES_CHANNEL = 'contract-rides-v5';
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v6';
 
 export function contractNotificationsAvailable(): boolean {
   return Notifications != null;

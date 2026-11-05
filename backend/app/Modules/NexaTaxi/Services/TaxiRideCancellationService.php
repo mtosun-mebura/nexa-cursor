@@ -223,7 +223,8 @@ class TaxiRideCancellationService
 
         $decision = $this->decisionPayload($ride);
         if (! empty($decision['prompt_at'])) {
-            return $ride;
+            // Prompt al gezet: rit moet wél in Aanvragen blijven staan.
+            return app(RideDispatchService::class)->retainUnacceptedRideInDriverQueue($conn, $ride);
         }
 
         $base = $now
@@ -235,8 +236,10 @@ class TaxiRideCancellationService
             'prompt_at' => $base->toIso8601String(),
         ]);
         $ride->update(['booking_payload' => $payload]);
+        $ride = $ride->fresh() ?? $ride;
 
-        return $ride->fresh() ?? $ride;
+        // Tijd verlopen + vraag wachten/annuleren: chauffeurs blijven de rit zien.
+        return app(RideDispatchService::class)->retainUnacceptedRideInDriverQueue($conn, $ride);
     }
 
     /**
@@ -259,8 +262,12 @@ class TaxiRideCancellationService
             'prompt_at' => $decision['prompt_at'] ?? now()->toIso8601String(),
         ]);
         $ride->update(['booking_payload' => $payload]);
+        $ride = $ride->fresh() ?? $ride;
 
-        return ['ride' => $ride->fresh() ?? $ride];
+        // Alleen annuleren haalt de rit uit Aanvragen — bij wachten opnieuw aanbieden.
+        $ride = app(RideDispatchService::class)->retainUnacceptedRideInDriverQueue($conn, $ride);
+
+        return ['ride' => $ride];
     }
 
     /**

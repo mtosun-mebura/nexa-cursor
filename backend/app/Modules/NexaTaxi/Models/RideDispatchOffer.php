@@ -74,15 +74,25 @@ class RideDispatchOffer extends Model
     }
 
     /**
-     * Inbox: openstaande aanbiedingen voor deze chauffeur binnen het pickup-grace-venster.
+     * Inbox: openstaande aanbiedingen voor deze chauffeur.
+     * Geen pickup-cutoff hier: wachtende klanten (ophalen al verstreken) moeten zichtbaar
+     * blijven tot annulering; expireOffersForPastPickups ruimt verlaten aanbiedingen op.
      */
-    public function scopeInboxForDriver($query, int $driverId, CarbonInterface $pickupCutoff)
+    public function scopeInboxForDriver($query, int $driverId, CarbonInterface $_pickupCutoff)
     {
         return $query
             ->where('driver_id', $driverId)
             ->where('status', self::STATUS_PENDING)
-            ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
-            ->ridePickupWithinQueueWindow($pickupCutoff);
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->whereHas('rideRequest', function ($q) {
+                $q->whereNull('driver_id')
+                    ->whereIn('status', [
+                        RideRequest::STATUS_PENDING_DISPATCH,
+                        RideRequest::STATUS_OFFERED,
+                    ]);
+            });
     }
 
     /**

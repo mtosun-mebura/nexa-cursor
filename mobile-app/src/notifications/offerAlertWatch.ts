@@ -100,7 +100,7 @@ export function playDriverOfferToneForIds(ids: number[], _tone?: string | null):
       /* ignore */
     }
     try {
-      playRideAlertTone('alert');
+      playRideAlertTone();
     } catch {
       /* één poging per id */
     }
@@ -275,7 +275,6 @@ async function checkOnce(input: {
     expiresAt: priority.expires_at,
     playSound: true,
     systemSound: true,
-    tone: 'alert',
     badge,
     offerId,
     rideRequestId,
@@ -351,7 +350,7 @@ async function notifyFreshPickupDenials(input: {
   const inForeground = AppState.currentState === 'active';
   if (inForeground) {
     try {
-      playRideAlertTone('alert');
+      playRideAlertTone();
     } catch {
       /* ignore */
     }
@@ -361,7 +360,6 @@ async function notifyFreshPickupDenials(input: {
     body,
     rideId,
     playSound: true,
-    tone: 'alert',
   });
   return { title, body, rideId };
 }

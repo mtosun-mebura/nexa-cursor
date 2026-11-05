@@ -32,7 +32,7 @@
     const UI_STATE_KEY = 'nexa_taxi_driver_ui';
     const RIDE_ALERT_TONE_KEY = 'nexa_taxi_ride_alert_tone';
     const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'];
-    const RIDE_ALERT_TONE_DEFAULT = 'classic';
+    const RIDE_ALERT_TONE_DEFAULT = 'chime';
     const GPS_COORDS_KEY = 'nexa_taxi_driver_last_gps';
     const GPS_BG_NOTICE_KEY = 'nexa_taxi_gps_bg_notice_shown';
     const GPS_FIX_OPTIONS = {

@@ -86,7 +86,7 @@
         "expo-notifications",
         {
           "color": "#EF4444",
-          "defaultChannel": "driver-offers-alert-v5",
+          "defaultChannel": "driver-offers-alert-v6",
           "sounds": [
             "./assets/sounds/classic.wav",
             "./assets/sounds/chime.wav",

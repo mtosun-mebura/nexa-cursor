@@ -316,7 +316,12 @@ class RideDispatchService
         $pickupCutoffCompanyId = $companyIds[0];
         $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($pickupCutoffCompanyId);
         if ($ride->pickup_at && $ride->pickup_at->lt($pickupCutoff)) {
-            return;
+            // Open zoekrit: ophaaltijd opschuiven i.p.v. stil te stoppen met aanbieden.
+            $ride = $this->promoteRidePickupIntoDriverQueue($ride, $pickupCutoffCompanyId);
+            $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($pickupCutoffCompanyId);
+            if ($ride->pickup_at && $ride->pickup_at->lt($pickupCutoff)) {
+                return;
+            }
         }
 
         if ($this->allOffersDeclinedForRide($conn, $rideRequestId)) {
@@ -424,14 +429,23 @@ class RideDispatchService
         $now = now();
         $expires = $now->copy()->addSeconds($ttl);
 
+        // Eerst binnen het venster; daarna ook open zoekritten met verstreken ophaaltijd
+        // (klant wacht) — promote heeft pickup_at al opgeschoven waar mogelijk.
         $rides = RideRequest::on($conn)
             ->ownedOrUnclaimedMarketplaceForCompany($companyId)
             ->whereNull('driver_id')
             ->whereIn('status', [RideRequest::STATUS_PENDING_DISPATCH, RideRequest::STATUS_OFFERED])
             ->withoutPendingPickupProposal()
-            ->dispatchPickupWithinQueueWindow($pickupCutoff)
+            ->where(function ($q) use ($pickupCutoff) {
+                $q->dispatchPickupWithinQueueWindow($pickupCutoff)
+                    ->orWhere(function ($waiting) use ($pickupCutoff) {
+                        $waiting->whereNotNull('pickup_at')
+                            ->where('pickup_at', '<', $pickupCutoff)
+                            ->where('created_at', '>=', now()->subDay());
+                    });
+            })
             ->orderBy('pickup_at')
-            ->limit(20)
+            ->limit(30)
             ->get();
 
         foreach ($rides as $ride) {
@@ -570,6 +584,7 @@ class RideDispatchService
 
     /**
      * Verlopen aanbiedingen voor ritten buiten het pickup-grace-venster.
+     * Open marktplaats-zoekritten blijven zichtbaar: klant mag nog wachten/annuleren.
      */
     public function expireOffersForPastPickups(string $conn, int $companyId): int
     {
@@ -580,21 +595,85 @@ class RideDispatchService
         $pickupCutoff = $this->dispatchSettings->pickupQueueCutoffAt($companyId);
 
         $pending = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
             ->where('company_id', $companyId)
             ->where('status', RideDispatchOffer::STATUS_PENDING)
             ->whereHas('rideRequest', function ($q) use ($pickupCutoff) {
                 $q->whereNull('driver_id')
                     ->whereNotNull('pickup_at')
                     ->where('pickup_at', '<', $pickupCutoff);
-            });
-        $closing = (clone $pending)->get(['id', 'driver_id', 'ride_request_id']);
-        $count = $pending->update([
-            'status' => RideDispatchOffer::STATUS_EXPIRED,
-            'responded_at' => now(),
-        ]);
+            })
+            ->get();
+
+        $cancellation = app(TaxiRideCancellationService::class);
+        $closing = $pending->filter(function (RideDispatchOffer $offer) use ($cancellation) {
+            $ride = $offer->rideRequest;
+            if (! $ride) {
+                return true;
+            }
+            // Blijft in Aanvragen tot de klant annuleert (of auto-annulering na wachten).
+            if ($cancellation->isCancellableByCustomer($ride) || $cancellation->customerChoseWait($ride)) {
+                return false;
+            }
+
+            return true;
+        })->values();
+
+        if ($closing->isEmpty()) {
+            return 0;
+        }
+
+        $count = RideDispatchOffer::on($conn)
+            ->whereIn('id', $closing->modelKeys())
+            ->update([
+                'status' => RideDispatchOffer::STATUS_EXPIRED,
+                'responded_at' => now(),
+            ]);
         app(DriverExpoPushService::class)->sendOffersClosed($closing);
 
         return $count;
+    }
+
+    /**
+     * Zet een open zoekrit terug in de chauffeur-wachtrij (na “blijven wachten” / beslisprompt).
+     */
+    public function retainUnacceptedRideInDriverQueue(string $conn, RideRequest $ride): RideRequest
+    {
+        if (! TaxiDispatchSchema::tablesExist($conn)) {
+            return $ride;
+        }
+
+        $ride = RideRequest::on($conn)->find($ride->id) ?? $ride;
+        if ($ride->driver_id || ! in_array($ride->status, [
+            RideRequest::STATUS_PENDING_DISPATCH,
+            RideRequest::STATUS_OFFERED,
+        ], true)) {
+            return $ride;
+        }
+
+        $companyIds = (int) $ride->company_id > 0
+            ? [(int) $ride->company_id]
+            : $ride->marketplaceCandidateCompanyIds();
+        $companyIds = array_values(array_unique(array_filter(
+            array_map('intval', $companyIds),
+            static fn (int $id): bool => $id > 0
+        )));
+        if ($companyIds === []) {
+            $settingsId = app(TaxiRideCancellationService::class)->settingsCompanyIdForRide($ride);
+            if ($settingsId > 0) {
+                $companyIds = [$settingsId];
+            }
+        }
+
+        foreach ($companyIds as $companyId) {
+            $ride = $this->promoteRidePickupIntoDriverQueue($ride, $companyId);
+        }
+
+        // Debounce van eerdere escalatie wissen zodat chauffeurs meteen weer een aanbod krijgen.
+        Cache::forget('taxi_waiting_escalation:'.$conn.':'.$ride->id);
+        $this->escalateWaitingRide($conn, (int) $ride->id);
+
+        return $ride->fresh() ?? $ride;
     }
 
     /**
