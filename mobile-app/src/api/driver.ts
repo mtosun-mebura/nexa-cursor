@@ -141,9 +141,35 @@ export type DispatchOffer = {
   urgency?: string;
   offered_at?: string | null;
   expires_at?: string | null;
+  /** ISO: wanneer het aanbod sloot (annulering); voor 5‑minuten-weergave. */
+  closed_at?: string | null;
+  /** Server markeert recent geannuleerde inbox-kaarten. */
+  ui_cancelled?: boolean;
   seconds_remaining?: number;
   ride?: DispatchOfferRide;
 };
+
+/** Hoe lang een geannuleerde aanvraag nog in Aanvragen blijft (ms). */
+export const CANCELLED_OFFER_VISIBLE_MS = 5 * 60 * 1000;
+
+export function isCancelledOffer(offer: DispatchOffer | null | undefined): boolean {
+  if (!offer) return false;
+  if (offer.ui_cancelled === true) return true;
+  const status = String(offer.status || '');
+  return status === 'superseded' || status === 'cancelled';
+}
+
+export function cancelledOfferStillVisible(
+  offer: DispatchOffer,
+  nowMs: number = Date.now()
+): boolean {
+  if (!isCancelledOffer(offer)) return false;
+  const raw = offer.closed_at || offer.expires_at || offer.offered_at;
+  if (!raw) return true;
+  const at = Date.parse(String(raw));
+  if (!Number.isFinite(at)) return true;
+  return nowMs - at < CANCELLED_OFFER_VISIBLE_MS;
+}
 
 export type DriverCancelReason = {
   code: string;
@@ -189,6 +215,7 @@ export type DriverInboxData = {
   offers: DispatchOffer[];
   archivedOffers: DispatchOffer[];
   declinedOffers: DispatchOffer[];
+  cancelledOffers: DispatchOffer[];
   activeRide: DriverActiveRide | null;
   parkedAssignedRides: DriverActiveRide[];
   scheduledRides: DriverActiveRide[];
@@ -228,7 +255,7 @@ export function fetchDriverMe(token: string) {
       poll_interval_ms?: number;
       gps_refresh_seconds?: number;
     };
-  }>('/api/taxi/v1/driver/me', { token });
+  }>('/api/taxi/v1/driver/me', { token, timeoutMs: 10000 });
 }
 
 export function updateDriverAccent(token: string, accent: string) {
@@ -346,7 +373,10 @@ export function uploadDriverVehiclePhoto(
 }
 
 export function fetchDriverVehicles(token: string) {
-  return apiRequest<DriverVehiclesResponse>('/api/taxi/v1/driver/vehicles', { token });
+  return apiRequest<DriverVehiclesResponse>('/api/taxi/v1/driver/vehicles', {
+    token,
+    timeoutMs: 10000,
+  });
 }
 
 export type DriverVehicleInput = {
@@ -357,7 +387,10 @@ export type DriverVehicleInput = {
 };
 
 export function fetchDriverFleet(token: string) {
-  return apiRequest<{ data?: DriverVehicle[] }>('/api/taxi/v1/driver/vehicles/fleet', { token });
+  return apiRequest<{ data?: DriverVehicle[] }>('/api/taxi/v1/driver/vehicles/fleet', {
+    token,
+    timeoutMs: 10000,
+  });
 }
 
 export function createDriverVehicle(token: string, input: DriverVehicleInput) {
@@ -463,6 +496,7 @@ export function inboxDataFromResponse(inbox: {
   data?: {
     offers?: DispatchOffer[];
     declined_offers?: DispatchOffer[];
+    cancelled_offers?: DispatchOffer[];
     archived_offers?: DispatchOffer[];
     active_ride?: DriverActiveRide | null;
     parked_assigned_rides?: DriverActiveRide[];
@@ -481,6 +515,7 @@ export function inboxDataFromResponse(inbox: {
     offers: inboxOffersFromResponse(inbox),
     archivedOffers: asOfferList(inbox?.data?.archived_offers),
     declinedOffers: asOfferList(inbox?.data?.declined_offers),
+    cancelledOffers: asOfferList(inbox?.data?.cancelled_offers),
     activeRide:
       active && typeof active === 'object' && Number(active.id) > 0 ? active : null,
     parkedAssignedRides: asRideList(inbox?.data?.parked_assigned_rides),
@@ -838,7 +873,7 @@ export function fetchDriverPlanningWeek(
   const qs = params.toString();
   return apiRequest<{ data?: DriverPlanningWeek }>(
     `/api/taxi/v1/driver/planning${qs ? `?${qs}` : ''}`,
-    { token }
+    { token, timeoutMs: 12000 }
   );
 }
 

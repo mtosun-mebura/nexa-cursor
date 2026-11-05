@@ -452,6 +452,9 @@ class TaxiRideCancellationService
                     'id' => (int) $row->id,
                     'driver_id' => (int) $row->driver_id,
                     'ride_request_id' => (int) $row->ride_request_id,
+                    'pickup_address' => trim((string) ($locked->pickup_address ?? '')),
+                    'pickup_at' => $locked->pickup_at?->toIso8601String(),
+                    'quoted_price' => $locked->quoted_price ?? $locked->final_price,
                 ])
                 ->all();
 
@@ -623,6 +626,9 @@ class TaxiRideCancellationService
                     'id' => (int) $row->id,
                     'driver_id' => (int) $row->driver_id,
                     'ride_request_id' => (int) $row->ride_request_id,
+                    'pickup_address' => trim((string) ($locked->pickup_address ?? '')),
+                    'pickup_at' => $locked->pickup_at?->toIso8601String(),
+                    'quoted_price' => $locked->quoted_price ?? $locked->final_price,
                 ])
                 ->all();
             $driverIds = collect($closedOffers)

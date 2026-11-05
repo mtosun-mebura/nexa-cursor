@@ -134,6 +134,9 @@ class DriverExpoPushServiceTest extends TestCase
             'id' => 15,
             'driver_id' => $user->id,
             'ride_request_id' => 9,
+            'pickup_address' => 'Stationsplein 1, Amsterdam',
+            'pickup_at' => '2026-11-05T14:30:00+01:00',
+            'quoted_price' => 24.5,
         ]]);
 
         Http::assertSentCount(1);
@@ -144,6 +147,10 @@ class DriverExpoPushServiceTest extends TestCase
             return ($message['data']['type'] ?? null) === 'driver_offer_closed'
                 && (int) ($message['data']['offer_id'] ?? 0) === 15
                 && (int) ($message['data']['ride_request_id'] ?? 0) === 9
+                && ($message['title'] ?? null) === 'Rit geannuleerd'
+                && is_string($message['body'] ?? null)
+                && str_contains((string) $message['body'], 'Stationsplein 1')
+                && ($message['data']['pickup_address'] ?? null) === 'Stationsplein 1, Amsterdam'
                 && ($message['sound'] ?? null) === 'chime.wav'
                 && ($message['channelId'] ?? null) === 'driver-offers-alert-v9';
         });
