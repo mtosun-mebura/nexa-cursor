@@ -1550,6 +1550,30 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   guestRidesRef.current = guestRides;
 
   useEffect(() => {
+    if (longWaitCancelRide) return;
+    const archived = new Set(archivedKeys);
+    const candidate =
+      guestRides.find(
+        (r) =>
+          r.phase === 'cancelled' &&
+          r.cancellation_reason === 'auto_unaccepted' &&
+          !archived.has(rideArchiveKey(r))
+      ) || null;
+    if (
+      !candidate &&
+      live?.phase === 'cancelled' &&
+      live.cancellation_reason === 'auto_unaccepted'
+    ) {
+      const fromLive = guestRides.find((r) => Number(r.id) === Number(live.id));
+      if (fromLive && !archived.has(rideArchiveKey(fromLive))) {
+        setLongWaitCancelRide(fromLive);
+      }
+      return;
+    }
+    if (candidate) setLongWaitCancelRide(candidate);
+  }, [guestRides, archivedKeys, longWaitCancelRide, live]);
+
+  useEffect(() => {
     if (!trackToken) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2688,29 +2712,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const pastRides = guestRides.filter((r) => !isActiveRidePhase(r.phase));
   const visiblePast = pastRides.filter((r) => !archivedSet.has(rideArchiveKey(r)));
   const archivedPast = pastRides.filter((r) => archivedSet.has(rideArchiveKey(r)));
-
-  useEffect(() => {
-    if (longWaitCancelRide) return;
-    const candidate =
-      guestRides.find(
-        (r) =>
-          r.phase === 'cancelled' &&
-          r.cancellation_reason === 'auto_unaccepted' &&
-          !archivedSet.has(rideArchiveKey(r))
-      ) || null;
-    if (
-      !candidate &&
-      live?.phase === 'cancelled' &&
-      live.cancellation_reason === 'auto_unaccepted'
-    ) {
-      const fromLive = guestRides.find((r) => Number(r.id) === Number(live.id));
-      if (fromLive && !archivedSet.has(rideArchiveKey(fromLive))) {
-        setLongWaitCancelRide(fromLive);
-      }
-      return;
-    }
-    if (candidate) setLongWaitCancelRide(candidate);
-  }, [guestRides, archivedKeys, longWaitCancelRide, live]);
 
   function renderRatingResult(stars: number, comment?: string | null) {
     return (

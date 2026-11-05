@@ -58,8 +58,16 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }
 
+const DEMO_FALLBACK: DemoState = {
+  isSuperAdmin: false,
+  active: false,
+  setEnabled: () => undefined,
+  bookingOpen: false,
+  setBookingOpen: () => undefined,
+};
+
 export function useDemo() {
-  const ctx = useContext(DemoContext);
-  if (!ctx) throw new Error('useDemo must be used within DemoProvider');
-  return ctx;
+  // Geen throw: bij Fast Refresh / Suspense kan de provider kort ontbreken
+  // en crashte de hele app (rode error op o.a. iPad) i.p.v. stil uit te blijven.
+  return useContext(DemoContext) ?? DEMO_FALLBACK;
 }

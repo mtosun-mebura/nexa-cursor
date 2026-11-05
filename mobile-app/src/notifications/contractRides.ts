@@ -23,8 +23,8 @@ try {
 
 let permissionReady: Promise<boolean> | null = null;
 
-/** Nieuw id: v5 met alert.wav (Android wijzigt sound op bestaande kanalen niet). */
-const CONTRACT_RIDES_CHANNEL = 'contract-rides-v6';
+/** Nieuw id bij sound-wissel (Android wijzigt sound op bestaande kanalen niet). */
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v7';
 
 export function contractNotificationsAvailable(): boolean {
   return Notifications != null;
@@ -75,7 +75,7 @@ export async function notifyNewContractRide(opts: {
 
   if (playSound && AppState.currentState === 'active') {
     try {
-      playRideAlertTone('alert');
+      playRideAlertTone();
     } catch {
       /* ignore */
     }
