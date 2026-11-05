@@ -56,6 +56,33 @@ export function rideNeedsLivePoll(ride: {
   return isActiveRidePhase(phase) || ride.pickup_confirmation?.can_answer === true || pinOpen;
 }
 
+/** Zoekrit of geannuleerde rit die nog om status/ack gevraagd moet worden. */
+export function rideNeedsStatusRefresh(ride: {
+  phase?: string | null;
+  token?: string | null;
+  cancellation_reason?: string | null;
+  pickup_confirmation?: { can_answer?: boolean; pin?: string | null; status?: string | null } | null;
+}): boolean {
+  if (!String(ride.token || '').trim()) return false;
+  if (rideNeedsLivePoll(ride)) return true;
+  // Laatste poll voor zoekrit die ondertussen auto-geannuleerd is (fase nog lokaal “searching”
+  // wordt hierboven al gedekt). Geannuleerd zonder reden: één keer verversen.
+  return (
+    String(ride.phase || '') === 'cancelled' &&
+    !String(ride.cancellation_reason || '').trim()
+  );
+}
+
+export function isAutoUnacceptedCancel(ride: {
+  phase?: string | null;
+  cancellation_reason?: string | null;
+}): boolean {
+  return (
+    String(ride.phase || '') === 'cancelled' &&
+    String(ride.cancellation_reason || '') === 'auto_unaccepted'
+  );
+}
+
 export function isActiveRidePhase(phase?: string | null): boolean {
   return (
     phase === 'searching' ||

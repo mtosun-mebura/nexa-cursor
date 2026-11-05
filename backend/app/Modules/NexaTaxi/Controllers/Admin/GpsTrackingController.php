@@ -332,7 +332,7 @@ class GpsTrackingController extends Controller
             'plate_text_color.regex' => __('Kies een geldige tekstkleur voor het kenteken.'),
             'plate_border_color.regex' => __('Kies een geldige randkleur voor het kenteken.'),
             'refresh_seconds.required' => __('Vul het aantal seconden in.'),
-            'refresh_seconds.min' => __('Vernieuwen kan minimaal elke seconde.'),
+            'refresh_seconds.min' => __('Vernieuwen kan minimaal elke :seconds seconden.', ['seconds' => TaxiGpsTrackingSettingsService::MIN_REFRESH_SECONDS]),
             'refresh_seconds.max' => __('Vernieuwen kan maximaal elke :seconds seconden.', ['seconds' => TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS]),
         ]);
 
