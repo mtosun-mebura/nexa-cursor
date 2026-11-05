@@ -57,13 +57,21 @@ async function ensureRideStatusChannel(): Promise<void> {
   });
 }
 
-/** Systeemgeluid zonder banner. `sound: true` is het standaardgeluid, geen bestand 'default'. */
+/**
+ * Systeemgeluid zonder zichtbare banner.
+ * `sound: true` = standaard iOS-geluid (geen bestand 'default').
+ * Geen lege title/body: iOS toont die op het vergrendelscherm als "Melding".
+ */
 async function playSystemAttentionSound(): Promise<void> {
+  // Alleen zinvol in voorgrond; handler verbergt de banner via soundOnly.
+  if (AppState.currentState !== 'active') return;
   await ensureHandler();
   await ensureRideStatusChannel();
   const Notifications = await notifications();
   await Notifications.scheduleNotificationAsync({
     content: {
+      title: ' ',
+      body: ' ',
       sound: true,
       data: { soundOnly: true },
       ...(Platform.OS === 'android' ? { channelId: RIDE_STATUS_CHANNEL } : {}),

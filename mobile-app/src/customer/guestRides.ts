@@ -29,6 +29,10 @@ export type GuestRide = {
   duration_seconds?: number | null;
   /** Gekozen ophaaltijd (label of ISO), niet het moment van inschieten. */
   pickup_at?: string | null;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
   rating?: GuestRideRating | null;
   cancellation_message?: string | null;
   cancellation_reason?: string | null;
@@ -81,6 +85,18 @@ export function isAutoUnacceptedCancel(ride: {
     String(ride.phase || '') === 'cancelled' &&
     String(ride.cancellation_reason || '') === 'auto_unaccepted'
   );
+}
+
+/** Mag opnieuw worden aangeboden (auto-timeout of bekende wacht-annuleertekst). */
+export function canRebookAfterLongWait(ride: {
+  phase?: string | null;
+  cancellation_reason?: string | null;
+  cancellation_message?: string | null;
+}): boolean {
+  if (isAutoUnacceptedCancel(ride)) return true;
+  if (String(ride.phase || '') !== 'cancelled') return false;
+  const msg = String(ride.cancellation_message || '').toLowerCase();
+  return msg.includes('wachten te lang') || msg.includes('geen chauffeur gevonden');
 }
 
 export function isActiveRidePhase(phase?: string | null): boolean {
@@ -212,6 +228,10 @@ export async function saveGuestRide(
     duration_seconds:
       meta.duration_seconds !== undefined ? meta.duration_seconds : prev?.duration_seconds ?? null,
     pickup_at: pickupAtOrPrevious(meta.pickup_at, prev?.pickup_at),
+    pickup_lat: meta.pickup_lat !== undefined ? meta.pickup_lat : prev?.pickup_lat ?? null,
+    pickup_lng: meta.pickup_lng !== undefined ? meta.pickup_lng : prev?.pickup_lng ?? null,
+    dropoff_lat: meta.dropoff_lat !== undefined ? meta.dropoff_lat : prev?.dropoff_lat ?? null,
+    dropoff_lng: meta.dropoff_lng !== undefined ? meta.dropoff_lng : prev?.dropoff_lng ?? null,
     rating: meta.rating !== undefined ? meta.rating : prev?.rating ?? null,
     cancellation_message:
       meta.cancellation_message !== undefined
@@ -301,6 +321,10 @@ export function guestPatchFromLive(ride: {
   rating?: GuestRideRating | null;
   distance_km?: number | null;
   duration_seconds?: number | null;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
   cancellation_message?: string | null;
   cancellation_reason?: string | null;
   refund_message?: string | null;
@@ -320,6 +344,10 @@ export function guestPatchFromLive(ride: {
     passengers: ride.passengers ?? undefined,
     baggage_summary: ride.baggage?.summary ?? undefined,
     pickup_at: livePickupAt(ride) || undefined,
+    pickup_lat: ride.pickup_lat ?? undefined,
+    pickup_lng: ride.pickup_lng ?? undefined,
+    dropoff_lat: ride.dropoff_lat ?? undefined,
+    dropoff_lng: ride.dropoff_lng ?? undefined,
     rating: ride.rating ?? undefined,
     distance_km: ride.distance_km ?? undefined,
     duration_seconds: ride.duration_seconds ?? undefined,

@@ -149,6 +149,7 @@ export const EN: Record<string, string> = {
   'De klant': 'The customer',
   '{name} zegt dat die niet is opgehaald. Tik opnieuw op Klant opgehaald.':
     '{name} says they were not picked up. Tap Customer picked up again.',
+  'De chauffeur heeft je rit geaccepteerd.': 'The driver has accepted your ride.',
   'De chauffeur is onderweg naar jou': 'The driver is on the way to you',
   'De chauffeur is onderweg naar jou.': 'The driver is on the way to you.',
   'De chauffeur rijdt de haltes af.': 'The driver is covering the stops.',
@@ -223,6 +224,8 @@ export const EN: Record<string, string> = {
   Geel: 'Yellow',
   Geen: 'None',
   'Geen afgeronde ritten in deze periode.': 'No completed rides in this period.',
+  'Geen foto': 'No photo',
+  'Geen foto van dit voertuig': 'No photo of this vehicle',
   'Geen gearchiveerde of afgewezen ritten.': 'No archived or declined rides.',
   'Geen open haltes om te rijden.': 'No open stops to drive.',
   'Geen open rit om te volgen.': 'No open ride to follow.',
@@ -344,6 +347,14 @@ export const EN: Record<string, string> = {
     'Name, type, plate and passenger range. A ride with more than 4 passengers only goes to a vehicle for 5 to 8.',
   'Naar actieve rit': 'To active ride',
   'Naar archief': 'To archive',
+  'Nu opnieuw zoeken': 'Search again now',
+  'Zet dezelfde rit klaar met ophaaltijd van nu.':
+    'Prepares the same ride with pickup time set to now.',
+  'Ophaaladres ontbreekt.': 'Pickup address is missing.',
+  'Bestemmingsadres ontbreekt.': 'Destination address is missing.',
+  'De rit kon niet opnieuw worden klaargezet. Probeer het handmatig via Boeken.':
+    'Could not prepare the ride again. Try booking manually.',
+  'Opnieuw zoeken mislukt': 'Search again failed',
   'Naar Boeken': 'To Book',
   'Naar ritten': 'To rides',
   'Naar startpagina': 'To start page',

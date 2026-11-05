@@ -49,6 +49,7 @@ import {
   fetchDrivingRoute,
   formatEuroNl,
   formatPickupAtPayload,
+  geocodeAddress,
   isPickupAtInPast,
   GeoPoint,
   LatLng,
@@ -69,6 +70,7 @@ import {
   rideNeedsLivePoll,
   rideNeedsStatusRefresh,
   isAutoUnacceptedCancel,
+  canRebookAfterLongWait,
   livePickupAt,
   isActiveRidePhase,
   isRidesTabBadgePhase,
@@ -2249,6 +2251,98 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setArchivedKeys(keys);
   }
 
+  /** Auto-geannuleerde rit opnieuw inboeken met ophaaltijd van nu. */
+  async function rebookAutoCancelledRide(ride: GuestRide) {
+    setBusy(true);
+    setError(null);
+    try {
+      let from = String(ride.from || '').trim();
+      let to = String(ride.to || '').trim();
+      let fromPlace = ride.from_place ?? null;
+      let toPlace = ride.to_place ?? null;
+      let pickupLat = ride.pickup_lat != null ? Number(ride.pickup_lat) : NaN;
+      let pickupLng = ride.pickup_lng != null ? Number(ride.pickup_lng) : NaN;
+      let dropoffLat = ride.dropoff_lat != null ? Number(ride.dropoff_lat) : NaN;
+      let dropoffLng = ride.dropoff_lng != null ? Number(ride.dropoff_lng) : NaN;
+      let passengersCount = ride.passengers != null ? Number(ride.passengers) : NaN;
+
+      if (ride.token) {
+        try {
+          const data = await fetchLive(ride.token);
+          if (data.ride) {
+            from = String(data.ride.pickup_address || from).trim();
+            to = String(data.ride.dropoff_address || to).trim();
+            fromPlace = data.ride.pickup_place_name ?? fromPlace;
+            toPlace = data.ride.dropoff_place_name ?? toPlace;
+            if (data.ride.pickup_lat != null) pickupLat = Number(data.ride.pickup_lat);
+            if (data.ride.pickup_lng != null) pickupLng = Number(data.ride.pickup_lng);
+            if (data.ride.dropoff_lat != null) dropoffLat = Number(data.ride.dropoff_lat);
+            if (data.ride.dropoff_lng != null) dropoffLng = Number(data.ride.dropoff_lng);
+            if (data.ride.passengers != null) passengersCount = Number(data.ride.passengers);
+            const next = await updateGuestRide(ride.token, guestPatchFromLive(data.ride));
+            setGuestRides(next);
+          }
+        } catch {
+          /* coords uit opslag of geocode */
+        }
+      }
+
+      if (!Number.isFinite(pickupLat) || !Number.isFinite(pickupLng)) {
+        if (!from) throw new Error(t('Ophaaladres ontbreekt.'));
+        const g = await geocodeAddress(from);
+        pickupLat = g.lat;
+        pickupLng = g.lng;
+        if (!fromPlace && g.placeName) fromPlace = g.placeName;
+      }
+      if (!Number.isFinite(dropoffLat) || !Number.isFinite(dropoffLng)) {
+        if (!to) throw new Error(t('Bestemmingsadres ontbreekt.'));
+        const g = await geocodeAddress(to);
+        dropoffLat = g.lat;
+        dropoffLng = g.lng;
+        if (!toPlace && g.placeName) toPlace = g.placeName;
+      }
+
+      const pickupPoint: GeoPoint = {
+        lat: pickupLat,
+        lng: pickupLng,
+        address: from,
+        placeName: fromPlace,
+      };
+      const dropoffPoint: GeoPoint = {
+        lat: dropoffLat,
+        lng: dropoffLng,
+        address: to,
+        placeName: toPlace,
+      };
+
+      setPickup(pickupPoint);
+      setPickupQuery(from);
+      setPickupSuggestions([]);
+      setDropoff(dropoffPoint);
+      setDropoffQuery(to);
+      setDropoffSuggestions([]);
+      setPickupAt(defaultPickupDate(10));
+      if (Number.isFinite(passengersCount) && passengersCount >= 1) {
+        setPassengers(String(Math.min(20, Math.round(passengersCount))));
+      }
+      setQuote(null);
+      setFieldErrors({});
+      setLongWaitCancelRide(null);
+      setTab('book');
+      AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
+      bookScrollRef.current?.scrollTo({ y: 0, animated: false });
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message
+          ? e.message
+          : t('De rit kon niet opnieuw worden klaargezet. Probeer het handmatig via Boeken.');
+      setError(msg);
+      Alert.alert(t('Opnieuw zoeken mislukt'), msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const routeSummary = useMemo(() => {
     const metrics = routeMetrics;
     if (!metrics) return t("— km · — min");
@@ -3450,6 +3544,27 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
 
+            {canRebookAfterLongWait(
+              isLiveMatch && live
+                ? {
+                    phase: live.phase,
+                    cancellation_reason: live.cancellation_reason,
+                    cancellation_message: live.cancellation_message,
+                  }
+                : ride
+            ) ? (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <PrimaryButton
+                  title={t('Nu opnieuw zoeken')}
+                  onPress={() => void rebookAutoCancelledRide(ride)}
+                  loading={busy}
+                />
+                <Text style={[styles.meta, { marginBottom: 0 }]}>
+                  {t('Zet dezelfde rit klaar met ophaaltijd van nu.')}
+                </Text>
+              </View>
+            ) : null}
+
             {canArchive ? (
               <View style={{ marginTop: 12 }}>
                 <GhostButton
@@ -3461,16 +3576,38 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
           </View>
-        ) : canArchive ? (
+        ) : (
           <View style={styles.rideArchiveBtnWrap}>
-            <GhostButton
-              title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
-              onPress={() =>
-                toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-              }
-            />
+            {canRebookAfterLongWait(
+              isLiveMatch && live
+                ? {
+                    phase: live.phase,
+                    cancellation_reason: live.cancellation_reason,
+                    cancellation_message: live.cancellation_message,
+                  }
+                : ride
+            ) ? (
+              <View style={{ gap: 8, marginBottom: canArchive ? 10 : 0 }}>
+                <PrimaryButton
+                  title={t('Nu opnieuw zoeken')}
+                  onPress={() => void rebookAutoCancelledRide(ride)}
+                  loading={busy}
+                />
+                <Text style={[styles.meta, { marginBottom: 0 }]}>
+                  {t('Zet dezelfde rit klaar met ophaaltijd van nu.')}
+                </Text>
+              </View>
+            ) : null}
+            {canArchive ? (
+              <GhostButton
+                title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
+                onPress={() =>
+                  toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
+                }
+              />
+            ) : null}
           </View>
-        ) : null}
+        )}
       </View>
     );
   }
@@ -4023,9 +4160,27 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.'
           ).trim()}
         </Text>
-        <View style={{ marginTop: 14 }}>
+        <View style={{ marginTop: 14, gap: 10 }}>
           <PrimaryButton
-            title={t("OK")}
+            title={t('Nu opnieuw zoeken')}
+            loading={busy}
+            onPress={() => {
+              const ride = longWaitCancelRide;
+              if (!ride) return;
+              const key = rideArchiveKey(ride);
+              if (key) longWaitCancelShownRef.current.add(key);
+              void (async () => {
+                await rebookAutoCancelledRide(ride);
+                if (trackToken && (ride.token === trackToken || Number(live?.id) === Number(ride.id))) {
+                  setTrackToken(null);
+                  setLive(null);
+                  void AsyncStorage.removeItem(TRACK_KEY);
+                }
+              })();
+            }}
+          />
+          <GhostButton
+            title={t('OK')}
             onPress={() => {
               const ride = longWaitCancelRide;
               setLongWaitCancelRide(null);
