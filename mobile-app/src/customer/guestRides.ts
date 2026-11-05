@@ -87,36 +87,6 @@ export function isAutoUnacceptedCancel(ride: {
   );
 }
 
-/** Mag opnieuw worden aangeboden (auto-timeout of bekende wacht-annuleertekst). */
-export function canRebookAfterLongWait(ride: {
-  phase?: string | null;
-  cancellation_reason?: string | null;
-  cancellation_message?: string | null;
-}): boolean {
-  if (String(ride.phase || '') !== 'cancelled' && !isAutoUnacceptedCancel(ride)) {
-    return false;
-  }
-  const reason = String(ride.cancellation_reason || '').trim().toLowerCase();
-  if (reason === 'auto_unaccepted') return true;
-  if (reason === 'customer' || reason === 'driver') return false;
-  const msg = String(ride.cancellation_message || '').toLowerCase();
-  if (!msg) return false;
-  if (
-    msg.includes('je hebt deze rit geannuleerd') ||
-    msg.includes('u heeft deze rit geannuleerd') ||
-    msg.includes('you cancelled')
-  ) {
-    return false;
-  }
-  return (
-    msg.includes('wachten te lang') ||
-    msg.includes('geen chauffeur gevonden') ||
-    msg.includes('waited too long') ||
-    msg.includes('no driver was found') ||
-    msg.includes('no driver found')
-  );
-}
-
 export function isActiveRidePhase(phase?: string | null): boolean {
   return (
     phase === 'searching' ||
