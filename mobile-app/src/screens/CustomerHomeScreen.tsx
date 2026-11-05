@@ -2382,7 +2382,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           ? e.message
           : t('De rit kon niet opnieuw worden klaargezet. Probeer het handmatig via Boeken.');
       setError(msg);
-      Alert.alert(t('Opnieuw zoeken mislukt'), msg);
+      Alert.alert(t('Opnieuw indienen mislukt'), msg);
     } finally {
       setBusy(false);
     }
@@ -3291,7 +3291,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 {showRebook ? (
                   <View style={{ marginTop: 12, gap: 8 }}>
                     <PrimaryButton
-                      title={t('Nu opnieuw zoeken')}
+                      title={t('Rit opnieuw indienen')}
                       onPress={() => void rebookAutoCancelledRide(ride)}
                       loading={busy}
                     />
@@ -4221,7 +4221,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         </Text>
         <View style={{ marginTop: 14, gap: 10 }}>
           <PrimaryButton
-            title={t('Nu opnieuw zoeken')}
+            title={t('Rit opnieuw indienen')}
             loading={busy}
             onPress={() => {
               const ride = longWaitCancelRide;
@@ -4239,7 +4239,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             }}
           />
           <GhostButton
-            title={t('OK')}
+            title={t('Sluiten')}
             onPress={() => {
               const ride = longWaitCancelRide;
               setLongWaitCancelRide(null);

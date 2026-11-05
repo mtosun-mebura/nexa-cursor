@@ -1,8 +1,8 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import {
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -42,7 +42,8 @@ type AppModalProps = {
 };
 
 /**
- * Standaard app-modal: geblurde slate-overlay + paneel.
+ * Standaard app-modal: geblurde slate-overlay + paneel in hetzelfde window
+ * (geen RN Modal — die blurde de achtergrond niet betrouwbaar).
  * Zie `.cursor/rules/mobile-app-modal-blur.mdc`.
  */
 export function AppModal({
@@ -67,6 +68,18 @@ export function AppModal({
   const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
   const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
 
+  useEffect(() => {
+    if (!visible || dismissDisabled) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onRequestClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, dismissDisabled, onRequestClose]);
+
+  // Niet-zichtbare overlays blijven touches stelen. Unmount volledig.
+  if (!visible) return null;
+
   const body = (
     <View
       style={[
@@ -78,7 +91,7 @@ export function AppModal({
     >
       <BlurView
         pointerEvents="none"
-        intensity={Platform.OS === 'ios' ? 36 : 48}
+        intensity={Platform.OS === 'ios' ? 64 : 80}
         tint="dark"
         style={styles.backdrop}
       />
@@ -129,14 +142,7 @@ export function AppModal({
   );
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => {
-        if (!dismissDisabled) onRequestClose();
-      }}
-    >
+    <View style={styles.portal} pointerEvents="box-none">
       {keyboardAccessory ? (
         <View style={styles.flex} pointerEvents="box-none">
           {modalBody}
@@ -145,13 +151,18 @@ export function AppModal({
       ) : (
         modalBody
       )}
-    </Modal>
+    </View>
   );
 }
 
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     flex: { flex: 1 },
+    portal: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 1000,
+      elevation: 1000,
+    },
     root: {
       flex: 1,
     },
@@ -164,23 +175,24 @@ function makeStyles(colors: ColorPalette) {
       paddingHorizontal: 0,
     },
     backdrop: {
-      ...StyleSheet.absoluteFill,
+      ...StyleSheet.absoluteFillObject,
       zIndex: 0,
     },
     scrim: {
-      ...StyleSheet.absoluteFill,
+      ...StyleSheet.absoluteFillObject,
       zIndex: 1,
-      backgroundColor: 'rgba(15, 23, 42, 0.45)',
+      // Lichte sluier boven de blur (admin: slate-900/45) — niet pechzwart.
+      backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     centerLayer: {
-      ...StyleSheet.absoluteFill,
+      ...StyleSheet.absoluteFillObject,
       zIndex: 2,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 24,
     },
     sheetLayer: {
-      ...StyleSheet.absoluteFill,
+      ...StyleSheet.absoluteFillObject,
       zIndex: 2,
       justifyContent: 'flex-end',
     },
