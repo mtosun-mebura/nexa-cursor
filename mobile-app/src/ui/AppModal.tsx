@@ -1,8 +1,8 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import {
-  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -42,8 +42,8 @@ type AppModalProps = {
 };
 
 /**
- * Standaard app-modal: geblurde slate-overlay + paneel in hetzelfde window
- * (geen RN Modal — die blurde de achtergrond niet betrouwbaar).
+ * Standaard app-modal: native Modal (eigen window → tik op knop sluit niet meteen)
+ * + geblurde slate-overlay + gecentreerd paneel.
  * Zie `.cursor/rules/mobile-app-modal-blur.mdc`.
  */
 export function AppModal({
@@ -67,17 +67,19 @@ export function AppModal({
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
   const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
   const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
+  /** Voorkom dat de openingstik meteen de backdrop raakt en de modal weer sluit. */
+  const [backdropArmed, setBackdropArmed] = useState(false);
 
   useEffect(() => {
-    if (!visible || dismissDisabled) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      onRequestClose();
-      return true;
-    });
-    return () => sub.remove();
-  }, [visible, dismissDisabled, onRequestClose]);
+    if (!visible) {
+      setBackdropArmed(false);
+      return;
+    }
+    const timer = setTimeout(() => setBackdropArmed(true), 280);
+    return () => clearTimeout(timer);
+  }, [visible]);
 
-  // Niet-zichtbare overlays blijven touches stelen. Unmount volledig.
+  // Niet-zichtbare Modals blijven op iOS/Android soms touches stelen.
   if (!visible) return null;
 
   const body = (
@@ -99,6 +101,10 @@ export function AppModal({
         style={styles.scrim}
         disabled={dismissDisabled && dismissOnBackdrop}
         onPress={() => {
+          if (!backdropArmed) {
+            Keyboard.dismiss();
+            return;
+          }
           if (closeFromBackdrop) {
             onRequestClose();
             return;
@@ -142,7 +148,16 @@ export function AppModal({
   );
 
   return (
-    <View style={styles.portal} pointerEvents="box-none">
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={() => {
+        if (!dismissDisabled) onRequestClose();
+      }}
+    >
       {keyboardAccessory ? (
         <View style={styles.flex} pointerEvents="box-none">
           {modalBody}
@@ -151,18 +166,13 @@ export function AppModal({
       ) : (
         modalBody
       )}
-    </View>
+    </Modal>
   );
 }
 
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     flex: { flex: 1 },
-    portal: {
-      ...StyleSheet.absoluteFillObject,
-      zIndex: 1000,
-      elevation: 1000,
-    },
     root: {
       flex: 1,
     },
@@ -181,7 +191,6 @@ function makeStyles(colors: ColorPalette) {
     scrim: {
       ...StyleSheet.absoluteFillObject,
       zIndex: 1,
-      // Lichte sluier boven de blur (admin: slate-900/45) — niet pechzwart.
       backgroundColor: 'rgba(15, 23, 42, 0.4)',
     },
     centerLayer: {

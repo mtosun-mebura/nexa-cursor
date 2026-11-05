@@ -634,6 +634,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [contactConfirmed, setContactConfirmed] = useState(false);
   const contactSnapshot = useRef<ContactSnapshot | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  /** Token van de rit die geannuleerd wordt (ook als trackToken even leeg is). */
+  const [cancelTargetToken, setCancelTargetToken] = useState<string | null>(null);
   /** Auto-annulering na lang wachten: alleen OK, daarna uit de lijst. */
   const [longWaitCancelRide, setLongWaitCancelRide] = useState<GuestRide | null>(null);
   const longWaitCancelShownRef = useRef<Set<string>>(new Set());
@@ -2087,25 +2089,34 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
-  function requestCancel() {
-    if (!trackToken || busy) return;
+  function requestCancel(rideToken?: string | null) {
+    const token = String(rideToken || trackToken || '').trim();
+    if (!token || busy) return;
+    if (token !== trackToken) {
+      setTrackToken(token);
+      void persistTrack(token);
+    }
+    setCancelTargetToken(token);
     setCancelConfirmOpen(true);
   }
 
   async function confirmCancel() {
-    if (!trackToken) return;
+    const token = String(cancelTargetToken || trackToken || '').trim();
+    if (!token) return;
     setCancelConfirmOpen(false);
+    setCancelTargetToken(null);
     setBusy(true);
     setError(null);
     try {
-      const data = await cancelLive(trackToken);
+      const data = await cancelLive(token);
       if (data.ride) {
         setLive(data.ride);
-        const next = await updateGuestRide(trackToken, guestPatchFromLive(data.ride));
+        const next = await updateGuestRide(token, guestPatchFromLive(data.ride));
         setGuestRides(next);
-        setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token: trackToken }));
+        setExpandedRideKey(rideArchiveKey({ id: data.ride.id, token }));
       }
       await persistTrack(null);
+      setTrackToken(null);
       setTab('rides');
       AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
     } catch (e) {
@@ -3116,18 +3127,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {needsDecision ? (
               <View style={{ marginTop: 14, gap: 8 }}>
                 <PrimaryButton title={t("Blijven wachten")} onPress={onWait} loading={busy} />
-                <GhostButton title={t("Annuleren")} onPress={requestCancel} danger />
+                <GhostButton
+                  title={t("Annuleren")}
+                  onPress={() => requestCancel(ride.token)}
+                  danger
+                />
               </View>
             ) : showCancel ? (
               <Pressable
-                onPress={() => {
-                  if (!isLiveMatch) loadRideLive(ride);
-                  else if (ride.token !== trackToken) {
-                    setTrackToken(ride.token);
-                    persistTrack(ride.token);
-                  }
-                  setCancelConfirmOpen(true);
-                }}
+                onPress={() => requestCancel(ride.token)}
                 style={styles.cancelRideBtn}
                 accessibilityRole="button"
                 accessibilityLabel={t("Rit annuleren")}
@@ -3439,7 +3447,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                       of annuleren?
                     </Text>
                     <PrimaryButton title={t("Blijven wachten")} onPress={onWait} loading={busy} />
-                    <GhostButton title={t("Annuleren")} onPress={requestCancel} danger />
+                    <GhostButton
+                      title={t("Annuleren")}
+                      onPress={() => requestCancel(ride.token)}
+                      danger
+                    />
                   </View>
                 ) : null}
 
@@ -3451,7 +3463,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
                 {live.can_cancel && !live.needs_unaccepted_decision ? (
                   <View style={{ marginTop: 8 }}>
-                    <GhostButton title={t("Rit annuleren")} onPress={requestCancel} danger />
+                    <GhostButton
+                      title={t("Rit annuleren")}
+                      onPress={() => requestCancel(ride.token)}
+                      danger
+                    />
                   </View>
                 ) : null}
 
@@ -4001,7 +4017,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
       <AppModal
         visible={cancelConfirmOpen}
-        onRequestClose={() => setCancelConfirmOpen(false)}
+        onRequestClose={() => {
+          setCancelConfirmOpen(false);
+          setCancelTargetToken(null);
+        }}
         panelStyle={styles.confirmBanner}
       >
         <Text style={styles.confirmTitle}>{t("Rit annuleren?")}</Text>
@@ -4012,14 +4031,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         <View style={styles.confirmActions}>
           <View style={styles.confirmActionSlot}>
             <Pressable
-              onPress={() => setCancelConfirmOpen(false)}
+              onPress={() => {
+                setCancelConfirmOpen(false);
+                setCancelTargetToken(null);
+              }}
               style={styles.confirmSecondaryBtn}
             >
               <Text style={styles.confirmSecondaryText}>{t("Nee, behouden")}</Text>
             </Pressable>
           </View>
           <View style={styles.confirmActionSlot}>
-            <Pressable onPress={confirmCancel} style={styles.confirmDangerBtn}>
+            <Pressable onPress={() => void confirmCancel()} style={styles.confirmDangerBtn}>
               <Text style={styles.confirmDangerText}>{t("Ja, annuleren")}</Text>
             </Pressable>
           </View>
@@ -4053,9 +4075,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <GhostButton
             title={t('Annuleren')}
             danger
-            onPress={() => {
-              setCancelConfirmOpen(true);
-            }}
+            onPress={() => requestCancel(trackToken)}
           />
         </View>
       </AppModal>
