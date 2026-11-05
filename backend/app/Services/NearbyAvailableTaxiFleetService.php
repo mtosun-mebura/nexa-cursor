@@ -56,11 +56,11 @@ class NearbyAvailableTaxiFleetService
         TaxiDispatchSchema::ensureVehicleIdColumn($conn);
 
         $cutoff = now()->subSeconds(self::MAX_AGE_SECONDS);
+        // Ook online zonder lat/lng meenemen — vestiging als fallback (anders onzichtbaar
+        // voor de klant terwijl is_online=true).
         $rows = DriverAvailability::on($conn)
             ->whereIn('company_id', $companyIds)
             ->where('is_online', true)
-            ->whereNotNull('lat')
-            ->whereNotNull('lng')
             ->where(function ($query) use ($cutoff) {
                 // Presence = last_seen (dispatch/heartbeat). GPS mag stil staan: dan blijft
                 // location_updated_at oud terwijl last_seen wél ververst — die chauffeurs
@@ -88,6 +88,9 @@ class NearbyAvailableTaxiFleetService
             ? collect()
             : Vehicle::on($conn)->whereIn('id', array_values(array_unique($vehicleIds)))->get()->keyBy('id');
 
+        $companiesById = $this->tenants->bookableCompanies()->keyBy(fn ($c) => (int) $c->id);
+        $hqCache = [];
+
         $radius = $radiusKm !== null && $radiusKm > 0 ? $radiusKm : self::DEFAULT_RADIUS_KM;
         $hasOrigin = $lat !== null && $lng !== null;
         $out = [];
@@ -100,8 +103,23 @@ class NearbyAvailableTaxiFleetService
             if (isset($busyDriverIds[$driverId])) {
                 continue;
             }
-            $taxiLat = (float) $row->lat;
-            $taxiLng = (float) $row->lng;
+            $taxiLat = $row->lat !== null ? (float) $row->lat : null;
+            $taxiLng = $row->lng !== null ? (float) $row->lng : null;
+            if ($taxiLat === null || $taxiLng === null || ! $this->isValidCoord($taxiLat, $taxiLng)) {
+                $companyId = (int) $row->company_id;
+                if (! array_key_exists($companyId, $hqCache)) {
+                    $company = $companiesById->get($companyId);
+                    $hqCache[$companyId] = $company
+                        ? $this->tenants->coordinatesFor($company)
+                        : null;
+                }
+                $hq = $hqCache[$companyId];
+                if (! is_array($hq)) {
+                    continue;
+                }
+                $taxiLat = (float) $hq['lat'];
+                $taxiLng = (float) $hq['lng'];
+            }
             if (! $this->isValidCoord($taxiLat, $taxiLng)) {
                 continue;
             }

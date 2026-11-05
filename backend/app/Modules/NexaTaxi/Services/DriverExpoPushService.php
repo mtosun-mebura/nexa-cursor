@@ -70,10 +70,10 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => $title,
                 'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // alert.wav in app-bundle (44.1 kHz PCM). Expo `sound` = iOS; Android = channelId.
-                'sound' => 'alert.wav',
+                // Bel (chime.wav) — standaard ritgeluid. Expo `sound` = iOS; Android = channelId.
+                'sound' => 'chime.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v5',
+                'channelId' => 'driver-offers-alert-v6',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => array_filter([
                     'type' => 'driver_offer',
@@ -144,9 +144,9 @@ class DriverExpoPushService
                     'to' => $token,
                     'title' => 'Rit geannuleerd',
                     'body' => 'Dit aanbod is niet meer beschikbaar.',
-                    'sound' => 'alert.wav',
+                    'sound' => 'chime.wav',
                     'priority' => 'high',
-                    'channelId' => 'driver-offers-alert-v5',
+                    'channelId' => 'driver-offers-alert-v6',
                     'interruptionLevel' => 'time-sensitive',
                     'data' => array_filter([
                         'type' => 'driver_offer_closed',
@@ -195,9 +195,9 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'alert.wav',
+                'sound' => 'chime.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v5',
+                'channelId' => 'driver-offers-alert-v6',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

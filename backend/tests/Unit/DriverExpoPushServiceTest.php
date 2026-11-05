@@ -95,9 +95,9 @@ class DriverExpoPushServiceTest extends TestCase
             $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
 
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
-                && ($message['sound'] ?? null) === 'alert.wav'
+                && ($message['sound'] ?? null) === 'chime.wav'
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v5'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v6'
                 && ! array_key_exists('_contentAvailable', $message);
         });
     }
@@ -144,8 +144,8 @@ class DriverExpoPushServiceTest extends TestCase
             return ($message['data']['type'] ?? null) === 'driver_offer_closed'
                 && (int) ($message['data']['offer_id'] ?? 0) === 15
                 && (int) ($message['data']['ride_request_id'] ?? 0) === 9
-                && ($message['sound'] ?? null) === 'alert.wav'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v5';
+                && ($message['sound'] ?? null) === 'chime.wav'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v6';
         });
     }
 }

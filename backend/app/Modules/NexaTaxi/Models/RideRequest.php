@@ -531,7 +531,12 @@ class RideRequest extends Model
                             $company->whereNull('company_id')->orWhere('company_id', 0);
                         })
                         ->whereNotNull('booking_payload')
-                        ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
+                        ->where(function ($candidates) use ($companyId) {
+                            // Postgres/MySQL: JSON kan ints of strings bevatten.
+                            $candidates
+                                ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId)
+                                ->orWhereJsonContains('booking_payload->marketplace->candidate_company_ids', (string) $companyId);
+                        });
                 });
         });
     }
