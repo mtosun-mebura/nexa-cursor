@@ -4,6 +4,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  AppState,
   Easing,
   Image,
   Keyboard,
@@ -66,6 +67,8 @@ import {
   GuestRide,
   guestPatchFromLive,
   rideNeedsLivePoll,
+  rideNeedsStatusRefresh,
+  isAutoUnacceptedCancel,
   livePickupAt,
   isActiveRidePhase,
   isRidesTabBadgePhase,
@@ -633,6 +636,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   /** Auto-annulering na lang wachten: alleen OK, daarna uit de lijst. */
   const [longWaitCancelRide, setLongWaitCancelRide] = useState<GuestRide | null>(null);
+  const longWaitCancelShownRef = useRef<Set<string>>(new Set());
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
@@ -1549,29 +1553,118 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const guestRidesRef = useRef(guestRides);
   guestRidesRef.current = guestRides;
 
+  const presentLongWaitCancel = useCallback(
+    (
+      rideLike: Partial<GuestRide> & {
+        id?: number | null;
+        token?: string | null;
+        phase?: string | null;
+        cancellation_reason?: string | null;
+        cancellation_message?: string | null;
+        pickup_address?: string | null;
+        dropoff_address?: string | null;
+        pickup_place_name?: string | null;
+        dropoff_place_name?: string | null;
+        pickup_at?: string | null;
+        pickup_at_label?: string | null;
+        from?: string | null;
+        to?: string | null;
+      },
+      tokenHint?: string | null
+    ) => {
+      if (!isAutoUnacceptedCancel(rideLike)) return;
+      const token =
+        String(tokenHint || rideLike.token || '').trim() ||
+        guestRidesRef.current.find((r) => Number(r.id) === Number(rideLike.id))?.token ||
+        '';
+      const key = rideArchiveKey({ id: rideLike.id, token }) || `id:${Number(rideLike.id) || 0}`;
+      if (!key || key === 'id:0') return;
+      if (longWaitCancelShownRef.current.has(key)) return;
+      if (archivedKeys.includes(key)) {
+        longWaitCancelShownRef.current.add(key);
+        return;
+      }
+      const existing =
+        guestRidesRef.current.find(
+          (r) => (token && r.token === token) || (Number(r.id) > 0 && Number(r.id) === Number(rideLike.id))
+        ) || null;
+      const from =
+        String(
+          rideLike.from ||
+            rideLike.pickup_address ||
+            existing?.from ||
+            ''
+        ).trim() ||
+        String(rideLike.pickup_place_name || existing?.from_place || '').trim();
+      const to =
+        String(
+          rideLike.to ||
+            rideLike.dropoff_address ||
+            existing?.to ||
+            ''
+        ).trim() ||
+        String(rideLike.dropoff_place_name || existing?.to_place || '').trim();
+      const next: GuestRide = {
+        id: Number(rideLike.id) || existing?.id || 0,
+        token: token || existing?.token || '',
+        at: existing?.at || Date.now(),
+        from: from || existing?.from || '',
+        to: to || existing?.to || '',
+        from_place:
+          rideLike.pickup_place_name !== undefined
+            ? rideLike.pickup_place_name
+            : existing?.from_place ?? null,
+        to_place:
+          rideLike.dropoff_place_name !== undefined
+            ? rideLike.dropoff_place_name
+            : existing?.to_place ?? null,
+        phase: 'cancelled',
+        status_label: existing?.status_label || t('Geannuleerd'),
+        quoted_price: existing?.quoted_price ?? null,
+        passengers: existing?.passengers ?? null,
+        baggage_summary: existing?.baggage_summary ?? null,
+        distance_km: existing?.distance_km ?? null,
+        duration_seconds: existing?.duration_seconds ?? null,
+        pickup_at:
+          livePickupAt({
+            pickup_at_label: rideLike.pickup_at_label,
+            pickup_at: rideLike.pickup_at,
+          }) ||
+          existing?.pickup_at ||
+          null,
+        rating: existing?.rating ?? null,
+        cancellation_message:
+          rideLike.cancellation_message ||
+          existing?.cancellation_message ||
+          'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.',
+        cancellation_reason: 'auto_unaccepted',
+        refund_message: existing?.refund_message ?? null,
+        refund_business_days: existing?.refund_business_days ?? null,
+        payment_status: existing?.payment_status ?? null,
+        pickup_confirmation: existing?.pickup_confirmation ?? null,
+      };
+      longWaitCancelShownRef.current.add(key);
+      setLongWaitCancelRide(next);
+      setTab('rides');
+    },
+    [archivedKeys]
+  );
+
   useEffect(() => {
     if (longWaitCancelRide) return;
     const archived = new Set(archivedKeys);
     const candidate =
       guestRides.find(
-        (r) =>
-          r.phase === 'cancelled' &&
-          r.cancellation_reason === 'auto_unaccepted' &&
-          !archived.has(rideArchiveKey(r))
+        (r) => isAutoUnacceptedCancel(r) && !archived.has(rideArchiveKey(r))
       ) || null;
-    if (
-      !candidate &&
-      live?.phase === 'cancelled' &&
-      live.cancellation_reason === 'auto_unaccepted'
-    ) {
-      const fromLive = guestRides.find((r) => Number(r.id) === Number(live.id));
-      if (fromLive && !archived.has(rideArchiveKey(fromLive))) {
-        setLongWaitCancelRide(fromLive);
-      }
+    if (candidate) {
+      presentLongWaitCancel(candidate);
       return;
     }
-    if (candidate) setLongWaitCancelRide(candidate);
-  }, [guestRides, archivedKeys, longWaitCancelRide, live]);
+    if (isAutoUnacceptedCancel(live || {})) {
+      presentLongWaitCancel(live as LiveRide, trackToken);
+    }
+  }, [guestRides, archivedKeys, longWaitCancelRide, live, trackToken, presentLongWaitCancel]);
 
   useEffect(() => {
     if (!trackToken) return;
@@ -1584,7 +1677,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       const tokens = new Set<string>();
       if (trackToken) tokens.add(trackToken);
       guestRidesRef.current.forEach((ride) => {
-        if (ride.token && rideNeedsLivePoll(ride)) tokens.add(ride.token);
+        if (ride.token && rideNeedsStatusRefresh(ride)) tokens.add(ride.token);
       });
 
       try {
@@ -1622,6 +1715,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             }
           }
           list = await updateGuestRide(token, guestPatchFromLive(ride));
+          if (isAutoUnacceptedCancel(ride)) {
+            presentLongWaitCancel({ ...ride, token }, token);
+          }
         }
         if (cancelled) return;
         setGuestRides(list);
@@ -1630,7 +1726,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           await persistTrack(null);
           if (!cancelled) setTrackToken(null);
         }
-        const stillActive = list.some((ride) => ride.token && rideNeedsLivePoll(ride));
+        const stillActive = list.some((ride) => ride.token && rideNeedsStatusRefresh(ride));
         if (!stillActive) return;
         timer = setTimeout(tick, 2500);
       } catch {
@@ -1642,12 +1738,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [trackToken, persistTrack]);
+  }, [trackToken, persistTrack, presentLongWaitCancel]);
 
   const idleActiveKey = trackToken
     ? ''
     : guestRides
-        .filter((ride) => ride.token && rideNeedsLivePoll(ride))
+        .filter((ride) => ride.token && rideNeedsStatusRefresh(ride))
         .map((ride) => ride.token)
         .sort()
         .join('|');
@@ -1661,25 +1757,59 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
     const tick = async () => {
       let list = guestRidesRef.current;
+      const stillNeed: string[] = [];
       for (const token of tokens) {
         if (cancelled) return;
         try {
           const data = await fetchLive(token);
           if (cancelled || !data.ride) continue;
           list = await updateGuestRide(token, guestPatchFromLive(data.ride));
+          if (isAutoUnacceptedCancel(data.ride)) {
+            presentLongWaitCancel({ ...data.ride, token }, token);
+          } else if (rideNeedsStatusRefresh({ ...data.ride, token })) {
+            stillNeed.push(token);
+          }
         } catch {
-          /* volgende rit */
+          stillNeed.push(token);
         }
       }
       if (!cancelled) setGuestRides(list);
-      if (!cancelled) timer = setTimeout(tick, 2500);
+      if (!cancelled && stillNeed.length) timer = setTimeout(tick, 2500);
     };
     timer = setTimeout(tick, 400);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [trackToken, idleActiveKey]);
+  }, [trackToken, idleActiveKey, presentLongWaitCancel]);
+
+  // Na standby/achtergrond: zoekritten opnieuw syncen (auto-cancel popup).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const tokens = guestRidesRef.current
+        .filter((ride) => ride.token && rideNeedsStatusRefresh(ride))
+        .map((ride) => ride.token as string);
+      if (!tokens.length) return;
+      void (async () => {
+        let list = guestRidesRef.current;
+        for (const token of tokens) {
+          try {
+            const data = await fetchLive(token);
+            if (!data.ride) continue;
+            list = await updateGuestRide(token, guestPatchFromLive(data.ride));
+            if (isAutoUnacceptedCancel(data.ride)) {
+              presentLongWaitCancel({ ...data.ride, token }, token);
+            }
+          } catch {
+            /* volgende rit */
+          }
+        }
+        setGuestRides(list);
+      })();
+    });
+    return () => sub.remove();
+  }, [presentLongWaitCancel]);
 
   function scheduleSuggestions(query: string, kind: 'pickup' | 'dropoff') {
     const timerRef = kind === 'pickup' ? pickupSuggestTimer : dropoffSuggestTimer;
@@ -3857,7 +3987,36 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         panelStyle={styles.confirmBanner}
       >
         <Text style={styles.confirmTitle}>{t("Rit geannuleerd")}</Text>
-        <Text style={styles.confirmText}>
+        {longWaitCancelRide ? (
+          <View style={{ marginTop: 10, gap: 4 }}>
+            <Text style={styles.confirmText}>
+              {t('Van')}:{' '}
+              {[
+                String(longWaitCancelRide.from_place || '').trim(),
+                bookingAddressLine(longWaitCancelRide.from) ||
+                  shortAddress(longWaitCancelRide.from),
+              ]
+                .filter(Boolean)
+                .join(' · ') || '—'}
+            </Text>
+            <Text style={styles.confirmText}>
+              {t('Naar')}:{' '}
+              {[
+                String(longWaitCancelRide.to_place || '').trim(),
+                bookingAddressLine(longWaitCancelRide.to) ||
+                  shortAddress(longWaitCancelRide.to),
+              ]
+                .filter(Boolean)
+                .join(' · ') || '—'}
+            </Text>
+            {formatPickupWhen(longWaitCancelRide.pickup_at) ? (
+              <Text style={styles.confirmText}>
+                {t('Ophalen')}: {formatPickupWhen(longWaitCancelRide.pickup_at)}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        <Text style={[styles.confirmText, { marginTop: 12 }]}>
           {String(
             longWaitCancelRide?.cancellation_message ||
               live?.cancellation_message ||
@@ -3871,6 +4030,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               const ride = longWaitCancelRide;
               setLongWaitCancelRide(null);
               if (!ride) return;
+              const key = rideArchiveKey(ride);
+              if (key) longWaitCancelShownRef.current.add(key);
               void toggleArchiveRide(ride, true);
               if (trackToken && (ride.token === trackToken || Number(live?.id) === Number(ride.id))) {
                 setTrackToken(null);

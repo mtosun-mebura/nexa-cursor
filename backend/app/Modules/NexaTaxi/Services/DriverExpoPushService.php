@@ -73,7 +73,7 @@ class DriverExpoPushService
                 // Bel (chime.wav) — standaard ritgeluid. Expo `sound` = iOS; Android = channelId.
                 'sound' => 'chime.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v7',
+                'channelId' => 'driver-offers-alert-v8',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => array_filter([
                     'type' => 'driver_offer',
@@ -146,7 +146,7 @@ class DriverExpoPushService
                     'body' => 'Dit aanbod is niet meer beschikbaar.',
                     'sound' => 'chime.wav',
                     'priority' => 'high',
-                    'channelId' => 'driver-offers-alert-v7',
+                    'channelId' => 'driver-offers-alert-v8',
                     'interruptionLevel' => 'time-sensitive',
                     'data' => array_filter([
                         'type' => 'driver_offer_closed',
@@ -197,7 +197,7 @@ class DriverExpoPushService
                 'body' => 'Dit is een test van de chauffeur-push.',
                 'sound' => 'chime.wav',
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v7',
+                'channelId' => 'driver-offers-alert-v8',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

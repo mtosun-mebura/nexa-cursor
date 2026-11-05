@@ -8,7 +8,7 @@ import {
 } from '../audio/rideAlert';
 
 /** Android-kanaal met Bel (chime) — id bump als sound wijzigt (OS past niet bij). */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v7';
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v8';
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
