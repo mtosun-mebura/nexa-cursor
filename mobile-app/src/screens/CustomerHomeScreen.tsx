@@ -3125,6 +3125,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       ride.status_label ||
       '';
     const canArchive = !active;
+    // Zelfde bron als de zichtbare annuleertekst — niet alleen live of alleen guest.
+    const cancelMsg = String(
+      (isLiveMatch ? live?.cancellation_message : null) || ride.cancellation_message || ''
+    ).trim();
+    const cancelReason = String(
+      (isLiveMatch ? live?.cancellation_reason : null) || ride.cancellation_reason || ''
+    ).trim();
+    const showRebook = canRebookAfterLongWait({
+      phase: cancelled ? 'cancelled' : phase,
+      cancellation_reason: cancelReason,
+      cancellation_message: cancelMsg,
+    });
     const pickupWhen =
       formatPickupWhen(isLiveMatch ? livePickupAt(live) || ride.pickup_at : ride.pickup_at) ||
       '—';
@@ -3249,9 +3261,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         <View style={styles.rideCardBody}>
           {(() => {
             if (!cancelled) return null;
-            const cancelMsg = String(
-              (isLiveMatch ? live?.cancellation_message : null) || ride.cancellation_message || ''
-            ).trim();
             const refundMsg = customerRefundNoticeText(
               isLiveMatch && live
                 ? {
@@ -3277,6 +3286,18 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   <View style={styles.refundNotice}>
                     <Text style={styles.refundNoticeTitle}>{t("Terugbetaling")}</Text>
                     <Text style={styles.refundNoticeText}>{refundMsg}</Text>
+                  </View>
+                ) : null}
+                {showRebook ? (
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    <PrimaryButton
+                      title={t('Nu opnieuw zoeken')}
+                      onPress={() => void rebookAutoCancelledRide(ride)}
+                      loading={busy}
+                    />
+                    <Text style={[styles.meta, { marginBottom: 0 }]}>
+                      {t('Zet dezelfde rit klaar met ophaaltijd van nu.')}
+                    </Text>
                   </View>
                 ) : null}
               </>
@@ -3589,27 +3610,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
 
-            {canRebookAfterLongWait(
-              isLiveMatch && live
-                ? {
-                    phase: live.phase,
-                    cancellation_reason: live.cancellation_reason,
-                    cancellation_message: live.cancellation_message,
-                  }
-                : ride
-            ) ? (
-              <View style={{ marginTop: 12, gap: 8 }}>
-                <PrimaryButton
-                  title={t('Nu opnieuw zoeken')}
-                  onPress={() => void rebookAutoCancelledRide(ride)}
-                  loading={busy}
-                />
-                <Text style={[styles.meta, { marginBottom: 0 }]}>
-                  {t('Zet dezelfde rit klaar met ophaaltijd van nu.')}
-                </Text>
-              </View>
-            ) : null}
-
             {canArchive ? (
               <View style={{ marginTop: 12 }}>
                 <GhostButton
@@ -3623,26 +3623,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </View>
         ) : (
           <View style={styles.rideArchiveBtnWrap}>
-            {canRebookAfterLongWait(
-              isLiveMatch && live
-                ? {
-                    phase: live.phase,
-                    cancellation_reason: live.cancellation_reason,
-                    cancellation_message: live.cancellation_message,
-                  }
-                : ride
-            ) ? (
-              <View style={{ gap: 8, marginBottom: canArchive ? 10 : 0 }}>
-                <PrimaryButton
-                  title={t('Nu opnieuw zoeken')}
-                  onPress={() => void rebookAutoCancelledRide(ride)}
-                  loading={busy}
-                />
-                <Text style={[styles.meta, { marginBottom: 0 }]}>
-                  {t('Zet dezelfde rit klaar met ophaaltijd van nu.')}
-                </Text>
-              </View>
-            ) : null}
             {canArchive ? (
               <GhostButton
                 title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
