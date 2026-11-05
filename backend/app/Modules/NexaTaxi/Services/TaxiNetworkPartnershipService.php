@@ -8,6 +8,7 @@ use App\Models\TaxiNetworkInviteCode;
 use App\Models\TaxiNetworkPartnership;
 use App\Models\User;
 use App\Services\MarketplaceCompanyRegistrationService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -87,7 +88,7 @@ class TaxiNetworkPartnershipService
             $existing->forceFill(['revoked_at' => now()])->save();
         }
 
-        return TaxiNetworkInviteCode::query()->create([
+        $payload = [
             'company_id' => $companyId,
             'code' => $this->generateUniqueCode(),
             'expires_at' => now()->addDays(30),
@@ -95,7 +96,40 @@ class TaxiNetworkPartnershipService
             'use_count' => 0,
             'auto_accept' => false,
             'created_by_user_id' => $actor?->id,
-        ]);
+        ];
+
+        try {
+            return TaxiNetworkInviteCode::query()->create($payload);
+        } catch (UniqueConstraintViolationException $e) {
+            // Seed/import met vaste id's laat de Postgres-sequence achter → id-conflict.
+            if (! str_contains($e->getMessage(), 'taxi_network_invite_codes_pkey')) {
+                throw $e;
+            }
+            $this->syncInviteCodeIdSequence();
+
+            return TaxiNetworkInviteCode::query()->create($payload);
+        }
+    }
+
+    /**
+     * Zet de id-sequence op MAX(id) zodat de volgende insert niet opnieuw id=1 pakt.
+     */
+    protected function syncInviteCodeIdSequence(): void
+    {
+        $driver = DB::connection()->getDriverName();
+        if ($driver !== 'pgsql') {
+            return;
+        }
+
+        $seq = DB::selectOne(
+            "SELECT pg_get_serial_sequence('taxi_network_invite_codes', 'id') AS seq"
+        );
+        if (! $seq?->seq) {
+            return;
+        }
+
+        $max = (int) (TaxiNetworkInviteCode::query()->max('id') ?? 0);
+        DB::statement('SELECT setval(?, ?)', [$seq->seq, max(1, $max)]);
     }
 
     public function rotateInviteCode(int $companyId, ?User $actor = null): TaxiNetworkInviteCode

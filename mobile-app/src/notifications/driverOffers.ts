@@ -7,8 +7,8 @@ import {
   type RideAlertTone,
 } from '../audio/rideAlert';
 
-/** Android-kanaal met ritgeluid — id bump als sound wijzigt (OS past niet bij). */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v6';
+/** Android-kanaal met Bel (chime) — id bump als sound wijzigt (OS past niet bij). */
+const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v7';
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -144,21 +144,24 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: rideAlertNotificationSound(),
+    sound: 'chime.wav',
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
     audioAttributes: {
       usage: Notifications.AndroidAudioUsage.NOTIFICATION_EVENT,
       contentType: Notifications.AndroidAudioContentType.SONIFICATION,
-      flags: { enforceAudibility: true },
+      flags: {
+        enforceAudibility: true,
+        requestHardwareAudioVideoSynchronization: false,
+      },
     },
   });
   channelReady.add(channelId);
   return channelId;
 }
 
-/** Bundelbestand alert.wav — hoorbaar via APNs/FCM op sluimer/achtergrond. */
+/** Bundelbestand chime.wav — hoorbaar via APNs/FCM op sluimer/achtergrond. */
 function offerNotificationSound(play: boolean): string | false {
   return play ? rideAlertNotificationSound() : false;
 }
@@ -418,13 +421,13 @@ export async function prepareDriverNotificationChannels(): Promise<void> {
 export async function setupDriverNotificationChannel(): Promise<void> {
   if (!Notifications || Platform.OS !== 'android') return;
   await ensureSystemOfferChannel();
-  // Legacy defaultChannel uit app.json — zelfde alert.wav als de push.
+  // Legacy defaultChannel uit app.json — Bel (chime).
   await Notifications.setNotificationChannelAsync('driver-offers', {
     name: t("Ritaanvragen"),
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: rideAlertNotificationSound(),
+    sound: 'chime.wav',
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });

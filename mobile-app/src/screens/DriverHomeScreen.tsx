@@ -739,10 +739,18 @@ export function DriverHomeScreen() {
       const nextAccent = normalizeDriverAccent(me.user.pwa_accent);
       setAccent(nextAccent);
       persistDriverAccent(nextAccent);
-      const tone = normalizeRideAlertTone(me.user.ride_alert_tone);
+      const rawTone = String(me.user.ride_alert_tone || '').trim().toLowerCase();
+      // Oude standaarden (alert/classic) → Bel (nieuwe standaard).
+      const tone =
+        rawTone === 'alert' || rawTone === 'classic' || rawTone === ''
+          ? DEFAULT_RIDE_ALERT_TONE
+          : normalizeRideAlertTone(rawTone);
       setRideAlertTone(tone);
       setActiveRideAlertTone(tone);
       rememberRideAlertTone(tone);
+      if ((rawTone === 'alert' || rawTone === 'classic' || rawTone === '') && driverToken) {
+        void updateDriverRideAlertTone(driverToken, tone).catch(() => undefined);
+      }
       setCompany(me.user.company_name || '');
       setPayoutIbanMasked(me.user.payout_iban_masked || null);
       setLogoLight(me.user.company_logo_url || null);

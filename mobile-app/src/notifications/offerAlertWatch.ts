@@ -9,10 +9,12 @@ import {
   type DriverActiveRide,
 } from '../api/driver';
 import {
+  DEFAULT_RIDE_ALERT_TONE,
   normalizeRideAlertTone,
   playRideAlertTone,
   prepareRideAlertAudio,
   primeRideAlertPlayer,
+  setActiveRideAlertTone,
 } from '../audio/rideAlert';
 import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
@@ -50,6 +52,23 @@ export function rememberRideAlertTone(tone?: string | null): void {
   SecureStore.setItemAsync(TONE_KEY, normalizeRideAlertTone(tone)).catch(() => undefined);
 }
 
+/** Oude standaard alert → Bel; lokale cache meenemen. */
+export async function hydrateRideAlertToneFromStore(): Promise<string> {
+  try {
+    const raw = String((await SecureStore.getItemAsync(TONE_KEY)) || '').trim().toLowerCase();
+    if (raw === 'alert' || raw === 'classic' || raw === '') {
+      setActiveRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
+      rememberRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
+      return DEFAULT_RIDE_ALERT_TONE;
+    }
+    const tone = normalizeRideAlertTone(raw);
+    setActiveRideAlertTone(tone);
+    return tone;
+  } catch {
+    return DEFAULT_RIDE_ALERT_TONE;
+  }
+}
+
 /** Roep aan bij online gaan zodat de eerste toon geen audio-sessie opent. */
 export function primeRideAlertAudio(): void {
   if (!DRIVER_BG.rideAlertAudio) return;
@@ -57,6 +76,7 @@ export function primeRideAlertAudio(): void {
   audioPrimed = true;
   primeRideAlertPlayer();
   void ensureSoundedLoaded();
+  void hydrateRideAlertToneFromStore();
   prepareRideAlertAudio().catch(() => {
     audioPrimed = false;
   });
