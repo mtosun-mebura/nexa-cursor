@@ -639,6 +639,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   /** Auto-annulering na lang wachten: alleen OK, daarna uit de lijst. */
   const [longWaitCancelRide, setLongWaitCancelRide] = useState<GuestRide | null>(null);
   const longWaitCancelShownRef = useRef<Set<string>>(new Set());
+  /** Keuze blijven wachten / annuleren na zoektijd. */
+  const waitDecisionNotifiedRef = useRef<Set<string>>(new Set());
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
@@ -2140,13 +2142,56 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setError(null);
     try {
       const data = await waitLive(trackToken);
-      if (data.ride) setLive(data.ride);
+      if (data.ride) {
+        setLive(data.ride);
+        const next = await updateGuestRide(trackToken, guestPatchFromLive(data.ride));
+        setGuestRides(next);
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("Doorgaan mislukt."));
     } finally {
       setBusy(false);
     }
   }
+
+  const showWaitDecisionModal = !!(
+    live &&
+    trackToken &&
+    live.needs_unaccepted_decision &&
+    !longWaitCancelRide &&
+    !cancelConfirmOpen
+  );
+
+  useEffect(() => {
+    if (!showWaitDecisionModal || !live) return;
+    const key = `decision:${Number(live.id) || trackToken || ''}`;
+    if (!key || key === 'decision:0' || waitDecisionNotifiedRef.current.has(key)) return;
+    waitDecisionNotifiedRef.current.add(key);
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+    void (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        const perm = await Notifications.getPermissionsAsync();
+        if (!perm.granted) {
+          const asked = await Notifications.requestPermissionsAsync();
+          if (!asked.granted) return;
+        }
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t('Nog geen taxi gevonden'),
+            body: t('Wil je blijven wachten of de rit annuleren?'),
+            sound: true,
+            data: { type: 'wait_decision', ride_id: live.id, token: trackToken },
+            ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+          },
+          trigger: null,
+        });
+      } catch {
+        /* melding is best-effort; modal blijft zichtbaar */
+      }
+    })();
+  }, [showWaitDecisionModal, live, trackToken]);
 
   async function onPay() {
     if (!trackToken) return;
@@ -4113,6 +4158,40 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.confirmDangerText}>{t("Ja, annuleren")}</Text>
             </Pressable>
           </View>
+        </View>
+      </AppModal>
+
+      <AppModal
+        visible={showWaitDecisionModal}
+        onRequestClose={() => undefined}
+        dismissOnBackdrop={false}
+        dismissDisabled
+        panelStyle={styles.confirmBanner}
+      >
+        <Text style={styles.confirmTitle}>{t('Nog geen taxi gevonden')}</Text>
+        <Text style={styles.confirmText}>
+          {live?.decision_minutes
+            ? t('Wil je blijven wachten (tot ca. {time}) of de rit annuleren?', {
+                time: String(live.decision_deadline_label || '—'),
+              })
+            : t('Wil je blijven wachten of de rit annuleren?')}
+        </Text>
+        {live?.pickup_address || live?.dropoff_address ? (
+          <Text style={[styles.confirmText, { marginTop: 10 }]}>
+            {[bookingAddressLine(live?.pickup_address), bookingAddressLine(live?.dropoff_address)]
+              .filter(Boolean)
+              .join(' → ')}
+          </Text>
+        ) : null}
+        <View style={{ marginTop: 14, gap: 10 }}>
+          <PrimaryButton title={t('Blijven wachten')} onPress={() => void onWait()} loading={busy} />
+          <GhostButton
+            title={t('Annuleren')}
+            danger
+            onPress={() => {
+              setCancelConfirmOpen(true);
+            }}
+          />
         </View>
       </AppModal>
 

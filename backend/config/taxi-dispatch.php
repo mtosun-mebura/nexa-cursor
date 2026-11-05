@@ -40,7 +40,8 @@ return [
      * Per tenant: Admin → NexaTaxi → Chauffeur dispatch
      * (`taxi_dispatch_unaccepted_auto_cancel_minutes`). Fallback: deze env.
      */
-    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 30),
+    /** Minuten na ophaalmoment → keuze “blijven wachten / annuleren” (standaard 20). */
+    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 20),
 
     /**
      * Minuten zonder klantreactie (wachten/annuleren) waarna de rit alsnog automatisch
