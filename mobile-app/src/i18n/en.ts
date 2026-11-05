@@ -347,6 +347,11 @@ export const EN: Record<string, string> = {
     'Name, type, plate and passenger range. A ride with more than 4 passengers only goes to a vehicle for 5 to 8.',
   'Naar actieve rit': 'To active ride',
   'Naar archief': 'To archive',
+  'Nog geen taxi gevonden': 'No taxi found yet',
+  'Wil je blijven wachten of de rit annuleren?':
+    'Do you want to keep waiting or cancel the ride?',
+  'Wil je blijven wachten (tot ca. {time}) of de rit annuleren?':
+    'Do you want to keep waiting (until approx. {time}) or cancel the ride?',
   'Nu opnieuw zoeken': 'Search again now',
   'Zet dezelfde rit klaar met ophaaltijd van nu.':
     'Prepares the same ride with pickup time set to now.',

@@ -248,7 +248,7 @@ class TaxiDispatchSettingsService
 
     public function unacceptedAutoCancelMinutes(?int $companyId = null): int
     {
-        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30);
+        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 20);
         $raw = GeneralSetting::get(self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES, null, $companyId);
         if ($raw === null || $raw === '') {
             return $this->clampUnacceptedAutoCancelMinutes($default);
@@ -495,27 +495,18 @@ class TaxiDispatchSettingsService
         $decision = is_array($payload['unaccepted_customer_decision'] ?? null)
             ? $payload['unaccepted_customer_decision']
             : [];
+        // Alleen ná “blijven wachten”: tellen vanaf keuze-moment (niet vanaf ophaal/prompt).
         $choiceAt = $decision['choice_at'] ?? null;
         if (! is_string($choiceAt) || $choiceAt === '') {
-            $choiceAt = $decision['prompt_at'] ?? null;
-        }
-        if (is_string($choiceAt) && $choiceAt !== '') {
-            try {
-                return Carbon::parse($choiceAt)
-                    ->timezone(ContractTransportTimezone::TIMEZONE)
-                    ->addMinutes($minutes);
-            } catch (\Throwable) {
-                // val terug op zoekdeadline / ophaalmoment
-            }
-        }
-
-        // Geen choice_at: plafond vanaf ophaalmoment (marktplaats max. wacht).
-        $dueAt = $this->effectiveDispatchDueAt($ride);
-        if (! $dueAt) {
             return null;
         }
-
-        return $dueAt->copy()->addMinutes($minutes);
+        try {
+            return Carbon::parse($choiceAt)
+                ->timezone(ContractTransportTimezone::TIMEZONE)
+                ->addMinutes($minutes);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

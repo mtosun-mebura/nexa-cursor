@@ -73,7 +73,7 @@ class DispatchSettingsController extends Controller
             'minOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS,
             'maxOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS,
             'unacceptedAutoCancelMinutes' => $this->dispatchSettings->unacceptedAutoCancelMinutes($companyId),
-            'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30),
+            'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 20),
             'minUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
             'maxUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES,
             'customerUnacceptedDecisionMinutes' => $this->dispatchSettings->customerUnacceptedDecisionMinutes($companyId),

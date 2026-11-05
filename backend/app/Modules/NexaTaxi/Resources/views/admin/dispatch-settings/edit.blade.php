@@ -147,7 +147,7 @@
                 </tr>
                 @endif
                 <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen chauffeur: keuze aan klant (minuten)') }}</td>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Wachtmelding aan klant (minuten)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input
                             type="number"
@@ -159,34 +159,16 @@
                             step="1"
                             required
                             value="{{ old('unaccepted_auto_cancel_minutes', $unacceptedAutoCancelMinutes) }}"
+                            aria-invalid="{{ $errors->has('unaccepted_auto_cancel_minutes') ? 'true' : 'false' }}"
                         >
+                        <div class="field-feedback text-sm mt-1" data-field="unaccepted_auto_cancel_minutes" aria-live="polite"></div>
                         <p class="text-xs text-muted-foreground mt-1">
-                            {{ __('Na deze tijd na het ophaalmoment (zonder geaccepteerde chauffeur) krijgt de klant de keuze: blijven wachten of annuleren. Stelt een chauffeur een nieuw tijdstip voor, dan telt die nieuwe tijd. Standaard server: :default minuten. 0 = uit. Tussen :min en :max minuten.', ['default' => $envDefaultUnacceptedAutoCancelMinutes, 'min' => $minUnacceptedAutoCancelMinutes, 'max' => $maxUnacceptedAutoCancelMinutes]) }}
+                            {{ __('Na deze tijd na het ophaalmoment (zonder geaccepteerde chauffeur) krijgt de klant een melding: blijven wachten of annuleren. Stelt een chauffeur een nieuw tijdstip voor, dan telt die nieuwe tijd. Standaard: :default minuten. 0 = uit. Tussen :min en :max.', ['default' => $envDefaultUnacceptedAutoCancelMinutes, 'min' => $minUnacceptedAutoCancelMinutes, 'max' => $maxUnacceptedAutoCancelMinutes]) }}
                         </p>
                         @error('unaccepted_auto_cancel_minutes')
-                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
-                        @enderror
-                    </td>
-                </tr>
-                <tr>
-                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen reactie van klant: auto-annuleren (minuten)') }}</td>
-                    <td class="min-w-48 w-full pt-4">
-                        <input
-                            type="number"
-                            name="customer_unaccepted_decision_minutes"
-                            id="customer_unaccepted_decision_minutes"
-                            class="kt-input w-64 @error('customer_unaccepted_decision_minutes') border-destructive @enderror"
-                            min="{{ $minCustomerUnacceptedDecisionMinutes }}"
-                            max="{{ $maxCustomerUnacceptedDecisionMinutes }}"
-                            step="1"
-                            required
-                            value="{{ old('customer_unaccepted_decision_minutes', $customerUnacceptedDecisionMinutes) }}"
-                        >
-                        <p class="text-xs text-muted-foreground mt-1">
-                            {{ __('Als de klant na de keuze-prompt niet reageert, wordt de rit na deze tijd automatisch geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”, dan geldt hieronder de marktplaats max. wachttijd. Standaard server: :default minuten. 0 = nooit automatisch. Tussen :min en :max minuten.', ['default' => $envDefaultCustomerUnacceptedDecisionMinutes, 'min' => $minCustomerUnacceptedDecisionMinutes, 'max' => $maxCustomerUnacceptedDecisionMinutes]) }}
-                        </p>
-                        @error('customer_unaccepted_decision_minutes')
-                            <div class="text-xs text-destructive mt-1">{{ $message }}</div>
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="unaccepted_auto_cancel_minutes"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
                         @enderror
                     </td>
                 </tr>
@@ -207,11 +189,37 @@
                         >
                         <div class="field-feedback text-sm mt-1" data-field="marketplace_max_wait_minutes" aria-live="polite"></div>
                         <p class="text-xs text-muted-foreground mt-1">
-                            {{ __('Nexa Taxi marktplaats: na “blijven wachten” (of vanaf ophaalmoment) wordt de rit na deze tijd automatisch geannuleerd. De klant ziet alleen OK en de rit verdwijnt uit de lijst. Chauffeurs krijgen dan “Rit geannuleerd”. Standaard: :default minuten. 0 = uit. Tussen :min en :max.', ['default' => $envDefaultMarketplaceMaxWaitMinutes, 'min' => $minMarketplaceMaxWaitMinutes, 'max' => $maxMarketplaceMaxWaitMinutes]) }}
+                            {{ __('Nexa Taxi marktplaats: nadat de klant “blijven wachten” kiest, wordt de rit na deze tijd automatisch geannuleerd. De klant ziet dan alleen OK (met welke rit). Chauffeurs krijgen “Rit geannuleerd”. Standaard: :default minuten. 0 = uit. Tussen :min en :max.', ['default' => $envDefaultMarketplaceMaxWaitMinutes, 'min' => $minMarketplaceMaxWaitMinutes, 'max' => $maxMarketplaceMaxWaitMinutes]) }}
                         </p>
                         @error('marketplace_max_wait_minutes')
                             <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
                                data-laravel-field="marketplace_max_wait_minutes"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
+                        @enderror
+                    </td>
+                </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen reactie op wachtmelding (minuten)') }}</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="customer_unaccepted_decision_minutes"
+                            id="customer_unaccepted_decision_minutes"
+                            class="kt-input w-64 @error('customer_unaccepted_decision_minutes') border-destructive @enderror"
+                            min="{{ $minCustomerUnacceptedDecisionMinutes }}"
+                            max="{{ $maxCustomerUnacceptedDecisionMinutes }}"
+                            step="1"
+                            required
+                            value="{{ old('customer_unaccepted_decision_minutes', $customerUnacceptedDecisionMinutes) }}"
+                            aria-invalid="{{ $errors->has('customer_unaccepted_decision_minutes') ? 'true' : 'false' }}"
+                        >
+                        <div class="field-feedback text-sm mt-1" data-field="customer_unaccepted_decision_minutes" aria-live="polite"></div>
+                        <p class="text-xs text-muted-foreground mt-1">
+                            {{ __('Als de klant na de wachtmelding niet reageert, wordt de rit na deze tijd automatisch geannuleerd (met terugstorting bij vooraf betalen). Kiest de klant “blijven wachten”, dan geldt hierboven de marktplaats max. wachttijd. Standaard: :default minuten. 0 = nooit automatisch. Tussen :min en :max.', ['default' => $envDefaultCustomerUnacceptedDecisionMinutes, 'min' => $minCustomerUnacceptedDecisionMinutes, 'max' => $maxCustomerUnacceptedDecisionMinutes]) }}
+                        </p>
+                        @error('customer_unaccepted_decision_minutes')
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="customer_unaccepted_decision_minutes"
                                data-laravel-message="{{ $message }}">{{ $message }}</p>
                         @enderror
                     </td>
