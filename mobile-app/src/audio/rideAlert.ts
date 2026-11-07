@@ -31,9 +31,14 @@ const TONE_FILES: Record<RideAlertTone, string> = {
 
 let player: AudioPlayer | null = null;
 let playerTone: RideAlertTone | null = null;
+/** Houdt AVAudioSession actief terwijl chauffeur online is (nodig voor Bel op slot). */
+let keepAlivePlayer: AudioPlayer | null = null;
 let modePromise: Promise<void> | null = null;
 let modeReady = false;
 let currentTone: RideAlertTone = DEFAULT_RIDE_ALERT_TONE;
+let backgroundArmed = false;
+let disarmTimer: ReturnType<typeof setTimeout> | null = null;
+let iosSoundsInstall: Promise<void> | null = null;
 
 export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
   const key = String(value || '')
@@ -44,7 +49,10 @@ export function normalizeRideAlertTone(value?: string | null): RideAlertTone {
     : DEFAULT_RIDE_ALERT_TONE;
 }
 
-/** Bestandsnaam voor expo-notifications én Expo-push (in app-bundle). */
+/**
+ * Bestandsnaam voor expo-notifications / Expo-push.
+ * Altijd `.wav` — zit in de main bundle én (na install) in Library/Sounds.
+ */
 export function rideAlertNotificationSound(tone?: string | null): string {
   return TONE_FILES[normalizeRideAlertTone(tone ?? currentTone)];
 }
@@ -131,10 +139,137 @@ async function applyAlertAudioMode(background: boolean): Promise<void> {
   await setIsAudioActiveAsync(true);
 }
 
+/**
+ * Kopieer ritgeluiden naar Library/Sounds zodat UNNotificationSound ze vindt
+ * (main bundle + Library/Sounds). Zonder dit speelt iOS vaak de systeemtriangel.
+ */
+export function ensureIosNotificationSoundsInstalled(): Promise<void> {
+  if (Platform.OS !== 'ios') return Promise.resolve();
+  if (!iosSoundsInstall) {
+    iosSoundsInstall = (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const FileSystem = require('expo-file-system/legacy') as {
+          documentDirectory: string | null;
+          makeDirectoryAsync: (path: string, opts?: { intermediates?: boolean }) => Promise<void>;
+          getInfoAsync: (path: string) => Promise<{ exists: boolean }>;
+          copyAsync: (opts: { from: string; to: string }) => Promise<void>;
+        };
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { Asset } = require('expo-asset') as {
+          Asset: {
+            fromModule: (m: number) => {
+              downloadAsync: () => Promise<unknown>;
+              localUri?: string | null;
+              uri?: string;
+            };
+          };
+        };
+        const docs = FileSystem.documentDirectory;
+        if (!docs) return;
+        const soundsDir = docs.replace(/Documents\/?$/, 'Library/Sounds/');
+        await FileSystem.makeDirectoryAsync(soundsDir, { intermediates: true }).catch(() => undefined);
+        for (const tone of RIDE_ALERT_TONES) {
+          const file = TONE_FILES[tone];
+          const dest = `${soundsDir}${file}`;
+          const info = await FileSystem.getInfoAsync(dest).catch(() => ({ exists: false }));
+          if (info.exists) continue;
+          const mod = requireToneModule(tone);
+          if (typeof mod !== 'number') continue;
+          const asset = Asset.fromModule(mod);
+          await asset.downloadAsync();
+          const from = asset.localUri || asset.uri;
+          if (!from) continue;
+          await FileSystem.copyAsync({ from, to: dest }).catch(() => undefined);
+        }
+      } catch {
+        iosSoundsInstall = null;
+      }
+    })();
+  }
+  return iosSoundsInstall;
+}
+
+function stopKeepAlive(): void {
+  try {
+    keepAlivePlayer?.pause();
+    keepAlivePlayer?.remove();
+  } catch {
+    /* ignore */
+  }
+  keepAlivePlayer = null;
+}
+
+function startKeepAlive(): void {
+  if (keepAlivePlayer) {
+    try {
+      keepAlivePlayer.volume = 0;
+      keepAlivePlayer.loop = true;
+      keepAlivePlayer.play();
+      return;
+    } catch {
+      stopKeepAlive();
+    }
+  }
+  const mod = requireToneModule('soft');
+  try {
+    if (mod != null) {
+      keepAlivePlayer = createAudioPlayer(mod, {
+        updateInterval: 60000,
+        keepAudioSessionActive: true,
+      });
+    } else {
+      const uri = bundledToneUri('soft');
+      if (!uri) return;
+      keepAlivePlayer = createAudioPlayer(
+        { uri },
+        { updateInterval: 60000, keepAudioSessionActive: true }
+      );
+    }
+    keepAlivePlayer.volume = 0;
+    keepAlivePlayer.loop = true;
+    keepAlivePlayer.play();
+  } catch {
+    stopKeepAlive();
+  }
+}
+
+/** Chauffeur online: audio-sessie + keep-alive zodat Bel op slot/achtergrond speelt. */
+export function armRideAlertBackgroundAudio(): void {
+  backgroundArmed = true;
+  if (disarmTimer) {
+    clearTimeout(disarmTimer);
+    disarmTimer = null;
+  }
+  void ensureIosNotificationSoundsInstalled();
+  void applyAlertAudioMode(true)
+    .then(() => {
+      modeReady = true;
+      startKeepAlive();
+      try {
+        ensurePlayer(currentTone);
+      } catch {
+        /* volgende play */
+      }
+    })
+    .catch(() => undefined);
+}
+
+/** Chauffeur offline. */
+export function disarmRideAlertBackgroundAudio(): void {
+  backgroundArmed = false;
+  if (disarmTimer) {
+    clearTimeout(disarmTimer);
+    disarmTimer = null;
+  }
+  stopKeepAlive();
+  void applyAlertAudioMode(false).catch(() => undefined);
+}
+
 export function prepareRideAlertAudio(): Promise<void> {
   if (modeReady) return Promise.resolve();
   if (!modePromise) {
-    modePromise = applyAlertAudioMode(false)
+    modePromise = applyAlertAudioMode(backgroundArmed)
       .then(() => {
         modeReady = true;
       })
@@ -175,6 +310,7 @@ function ensurePlayer(tone: RideAlertTone): boolean {
 }
 
 export function primeRideAlertPlayer(): void {
+  void ensureIosNotificationSoundsInstalled();
   void prepareRideAlertAudio().then(
     () => {
       try {
@@ -205,26 +341,37 @@ export function playPreparedRideAlert(): void {
 
 /** Speelt gekozen ritgeluid (standaard Bel/chime). Werkt ook bij stille schakelaar. */
 export function playRideAlertTone(tone?: string | null): void {
+  void playRideAlertToneAsync(tone);
+}
+
+/** Zelfde als playRideAlertTone, met succes van start (niet garantie dat je het hoort op slot). */
+export async function playRideAlertToneAsync(tone?: string | null): Promise<boolean> {
   const next = normalizeRideAlertTone(tone ?? currentTone);
   currentTone = next;
-  void (async () => {
+  if (disarmTimer) {
+    clearTimeout(disarmTimer);
+    disarmTimer = null;
+  }
+  try {
+    await applyAlertAudioMode(true);
+    modeReady = true;
+    if (backgroundArmed) startKeepAlive();
+    if (!startPlayback(next)) return false;
+  } catch {
     try {
-      await applyAlertAudioMode(true);
-      modeReady = true;
-      startPlayback(next);
+      await prepareRideAlertAudio();
+      if (!startPlayback(next)) return false;
     } catch {
-      try {
-        await prepareRideAlertAudio();
-        startPlayback(next);
-      } catch {
-        /* één poging */
-      }
-    } finally {
-      setTimeout(() => {
-        void applyAlertAudioMode(false).catch(() => undefined);
-      }, 2500);
+      return false;
     }
-  })();
+  }
+  if (!backgroundArmed) {
+    disarmTimer = setTimeout(() => {
+      disarmTimer = null;
+      void applyAlertAudioMode(false).catch(() => undefined);
+    }, 2500);
+  }
+  return true;
 }
 
 export function stopRideAlertTone(): void {

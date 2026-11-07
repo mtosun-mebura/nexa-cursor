@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AppState, Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
-import * as SecureStore from 'expo-secure-store';
 import { resolveApiBaseUrl } from '../config';
+import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import { t } from '../i18n';
+import { secureDelete, secureGet, secureSet } from '../storage/secureStoreSafe';
 
 /** Shown only after iOS/Android will no longer present the system prompt. */
 export const LOCATION_SETTINGS_HINT =
@@ -31,11 +32,11 @@ const VEHICLE_KEY = 'nexa_taxi_location_vehicle';
  */
 let locationTaskBusy = false;
 
-/** Minimaal 10s — snellere GPS-poll crashte de native app tijdens idle online. */
+/** Minimaal 15s — sneller → jetsam/SIGKILL (~3GB highwater) binnen ~1 min. */
 export function clampGpsRefreshSeconds(value: unknown): number {
   const n = Number(value);
-  if (!Number.isFinite(n) || n < 10) return 10;
-  return Math.min(30, Math.max(10, Math.round(n)));
+  if (!Number.isFinite(n) || n < 15) return 15;
+  return Math.min(30, Math.max(15, Math.round(n)));
 }
 
 // De typedefinitie eist een Promise, maar een thenable per sample plant microtasks.
@@ -53,46 +54,63 @@ TaskManager.defineTask(LOCATION_TASK, (({ data, error }: { data?: unknown; error
 }) as unknown as Parameters<typeof TaskManager.defineTask>[1]);
 
 async function runLocationTask(latest: Location.LocationObject): Promise<void> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await secureGet(TOKEN_KEY);
   if (!token) {
     return;
   }
-  const vehicleRaw = await SecureStore.getItemAsync(VEHICLE_KEY);
+  const vehicleRaw = await secureGet(VEHICLE_KEY);
   const vehicleId = vehicleRaw ? Number(vehicleRaw) : null;
   const heading = latest.coords.heading;
   const speed = latest.coords.speed;
 
-  // Alleen GPS posten. Inbox/SecureStore hier liet de JS-wachtrij vollopen
-  // (freeze/crash). Nieuwe ritten komen via push + voorgrondpoll.
+  // GPS posten. Daarna throttled inbox-check: op slotscherm stopt de JS-poll,
+  // zonder remote push is dit de wake voor Bel-meldingen.
   try {
     const base = await resolveApiBaseUrl();
-    await fetch(`${base}/api/taxi/v1/driver/availability/location`, {
-      method: 'PUT',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        lat: latest.coords.latitude,
-        lng: latest.coords.longitude,
-        accuracy: latest.coords.accuracy ?? undefined,
-        ...(heading != null && heading >= 0 ? { heading } : {}),
-        ...(speed != null && speed >= 0 ? { speed } : {}),
-        ...(vehicleId ? { vehicle_id: vehicleId } : {}),
-      }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      await fetch(`${base}/api/taxi/v1/driver/availability/location`, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          lat: latest.coords.latitude,
+          lng: latest.coords.longitude,
+          accuracy: latest.coords.accuracy ?? undefined,
+          ...(heading != null && heading >= 0 ? { heading } : {}),
+          ...(speed != null && speed >= 0 ? { speed } : {}),
+          ...(vehicleId ? { vehicle_id: vehicleId } : {}),
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     /* ignore network errors in background */
+  }
+  try {
+    // Lazy: voorkomt zware import-cyclus bij native task-load.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { pollDriverOffersFromBackgroundTask } = require('../notifications/offerAlertWatch') as {
+      pollDriverOffersFromBackgroundTask: (token?: string | null) => void;
+    };
+    pollDriverOffersFromBackgroundTask(token);
+  } catch {
+    /* offer-poll mag GPS nooit breken */
   }
 }
 
 export async function prepareBackgroundLocation(token: string, vehicleId?: number | null) {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await secureSet(TOKEN_KEY, token);
   if (vehicleId) {
-    await SecureStore.setItemAsync(VEHICLE_KEY, String(vehicleId));
+    await secureSet(VEHICLE_KEY, String(vehicleId));
   } else {
-    await SecureStore.deleteItemAsync(VEHICLE_KEY);
+    await secureDelete(VEHICLE_KEY);
   }
 }
 
@@ -214,6 +232,11 @@ async function stopLocationTaskNow(): Promise<void> {
 }
 
 async function startLocationTask(refreshSeconds: number): Promise<void> {
+  if (!DRIVER_BG.backgroundLocation) {
+    wantBackgroundTask = false;
+    await runLocationOp(() => stopLocationTaskNow());
+    return;
+  }
   wantBackgroundTask = true;
   const seconds = clampGpsRefreshSeconds(refreshSeconds);
   await runLocationOp(async () => {
@@ -344,5 +367,5 @@ export async function pauseBackgroundLocationUpdates(): Promise<void> {
 export async function stopBackgroundLocation() {
   wantBackgroundTask = false;
   await runLocationOp(() => stopLocationTaskNow());
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await secureDelete(TOKEN_KEY);
 }

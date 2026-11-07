@@ -1,13 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { fetchDemoModeStatus, setDemoModeEnabled } from '../api/demoMode';
 import { useAuth } from '../auth/AuthContext';
-
-const DEMO_KEY = 'nexa_taxi_demo_mode';
+import { isDemoModeEnvironmentAllowed } from '../config';
 
 type DemoState = {
   /** Ingelogd als superadmin (alleen dan is de demo-schakelaar zichtbaar). */
   isSuperAdmin: boolean;
-  /** Demo staat aan én gebruiker is superadmin. */
+  /** Deze API-host mag demo (lokaal/test); productie niet. */
+  environmentAllowed: boolean;
+  /**
+   * Server-demo staat aan op deze omgeving — geldt voor élke klant/chauffeur,
+   * niet alleen het superadmin-apparaat.
+   */
   active: boolean;
   setEnabled: (on: boolean) => void;
   /** Boeken-scherm geopend vanuit het chauffeurs-/contractprofiel. */
@@ -17,42 +21,90 @@ type DemoState = {
 
 const DemoContext = createContext<DemoState | null>(null);
 
+function readIsSuperAdmin(value: unknown): boolean {
+  return value === true || value === 1 || value === '1' || value === 'true';
+}
+
 /**
- * Demo-modus voor presentaties: puur client-side, geen backend-effect.
- * Staat standaard uit, wordt lokaal bewaard en gaat uit zodra de gebruiker
- * uitlogt of geen superadmin is.
+ * Omgeving-brede demo: superadmin zet aan via API; alle clients pollen de status.
+ * Virtueel vloot + echte dispatch draaien server-side.
  */
 export function DemoProvider({ children }: { children: React.ReactNode }) {
-  const { ready, session } = useAuth();
-  const isSuperAdmin = session?.user?.is_super_admin === true;
-  const [enabled, setEnabledState] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const { ready, session, driverToken, contractToken } = useAuth();
+  const isSuperAdmin = readIsSuperAdmin(session?.user?.is_super_admin);
+  const token = driverToken || contractToken || null;
+  const [serverEnabled, setServerEnabled] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(DEMO_KEY)
-      .then((saved) => setEnabledState(saved === '1'))
-      .catch(() => undefined)
-      .finally(() => setLoaded(true));
+  const environmentAllowed = isDemoModeEnvironmentAllowed();
+
+  const refreshStatus = useCallback(async () => {
+    if (!isDemoModeEnvironmentAllowed()) {
+      setServerEnabled(false);
+      return;
+    }
+    try {
+      const status = await fetchDemoModeStatus();
+      setServerEnabled(!!status.enabled && status.environment_allowed !== false);
+    } catch {
+      /* houd vorige status */
+    }
   }, []);
 
-  const setEnabled = useCallback((on: boolean) => {
-    setEnabledState(on);
-    if (!on) setBookingOpen(false);
-    AsyncStorage.setItem(DEMO_KEY, on ? '1' : '0').catch(() => undefined);
-  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    void refreshStatus();
+    const timer = setInterval(() => {
+      void refreshStatus();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [ready, refreshStatus]);
+
+  const setEnabled = useCallback(
+    (on: boolean) => {
+      if (on && !isDemoModeEnvironmentAllowed()) {
+        setServerEnabled(false);
+        setBookingOpen(false);
+        return;
+      }
+      if (!isSuperAdmin) return;
+      if (!token) {
+        // Geen Bearer-token → schakelaar deed stil niets.
+        void refreshStatus();
+        return;
+      }
+      // Optimistisch voor snelle UI; server is bron van waarheid.
+      setServerEnabled(on);
+      if (!on) setBookingOpen(false);
+      void setDemoModeEnabled(token, on)
+        .then((status) => {
+          setServerEnabled(!!status.enabled);
+        })
+        .catch(() => {
+          void refreshStatus();
+        });
+    },
+    [token, isSuperAdmin, refreshStatus]
+  );
 
   useEffect(() => {
-    if (!ready || !loaded || isSuperAdmin) return;
-    setEnabledState(false);
-    setBookingOpen(false);
-    AsyncStorage.removeItem(DEMO_KEY).catch(() => undefined);
-  }, [ready, loaded, isSuperAdmin]);
+    if (!environmentAllowed) {
+      setServerEnabled(false);
+      setBookingOpen(false);
+    }
+  }, [environmentAllowed]);
 
-  const active = isSuperAdmin && enabled;
+  const active = environmentAllowed && serverEnabled;
   const value = useMemo<DemoState>(
-    () => ({ isSuperAdmin, active, setEnabled, bookingOpen: active && bookingOpen, setBookingOpen }),
-    [isSuperAdmin, active, setEnabled, bookingOpen]
+    () => ({
+      isSuperAdmin,
+      environmentAllowed,
+      active,
+      setEnabled,
+      bookingOpen: active && bookingOpen,
+      setBookingOpen,
+    }),
+    [isSuperAdmin, environmentAllowed, active, setEnabled, bookingOpen]
   );
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
@@ -60,6 +112,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
 const DEMO_FALLBACK: DemoState = {
   isSuperAdmin: false,
+  environmentAllowed: false,
   active: false,
   setEnabled: () => undefined,
   bookingOpen: false,
@@ -67,7 +120,5 @@ const DEMO_FALLBACK: DemoState = {
 };
 
 export function useDemo() {
-  // Geen throw: bij Fast Refresh / Suspense kan de provider kort ontbreken
-  // en crashte de hele app (rode error op o.a. iPad) i.p.v. stil uit te blijven.
   return useContext(DemoContext) ?? DEMO_FALLBACK;
 }

@@ -1,6 +1,5 @@
 import { t } from '../i18n';
 import { AppState, Platform, Vibration } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import {
   fetchDriverInbox,
   inboxDataFromResponse,
@@ -10,13 +9,16 @@ import {
 } from '../api/driver';
 import {
   DEFAULT_RIDE_ALERT_TONE,
+  activeRideAlertTone,
   normalizeRideAlertTone,
   playRideAlertTone,
+  playRideAlertToneAsync,
   prepareRideAlertAudio,
   primeRideAlertPlayer,
   setActiveRideAlertTone,
 } from '../audio/rideAlert';
 import { DRIVER_BG } from '../debug/driverBgKillSwitch';
+import { secureGet, secureSet } from '../storage/secureStoreSafe';
 import { notifyNewDriverOffer, notifyPickupDenied, setDriverOfferBadge } from './driverOffers';
 import { alertNextPickupDeparture } from './pickupDeparture';
 
@@ -49,13 +51,13 @@ function offerIds(offers: DispatchOffer[] | undefined): number[] {
 }
 
 export function rememberRideAlertTone(tone?: string | null): void {
-  SecureStore.setItemAsync(TONE_KEY, normalizeRideAlertTone(tone)).catch(() => undefined);
+  void secureSet(TONE_KEY, normalizeRideAlertTone(tone));
 }
 
 /** Oude standaard alert → Bel; lokale cache meenemen. */
 export async function hydrateRideAlertToneFromStore(): Promise<string> {
   try {
-    const raw = String((await SecureStore.getItemAsync(TONE_KEY)) || '').trim().toLowerCase();
+    const raw = String((await secureGet(TONE_KEY)) || '').trim().toLowerCase();
     if (raw === 'alert' || raw === 'classic' || raw === '') {
       setActiveRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
       rememberRideAlertTone(DEFAULT_RIDE_ALERT_TONE);
@@ -86,7 +88,7 @@ async function ensureSoundedLoaded(): Promise<void> {
   if (soundedLoaded) return;
   soundedLoaded = true;
   try {
-    const raw = await SecureStore.getItemAsync(SOUNDED_KEY);
+    const raw = await secureGet(SOUNDED_KEY);
     const list = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(list)) return;
     for (const id of list) {
@@ -100,7 +102,7 @@ async function ensureSoundedLoaded(): Promise<void> {
 
 async function persistSounded(): Promise<void> {
   const ids = Array.from(soundedOfferIds).slice(-300);
-  await SecureStore.setItemAsync(SOUNDED_KEY, JSON.stringify(ids));
+  await secureSet(SOUNDED_KEY, JSON.stringify(ids));
 }
 
 /**
@@ -110,22 +112,30 @@ async function persistSounded(): Promise<void> {
  */
 /** Standaard alarm per nieuw aanbod-id. Tril + speel (bereidt audio indien nodig). */
 export function playDriverOfferToneForIds(ids: number[], _tone?: string | null): void {
+  void playDriverOfferToneForIdsAsync(ids);
+}
+
+/** Zelfde toon, met of Bel echt startte (belangrijk op iOS-slot). */
+export async function playDriverOfferToneForIdsAsync(
+  ids: number[],
+  _tone?: string | null
+): Promise<boolean> {
   const fresh = markOfferIdsSounded(ids);
-  if (!fresh.length) return;
-  requestAnimationFrame(() => {
-    try {
-      if (Platform.OS === 'ios') Vibration.vibrate();
-      else Vibration.vibrate([0, 120, 60, 120]);
-    } catch {
-      /* ignore */
-    }
-    try {
-      playRideAlertTone();
-    } catch {
-      /* één poging per id */
-    }
-    void persistSounded();
-  });
+  if (!fresh.length) return false;
+  try {
+    if (Platform.OS === 'ios') Vibration.vibrate();
+    else Vibration.vibrate([0, 120, 60, 120]);
+  } catch {
+    /* ignore */
+  }
+  let played = false;
+  try {
+    played = await playRideAlertToneAsync();
+  } catch {
+    played = false;
+  }
+  void persistSounded();
+  return played;
 }
 
 function markOfferIdsSounded(ids: number[]): number[] {
@@ -153,33 +163,44 @@ export function driverOfferAlreadySounded(id: number): boolean {
   return n > 0 && soundedOfferIds.has(n);
 }
 
+/** Banner al getoond (push of lokale melding) — geen tweede banner voor hetzelfde aanbod. */
+const presentedOfferIds = new Set<number>();
+
+export function markDriverOfferBannerPresented(ids: Array<number | null | undefined>): void {
+  for (const raw of ids) {
+    const id = Number(raw);
+    if (id > 0) presentedOfferIds.add(id);
+  }
+}
+
+export function driverOfferBannerAlreadyPresented(id: number): boolean {
+  const n = Number(id);
+  return n > 0 && presentedOfferIds.has(n);
+}
+
 async function addOfferBadge(extra: number): Promise<number> {
   const add = Math.max(0, Math.round(extra));
   let current = 0;
   try {
-    current = Number(await SecureStore.getItemAsync(BADGE_KEY)) || 0;
+    current = Number(await secureGet(BADGE_KEY)) || 0;
   } catch {
     current = 0;
   }
   const next = Math.max(0, Math.min(99, current + add));
-  await SecureStore.setItemAsync(BADGE_KEY, String(next));
+  await secureSet(BADGE_KEY, String(next));
   await setDriverOfferBadge(next);
   return next;
 }
 
 /** Cijfer op het icoon weghalen zodra de chauffeur de app weer opent. */
 export async function clearDriverOfferBadge(): Promise<void> {
-  try {
-    await SecureStore.setItemAsync(BADGE_KEY, '0');
-  } catch {
-    /* ignore */
-  }
+  await secureSet(BADGE_KEY, '0');
   await setDriverOfferBadge(0);
 }
 
 async function loadSeen(): Promise<Set<number>> {
   try {
-    const raw = await SecureStore.getItemAsync(SEEN_KEY);
+    const raw = await secureGet(SEEN_KEY);
     const list = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(list)) return new Set();
     return new Set(list.map((id) => Number(id)).filter((id) => id > 0));
@@ -190,13 +211,13 @@ async function loadSeen(): Promise<Set<number>> {
 
 async function saveSeen(seen: Set<number>): Promise<void> {
   const ids = Array.from(seen).slice(-300);
-  await SecureStore.setItemAsync(SEEN_KEY, JSON.stringify(ids));
+  await secureSet(SEEN_KEY, JSON.stringify(ids));
 }
 
 /**
  * Nieuwe ritaanvragen:
- * - Zichtbare app (active/inactive/unknown): gekozen toon via de speler. iOS speelt een push dan niet.
- * - Standby/achtergrond: lokale melding met dezelfde wav. De GPS-taak start de speler niet.
+ * - Voorgrond: gekozen toon via de speler (geen lokale melding).
+ * - Slot/achtergrond: lokale melding met OS-geluid. De GPS-taak start de speler niet.
  */
 export function alertUnseenDriverOffers(input: {
   token?: string;
@@ -265,10 +286,10 @@ async function checkOnce(input: {
   }
 
   const ids = offerIds(offers);
-  const ready = (await SecureStore.getItemAsync(READY_KEY)) === '1';
+  const ready = (await secureGet(READY_KEY)) === '1';
   const seen = await loadSeen();
   if (!ready) {
-    await SecureStore.setItemAsync(READY_KEY, '1');
+    await secureSet(READY_KEY, '1');
   }
 
   const fresh = offers.filter((offer) => {
@@ -276,11 +297,15 @@ async function checkOnce(input: {
     return id > 0 && !seen.has(id);
   });
   const freshIds = fresh.map((offer) => Number(offer.id)).filter((id) => id > 0);
-  // Altijd alert.wav bij nieuw aanbod (voorgrond én als JS nog draait op achtergrond).
+  // Voorgrond: Bel via expo-audio. Slot/achtergrond: OS-melding met chime.wav
+  // (vertraagde trigger) — expo-audio valt op slot stil; false “Bel speelde” gaf stilte.
   const screenVisible = !input.fromBackground && AppState.currentState === 'active';
   if (input.online !== false && freshIds.length) {
-    if (DRIVER_BG.rideAlertAudio) void playDriverOfferToneForIds(freshIds);
-    else void rememberSoundedWithoutPlay(freshIds);
+    if (screenVisible && DRIVER_BG.rideAlertAudio) {
+      void playDriverOfferToneForIdsAsync(freshIds);
+    } else {
+      void rememberSoundedWithoutPlay(freshIds);
+    }
   }
   if (!fresh.length || input.online === false) return [];
 
@@ -288,7 +313,6 @@ async function checkOnce(input: {
   await saveSeen(seen);
 
   // Voorgrond: geen lokale melding — die stapelde en liet de app vastlopen bij tikken.
-  // Achtergrond: lokale melding met systeemgeluid als reserve naast Expo-push.
   if (screenVisible) return fresh;
 
   const priority = fresh[0];
@@ -305,9 +329,8 @@ async function checkOnce(input: {
     pickupAt: priority.ride?.pickup_at,
     quotedPrice: priority.ride?.quoted_price ?? null,
     expiresAt: priority.expires_at,
-    // Toon al via playDriverOfferToneForIds; lokale melding stil om dubbel geluid te voorkomen.
-    playSound: false,
-    systemSound: false,
+    playSound: true,
+    tone: activeRideAlertTone(),
     badge,
     offerId,
     rideRequestId,
@@ -322,7 +345,7 @@ function rideDeniesPickup(ride: DriverActiveRide | null | undefined): ride is Dr
 
 async function loadDeniedIds(): Promise<Set<number>> {
   try {
-    const raw = await SecureStore.getItemAsync(DENIED_KEY);
+    const raw = await secureGet(DENIED_KEY);
     const list = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(list)) return new Set();
     return new Set(list.map((id) => Number(id)).filter((id) => id > 0));
@@ -332,7 +355,7 @@ async function loadDeniedIds(): Promise<Set<number>> {
 }
 
 async function saveDeniedIds(ids: Set<number>): Promise<void> {
-  await SecureStore.setItemAsync(DENIED_KEY, JSON.stringify(Array.from(ids)));
+  await secureSet(DENIED_KEY, JSON.stringify(Array.from(ids)));
 }
 
 export type PickupDeniedNotice = { title: string; body: string; rideId?: number };
@@ -399,7 +422,7 @@ async function notifyFreshPickupDenials(input: {
 
 async function loadPayoutIds(): Promise<Set<number>> {
   try {
-    const raw = await SecureStore.getItemAsync(PAYOUT_KEY);
+    const raw = await secureGet(PAYOUT_KEY);
     const list = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(list)) return new Set();
     return new Set(list.map((id) => Number(id)).filter((id) => id > 0));
@@ -420,7 +443,7 @@ export async function takeFreshPayoutNotice(
     if (rideId <= 0 || !body || stored.has(rideId)) continue;
     stored.add(rideId);
     const ids = Array.from(stored).slice(-200);
-    await SecureStore.setItemAsync(PAYOUT_KEY, JSON.stringify(ids));
+    await secureSet(PAYOUT_KEY, JSON.stringify(ids));
     return {
       title: String(notice?.title || '').trim() || t("Bedrag overgemaakt"),
       body,
@@ -428,4 +451,32 @@ export async function takeFreshPayoutNotice(
     };
   }
   return null;
+}
+
+const BG_OFFER_POLL_MIN_MS = 20000;
+let lastBgOfferPollAt = 0;
+let bgOfferPollBusy = false;
+
+/**
+ * Lichte inbox-check vanuit de GPS-achtergrondtaak (slotscherm).
+ * Zonder remote Expo-push op prod is dit de wake die een lokale Bel-melding plant.
+ */
+export function pollDriverOffersFromBackgroundTask(token?: string | null): void {
+  if (bgOfferPollBusy) return;
+  const now = Date.now();
+  if (now - lastBgOfferPollAt < BG_OFFER_POLL_MIN_MS) return;
+  const trimmed = String(token || '').trim();
+  if (!trimmed) return;
+  lastBgOfferPollAt = now;
+  bgOfferPollBusy = true;
+  void alertUnseenDriverOffers({
+    token: trimmed,
+    online: true,
+    fromBackground: true,
+    minIntervalMs: 0,
+  })
+    .catch(() => undefined)
+    .finally(() => {
+      bgOfferPollBusy = false;
+    });
 }

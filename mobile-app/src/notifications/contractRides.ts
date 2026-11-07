@@ -91,6 +91,7 @@ export async function notifyNewContractRide(opts: {
       content: {
         title,
         body,
+        // Zelfde ritgeluid (Bel) als in de app — ook op slot/achtergrond via OS.
         sound: playSound ? rideAlertNotificationSound() : false,
         data: { type: 'contract_ride', screen: 'trips' },
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),

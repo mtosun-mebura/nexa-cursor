@@ -19,6 +19,8 @@ Route::prefix('v1/app')
     ->group(function () {
         Route::get('capabilities', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'capabilities'])
             ->middleware('throttle:taxi-driver-read');
+        Route::put('demo-mode', [\App\Modules\NexaTaxi\Controllers\Api\TaxiAppDemoModeController::class, 'update'])
+            ->middleware('throttle:taxi-driver-action');
     });
 
 Route::prefix('v1/customer')

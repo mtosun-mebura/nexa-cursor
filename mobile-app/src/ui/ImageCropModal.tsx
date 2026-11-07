@@ -338,14 +338,15 @@ export function ImageCropModal({
       </View>
   );
 
+  if (!visible) return null;
+
   if (embedded) {
-    if (!visible) return null;
     return body;
   }
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="fullScreen"
       onRequestClose={onCancel}

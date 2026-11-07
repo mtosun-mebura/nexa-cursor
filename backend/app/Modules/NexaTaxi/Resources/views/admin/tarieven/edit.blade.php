@@ -43,9 +43,12 @@
                     ];
                 })->values()->all();
             }
+            $platformRatesForImport = is_array($platformRatesForImport ?? null) ? $platformRatesForImport : [];
+            $canImportFromPlatform = !empty($scopeCompanyId) && $platformRatesForImport !== [];
         @endphp
 
-        <div class="grid gap-5 lg:gap-7.5" id="rates-editor" data-next-index="{{ count($ratesRows) }}">
+        <div class="grid gap-5 lg:gap-7.5" id="rates-editor" data-next-index="{{ count($ratesRows) }}"
+             @if($canImportFromPlatform) data-platform-rates='@json($platformRatesForImport)' @endif>
             @if($errors->has('rates'))
                 <div class="kt-alert kt-alert-danger">{{ $errors->first('rates') }}</div>
             @endif
@@ -114,9 +117,20 @@
                     <div class="kt-card w-full min-w-0" data-rate-row>
                         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                             <h3 class="kt-card-title mb-0">{{ __('Standaardtarieven') }}</h3>
-                            <button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="{{ __('Personenbereik verwijderen') }}" aria-label="{{ __('Personenbereik verwijderen') }}">
-                                <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
-                            </button>
+                            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                @if($canImportFromPlatform)
+                                    <button type="button"
+                                            class="kt-btn kt-btn-outline rates-import-btn"
+                                            data-import-platform-rates
+                                            title="{{ __('Standaardtarieven van Nexa Suite overnemen') }}"
+                                            aria-label="{{ __('Import van Nexa Suite') }}">
+                                        <i class="ki-filled ki-file-up me-1.5"></i>{{ __('Importeren') }}
+                                    </button>
+                                @endif
+                                <button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="{{ __('Personenbereik verwijderen') }}" aria-label="{{ __('Personenbereik verwijderen') }}">
+                                    <svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="kt-card-content p-0">
                             <div class="px-3 sm:px-5 pb-3 min-w-0">
@@ -219,6 +233,12 @@
         justify-content: center;
         border: none;
     }
+    .rates-import-btn {
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
     #rates-editor .kt-card,
     #rates-editor .kt-card-content {
         overflow: visible;
@@ -275,6 +295,20 @@
     var addBtn = root.querySelector('[data-add-range]');
     if (!list || !addBtn) return;
 
+    var platformRates = [];
+    try {
+        var rawPlatform = root.getAttribute('data-platform-rates');
+        if (rawPlatform) {
+            platformRates = JSON.parse(rawPlatform);
+            if (!Array.isArray(platformRates)) platformRates = [];
+        }
+    } catch (e) {
+        platformRates = [];
+    }
+    var canImportFromPlatform = platformRates.length > 0;
+
+    var amountFields = ['base_fare', 'min_fare', 'price_per_km', 'price_per_min', 'cleaning_costs'];
+
     function nextIndex() {
         var current = parseInt(root.getAttribute('data-next-index') || '0', 10);
         root.setAttribute('data-next-index', String(current + 1));
@@ -288,15 +322,25 @@
             '</div>';
     }
 
+    function importButtonHtml() {
+        if (!canImportFromPlatform) return '';
+        return '<button type="button" class="kt-btn kt-btn-outline rates-import-btn" data-import-platform-rates title="' + @json(__('Standaardtarieven van Nexa Suite overnemen')) + '" aria-label="' + @json(__('Import van Nexa Suite')) + '">' +
+            '<i class="ki-filled ki-file-up me-1.5"></i>' + @json(__('Importeren')) +
+            '</button>';
+    }
+
     function buildRow(index) {
         var wrapper = document.createElement('div');
         wrapper.className = 'kt-card w-full min-w-0';
         wrapper.setAttribute('data-rate-row', '1');
         var trashSvg = '<svg class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
         wrapper.innerHTML =
-            '<div class="kt-card-header flex items-center justify-between gap-3 px-5 py-5">' +
+            '<div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">' +
                 '<h3 class="kt-card-title mb-0">' + @json(__('Standaardtarieven')) + '</h3>' +
-                '<button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="' + @json(__('Personenbereik verwijderen')) + '" aria-label="' + @json(__('Personenbereik verwijderen')) + '">' + trashSvg + '</button>' +
+                '<div class="flex flex-wrap items-center gap-2 shrink-0">' +
+                    importButtonHtml() +
+                    '<button type="button" class="kt-btn kt-btn-icon kt-btn-outline text-danger rates-remove-btn" data-remove-range title="' + @json(__('Personenbereik verwijderen')) + '" aria-label="' + @json(__('Personenbereik verwijderen')) + '">' + trashSvg + '</button>' +
+                '</div>' +
             '</div>' +
             '<div class="kt-card-content p-0"><div class="px-3 sm:px-5 pb-3 min-w-0">' +
                 '<table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">' +
@@ -310,11 +354,102 @@
         return wrapper;
     }
 
+    function normalizeRange(value) {
+        return String(value || '').replace(/\s+/g, '');
+    }
+
+    function formatAmount(value) {
+        if (value === null || value === undefined || value === '') return '';
+        var n = Number(value);
+        if (!isFinite(n) || n === 0) return '';
+        return String(value);
+    }
+
+    function fieldInput(row, field) {
+        return row.querySelector('input[name*="[' + field + ']"]');
+    }
+
+    function resolvePlatformRate(personRange) {
+        var range = normalizeRange(personRange);
+        var i;
+        if (range) {
+            for (i = 0; i < platformRates.length; i++) {
+                if (normalizeRange(platformRates[i].person_range) === range) {
+                    return platformRates[i];
+                }
+            }
+        }
+        for (i = 0; i < platformRates.length; i++) {
+            if (normalizeRange(platformRates[i].person_range) === '1-4') {
+                return platformRates[i];
+            }
+        }
+        return platformRates[0] || null;
+    }
+
+    function rowHasFilledAmounts(row) {
+        return amountFields.some(function (field) {
+            var input = fieldInput(row, field);
+            return input && String(input.value || '').trim() !== '';
+        });
+    }
+
+    function applyPlatformRate(row, rate) {
+        var rangeInput = fieldInput(row, 'person_range');
+        if (rangeInput && !normalizeRange(rangeInput.value) && rate.person_range) {
+            rangeInput.value = rate.person_range;
+        }
+        amountFields.forEach(function (field) {
+            var input = fieldInput(row, field);
+            if (!input) return;
+            input.value = formatAmount(rate[field]);
+        });
+    }
+
+    function confirmOverwrite(done) {
+        var title = @json(__('Import van Nexa Suite'));
+        var message = @json(__('Bestaande waarden overschrijven met de standaardtarieven van Nexa Suite?'));
+        var label = @json(__('Importeren'));
+        if (typeof window.showAdminConfirm === 'function') {
+            window.showAdminConfirm({
+                title: title,
+                message: message,
+                confirmLabel: label,
+                destructive: false
+            }).then(function (ok) {
+                if (ok) done();
+            });
+            return;
+        }
+        if (window.confirm(message)) done();
+    }
+
+    function importIntoRow(row) {
+        if (!row || !canImportFromPlatform) return;
+        var rangeInput = fieldInput(row, 'person_range');
+        var rate = resolvePlatformRate(rangeInput ? rangeInput.value : '');
+        if (!rate) {
+            alert(@json(__('Geen Nexa Suite-tarieven gevonden voor dit personenbereik.')));
+            return;
+        }
+        var apply = function () { applyPlatformRate(row, rate); };
+        if (rowHasFilledAmounts(row)) {
+            confirmOverwrite(apply);
+            return;
+        }
+        apply();
+    }
+
     addBtn.addEventListener('click', function () {
         list.appendChild(buildRow(nextIndex()));
     });
 
     list.addEventListener('click', function (e) {
+        var importBtn = e.target.closest('[data-import-platform-rates]');
+        if (importBtn) {
+            importIntoRow(importBtn.closest('[data-rate-row]'));
+            return;
+        }
         var removeBtn = e.target.closest('[data-remove-range]');
         if (!removeBtn) return;
         var cards = list.querySelectorAll('[data-rate-row]');

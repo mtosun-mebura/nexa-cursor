@@ -1,8 +1,8 @@
 import { t, dateLocale } from '../i18n';
 import * as Location from 'expo-location';
-import * as SecureStore from 'expo-secure-store';
 import type { DriverActiveRide } from '../api/driver';
 import { fetchDrivingRoute } from '../geo/route';
+import { secureGet, secureSet } from '../storage/secureStoreSafe';
 import { notifyPickupDeparture } from './driverOffers';
 
 const NOTIFIED_KEY = 'nexa_taxi_depart_notified';
@@ -95,7 +95,7 @@ async function travelSeconds(
 
 async function loadNotified(): Promise<Set<string>> {
   try {
-    const raw = await SecureStore.getItemAsync(NOTIFIED_KEY);
+    const raw = await secureGet(NOTIFIED_KEY);
     const list = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(list)) return new Set();
     return new Set(list.map((item) => String(item)));
@@ -105,7 +105,7 @@ async function loadNotified(): Promise<Set<string>> {
 }
 
 async function saveNotified(keys: Set<string>): Promise<void> {
-  await SecureStore.setItemAsync(NOTIFIED_KEY, JSON.stringify(Array.from(keys).slice(-80)));
+  await secureSet(NOTIFIED_KEY, JSON.stringify(Array.from(keys).slice(-80)));
 }
 
 /**

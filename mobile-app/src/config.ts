@@ -36,6 +36,27 @@ export async function resolveApiBaseUrl(): Promise<string> {
   return current;
 }
 
+/**
+ * Superadmin-demo (gesimuleerde taxi’s / boeken) alleen op lokaal + test.
+ * Productie (o.a. nexasuite.nl) blijft uit — ook als iemand de schakelaar aanzet.
+ */
+export function isDemoModeEnvironmentAllowed(apiBase: string = getApiBaseUrl()): boolean {
+  try {
+    const host = new URL(apiBase).hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+    if (host.endsWith('.local') || host.endsWith('.test') || host.endsWith('.localhost')) {
+      return true;
+    }
+    // Test-omgeving
+    if (host === 'nexasuite.online' || host.endsWith('.nexasuite.online')) return true;
+    // Privé-LAN (lokale backend)
+    if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export type ColorPalette = {
   bg: string;
   card: string;

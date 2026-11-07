@@ -95,10 +95,10 @@ class DriverExpoPushServiceTest extends TestCase
             $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
 
             return ($message['title'] ?? null) === 'Testmelding Nexa Taxi'
-                && ($message['sound'] ?? null) === 'default'
+                && ($message['sound'] ?? null) === 'chime.wav'
                 && ($message['_contentAvailable'] ?? null) === true
                 && ($message['priority'] ?? null) === 'high'
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v9';
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v10-chime';
         });
     }
 
@@ -115,7 +115,86 @@ class DriverExpoPushServiceTest extends TestCase
     }
 
     #[Test]
-    public function a_closed_offer_push_names_the_offer_and_plays_alert_sound(): void
+    public function ios_new_offer_push_is_data_only_so_the_app_owns_the_bel_banner(): void
+    {
+        $user = User::factory()->create();
+        DriverDeviceToken::query()->create([
+            'user_id' => $user->id,
+            'token' => 'ExponentPushToken[ios-offer]',
+            'platform' => 'ios',
+        ]);
+
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-ios']],
+            ]),
+        ]);
+
+        app(DriverExpoPushService::class)->sendNewOffer(
+            $user->id,
+            55,
+            12,
+            'Nieuwe rit',
+            'Damrak 1',
+            'Damrak 1'
+        );
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return ($message['to'] ?? null) === 'ExponentPushToken[ios-offer]'
+                && ($message['_contentAvailable'] ?? null) === true
+                && ($message['priority'] ?? null) === 'high'
+                && ($message['data']['type'] ?? null) === 'driver_offer'
+                && (int) ($message['data']['offer_id'] ?? 0) === 12
+                && ! array_key_exists('title', $message)
+                && ! array_key_exists('body', $message)
+                && ! array_key_exists('sound', $message);
+        });
+    }
+
+    #[Test]
+    public function android_new_offer_push_keeps_visible_bel_banner(): void
+    {
+        $user = User::factory()->create();
+        DriverDeviceToken::query()->create([
+            'user_id' => $user->id,
+            'token' => 'ExponentPushToken[android-offer]',
+            'platform' => 'android',
+        ]);
+
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-android']],
+            ]),
+        ]);
+
+        app(DriverExpoPushService::class)->sendNewOffer(
+            $user->id,
+            56,
+            13,
+            'Nieuwe rit',
+            'Damrak 1',
+            'Damrak 1'
+        );
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return ($message['to'] ?? null) === 'ExponentPushToken[android-offer]'
+                && ($message['title'] ?? null) === 'Nieuwe rit'
+                && ($message['sound'] ?? null) === 'chime.wav'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v10-chime'
+                && ($message['data']['type'] ?? null) === 'driver_offer';
+        });
+    }
+
+    #[Test]
+    public function ios_closed_offer_push_is_data_only_so_local_bel_owns_the_sound(): void
     {
         $user = User::factory()->create();
         DriverDeviceToken::query()->create([
@@ -147,13 +226,48 @@ class DriverExpoPushServiceTest extends TestCase
             return ($message['data']['type'] ?? null) === 'driver_offer_closed'
                 && (int) ($message['data']['offer_id'] ?? 0) === 15
                 && (int) ($message['data']['ride_request_id'] ?? 0) === 9
-                && ($message['title'] ?? null) === 'Rit geannuleerd'
-                && is_string($message['body'] ?? null)
-                && str_contains((string) $message['body'], 'Stationsplein 1')
                 && ($message['data']['pickup_address'] ?? null) === 'Stationsplein 1, Amsterdam'
-                && ($message['sound'] ?? null) === 'default'
                 && ($message['_contentAvailable'] ?? null) === true
-                && ($message['channelId'] ?? null) === 'driver-offers-alert-v9';
+                && ! array_key_exists('title', $message)
+                && ! array_key_exists('body', $message)
+                && ! array_key_exists('sound', $message);
+        });
+    }
+
+    #[Test]
+    public function android_closed_offer_push_uses_bel_channel_sound(): void
+    {
+        $user = User::factory()->create();
+        DriverDeviceToken::query()->create([
+            'user_id' => $user->id,
+            'token' => 'ExponentPushToken[closed-android]',
+            'platform' => 'android',
+        ]);
+
+        Http::fake([
+            'https://exp.host/*' => Http::response([
+                'data' => [['status' => 'ok', 'id' => 'ticket-closed-android']],
+            ]),
+        ]);
+
+        app(DriverExpoPushService::class)->sendOffersClosed([[
+            'id' => 16,
+            'driver_id' => $user->id,
+            'ride_request_id' => 10,
+            'pickup_address' => 'Damrak 1',
+            'pickup_at' => '2026-11-05T14:30:00+01:00',
+            'quoted_price' => 18,
+        ]]);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function ($request) {
+            $body = $request->data();
+            $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
+
+            return ($message['data']['type'] ?? null) === 'driver_offer_closed'
+                && ($message['title'] ?? null) === 'Rit geannuleerd'
+                && ($message['sound'] ?? null) === 'chime.wav'
+                && ($message['channelId'] ?? null) === 'driver-offers-alert-v10-chime';
         });
     }
 }

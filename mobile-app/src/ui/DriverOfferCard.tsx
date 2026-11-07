@@ -143,6 +143,8 @@ type OfferModeProps = {
   soloOfferId?: number | null;
   /** Geannuleerd: grijs, rood label, geen actieknoppen, start ingeklapt. */
   cancelled?: boolean;
+  /** Handmatig weghalen van een geannuleerde aanvraagkaart. */
+  onDismissCancelled?: () => void;
   fallbackVehicleLabel?: string | null;
   fallbackVehicleName?: string | null;
   onAccept?: () => void;
@@ -168,6 +170,7 @@ type TripModeProps = {
   fallbackVehicleName?: string | null;
   onAccept?: never;
   onDecline?: never;
+  onDismissCancelled?: never;
   onStart?: () => void;
   onComplete?: () => void;
   onOpenMaps?: () => void;
@@ -381,19 +384,29 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   const showStats = showMetrics || showBaggage;
   const showOfferSecondary = !isTrip && !marketplace && !isCancelledOffer;
   const showOfferActions = !isTrip && !isCancelledOffer && !!props.onAccept;
-  const proposalStatus = String(ride?.pickup_proposal?.status || '');
-  const canProposePickup = isTrip && showOverdueUi && !!props.onProposePickup && !isCompletedTrip;
-  const canRelease = isTrip && showOverdueUi && !!props.onRelease && !isCompletedTrip;
+  const rideCancelled =
+    isCancelledOffer ||
+    String(ride?.status || '') === 'cancelled' ||
+    String(ride?.status || '') === 'no_show';
+  // Verlopen ophaalmoment of geannuleerd: geen start/navigeer/voorstel/vrijgeven.
+  const freezeTripActions = isTrip && (showOverdueUi || rideCancelled) && !isCompletedTrip;
   const canStart =
     isTrip &&
+    !freezeTripActions &&
     ride?.status === 'accepted' &&
-    !!props.onStart &&
-    (!showOverdueUi || proposalStatus === 'accepted');
+    !!props.onStart;
   const needsPickupPin =
     !!ride?.pickup_confirmation?.requires_pin || ride?.pickup_confirmation?.method === 'pin';
-  const canComplete = isTrip && tripVariant === 'active' && !canStart && !!props.onComplete;
-  const canCancel = isTrip && !!ride?.can_cancel_with_reason && !!props.onCancel && !isCompletedTrip;
+  const canComplete =
+    isTrip && !freezeTripActions && tripVariant === 'active' && !canStart && !!props.onComplete;
+  const canCancel =
+    isTrip &&
+    !freezeTripActions &&
+    !!ride?.can_cancel_with_reason &&
+    !!props.onCancel &&
+    !isCompletedTrip;
   const canArchive = isCompletedTrip && !!props.onArchive;
+  const canOpenMaps = !!props.onOpenMaps && !isCompletedTrip && !freezeTripActions;
   const fee = ride?.fee_breakdown;
   const showFee =
     !!fee &&
@@ -711,12 +724,10 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </View>
               </View>
             ) : null}
-            {showOverdueUi && proposalStatus === 'pending' ? (
-              <View style={styles.activeBanner} accessibilityRole="text">
-                <View style={styles.activeBannerDot} />
-                <View style={styles.activeBannerCopy}>
-                  <Text style={styles.activeBannerTitle}>{t("Wacht op klant")}</Text>
-                  <Text style={styles.activeBannerText}>{t("Nieuw ophaalmoment is voorgesteld. De klant moet dit nog goedkeuren.")}</Text>
+            {freezeTripActions ? (
+              <View style={styles.cancelledActions}>
+                <View style={styles.cancelledBanner} accessibilityRole="text">
+                  <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
                 </View>
               </View>
             ) : null}
@@ -738,27 +749,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 <Text style={styles.btnGhostText}>{t("Annuleren")}</Text>
               </Pressable>
             ) : null}
-            {canProposePickup ? (
-              <Pressable
-                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
-                disabled={busy}
-                onPress={props.onProposePickup}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  {proposalStatus === 'pending' ? t("Opnieuw voorstellen") : t("Nieuw tijdstip voorstellen")}
-                </Text>
-              </Pressable>
-            ) : null}
-            {canRelease ? (
-              <Pressable
-                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
-                disabled={busy}
-                onPress={props.onRelease}
-              >
-                <Text style={styles.btnGhostText}>{t("Vrijgeven")}</Text>
-              </Pressable>
-            ) : null}
-            {props.onOpenMaps && !isCompletedTrip ? (
+            {canOpenMaps ? (
               <Pressable
                 style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
                 disabled={busy}
@@ -811,8 +802,20 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
           </>
         ) : isCancelledOffer ? (
-          <View style={styles.cancelledBanner} accessibilityRole="text">
-            <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
+          <View style={styles.cancelledActions}>
+            <View style={styles.cancelledBanner} accessibilityRole="text">
+              <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
+            </View>
+            {props.onDismissCancelled ? (
+              <Pressable
+                style={styles.cancelledDismissBtn}
+                onPress={props.onDismissCancelled}
+                accessibilityRole="button"
+                accessibilityLabel={t('Verwijderen')}
+              >
+                <Text style={styles.cancelledDismissText}>{t('Verwijderen')}</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : showOfferActions ? (
           <>
@@ -866,21 +869,47 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     cancelledMutedText: {
       color: colors.muted,
     },
+    cancelledActions: {
+      width: '100%',
+      gap: 8,
+    },
     cancelledBanner: {
-      flex: 1,
+      width: '100%',
+      minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderRadius: 10,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 14,
       backgroundColor: 'rgba(239, 68, 68, 0.12)',
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: 'rgba(239, 68, 68, 0.35)',
     },
     cancelledBannerText: {
       color: OVERDUE_RED,
-      fontSize: 13,
-      fontWeight: '700',
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+    },
+    cancelledDismissBtn: {
+      width: '100%',
+      minHeight: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 14,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: OVERDUE_RED,
+    },
+    cancelledDismissText: {
+      color: OVERDUE_RED,
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
     },
     highlightRing: {
       position: 'absolute',

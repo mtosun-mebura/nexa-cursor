@@ -99,34 +99,46 @@ class DriverExpoPushService
                 continue;
             }
             $sentRows[] = $row;
-            // Volledige rit-snapshot in data: app toont de kaart direct bij tikken,
-            // zonder te wachten op de eerste inbox-poll.
-            $messages[] = [
-                'to' => $token,
-                'title' => $title,
-                'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
-                // iOS-lock/achtergrond: systeemgeluid + content-available zodat de app
-                // wakker wordt en Bel kan afspelen (playsInSilentMode), ook als APNs stil is.
-                // Android-geluid komt uit channelId (Bel), niet uit dit veld.
-                'sound' => 'default',
-                '_contentAvailable' => true,
-                'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v9',
-                'interruptionLevel' => 'time-sensitive',
-                'data' => array_filter([
-                    'type' => 'driver_offer',
-                    'screen' => 'requests',
-                    'offer_id' => $offerId,
-                    'ride_request_id' => $rideRequestId,
-                    'pickup_address' => trim((string) $pickupAddress),
-                    'pickup_place_name' => trim((string) $placeName),
-                    'dropoff_address' => trim((string) $dropoffAddress),
-                    'dropoff_place_name' => trim((string) $dropoffPlaceName),
-                    'pickup_at' => $pickupAt,
-                    'quoted_price' => $quotedPrice,
-                    'expires_at' => $expiresAt,
-                ], static fn ($value) => $value !== null && $value !== ''),
-            ];
+            // Rit-snapshot in data: app toont de kaart bij tikken / na wake.
+            $data = array_filter([
+                'type' => 'driver_offer',
+                'screen' => 'requests',
+                'offer_id' => $offerId,
+                'ride_request_id' => $rideRequestId,
+                'pickup_address' => trim((string) $pickupAddress),
+                'pickup_place_name' => trim((string) $placeName),
+                'dropoff_address' => trim((string) $dropoffAddress),
+                'dropoff_place_name' => trim((string) $dropoffPlaceName),
+                'pickup_at' => $pickupAt,
+                'quoted_price' => $quotedPrice,
+                'expires_at' => $expiresAt,
+            ], static fn ($value) => $value !== null && $value !== '');
+
+            $platform = strtolower(trim((string) ($row->platform ?? '')));
+            if ($platform === 'android') {
+                // Android: FCM-banner + Bel via notification channel.
+                $messages[] = [
+                    'to' => $token,
+                    'title' => $title,
+                    'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
+                    'sound' => 'chime.wav',
+                    '_contentAvailable' => true,
+                    'priority' => 'high',
+                    'channelId' => 'driver-offers-alert-v10-chime',
+                    'interruptionLevel' => 'time-sensitive',
+                    'data' => $data,
+                ];
+            } else {
+                // iOS (en onbekend): data-only wake. Zichtbare push speelde vaak de
+                // systeemtriangel; de app plande daarna nog een lokale Bel → twee meldingen.
+                // Eén lokale Bel-melding (client) is de enige banner/toon.
+                $messages[] = [
+                    'to' => $token,
+                    '_contentAvailable' => true,
+                    'priority' => 'high',
+                    'data' => $data,
+                ];
+            }
         }
 
         if ($messages === []) {
@@ -181,6 +193,15 @@ class DriverExpoPushService
         $dedupeKeys = [];
         foreach ($rows as $row) {
             $body = $this->closedOfferBody($row);
+            $data = array_filter([
+                'type' => 'driver_offer_closed',
+                'screen' => 'requests',
+                'offer_id' => $row['id'],
+                'ride_request_id' => $row['ride_request_id'] > 0 ? $row['ride_request_id'] : null,
+                'pickup_address' => $row['pickup_address'] !== '' ? $row['pickup_address'] : null,
+                'pickup_at' => $row['pickup_at'] !== '' ? $row['pickup_at'] : null,
+                'quoted_price' => is_numeric($row['quoted_price']) ? (float) $row['quoted_price'] : null,
+            ], static fn ($value) => $value !== null && $value !== '');
             foreach ($tokens->get($row['driver_id'], []) as $device) {
                 $token = trim((string) $device->token);
                 if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
@@ -192,25 +213,29 @@ class DriverExpoPushService
                 }
                 $dedupeKeys[] = $dedupe;
                 $sentRows[] = $device;
-                $messages[] = [
-                    'to' => $token,
-                    'title' => 'Rit geannuleerd',
-                    'body' => $body,
-                    'sound' => 'default',
-                    '_contentAvailable' => true,
-                    'priority' => 'high',
-                    'channelId' => 'driver-offers-alert-v9',
-                    'interruptionLevel' => 'time-sensitive',
-                    'data' => array_filter([
-                        'type' => 'driver_offer_closed',
-                        'screen' => 'requests',
-                        'offer_id' => $row['id'],
-                        'ride_request_id' => $row['ride_request_id'] > 0 ? $row['ride_request_id'] : null,
-                        'pickup_address' => $row['pickup_address'] !== '' ? $row['pickup_address'] : null,
-                        'pickup_at' => $row['pickup_at'] !== '' ? $row['pickup_at'] : null,
-                        'quoted_price' => is_numeric($row['quoted_price']) ? (float) $row['quoted_price'] : null,
-                    ], static fn ($value) => $value !== null && $value !== ''),
-                ];
+                $platform = strtolower(trim((string) ($device->platform ?? '')));
+                if ($platform === 'android') {
+                    // Android: Bel via notification channel.
+                    $messages[] = [
+                        'to' => $token,
+                        'title' => 'Rit geannuleerd',
+                        'body' => $body,
+                        'sound' => 'chime.wav',
+                        '_contentAvailable' => true,
+                        'priority' => 'high',
+                        'channelId' => 'driver-offers-alert-v10-chime',
+                        'interruptionLevel' => 'time-sensitive',
+                        'data' => $data,
+                    ];
+                } else {
+                    // iOS: data-only wake — lokale melding speelt Bel (geen systeemtriangel).
+                    $messages[] = [
+                        'to' => $token,
+                        '_contentAvailable' => true,
+                        'priority' => 'high',
+                        'data' => $data,
+                    ];
+                }
             }
         }
 
@@ -251,10 +276,10 @@ class DriverExpoPushService
                 'to' => $token,
                 'title' => 'Testmelding Nexa Taxi',
                 'body' => 'Dit is een test van de chauffeur-push.',
-                'sound' => 'default',
+                'sound' => 'chime.wav',
                 '_contentAvailable' => true,
                 'priority' => 'high',
-                'channelId' => 'driver-offers-alert-v9',
+                'channelId' => 'driver-offers-alert-v10-chime',
                 'interruptionLevel' => 'time-sensitive',
                 'data' => ['type' => 'driver_offer_test'],
             ];

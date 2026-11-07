@@ -270,6 +270,27 @@ function itemLegs(item: ContractDayItem): ContractLeg[] {
   ];
 }
 
+/** Vroegste ophaalmoment — dichtbij eerst, daarna verder, dan bestemming. */
+function itemEarliestPlannedMs(item: ContractDayItem): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (const leg of itemLegs(item)) {
+    const raw = String(leg.planned_at || item.planned_at || '').trim();
+    if (!raw) continue;
+    const ms = Date.parse(raw);
+    if (Number.isFinite(ms) && ms < min) min = ms;
+  }
+  return min;
+}
+
+function sortItemsByPickupAsc(items: ContractDayItem[]): ContractDayItem[] {
+  return items.slice().sort((a, b) => {
+    const da = itemEarliestPlannedMs(a);
+    const db = itemEarliestPlannedMs(b);
+    if (da !== db) return da - db;
+    return Number(a.passenger_id || 0) - Number(b.passenger_id || 0);
+  });
+}
+
 function legIsExpired(leg: ContractLeg, _item?: ContractDayItem): boolean {
   // Alleen de leg zelf — day_status van een andere (verlopen) rit mag deze niet verbergen.
   return isExpiredStatus(leg.status, leg.status_key);
@@ -1852,8 +1873,23 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
       if (legs.length === 0) continue;
       rows.push({ ...item, legs });
     }
-    return rows;
+    return sortItemsByPickupAsc(rows);
   }, [todayItems, tripStatusFilter]);
+
+  /** Starten alleen bij de eerste (dichtstbijzijnde) openstaande passagier. */
+  const firstStartableStopId = useMemo(() => {
+    if (!canOperateRides) return null;
+    for (const item of filteredTodayItems) {
+      for (const leg of itemLegs(item)) {
+        const key = legStatusKey(leg, item);
+        if (key === 'absent' || key === 'not_taken') continue;
+        if (!legCanStart(leg, item, canOperateRides)) continue;
+        const id = Number(leg.ride_stop_id);
+        return Number.isFinite(id) && id > 0 ? id : null;
+      }
+    }
+    return null;
+  }, [filteredTodayItems, canOperateRides]);
 
   /** Alleen bestemming van open/actieve legs — nooit tonen als er geen openstaande rit is. */
   const openDestinationSummary = useMemo(() => {
@@ -1898,9 +1934,11 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
 
   const planningItems = useMemo(() => {
     // Week én Dag: lijst = ritten van de gekozen dag; weekstrip blijft zichtbaar in Week.
-    return (selectedWeekDay?.items || [])
-      .filter(itemHasVisibleRide)
-      .map((item) => ({ ...item, _date: selectedWeekDay?.date }));
+    return sortItemsByPickupAsc(
+      (selectedWeekDay?.items || [])
+        .filter(itemHasVisibleRide)
+        .map((item) => ({ ...item, _date: selectedWeekDay?.date }))
+    );
   }, [selectedWeekDay]);
 
   const tripsBadge = useMemo(() => {
@@ -2065,7 +2103,12 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
           const label = legDisplayLabel(leg);
           const expandKey = rideExpandKey(item, leg, index, dateLabel);
           const expanded = !!expandedRideKeys[expandKey];
-          const showStart = !absent && !notTaken && legCanStart(leg, item, canOperateRides);
+          const showStart =
+            !absent &&
+            !notTaken &&
+            legCanStart(leg, item, canOperateRides) &&
+            firstStartableStopId != null &&
+            Number(leg.ride_stop_id) === firstStartableStopId;
           const showBoard = !absent && !notTaken && legCanBoard(leg, item, canOperateRides);
           const showComplete =
             !absent &&
@@ -2246,6 +2289,26 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
 
               {!expanded ? (
                 <View style={styles.rideCollapsedIcons}>
+                  {showStart ? (
+                    <Pressable
+                      style={[
+                        styles.rideCollapsedIcon,
+                        rideActionStopId === leg.ride_stop_id && { opacity: 0.55 },
+                      ]}
+                      disabled={rideActionStopId != null}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        void onStartLeg(leg.ride_stop_id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("Rit starten")}
+                    >
+                      <Ionicons name="play-outline" size={18} color={accentHex} />
+                      <Text style={[styles.rideCollapsedIconLabel, { color: accentHex }]}>
+                        {rideActionStopId === leg.ride_stop_id ? t("Bezig…") : t("Starten")}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     style={[
                       styles.rideCollapsedIcon,

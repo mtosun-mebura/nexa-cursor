@@ -1,45 +1,53 @@
 /**
- * Speelt ritgeluid wanneer een push binnenkomt terwijl de app op de achtergrond
- * staat (andere app actief of scherm vergrendeld). Vereist `_contentAvailable` op
- * de Expo-push én UIBackgroundModes audio + remote-notification.
+ * iOS data-only push (`_contentAvailable`) wekt deze taak zonder banner.
+ * Nieuwe rit én annulering: één lokale Bel-melding (geen systeemtriangel).
  *
  * Moet vroeg geladen worden (index.ts) vóór de root component.
  */
 import * as TaskManager from 'expo-task-manager';
-import { playRideAlertTone } from '../audio/rideAlert';
 
 export const DRIVER_OFFER_BG_TASK = 'NEXA-DRIVER-OFFER-NOTIFICATION';
 
-function dataTypeFromPayload(data: unknown): string {
-  if (!data || typeof data !== 'object') return '';
-  const root = data as Record<string, unknown>;
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
 
-  // NotificationResponse (user tap) — geen extra toon.
-  if ('actionIdentifier' in root) return '__response__';
+function offerPayloadFromTaskData(data: unknown): Record<string, unknown> | null {
+  const root = asRecord(data);
+  if (!root) return null;
 
-  const nested = root.data;
-  if (nested && typeof nested === 'object') {
-    const bag = nested as Record<string, unknown>;
-    if (typeof bag.type === 'string') return bag.type;
-    if (typeof bag.dataString === 'string') {
+  // NotificationResponse (user tap) — geen extra melding.
+  if ('actionIdentifier' in root) return null;
+
+  const nested = asRecord(root.data);
+  if (nested) {
+    if (typeof nested.type === 'string') return nested;
+    if (typeof nested.dataString === 'string') {
       try {
-        const parsed = JSON.parse(bag.dataString) as Record<string, unknown>;
-        if (typeof parsed.type === 'string') return parsed.type;
+        const parsed = asRecord(JSON.parse(nested.dataString));
+        if (parsed) return parsed;
       } catch {
         /* ignore */
       }
     }
   }
 
-  const notification = root.notification;
-  if (notification && typeof notification === 'object') {
-    const content = (notification as { request?: { content?: { data?: Record<string, unknown> } } })
-      .request?.content?.data;
-    if (content && typeof content.type === 'string') return content.type;
+  const notification = asRecord(root.notification);
+  if (notification) {
+    const request = asRecord(notification.request);
+    const content = request ? asRecord(request.content) : null;
+    const contentData = content ? asRecord(content.data) : null;
+    if (contentData) return contentData;
   }
 
-  if (typeof root.type === 'string') return root.type;
-  return '';
+  if (typeof root.type === 'string') return root;
+  return null;
+}
+
+function positiveId(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0;
 }
 
 TaskManager.defineTask(
@@ -47,11 +55,62 @@ TaskManager.defineTask(
   (({ data, error }: { data?: unknown; error?: unknown }) => {
     try {
       if (error) return;
-      const type = dataTypeFromPayload(data);
-      if (type === '__response__' || type === 'driver_offer_closed') return;
-      // driver_offer, driver_offer_test, of onbekend (oude payloads): speel toon.
-      if (type && type !== 'driver_offer' && type !== 'driver_offer_test') return;
-      playRideAlertTone();
+      const payload = offerPayloadFromTaskData(data);
+      if (!payload) return;
+      const type = String(payload.type || '');
+      if (type && type !== 'driver_offer' && type !== 'driver_offer_test' && type !== 'driver_offer_closed') {
+        return;
+      }
+
+      const offerId = positiveId(payload.offer_id ?? payload.offerId);
+      const rideRequestId = positiveId(
+        payload.ride_request_id ?? payload.rideRequestId ?? payload.ride_id
+      );
+
+      // Lazy: voorkomt zware import-cyclus bij native task-load.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const driverOffers = require('./driverOffers') as typeof import('./driverOffers');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { activeRideAlertTone } = require('../audio/rideAlert') as typeof import('../audio/rideAlert');
+
+      if (type === 'driver_offer_closed') {
+        void driverOffers.notifyDriverOfferClosed({
+          offerId: offerId || null,
+          rideRequestId: rideRequestId || null,
+          pickupAddress: String(payload.pickup_address || payload.pickupAddress || '').trim() || null,
+          pickupAt: String(payload.pickup_at || payload.pickupAt || '').trim() || null,
+          quotedPrice:
+            payload.quoted_price != null && Number.isFinite(Number(payload.quoted_price))
+              ? Number(payload.quoted_price)
+              : payload.quotedPrice != null && Number.isFinite(Number(payload.quotedPrice))
+                ? Number(payload.quotedPrice)
+                : null,
+          tone: activeRideAlertTone(),
+        });
+        return;
+      }
+
+      void driverOffers.notifyNewDriverOffer({
+        count: 1,
+        pickup: String(payload.pickup_address || payload.pickupAddress || '').trim() || null,
+        dropoff: String(payload.dropoff_address || payload.dropoffAddress || '').trim() || null,
+        pickupPlaceName:
+          String(payload.pickup_place_name || payload.pickupPlaceName || '').trim() || null,
+        dropoffPlaceName:
+          String(payload.dropoff_place_name || payload.dropoffPlaceName || '').trim() || null,
+        pickupAt: String(payload.pickup_at || payload.pickupAt || '').trim() || null,
+        quotedPrice:
+          payload.quoted_price != null && Number.isFinite(Number(payload.quoted_price))
+            ? Number(payload.quoted_price)
+            : payload.quotedPrice != null && Number.isFinite(Number(payload.quotedPrice))
+              ? Number(payload.quotedPrice)
+              : null,
+        expiresAt: String(payload.expires_at || payload.expiresAt || '').trim() || null,
+        playSound: true,
+        tone: activeRideAlertTone(),
+        offerId: offerId || null,
+        rideRequestId: rideRequestId || null,
+      });
     } catch {
       /* nooit de achtergrondtaak laten crashen */
     }
