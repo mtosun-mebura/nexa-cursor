@@ -478,7 +478,29 @@ export const EN: Record<string, string> = {
   'Rit afronden mislukt.': 'Could not complete the ride.',
   'Rit annuleren': 'Cancel ride',
   'Rit annuleren?': 'Cancel ride?',
+  'Rit geannuleerd': 'Ride cancelled',
+  'De rit is geannuleerd.': 'The ride has been cancelled.',
+  'Alles selecteren': 'Select all',
+  'Alles deselecteren': 'Deselect all',
+  Selecteren: 'Select',
+  Deselecteren: 'Deselect',
+  '{n} verwijderen': 'Delete {n}',
+  'Deze gearchiveerde rit permanent verwijderen?':
+    'Permanently delete this archived ride?',
+  '{n} gearchiveerde ritten permanent verwijderen?':
+    'Permanently delete {n} archived rides?',
+  'Verwijderen mislukt': 'Delete failed',
+  'Verwijderen mislukt.': 'Delete failed.',
+  "Toont rijdende taxi’s op deze omgeving plus gesimuleerde demo-taxi’s bij Boeken":
+    'Shows driving taxis on this environment plus simulated demo taxis in Book',
+  'Demo-modus is alleen beschikbaar op lokaal en test, niet op productie.':
+    'Demo mode is only available on local and test, not production.',
   'Rit gesimuleerd.': 'Ride simulated.',
+  'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.':
+    'The ride was cancelled because the wait took too long. No driver was found.',
+  'Je hebt deze rit geannuleerd.': 'You cancelled this ride.',
+  Van: 'From',
+  Naar: 'To',
   'Rit is actief': 'Ride is active',
   'Rit is afgerond': 'Ride is complete',
   'Rit overlapt': 'Ride overlaps',
@@ -647,6 +669,8 @@ export const EN: Record<string, string> = {
   Weergave: 'Appearance',
   'Weet je zeker dat je deze afmelding wilt intrekken?':
     'Are you sure you want to withdraw this absence?',
+  'Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het bedrag teruggestort (doorgaans binnen {days} werkdagen).':
+    'Are you sure you want to cancel this ride? If you paid in advance, the amount will be refunded (usually within {days} business days).',
   Weigeren: 'Decline',
   'Weigeren mislukt.': 'Could not decline.',
   'Welkom bij NEXA Taxi': 'Welcome to NEXA Taxi',
@@ -686,4 +710,12 @@ export const EN: Record<string, string> = {
   'Open Boeken (demo)': 'Open Book (demo)',
   'Demo-modus: er is geen echte rit aangevraagd.': 'Demo mode: no real ride was requested.',
   'Taxi komt eraan (gesimuleerd).': 'Taxi is on its way (simulated).',
+  'Gesimuleerde taxi’s — geen echte ritten of betalingen.':
+    'Simulated taxis — no real rides or payments.',
+  'Demo-modus actief op deze omgeving — virtuele taxi’s zichtbaar voor alle klanten.':
+    'Demo mode active on this environment — virtual taxis visible to all customers.',
+  'Zet virtuele taxi’s online voor alle klanten op deze omgeving. Boeken gaat via echte dispatch (ook naar ingelogde chauffeurs).':
+    'Puts virtual taxis online for all customers on this environment. Booking uses real dispatch (including logged-in drivers).',
+  'Volg je taxi op de kaart — overige taxi’s zijn tijdelijk verborgen.':
+    'Follow your taxi on the map — other taxis are temporarily hidden.',
 };

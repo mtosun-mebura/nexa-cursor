@@ -1,14 +1,16 @@
 import { t } from '../i18n';
 import { AppState, Platform, Vibration } from 'react-native';
 import {
+  ensureIosNotificationSoundsInstalled,
   normalizeRideAlertTone,
   playRideAlertTone,
   rideAlertNotificationSound,
   type RideAlertTone,
 } from '../audio/rideAlert';
 
-/** Android-kanaal met Bel (chime) — id bump als sound wijzigt (OS past niet bij). */
-const OFFER_SOUND_CHANNEL = 'driver-offers-alert-v9';
+/** Android-kanaal per ritgeluid — id bump als sound wijzigt (OS past kanaal niet meer aan). */
+const OFFER_SOUND_CHANNEL_PREFIX = 'driver-offers-alert-v10';
+const OFFER_SOUND_CHANNEL = `${OFFER_SOUND_CHANNEL_PREFIX}-chime`;
 const OFFER_SILENT_CHANNEL = 'driver-offers-silent';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -55,19 +57,23 @@ try {
       shouldSetBadge: true,
     }),
   });
-  // Alleen nieuwe ritaanvraag: gekozen ritgeluid (Bel). Geen play bij “Rit geannuleerd”.
-  // Als het id al geklonken heeft (OS-push / eerdere play), geen tweede keer.
+  // Nieuwe ritaanvraag én geannuleerd: Bel. Geen tweede play als het id al klonk.
   if (!alertOnReceiveAttached) {
     alertOnReceiveAttached = true;
     Notifications.addNotificationReceivedListener((notification) => {
       try {
         const data = (notification.request.content.data || {}) as Record<string, unknown>;
         const type = String(data.type || '');
-        if (type === 'driver_offer_closed') return;
+        if (type === 'driver_offer_closed') {
+          // Lokale Bel-melding speelt al OS-sound; geen extra expo-audio.
+          return;
+        }
         if (type && type !== 'driver_offer') return;
         const offerId = offerIdFromNotificationData(data);
+        const watch = offerAlertWatch();
         if (offerId > 0) {
-          const watch = offerAlertWatch();
+          // Zichtbare banner (push of lokaal) → geen tweede lokale melding meer.
+          watch.markDriverOfferBannerPresented([offerId]);
           if (watch.driverOfferAlreadySounded(offerId)) return;
           watch.playDriverOfferToneForIds([offerId]);
           return;
@@ -155,8 +161,9 @@ async function ensureSilentOfferChannel(): Promise<string> {
   return channelId;
 }
 
-async function ensureSystemOfferChannel(): Promise<string> {
-  const channelId = OFFER_SOUND_CHANNEL;
+async function ensureSystemOfferChannel(tone?: string | null): Promise<string> {
+  const resolved = normalizeRideAlertTone(tone);
+  const channelId = `${OFFER_SOUND_CHANNEL_PREFIX}-${resolved}`;
   if (!Notifications || Platform.OS !== 'android') return channelId;
   if (channelReady.has(channelId)) return channelId;
   await Notifications.setNotificationChannelAsync(channelId, {
@@ -164,7 +171,7 @@ async function ensureSystemOfferChannel(): Promise<string> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: 'chime.wav',
+    sound: rideAlertNotificationSound(resolved),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
@@ -182,13 +189,17 @@ async function ensureSystemOfferChannel(): Promise<string> {
 }
 
 /**
- * iOS: altijd systeemgeluid (`default`) — custom wav speelt op slot/achtergrond stil.
- * Android: Bel via notification channel (dit veld wordt daar genegeerd t.o.v. channelId).
+ * Lokale melding: altijd gekozen ritgeluid (Bel = chime.wav), nooit iOS `true`
+ * (dat is de systeemtriangel). Bestanden staan in de bundle + Library/Sounds.
  */
-function offerNotificationSound(play: boolean): string | false {
+function offerNotificationSound(
+  play: boolean,
+  opts?: { tone?: string | null; systemSound?: boolean }
+): string | boolean {
   if (!play) return false;
-  if (Platform.OS === 'ios') return 'default';
-  return rideAlertNotificationSound();
+  // systemSound bewust genegeerd: gebruiker wil Bel, niet de standaardtoon.
+  void opts?.systemSound;
+  return rideAlertNotificationSound(opts?.tone);
 }
 
 export async function setDriverOfferBadge(count: number): Promise<void> {
@@ -242,13 +253,23 @@ export async function notifyNewDriverOffer(opts: {
   }
 
   if (!Notifications) return;
+  // Zelfde aanbod al als banner gezien (push of eerdere lokale) → geen tweede melding.
+  if (offerId && offerAlertWatch().driverOfferBannerAlreadyPresented(offerId)) {
+    return;
+  }
   const ok = await ensureDriverNotificationPermission();
   if (!ok) return;
+  await ensureIosNotificationSoundsInstalled();
+
+  if (offerId) offerAlertWatch().markDriverOfferBannerPresented([offerId]);
 
   const shown = await scheduleOfferNotification({
     title,
     body,
-    sound: offerNotificationSound(playSound),
+    sound: offerNotificationSound(playSound, {
+      tone,
+      systemSound: opts.systemSound === true,
+    }),
     tone,
     badge,
     offerId,
@@ -267,7 +288,7 @@ export async function notifyNewDriverOffer(opts: {
 async function scheduleOfferNotification(opts: {
   title: string;
   body: string;
-  sound: string | false;
+  sound: string | boolean;
   tone: RideAlertTone;
   badge?: number;
   offerId?: number | null;
@@ -284,13 +305,22 @@ async function scheduleOfferNotification(opts: {
   const channelId =
     Platform.OS === 'android'
       ? opts.sound
-        ? await ensureSystemOfferChannel()
+        ? await ensureSystemOfferChannel(opts.tone)
         : await ensureSilentOfferChannel()
       : undefined;
+  // iOS-slot: custom sound speelt betrouwbaarder als de melding via een
+  // timeInterval-trigger komt (niet terwijl JS midden in een wake zit).
+  const lockedOrBackground = AppState.currentState !== 'active';
+  const sound =
+    opts.sound === false
+      ? false
+      : typeof opts.sound === 'string'
+        ? opts.sound
+        : rideAlertNotificationSound(opts.tone);
   const content = {
     title: opts.title,
     body: opts.body,
-    sound: opts.sound === false ? false : opts.sound,
+    sound,
     ...(opts.badge != null ? { badge: opts.badge } : {}),
     data: {
       type: 'driver_offer',
@@ -309,13 +339,29 @@ async function scheduleOfferNotification(opts: {
       ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#EF4444' }
       : {}),
   };
+  // iOS-slot: custom Bel speelt betrouwbaarder via timeInterval (niet midden in wake).
+  const useDelayedIosSound = Platform.OS === 'ios' && lockedOrBackground && !!sound;
+  const buildTrigger = (): Parameters<
+    NonNullable<typeof Notifications>['scheduleNotificationAsync']
+  >[0]['trigger'] => {
+    if (!useDelayedIosSound || !Notifications) return null;
+    return {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 1,
+      repeats: false,
+    };
+  };
+  // Zelfde offerId → vervang i.p.v. stapelen (GPS-poll + inbox-poll).
+  const identifier =
+    opts.offerId && opts.offerId > 0 ? `driver-offer-${opts.offerId}` : undefined;
   try {
     await Notifications.scheduleNotificationAsync({
+      ...(identifier ? { identifier } : {}),
       content: {
         ...content,
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
       },
-      trigger: null,
+      trigger: buildTrigger(),
     });
     return true;
   } catch {
@@ -323,12 +369,124 @@ async function scheduleOfferNotification(opts: {
   }
   try {
     await Notifications.scheduleNotificationAsync({
+      ...(identifier ? { identifier } : {}),
       content,
-      trigger: null,
+      trigger: buildTrigger(),
     });
     return true;
   } catch {
-    return false;
+    try {
+      await Notifications.scheduleNotificationAsync({
+        ...(identifier ? { identifier } : {}),
+        content,
+        trigger: null,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+const closedBannerIds = new Set<number>();
+
+/**
+ * “Rit geannuleerd” met Bel (chime) — iOS plant dit lokaal na data-only wake,
+ * zodat niet de systeemtriangel van een remote push speelt.
+ */
+export async function notifyDriverOfferClosed(opts: {
+  offerId?: number | null;
+  rideRequestId?: number | null;
+  pickupAddress?: string | null;
+  pickupAt?: string | null;
+  quotedPrice?: number | null;
+  tone?: string | null;
+}): Promise<void> {
+  const offerId = Number(opts.offerId || 0) || 0;
+  if (offerId > 0) {
+    if (closedBannerIds.has(offerId)) return;
+    closedBannerIds.add(offerId);
+  }
+
+  const pickup = String(opts.pickupAddress || '').trim();
+  let when = '';
+  const rawWhen = String(opts.pickupAt || '').trim();
+  if (rawWhen) {
+    const ms = Date.parse(rawWhen);
+    if (Number.isFinite(ms)) {
+      const d = new Date(ms);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      when = `${dd}-${mm} ${hh}:${mi}`;
+    }
+  }
+  const price =
+    opts.quotedPrice != null && Number.isFinite(Number(opts.quotedPrice))
+      ? `€ ${Number(opts.quotedPrice).toFixed(2).replace('.', ',')}`
+      : '';
+  const shortPickup = pickup.includes(',')
+    ? pickup.slice(0, pickup.indexOf(',')).trim()
+    : pickup;
+  const parts = [shortPickup || null, when || null, price || null].filter(Boolean);
+  const body = parts.length ? parts.join(' · ') : t('De rit is geannuleerd.');
+  const tone = normalizeRideAlertTone(opts.tone);
+
+  if (!Notifications) return;
+  const ok = await ensureDriverNotificationPermission();
+  if (!ok) return;
+  await ensureIosNotificationSoundsInstalled();
+
+  const lockedOrBackground = AppState.currentState !== 'active';
+  const sound = rideAlertNotificationSound(tone);
+  const channelId =
+    Platform.OS === 'android' ? await ensureSystemOfferChannel(tone) : undefined;
+  const identifier = offerId > 0 ? `driver-offer-closed-${offerId}` : undefined;
+  const content = {
+    title: t('Rit geannuleerd'),
+    body,
+    sound,
+    data: {
+      type: 'driver_offer_closed',
+      screen: 'requests',
+      offer_id: offerId > 0 ? offerId : null,
+      ride_request_id: Number(opts.rideRequestId || 0) || null,
+      pickup_address: pickup || null,
+      pickup_at: rawWhen || null,
+      quoted_price: opts.quotedPrice ?? null,
+    },
+    ...(Platform.OS === 'android'
+      ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#EF4444' }
+      : {}),
+  };
+  const trigger =
+    Platform.OS === 'ios' && lockedOrBackground && Notifications
+      ? {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 1,
+          repeats: false as const,
+        }
+      : null;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      ...(identifier ? { identifier } : {}),
+      content: {
+        ...content,
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      },
+      trigger,
+    });
+  } catch {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        ...(identifier ? { identifier } : {}),
+        content,
+        trigger,
+      });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -363,14 +521,14 @@ export async function notifyPickupDenied(opts: {
     const channelId =
       Platform.OS === 'android'
         ? playSound
-          ? await ensureSystemOfferChannel()
+          ? await ensureSystemOfferChannel(opts.tone)
           : await ensureSilentOfferChannel()
         : undefined;
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: offerNotificationSound(playSound),
+        sound: offerNotificationSound(playSound, { tone: opts.tone }),
         data: {
           type: 'pickup_denied',
           screen: 'trips',
@@ -438,6 +596,7 @@ export async function notifyPickupDeparture(opts: {
 
 /** Kanalen moeten bestaan vóór een remote push, dus bij elke app-start. */
 export async function prepareDriverNotificationChannels(): Promise<void> {
+  await ensureIosNotificationSoundsInstalled();
   await ensureSystemOfferChannel();
   await ensureSilentOfferChannel();
   await setupDriverNotificationChannel();
@@ -452,7 +611,7 @@ export async function setupDriverNotificationChannel(): Promise<void> {
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 120, 60, 120, 60, 200],
     lightColor: '#EF4444',
-    sound: 'chime.wav',
+    sound: rideAlertNotificationSound(),
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });

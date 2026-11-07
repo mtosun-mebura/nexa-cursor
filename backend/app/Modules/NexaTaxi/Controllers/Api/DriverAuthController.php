@@ -348,6 +348,7 @@ class DriverAuthController extends Controller
             'name' => $fullName !== '' ? $fullName : (string) ($user->email ?? ''),
             'email' => $user->email,
             'phone' => trim((string) ($user->phone ?? '')) ?: null,
+            'is_super_admin' => $user->isSuperAdmin(),
             'company_id' => $companyId,
             'company_name' => $companyName,
             'payout_iban_masked' => app(PayoutIdentityService::class)->driverIbanMask((int) $user->id),

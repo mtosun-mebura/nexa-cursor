@@ -54,10 +54,13 @@ export function PickupAtField({
   value,
   onChange,
   error,
+  embedded = false,
 }: {
   value: Date;
   onChange: (next: Date) => void;
   error?: string | null;
+  /** Zonder eigen Modal — voor gebruik binnen een andere AppModal (iOS stapelt niet). */
+  embedded?: boolean;
 }) {
   const { colors } = useTheme();
   const { locale } = useI18n();
@@ -145,6 +148,148 @@ export function PickupAtField({
   const valueQuickLabel =
     QUICK_PRESETS.find((p) => sameMinute(value, defaultPickupDate(p.minutes)))?.label ?? null;
 
+  const sheet = (
+    <>
+      <Text style={styles.sheetTitle}>{t("Ophaalmoment")}</Text>
+
+      <View style={styles.quickRow}>
+        {quickOptions.map((p) => {
+          const active = selectedQuick?.minutes === p.minutes;
+          return (
+            <Pressable
+              key={p.minutes}
+              onPress={() => pickQuick(p.minutes)}
+              style={[styles.quickChip, active && styles.quickChipActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>
+                {t(p.label)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <ScrollView
+        ref={dayScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        style={styles.daysScroll}
+        contentContainerStyle={styles.daysRow}
+      >
+        {days.map((d) => {
+          const active = d.key === selectedDayKey;
+          return (
+            <Pressable
+              key={d.key}
+              onPress={() => pickDay(d.day)}
+              style={[styles.dayBtn, active && styles.dayBtnActive]}
+            >
+              <Text style={[styles.dayWd, active && styles.dayTextActive]} numberOfLines={1}>
+                {d.label}
+              </Text>
+              <Text style={[styles.dayNr, active && styles.dayTextActive]}>{d.day.getDate()}</Text>
+              <Text style={[styles.dayMonth, active && styles.dayTextActive]}>{d.month}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.timeRow}>
+        <ScrollView
+          ref={hourScrollRef}
+          style={styles.timeCol}
+          contentContainerStyle={styles.timeColContent}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={TIME_ITEM_H}
+          decelerationRate="fast"
+          nestedScrollEnabled
+          overScrollMode="never"
+        >
+          {hours.map((h) => {
+            const active = draft.getHours() === h;
+            return (
+              <Pressable
+                key={`h-${h}`}
+                onPress={() => {
+                  const next = clampToFuture(
+                    new Date(
+                      draft.getFullYear(),
+                      draft.getMonth(),
+                      draft.getDate(),
+                      h,
+                      draft.getMinutes(),
+                      0,
+                      0
+                    )
+                  );
+                  setDraft(next);
+                  scrollToDraft(next, true);
+                }}
+                style={[styles.timeItem, active && styles.timeItemActive]}
+              >
+                <Text style={[styles.timeText, active && styles.timeTextActive]}>
+                  {String(h).padStart(2, '0')}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <Text style={styles.timeSep}>:</Text>
+        <ScrollView
+          ref={minuteScrollRef}
+          style={styles.timeCol}
+          contentContainerStyle={styles.timeColContent}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={TIME_ITEM_H}
+          decelerationRate="fast"
+          nestedScrollEnabled
+          overScrollMode="never"
+        >
+          {minutes.map((m) => {
+            const active = snapMinutes(draft.getMinutes()) === m;
+            return (
+              <Pressable
+                key={`m-${m}`}
+                onPress={() => {
+                  const next = clampToFuture(
+                    new Date(
+                      draft.getFullYear(),
+                      draft.getMonth(),
+                      draft.getDate(),
+                      draft.getHours(),
+                      m,
+                      0,
+                      0
+                    )
+                  );
+                  setDraft(next);
+                  scrollToDraft(next, true);
+                }}
+                style={[styles.timeItem, active && styles.timeItemActive]}
+              >
+                <Text style={[styles.timeText, active && styles.timeTextActive]}>
+                  {String(m).padStart(2, '0')}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <Text style={styles.preview}>
+        {selectedQuick
+          ? `${selectedQuick.label} · ${formatPickupAtLabel(draft)}`
+          : formatPickupAtLabel(draft)}
+      </Text>
+      <Pressable onPress={confirm} style={styles.confirmBtn}>
+        <Text style={styles.confirmText}>{t("Bevestigen")}</Text>
+      </Pressable>
+    </>
+  );
+
   return (
     <>
       <Text style={styles.fieldLabel}>{t("Ophalen")}</Text>
@@ -163,155 +308,25 @@ export function PickupAtField({
       </Pressable>
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
 
-      <AppModal
-        visible={open}
-        onRequestClose={() => setOpen(false)}
-        panelStyle={styles.sheet}
-      >
-        <Text style={styles.sheetTitle}>{t("Ophaalmoment")}</Text>
-
-        <View style={styles.quickRow}>
-          {quickOptions.map((p) => {
-            const active = selectedQuick?.minutes === p.minutes;
-            return (
-              <Pressable
-                key={p.minutes}
-                onPress={() => pickQuick(p.minutes)}
-                style={[styles.quickChip, active && styles.quickChipActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>
-                  {t(p.label)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <ScrollView
-          ref={dayScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          style={styles.daysScroll}
-          contentContainerStyle={styles.daysRow}
-        >
-          {days.map((d) => {
-            const active = d.key === selectedDayKey;
-            return (
-              <Pressable
-                key={d.key}
-                onPress={() => pickDay(d.day)}
-                style={[styles.dayBtn, active && styles.dayBtnActive]}
-              >
-                <Text style={[styles.dayWd, active && styles.dayTextActive]} numberOfLines={1}>
-                  {d.label}
-                </Text>
-                <Text style={[styles.dayNr, active && styles.dayTextActive]}>{d.day.getDate()}</Text>
-                <Text style={[styles.dayMonth, active && styles.dayTextActive]}>{d.month}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.timeRow}>
-          <ScrollView
-            ref={hourScrollRef}
-            style={styles.timeCol}
-            contentContainerStyle={styles.timeColContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={TIME_ITEM_H}
-            decelerationRate="fast"
-            nestedScrollEnabled
-            overScrollMode="never"
-          >
-            {hours.map((h) => {
-              const active = draft.getHours() === h;
-              return (
-                <Pressable
-                  key={`h-${h}`}
-                  onPress={() => {
-                    const next = clampToFuture(
-                      new Date(
-                        draft.getFullYear(),
-                        draft.getMonth(),
-                        draft.getDate(),
-                        h,
-                        draft.getMinutes(),
-                        0,
-                        0
-                      )
-                    );
-                    setDraft(next);
-                    scrollToDraft(next, true);
-                  }}
-                  style={[styles.timeItem, active && styles.timeItemActive]}
-                >
-                  <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                    {String(h).padStart(2, '0')}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-          <Text style={styles.timeSep}>:</Text>
-          <ScrollView
-            ref={minuteScrollRef}
-            style={styles.timeCol}
-            contentContainerStyle={styles.timeColContent}
-            showsVerticalScrollIndicator={false}
-            snapToInterval={TIME_ITEM_H}
-            decelerationRate="fast"
-            nestedScrollEnabled
-            overScrollMode="never"
-          >
-            {minutes.map((m) => {
-              const active = snapMinutes(draft.getMinutes()) === m;
-              return (
-                <Pressable
-                  key={`m-${m}`}
-                  onPress={() => {
-                    const next = clampToFuture(
-                      new Date(
-                        draft.getFullYear(),
-                        draft.getMonth(),
-                        draft.getDate(),
-                        draft.getHours(),
-                        m,
-                        0,
-                        0
-                      )
-                    );
-                    setDraft(next);
-                    scrollToDraft(next, true);
-                  }}
-                  style={[styles.timeItem, active && styles.timeItemActive]}
-                >
-                  <Text style={[styles.timeText, active && styles.timeTextActive]}>
-                    {String(m).padStart(2, '0')}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <Text style={styles.preview}>
-          {selectedQuick
-            ? `${selectedQuick.label} · ${formatPickupAtLabel(draft)}`
-            : formatPickupAtLabel(draft)}
-        </Text>
-        <Pressable onPress={confirm} style={styles.confirmBtn}>
-          <Text style={styles.confirmText}>{t("Bevestigen")}</Text>
-        </Pressable>
-      </AppModal>
+      {embedded ? (
+        open ? <View style={styles.embeddedSheet}>{sheet}</View> : null
+      ) : (
+        <AppModal visible={open} onRequestClose={() => setOpen(false)} panelStyle={styles.sheet}>
+          {sheet}
+        </AppModal>
+      )}
     </>
   );
 }
 
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
+    embeddedSheet: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
     fieldLabel: {
       color: colors.muted,
       fontSize: 12,

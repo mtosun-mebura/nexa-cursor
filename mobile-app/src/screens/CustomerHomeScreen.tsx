@@ -105,9 +105,9 @@ import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import { DemoModeRow } from '../ui/DemoModeRow';
 import { useDemo } from '../demo/DemoContext';
 import {
-  claimNearestDemoTaxi,
   startDemoSimulation,
   stopDemoSimulation,
+  updateDemoSimulationCenter,
   useDemoTaxiCount,
   useDemoTaxis,
 } from '../demo/taxiSimulation';
@@ -193,6 +193,37 @@ const taxiMarkerFrameStyle = {
 };
 const taxiMarkerImageStyle = { width: 26, height: 39 };
 
+/**
+ * Android MapView herkent alleen directe <Marker>-children — een wrapper-
+ * component (CustomerTaxiMarker) toont vaak maar 1 marker. Daarom: plain
+ * factory die een Marker-element teruggeeft (geen component in de boom).
+ */
+function androidTaxiMarker(
+  taxi: NearbyTaxi,
+  title: string = t('Taxi beschikbaar'),
+  zIndex = 20
+) {
+  const heading =
+    taxi.heading != null && Number.isFinite(taxi.heading) ? taxi.heading : 0;
+  return (
+    <Marker
+      key={taxi.id}
+      identifier={`taxi-${taxi.id}`}
+      coordinate={{ latitude: taxi.lat, longitude: taxi.lng }}
+      title={title}
+      description={
+        taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined
+      }
+      anchor={{ x: 0.5, y: 0.5 }}
+      image={taxiCarYellowMarker}
+      rotation={heading}
+      flat
+      tracksViewChanges={false}
+      zIndex={zIndex}
+    />
+  );
+}
+
 function CustomerTaxiMarker({
   taxi,
   title = t("Taxi beschikbaar"),
@@ -240,27 +271,9 @@ function CustomerTaxiMarker({
     };
   }, [taxi.lat, taxi.lng, taxi.heading, smoothMs, stepMs]);
 
-  // Android: custom marker views often snapshot empty under Fabric. Use a
-  // bundled Marker.image (local resource) + native rotation — same pattern as
-  // the green drop pin. Cache file:// bitmaps are unreliable as descriptors.
-  if (Platform.OS === 'android') {
-    return (
-      <Marker
-        coordinate={{ latitude: pos.lat, longitude: pos.lng }}
-        title={title}
-        description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
-        anchor={{ x: 0.5, y: 0.5 }}
-        image={taxiCarYellowMarker}
-        rotation={heading}
-        flat
-        tracksViewChanges={false}
-        zIndex={20}
-      />
-    );
-  }
-
   return (
     <Marker
+      identifier={`taxi-${taxi.id}`}
       coordinate={{ latitude: pos.lat, longitude: pos.lng }}
       title={title}
       description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
@@ -279,18 +292,6 @@ function CustomerTaxiMarker({
         />
       </View>
     </Marker>
-  );
-}
-
-/** Eigen component: alleen dit rendert elke simulatietick, niet het hele scherm. */
-function DemoTaxiMarkers() {
-  const taxis = useDemoTaxis();
-  return (
-    <>
-      {taxis.map((taxi) => (
-        <CustomerTaxiMarker key={taxi.id} taxi={taxi} smoothMs={1500} stepMs={200} />
-      ))}
-    </>
   );
 }
 
@@ -703,7 +704,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const demo = useDemo();
   const demoActive = demo.active;
   const demoCount = useDemoTaxiCount();
-  const [demoBookedInfo, setDemoBookedInfo] = useState<{ eta: string } | null>(null);
+  /** Los van MapView-fragment: hook hier zodat markers directe children kunnen zijn. */
+  const demoTaxis = useDemoTaxis();
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pickupSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropoffSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -755,11 +757,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     live?.vehicle_location?.lng,
     live?.vehicle_location?.heading,
   ]);
-  // Demo vervangt de echte vloot op de kaart, zodat een presentatie schoon blijft.
-  const freeTaxis = demoActive
-    ? []
-    : nearbyTaxis.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc));
-  const freeNearby = demoActive ? demoCount : freeTaxis.length;
+  // Demo aan: client-simulatie toont ~20 taxi’s; echte vloot blijft meelopen.
+  // Bij ophalen alleen de toegewezen taxi.
+  const freeTaxis = nearbyTaxis.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc));
+  const pickupTracking = !!(hasActiveRide && activeTaxiLoc && (driverComing || rideMapOpen));
+  const visibleFleetTaxis = (() => {
+    if (pickupTracking) return [] as NearbyTaxi[];
+    if (!demoActive || demoTaxis.length === 0) return freeTaxis;
+    const demoIds = new Set(demoTaxis.map((taxi) => String(taxi.id)));
+    return [...demoTaxis, ...freeTaxis.filter((taxi) => !demoIds.has(String(taxi.id)))];
+  })();
+  const freeNearby = pickupTracking
+    ? 1
+    : demoActive
+      ? Math.max(demoCount, demoTaxis.length, freeTaxis.length)
+      : freeTaxis.length;
   const marketplaceBlocksDispatch =
     quote?.marketplace?.taxi_available === false ||
     !!quote?.payment?.deferred_until_taxi;
@@ -1505,7 +1517,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }, [pickup, dropoff, passengers, routeMetrics, baggagePayload, pickupAt]);
 
   const refreshFleet = useCallback(async () => {
-    if (demoActive) return;
+    // Ook tijdens demo: echte rijdende taxi’s van deze omgeving blijven zichtbaar.
     const origin = pickup
       ? { lat: pickup.lat, lng: pickup.lng }
       : fleetOrigin;
@@ -1519,27 +1531,38 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     } catch {
       /* behoud vorige markers */
     }
-  }, [pickup, fleetOrigin, activeTaxiLoc, demoActive]);
+  }, [pickup, fleetOrigin, activeTaxiLoc]);
 
   useEffect(() => {
-    if (!demoActive) return;
-    // Simulatie rond de huidige locatie (niet rond een gekozen ophaaladres).
+    if (!demoActive) {
+      stopDemoSimulation();
+      return;
+    }
+    startDemoSimulation(fleetOrigin);
     let cancelled = false;
     (async () => {
-      const coords = (await peekCurrentCoords()) ?? DEFAULT_MAP_CENTER;
-      if (!cancelled) startDemoSimulation(coords);
+      const coords = await peekCurrentCoords();
+      if (cancelled || !coords) return;
+      setFleetOrigin(coords);
+      updateDemoSimulationCenter(coords);
     })();
     return () => {
       cancelled = true;
       stopDemoSimulation();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoActive]);
 
   useEffect(() => {
+    if (!demoActive) return;
+    updateDemoSimulationCenter(fleetOrigin);
+  }, [demoActive, fleetOrigin.lat, fleetOrigin.lng]);
+
+  useEffect(() => {
     refreshFleet();
-    const t = setInterval(refreshFleet, 4000);
+    const t = setInterval(refreshFleet, demoActive ? 2500 : 4000);
     return () => clearInterval(t);
-  }, [refreshFleet]);
+  }, [refreshFleet, demoActive]);
 
   useEffect(() => {
     if (!pickup || !dropoff) {
@@ -1950,16 +1973,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     // Button is disabled when !canDispatch; yellow warn above covers UX — no red/alert duplicate.
     if (!canDispatch) return;
 
-    if (demoActive && pickup) {
-      // Demo: nooit een echte rit, betaling of dispatch. Alleen de dichtstbijzijnde demo-taxi 'accepteert'.
-      const claimed = claimNearestDemoTaxi(pickup);
-      if (claimed) {
-        const minutes = Math.max(1, Math.ceil((claimed.distanceKm / 28) * 60));
-        setDemoBookedInfo({ eta: formatEtaPhrase(minutes) });
-      }
-      return;
-    }
-
+    // Ook in demo-modus: echte quote/boeking/dispatch, zodat virtuele én echte
+    // chauffeurs het aanbod ontvangen.
     let paymentQuote = quote;
     if (!paymentQuote?.payment && pickup && dropoff) {
       try {
@@ -1977,7 +1992,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       } catch {
         const msg = t("De prijs kon niet worden opgehaald. Probeer het zo opnieuw.");
         setError(msg);
-        Alert.alert('Prijs niet beschikbaar', msg);
+        Alert.alert(t('Prijs niet beschikbaar'), msg);
         return;
       }
     }
@@ -1990,7 +2005,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         paymentQuote?.marketplace?.unavailable_message ||
         t("Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie.");
       setError(msg);
-      Alert.alert('Geen taxi beschikbaar', msg);
+      Alert.alert(t('Geen taxi beschikbaar'), msg);
       return;
     }
 
@@ -1998,14 +2013,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       const msg =
         t("Online betalen staat uit omdat de Mollie-koppeling van Nexa Suite niet is ingesteld.");
       setError(msg);
-      Alert.alert('Betaling niet beschikbaar', msg);
+      Alert.alert(t('Betaling niet beschikbaar'), msg);
       return;
     }
 
     if (!paymentQuote?.payment?.booking) {
       const msg = t("Online betalen is momenteel niet beschikbaar. Probeer het later opnieuw.");
       setError(msg);
-      Alert.alert('Betaling niet beschikbaar', msg);
+      Alert.alert(t('Betaling niet beschikbaar'), msg);
       return;
     }
 
@@ -2083,7 +2098,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("Boeken mislukt."));
-      Alert.alert('Boeken mislukt', e instanceof ApiError ? e.message : t("Boeken mislukt."));
+      Alert.alert(t('Boeken mislukt'), e instanceof ApiError ? e.message : t("Boeken mislukt."));
     } finally {
       setBusy(false);
     }
@@ -2374,22 +2389,42 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             tracksViewChanges={false}
           />
         ) : null}
-        {activeTaxiLoc ? (
-          <CustomerTaxiMarker
-            key="active-ride-taxi"
-            title={t("Je taxi")}
-            taxi={{
-              id: 'active-ride',
-              lat: activeTaxiLoc.lat,
-              lng: activeTaxiLoc.lng,
-              heading: activeTaxiLoc.heading,
-            }}
-          />
-        ) : null}
-        {freeTaxis.map((taxi) => (
-          <CustomerTaxiMarker key={taxi.id} taxi={taxi} />
-        ))}
-        {demoActive ? <DemoTaxiMarkers /> : null}
+        {activeTaxiLoc
+          ? Platform.OS === 'android'
+            ? androidTaxiMarker(
+                {
+                  id: 'active-ride',
+                  lat: activeTaxiLoc.lat,
+                  lng: activeTaxiLoc.lng,
+                  heading: activeTaxiLoc.heading,
+                },
+                t('Je taxi'),
+                30
+              )
+            : (
+                <CustomerTaxiMarker
+                  key="active-ride-taxi"
+                  title={t('Je taxi')}
+                  taxi={{
+                    id: 'active-ride',
+                    lat: activeTaxiLoc.lat,
+                    lng: activeTaxiLoc.lng,
+                    heading: activeTaxiLoc.heading,
+                  }}
+                />
+              )
+          : null}
+        {/* Android: Marker rechtstreeks (geen wrapper-component) — anders 1 marker. */}
+        {Platform.OS === 'android'
+          ? visibleFleetTaxis.map((taxi) => androidTaxiMarker(taxi))
+          : visibleFleetTaxis.map((taxi) => (
+              <CustomerTaxiMarker
+                key={taxi.id}
+                taxi={taxi}
+                smoothMs={demoActive ? 1500 : 3800}
+                stepMs={demoActive ? 200 : 100}
+              />
+            ))}
         {routeCoords.length > 1 ? (
           <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
         ) : null}
@@ -2439,9 +2474,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       ) : null}
       <View style={styles.fleetBadge}>
         <Text style={styles.fleetBadgeText}>
-          {freeNearby === 1
-            ? t('{n} taxi online', { n: freeNearby })
-            : t('{n} taxi’s online', { n: freeNearby })}
+          {pickupTracking
+            ? t('Taxi onderweg')
+            : freeNearby === 1
+              ? t('{n} taxi online', { n: freeNearby })
+              : t('{n} taxi’s online', { n: freeNearby })}
         </Text>
       </View>
     </View>
@@ -2918,6 +2955,32 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     );
   }
 
+  function renderWaitStyleRoute(input: {
+    from?: string | null;
+    to?: string | null;
+    fromPlace?: string | null;
+    toPlace?: string | null;
+  }) {
+    const fromLine = bookingAddressLine(input.from);
+    const toLine = bookingAddressLine(input.to);
+    const fromPlace = visiblePlaceName(input.fromPlace, input.from);
+    const toPlace = visiblePlaceName(input.toPlace, input.to);
+    if (!fromLine && !toLine && !fromPlace && !toPlace) return null;
+    return (
+      <View style={styles.waitRouteBlock}>
+        {fromPlace ? <Text style={styles.waitRoutePlace}>{fromPlace}</Text> : null}
+        {fromLine ? <Text style={styles.waitRouteAddress}>{fromLine}</Text> : null}
+        {(fromLine || fromPlace) && (toLine || toPlace) ? (
+          <View style={styles.waitRouteArrow}>
+            <Ionicons name="arrow-down" size={22} color={colors.text} />
+          </View>
+        ) : null}
+        {toPlace ? <Text style={styles.waitRoutePlace}>{toPlace}</Text> : null}
+        {toLine ? <Text style={styles.waitRouteAddress}>{toLine}</Text> : null}
+      </View>
+    );
+  }
+
   function renderTripDetails(input: {
     from?: string | null;
     to?: string | null;
@@ -3185,7 +3248,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             return (
               <>
                 {cancelMsg ? (
-                  <Text style={styles.cancelReasonNotice}>{cancelMsg}</Text>
+                  <Text style={styles.cancelReasonNotice}>{t(cancelMsg)}</Text>
                 ) : null}
                 {refundMsg ? (
                   <View style={styles.refundNotice}>
@@ -3599,17 +3662,30 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 tracksViewChanges={false}
               />
             ) : null}
-            {activeTaxiLoc ? (
-              <CustomerTaxiMarker
-                title={t("Je taxi")}
-                taxi={{
-                  id: 'trip-taxi',
-                  lat: activeTaxiLoc.lat,
-                  lng: activeTaxiLoc.lng,
-                  heading: activeTaxiLoc.heading,
-                }}
-              />
-            ) : null}
+            {activeTaxiLoc
+              ? Platform.OS === 'android'
+                ? androidTaxiMarker(
+                    {
+                      id: 'trip-taxi',
+                      lat: activeTaxiLoc.lat,
+                      lng: activeTaxiLoc.lng,
+                      heading: activeTaxiLoc.heading,
+                    },
+                    t('Je taxi'),
+                    30
+                  )
+                : (
+                    <CustomerTaxiMarker
+                      title={t('Je taxi')}
+                      taxi={{
+                        id: 'trip-taxi',
+                        lat: activeTaxiLoc.lat,
+                        lng: activeTaxiLoc.lng,
+                        heading: activeTaxiLoc.heading,
+                      }}
+                    />
+                  )
+              : null}
             {tripRoute.length > 1 ? (
               <Polyline coordinates={tripRoute} strokeColor={colors.primary} strokeWidth={4} />
             ) : null}
@@ -3903,11 +3979,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         })}
       </Card>
 
-      {demo.isSuperAdmin ? (
-        <Card>
-          <DemoModeRow showOpenBooking={false} />
-        </Card>
-      ) : null}
+      <DemoModeRow showOpenBooking={false} />
 
     </ScrollView>
   );
@@ -3944,6 +4016,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   return (
     <Screen style={styles.shell}>
       {appHeader}
+      {demoActive ? (
+        <View style={styles.demoModeBanner} accessibilityRole="text">
+          <Text style={styles.demoModeBannerTitle}>{t('Demo-modus')}</Text>
+          <Text style={styles.demoModeBannerText}>
+            {t('Demo-modus actief op deze omgeving — virtuele taxi’s zichtbaar voor alle klanten.')}
+          </Text>
+        </View>
+      ) : null}
       <View style={styles.shellBody}>
         {tab === 'rides'
           ? ridesContent
@@ -4025,8 +4105,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       >
         <Text style={styles.confirmTitle}>{t("Rit annuleren?")}</Text>
         <Text style={styles.confirmText}>
-          Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het
-          bedrag teruggestort (doorgaans binnen {refundDays} werkdagen).
+          {t(
+            'Weet je zeker dat je deze rit wilt annuleren? Als je vooraf hebt betaald, wordt het bedrag teruggestort (doorgaans binnen {days} werkdagen).',
+            { days: refundDays }
+          )}
         </Text>
         <View style={styles.confirmActions}>
           <View style={styles.confirmActionSlot}>
@@ -4063,13 +4145,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               })
             : t('Wil je blijven wachten of de rit annuleren?')}
         </Text>
-        {live?.pickup_address || live?.dropoff_address ? (
-          <Text style={[styles.confirmText, { marginTop: 10 }]}>
-            {[bookingAddressLine(live?.pickup_address), bookingAddressLine(live?.dropoff_address)]
-              .filter(Boolean)
-              .join(' → ')}
-          </Text>
-        ) : null}
+        {renderWaitStyleRoute({
+          from: live?.pickup_address,
+          to: live?.dropoff_address,
+          toPlace: live?.dropoff_place_name || openGuestRide?.to_place,
+        })}
         <View style={{ marginTop: 14, gap: 10 }}>
           <PrimaryButton title={t('Blijven wachten')} onPress={() => void onWait()} loading={busy} />
           <GhostButton
@@ -4089,40 +4169,28 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       >
         <Text style={styles.confirmTitle}>{t("Rit geannuleerd")}</Text>
         {longWaitCancelRide ? (
-          <View style={{ marginTop: 10, gap: 4 }}>
-            <Text style={styles.confirmText}>
-              {t('Van')}:{' '}
-              {[
-                String(longWaitCancelRide.from_place || '').trim(),
-                bookingAddressLine(longWaitCancelRide.from) ||
-                  shortAddress(longWaitCancelRide.from),
-              ]
-                .filter(Boolean)
-                .join(' · ') || '—'}
-            </Text>
-            <Text style={styles.confirmText}>
-              {t('Naar')}:{' '}
-              {[
-                String(longWaitCancelRide.to_place || '').trim(),
-                bookingAddressLine(longWaitCancelRide.to) ||
-                  shortAddress(longWaitCancelRide.to),
-              ]
-                .filter(Boolean)
-                .join(' · ') || '—'}
-            </Text>
+          <>
+            {renderWaitStyleRoute({
+              from: longWaitCancelRide.from,
+              to: longWaitCancelRide.to,
+              fromPlace: longWaitCancelRide.from_place,
+              toPlace: longWaitCancelRide.to_place,
+            })}
             {formatPickupWhen(longWaitCancelRide.pickup_at) ? (
-              <Text style={styles.confirmText}>
+              <Text style={[styles.confirmText, { marginBottom: 0, marginTop: 10 }]}>
                 {t('Ophalen')}: {formatPickupWhen(longWaitCancelRide.pickup_at)}
               </Text>
             ) : null}
-          </View>
+          </>
         ) : null}
         <Text style={[styles.confirmText, { marginTop: 12 }]}>
-          {String(
-            longWaitCancelRide?.cancellation_message ||
-              live?.cancellation_message ||
-              'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.'
-          ).trim()}
+          {t(
+            String(
+              longWaitCancelRide?.cancellation_message ||
+                live?.cancellation_message ||
+                'De rit is geannuleerd omdat het wachten te lang duurde. Er is geen chauffeur gevonden.'
+            ).trim()
+          )}
         </Text>
         <View style={{ marginTop: 14 }}>
           <PrimaryButton
@@ -4196,23 +4264,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               }}
               loading={busy}
             />
-          </View>
-        </View>
-      </AppModal>
-
-      <AppModal
-        visible={!!demoBookedInfo}
-        onRequestClose={() => setDemoBookedInfo(null)}
-        panelStyle={styles.confirmBanner}
-      >
-        <Text style={styles.confirmTitle}>{t("Demo-modus")}</Text>
-        <Text style={styles.confirmText}>{t("Demo-modus: er is geen echte rit aangevraagd.")}</Text>
-        <Text style={styles.confirmText}>
-          {t("Taxi komt eraan (gesimuleerd).")} {t("Aankomst over {eta}.", { eta: demoBookedInfo?.eta ?? '' })}
-        </Text>
-        <View style={styles.confirmActions}>
-          <View style={styles.confirmActionSlot}>
-            <PrimaryButton title={t("Sluiten")} onPress={() => setDemoBookedInfo(null)} />
           </View>
         </View>
       </AppModal>
@@ -4986,6 +5037,27 @@ function makeStyles(colors: ColorPalette) {
       fontWeight: '800',
       letterSpacing: 1,
     },
+    demoModeBanner: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: colors.amber,
+    },
+    demoModeBannerTitle: {
+      color: '#0B1220',
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    demoModeBannerText: {
+      color: '#0B1220',
+      fontSize: 12,
+      fontWeight: '500',
+      marginTop: 2,
+      opacity: 0.9,
+    },
     taxiMarker: {
       width: 26,
       height: 39,
@@ -5430,6 +5502,33 @@ function makeStyles(colors: ColorPalette) {
       fontSize: 14,
       lineHeight: 21,
       marginBottom: 16,
+    },
+    waitRouteBlock: {
+      marginTop: 10,
+      marginBottom: 4,
+      gap: 0,
+      width: '100%',
+      alignItems: 'center',
+    },
+    waitRouteAddress: {
+      color: colors.text,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    waitRoutePlace: {
+      color: colors.amber,
+      fontSize: 14,
+      lineHeight: 18,
+      marginBottom: 1,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    waitRouteArrow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
     },
     pickupPinBanner: {
       position: 'absolute',

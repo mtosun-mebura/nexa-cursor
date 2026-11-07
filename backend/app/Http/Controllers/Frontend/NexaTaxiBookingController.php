@@ -160,11 +160,31 @@ class NexaTaxiBookingController extends Controller
             );
         }
 
+        $appDemo = app(\App\Modules\NexaTaxi\Services\TaxiAppDemoModeService::class);
+        $demoMode = $appDemo->isEnabled();
+        if ($demoMode) {
+            $demoVehicles = $appDemo->vehiclesForNearby($lat, $lng, $radiusKm ?? 80.0);
+            $seen = [];
+            foreach ($vehicles as $vehicle) {
+                $seen[(string) ($vehicle['id'] ?? '')] = true;
+            }
+            foreach ($demoVehicles as $demoVehicle) {
+                $id = (string) ($demoVehicle['id'] ?? '');
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+                $demoVehicle['color'] = $fleetCarColor;
+                $vehicles[] = $demoVehicle;
+                $seen[$id] = true;
+            }
+        }
+
         $payload = [
             'vehicles' => $vehicles,
             'radius_km' => $radiusKm,
             'fleet_car_color' => $fleetCarColor,
             'server_now' => now()->toIso8601String(),
+            'demo_mode' => $demoMode,
         ];
 
         if ($isMarketplace) {

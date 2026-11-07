@@ -1,5 +1,6 @@
-import React, { ReactNode, useEffect, useState } from 'react';
+import React, { ReactNode, useEffect, useId, useMemo, useState, type RefObject } from 'react';
 import {
+  BackHandler,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -15,6 +16,7 @@ import { BlurView } from 'expo-blur';
 import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
 import { useAndroidKeyboardOverlap } from './androidText';
+import { useModalBlurHost } from './ModalBlurHost';
 
 type AppModalProps = {
   visible: boolean;
@@ -41,13 +43,13 @@ type AppModalProps = {
   keyboardAccessory?: ReactNode;
 };
 
-/**
- * Standaard app-modal: native Modal (eigen window → tik op knop sluit niet meteen)
- * + geblurde slate-overlay + gecentreerd paneel.
- * Zie `.cursor/rules/mobile-app-modal-blur.mdc`.
- */
-export function AppModal({
-  visible,
+type OverlayBodyProps = AppModalProps & {
+  backdropArmed: boolean;
+  blurTargetRef?: RefObject<View | null> | null;
+  colors: ColorPalette;
+};
+
+function ModalOverlayBody({
   onRequestClose,
   children,
   placement = 'center',
@@ -58,29 +60,36 @@ export function AppModal({
   dismissOnBackdrop = true,
   showsVerticalScrollIndicator = true,
   keyboardAccessory,
-}: AppModalProps) {
-  const colors = useThemeColors();
-  const styles = makeStyles(colors);
+  backdropArmed,
+  blurTargetRef,
+  colors,
+}: OverlayBodyProps) {
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const androidKeyboardOverlap = useAndroidKeyboardOverlap();
   const { height } = useWindowDimensions();
   const isSheet = placement === 'sheet';
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
   const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
   const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
-  /** Voorkom dat de openingstik meteen de backdrop raakt en de modal weer sluit. */
-  const [backdropArmed, setBackdropArmed] = useState(false);
+  const useAndroidBlur = Platform.OS === 'android' && !!blurTargetRef;
+  /** Remount BlurView once so findNodeHandle resolves after BlurTargetView is attached. */
+  const [blurEpoch, setBlurEpoch] = useState(0);
 
   useEffect(() => {
-    if (!visible) {
-      setBackdropArmed(false);
-      return;
-    }
-    const timer = setTimeout(() => setBackdropArmed(true), 280);
-    return () => clearTimeout(timer);
-  }, [visible]);
-
-  // Niet-zichtbare Modals blijven op iOS/Android soms touches stelen.
-  if (!visible) return null;
+    if (!useAndroidBlur) return;
+    let cancelled = false;
+    const bump = () => {
+      if (!cancelled && blurTargetRef?.current) setBlurEpoch((n) => n + 1);
+    };
+    bump();
+    const t1 = setTimeout(bump, 32);
+    const t2 = setTimeout(bump, 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [useAndroidBlur, blurTargetRef]);
 
   const body = (
     <View
@@ -92,9 +101,20 @@ export function AppModal({
       pointerEvents="box-none"
     >
       <BlurView
+        key={`blur-${blurEpoch}`}
         pointerEvents="none"
-        intensity={Platform.OS === 'ios' ? 64 : 80}
+        // tint=dark op hoge intensity + aparte scrim = pechzwart; houd blur zichtbaar.
+        intensity={Platform.OS === 'ios' ? 55 : 70}
         tint="dark"
+        // Android: echte blur alleen met blurTarget (ModalBlurHost) + dimezisBlurView.
+        // iOS: UIBlurEffect in dezelfde window (portal); RN Modal doet dat niet.
+        {...(useAndroidBlur
+          ? {
+              blurMethod: 'dimezisBlurView' as const,
+              blurTarget: blurTargetRef!,
+              blurReductionFactor: 3,
+            }
+          : {})}
         style={styles.backdrop}
       />
       <Pressable
@@ -148,6 +168,94 @@ export function AppModal({
   );
 
   return (
+    <View style={styles.fill} pointerEvents="box-none">
+      {keyboardAccessory ? (
+        <View style={styles.flex} pointerEvents="box-none">
+          {modalBody}
+          {keyboardAccessory}
+        </View>
+      ) : (
+        modalBody
+      )}
+    </View>
+  );
+}
+
+/**
+ * Standaard app-modal: geblurde overlay + paneel.
+ * Rendert via ModalBlurHost (sibling van BlurTargetView) zodat Android én iOS wél blurben;
+ * zonder host: native Modal-fallback (iOS/Android dan alleen scrim, weinig/geen blur).
+ * Zie `.cursor/rules/mobile-app-modal-blur.mdc`.
+ */
+export function AppModal(props: AppModalProps) {
+  const { visible, onRequestClose, dismissDisabled = false } = props;
+  const colors = useThemeColors();
+  const host = useModalBlurHost();
+  const overlayKey = useId();
+  /** Voorkom dat de openingstik meteen de backdrop raakt. */
+  const [backdropArmed, setBackdropArmed] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setBackdropArmed(false);
+      return;
+    }
+    const timer = setTimeout(() => setBackdropArmed(true), 280);
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  // Android terug-knop bij portal-overlay (geen native Modal).
+  useEffect(() => {
+    if (!host || !visible || dismissDisabled) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onRequestClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [host, visible, dismissDisabled, onRequestClose]);
+
+  useEffect(() => {
+    if (!host) return;
+    if (!visible) {
+      host.hideOverlay(overlayKey);
+      return;
+    }
+    host.showOverlay(
+      overlayKey,
+      <ModalOverlayBody
+        {...props}
+        visible
+        backdropArmed={backdropArmed}
+        blurTargetRef={host.blurTargetRef}
+        colors={colors}
+      />
+    );
+    return () => host.hideOverlay(overlayKey);
+  }, [
+    host,
+    overlayKey,
+    visible,
+    backdropArmed,
+    colors,
+    props.children,
+    props.placement,
+    props.dismissDisabled,
+    props.panelStyle,
+    props.avoidKeyboard,
+    props.scrollEnabled,
+    props.dismissOnBackdrop,
+    props.showsVerticalScrollIndicator,
+    props.keyboardAccessory,
+    props.onRequestClose,
+  ]);
+
+  // Host-pad: overlay wordt elders gerenderd.
+  if (host) return null;
+
+  // Fallback (geen ModalBlurHost): native Modal.
+  if (!visible) return null;
+
+  return (
     <Modal
       visible
       transparent
@@ -158,14 +266,13 @@ export function AppModal({
         if (!dismissDisabled) onRequestClose();
       }}
     >
-      {keyboardAccessory ? (
-        <View style={styles.flex} pointerEvents="box-none">
-          {modalBody}
-          {keyboardAccessory}
-        </View>
-      ) : (
-        modalBody
-      )}
+      <ModalOverlayBody
+        {...props}
+        visible
+        backdropArmed={backdropArmed}
+        blurTargetRef={null}
+        colors={colors}
+      />
     </Modal>
   );
 }
@@ -173,6 +280,7 @@ export function AppModal({
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
     flex: { flex: 1 },
+    fill: { flex: 1 },
     root: {
       flex: 1,
     },
@@ -185,23 +293,24 @@ function makeStyles(colors: ColorPalette) {
       paddingHorizontal: 0,
     },
     backdrop: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 0,
     },
     scrim: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 1,
-      backgroundColor: 'rgba(15, 23, 42, 0.4)',
+      // Lichte sluier bovenop BlurView-tint (niet stapelen tot pechzwart).
+      backgroundColor: 'rgba(15, 23, 42, 0.28)',
     },
     centerLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 2,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 24,
     },
     sheetLayer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       zIndex: 2,
       justifyContent: 'flex-end',
     },

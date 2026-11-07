@@ -23,13 +23,45 @@ class TarievenController extends Controller
         $scopeCompanyId = app(AdminTenantScope::class)->selectedTenantId();
         $rates = DefaultRate::getRatesForEdit($conn, $scopeCompanyId);
         $eveningNight = DefaultRate::eveningNightSettings($rates->first());
+        $platformRatesForImport = $this->platformRatesForImport($conn, $scopeCompanyId);
 
         return view('taxi::admin.tarieven.edit', [
             'rates' => $rates,
             'eveningNight' => $eveningNight,
             'scopeCompanyId' => $scopeCompanyId,
             'scopeCompanyName' => $this->scopeCompanyName($scopeCompanyId),
+            'platformRatesForImport' => $platformRatesForImport,
         ]);
+    }
+
+    /**
+     * NEXA Suite (company_id null) rate rows for tenant import UI. Empty when already on platform scope.
+     *
+     * @return list<array{person_range: string, base_fare: mixed, min_fare: mixed, price_per_km: mixed, price_per_min: mixed, cleaning_costs: mixed}>
+     */
+    private function platformRatesForImport(string $conn, ?int $scopeCompanyId): array
+    {
+        if ($scopeCompanyId === null || ! DefaultRate::hasCompanyIdColumn($conn)) {
+            return [];
+        }
+
+        return DefaultRate::queryForCompany($conn, null)
+            ->get()
+            ->sortBy(function (DefaultRate $rate) {
+                [$start, $end] = DefaultRate::parseRangeBounds((string) $rate->person_range);
+
+                return ($start * 1000) + $end;
+            })
+            ->values()
+            ->map(fn (DefaultRate $rate) => [
+                'person_range' => (string) $rate->person_range,
+                'base_fare' => $rate->base_fare,
+                'min_fare' => $rate->min_fare,
+                'price_per_km' => $rate->price_per_km,
+                'price_per_min' => $rate->price_per_min,
+                'cleaning_costs' => $rate->cleaning_costs,
+            ])
+            ->all();
     }
 
     public function update(Request $request)

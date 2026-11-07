@@ -8,8 +8,11 @@
     hidden
     aria-live="polite"
 >
-    <div class="booking-vehicle-summary__media" data-floating-summary-image-wrap hidden>
-        <img src="" alt="" data-floating-summary-image>
+    <div class="booking-vehicle-summary__media-stack" data-floating-summary-image-wrap hidden>
+        <div class="booking-vehicle-summary__media">
+            <img src="" alt="" data-floating-summary-image>
+        </div>
+        <span class="booking-vehicle-placeholder-badge hidden" data-floating-summary-placeholder-badge hidden>{{ __('Geen foto') }}</span>
     </div>
     <div class="booking-vehicle-summary__body">
         <div class="booking-vehicle-summary__title-wrap" data-floating-summary-title-wrap hidden>

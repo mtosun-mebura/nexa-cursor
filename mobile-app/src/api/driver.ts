@@ -563,6 +563,19 @@ export function declineOffer(token: string, offerId: number) {
   });
 }
 
+/** Permanent verwijderen uit chauffeur-archief (selecteer + prullenbak). */
+export function deleteArchivedOffers(token: string, offerIds: number[]) {
+  const ids = [...new Set(offerIds.map((id) => Number(id)).filter((id) => id > 0))].slice(0, 100);
+  return apiRequest<{
+    message?: string;
+    data?: { deleted?: number };
+  }>('/api/taxi/v1/driver/dispatch/archived-offers/delete', {
+    method: 'POST',
+    token,
+    body: { offer_ids: ids },
+  });
+}
+
 export function markRideEnRoute(token: string, rideId: number) {
   return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
     method: 'POST',

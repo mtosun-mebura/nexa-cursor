@@ -1,13 +1,13 @@
 import * as Location from 'expo-location';
 import { AppState, type AppStateStatus } from 'react-native';
 import { sendDriverLocation } from '../api/driver';
+import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import {
   clampGpsRefreshSeconds,
   ensureBackgroundLocationRunning,
   ensureForegroundLocationPermission,
   pauseBackgroundLocationUpdates,
   prepareBackgroundLocation,
-  requestBackgroundLocationUpgrade,
   stopBackgroundLocation,
 } from './background';
 
@@ -21,16 +21,22 @@ type TrackingOpts = {
 
 let appStateSub: { remove: () => void } | null = null;
 let foregroundTicker: ReturnType<typeof setInterval> | null = null;
-let tickerStartPending = false;
 let postInFlight = false;
+let postStartedAt = 0;
 let postToken = 0;
-let lastSentAt = 0;
 let appliedAppState: AppStateStatus | null = null;
-let refreshMs = 8000;
+let refreshMs = 15000;
 let activeOpts: TrackingOpts | null = null;
 let trackGeneration = 0;
-/** Eerste fix na online: forceer verse GPS als last-known leeg is (anders geen marker op klantkaart). */
-let needsMapFix = false;
+/** Laatst geslaagde coords — presence blijft online zonder native GPS-spam. */
+let lastGoodCoords: DriverMapPosition | null = null;
+let lastNativeReadAt = 0;
+
+const POST_WATCHDOG_MS = 8000;
+/** Minimale tick — jetsam highwater (~3GB) bij vaker native GPS. */
+const TICK_MS = 15000;
+/** Native last-known hoogstens 1× per dit interval (JS-cache tussendoor). */
+const NATIVE_READ_MIN_MS = 30000;
 
 export type DriverMapPosition = {
   lat: number;
@@ -53,146 +59,110 @@ export function positionFromLocation(loc: Location.LocationObject | null | undef
   };
 }
 
-/** Last-known fix only. Does not wait for a fresh GPS reading. */
+/** Last-known only. No getCurrentPosition — that leaked CLLocationManagers (jetsam). */
 export async function readLastKnownDriverMapPosition(): Promise<DriverMapPosition | null> {
-  try {
-    const last = await Location.getLastKnownPositionAsync({
-      maxAge: 1000 * 60 * 10,
-      requiredAccuracy: 1500,
-    });
-    return positionFromLocation(last);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Echte GPS voor de boekingskaart. Eerst een recente last-known fix (iOS levert die
- * meteen), daarna een verse meting. Geen vast adres.
- */
-export async function readDriverMapPosition(): Promise<DriverMapPosition | null> {
-  const fromLast = await readLastKnownDriverMapPosition();
-  if (fromLast) return fromLast;
-
-  try {
-    const current = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
-    ]);
-    return positionFromLocation(current);
-  } catch {
-    return null;
-  }
-}
-
-async function postFix(
-  token: string,
-  loc: Location.LocationObject,
-  vehicleId?: number | null,
-  force = false
-) {
   const now = Date.now();
-  if (!force && now - lastSentAt < Math.max(250, refreshMs - 75)) {
-    return;
+  if (lastGoodCoords && now - lastNativeReadAt < NATIVE_READ_MIN_MS) {
+    return lastGoodCoords;
   }
-  lastSentAt = now;
-  const c = loc.coords;
   try {
-    await sendDriverLocation(
-      token,
-      {
-        lat: c.latitude,
-        lng: c.longitude,
-        ...(c.accuracy != null ? { accuracy: c.accuracy } : {}),
-        ...(c.heading != null && c.heading >= 0 ? { heading: c.heading } : {}),
-        ...(c.speed != null && c.speed >= 0 ? { speed: c.speed } : {}),
-      },
-      vehicleId
-    );
+    const last = await Promise.race([
+      Location.getLastKnownPositionAsync({
+        maxAge: 1000 * 60 * 30,
+        requiredAccuracy: 5000,
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200)),
+    ]);
+    lastNativeReadAt = Date.now();
+    const pos = positionFromLocation(last);
+    if (pos) lastGoodCoords = pos;
+    return pos || lastGoodCoords;
   } catch {
-    /* netwerkfouten niet laten knallen in de GPS-loop */
+    return lastGoodCoords;
   }
 }
 
-function stopForegroundTicker() {
+/** Presence/kaart: alleen cache + last-known. Nooit verse GPS-fix (memory). */
+export async function readDriverMapPosition(): Promise<DriverMapPosition | null> {
+  if (lastGoodCoords) return lastGoodCoords;
+  return readLastKnownDriverMapPosition();
+}
+
+async function postCoords(
+  token: string,
+  coords: DriverMapPosition,
+  vehicleId?: number | null
+): Promise<boolean> {
+  try {
+    await sendDriverLocation(token, coords, vehicleId);
+    lastGoodCoords = coords;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearPostLockIfStuck(): void {
+  if (!postInFlight) return;
+  if (Date.now() - postStartedAt < POST_WATCHDOG_MS) return;
+  postInFlight = false;
+  postToken += 1;
+}
+
+function kickForegroundPost(): void {
+  if (!activeOpts || AppState.currentState !== 'active') return;
+  clearPostLockIfStuck();
+  if (postInFlight) return;
+
+  postInFlight = true;
+  postStartedAt = Date.now();
+  const tokenId = ++postToken;
+  const token = activeOpts.token;
+  const vehicleId = activeOpts.vehicleId;
+
+  void (async () => {
+    try {
+      // Liever cache herposten dan native thrashen — last_seen blijft vers.
+      let coords = lastGoodCoords;
+      if (!coords || Date.now() - lastNativeReadAt >= NATIVE_READ_MIN_MS) {
+        coords = (await readLastKnownDriverMapPosition()) || lastGoodCoords;
+      }
+      if (tokenId !== postToken || activeOpts?.token !== token) return;
+      if (!coords) return;
+      await postCoords(token, coords, vehicleId);
+    } catch {
+      /* nooit laten knallen */
+    } finally {
+      if (tokenId === postToken) {
+        postInFlight = false;
+      }
+    }
+  })();
+}
+
+function stopForegroundTicker(): void {
   if (foregroundTicker) {
     clearInterval(foregroundTicker);
     foregroundTicker = null;
   }
 }
 
-/**
- * Eén last-known fix per interval. Geen getCurrentPosition en geen watch:
- * die maken per GPS-sample een Promise en die stapelt zolang het scherm open is.
- * postInFlight wordt synchroon gezet, vóór de eerste await.
- */
-function kickForegroundPost(): void {
-  if (!activeOpts || postInFlight || AppState.currentState !== 'active') return;
-  postInFlight = true;
-  const tokenId = ++postToken;
-  const token = activeOpts.token;
-  const vehicleId = activeOpts.vehicleId;
-  // Alleen last-known in de interval — getCurrentPosition in een loop crashte iOS na ~2–3 min.
-  // Verse fix gebeurt éénmalig via publishDriverLocationForMap bij online.
-  void Promise.race([
-    Location.getLastKnownPositionAsync({
-      maxAge: 1000 * 60 * 5,
-      requiredAccuracy: 2500,
-    }),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-  ])
-    .then((loc) => {
-      if (
-        tokenId !== postToken ||
-        !loc ||
-        activeOpts?.token !== token ||
-        AppState.currentState !== 'active'
-      ) {
-        return;
-      }
-      return postFix(token, loc, vehicleId, true).then(() => {
-        needsMapFix = false;
-      });
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      if (tokenId === postToken) postInFlight = false;
-    });
-}
-
-/**
- * Interval pas zetten ná de await, en meteen na stopForegroundTicker.
- * Een await ertussen liet een tweede setInterval de eerste overschrijven
- * zonder clear — elke herstart (tab/focus/online) hield de vorige timer.
- */
-async function startForegroundTicker(generation: number) {
-  if (tickerStartPending || foregroundTicker) return;
+function startForegroundTicker(generation: number): void {
+  stopForegroundTicker();
   if (generation !== trackGeneration || AppState.currentState !== 'active') return;
-  tickerStartPending = true;
-  try {
-    await ensureForegroundLocationPermission();
-    if (generation !== trackGeneration || AppState.currentState !== 'active' || foregroundTicker) return;
-    const every = Math.max(10000, refreshMs);
-    const timer = setInterval(() => {
-      if (foregroundTicker !== timer) return;
-      if (generation !== trackGeneration || AppState.currentState !== 'active') {
-        if (foregroundTicker === timer) stopForegroundTicker();
-        return;
-      }
-      kickForegroundPost();
-    }, every);
-    if (generation !== trackGeneration || AppState.currentState !== 'active' || foregroundTicker) {
-      clearInterval(timer);
+
+  const every = Math.max(TICK_MS, refreshMs);
+  foregroundTicker = setInterval(() => {
+    if (generation !== trackGeneration || AppState.currentState !== 'active') {
+      stopForegroundTicker();
       return;
     }
-    foregroundTicker = timer;
     kickForegroundPost();
-  } finally {
-    tickerStartPending = false;
-  }
+  }, every);
+  kickForegroundPost();
 }
 
-function bindAppState() {
+function bindAppState(): void {
   if (appStateSub) {
     appStateSub.remove();
     appStateSub = null;
@@ -205,57 +175,96 @@ function bindAppState() {
     if (state === 'background') {
       stopForegroundTicker();
       postToken += 1;
-      void ensureBackgroundLocationRunning(current.refreshSeconds).catch(() => undefined);
+      postInFlight = false;
+      if (DRIVER_BG.backgroundLocation) {
+        void ensureBackgroundLocationRunning(current.refreshSeconds).catch(() => undefined);
+      }
       return;
     }
     if (state !== 'active') {
       stopForegroundTicker();
       postToken += 1;
+      postInFlight = false;
       void pauseBackgroundLocationUpdates().catch(() => undefined);
       return;
     }
-    void startForegroundTicker(trackGeneration).catch(() => undefined);
+    void pauseBackgroundLocationUpdates().catch(() => undefined);
+    startForegroundTicker(trackGeneration);
   });
 }
 
 /**
- * Foreground watch + background location task while Online.
- * Always-prompt gebeurt deferred — niet in deze call, anders hangt/crasht de online-schuif.
+ * Opties bijwerken zonder tracking te herstarten (voorkomt native thrash/crash).
+ */
+export function updateDriverLocationTrackingOpts(
+  opts: Partial<TrackingOpts> & { token?: string }
+): void {
+  if (!activeOpts) return;
+  const prevToken = activeOpts.token;
+  const prevVehicle = activeOpts.vehicleId;
+  if (opts.token) activeOpts.token = opts.token;
+  if (opts.vehicleId !== undefined) activeOpts.vehicleId = opts.vehicleId;
+  if (opts.refreshSeconds != null) {
+    const seconds = clampGpsRefreshSeconds(opts.refreshSeconds);
+    activeOpts.refreshSeconds = seconds;
+    refreshMs = seconds * 1000;
+  }
+  // SecureStore alleen bij echte wijziging — disk-writes watchdog killde de app eerder.
+  if (activeOpts.token !== prevToken || activeOpts.vehicleId !== prevVehicle) {
+    void prepareBackgroundLocation(activeOpts.token, activeOpts.vehicleId).catch(() => undefined);
+  }
+}
+
+/**
+ * Start presence-tracking. Native start/stop is fire-and-forget met timeouts —
+ * de JS-draad mag hier nooit op blijven hangen.
  */
 export async function startDriverLocationTracking(opts: TrackingOpts): Promise<void> {
+  if (!DRIVER_BG.locationTracking) {
+    await stopDriverLocationTracking();
+    return;
+  }
+  if (activeOpts?.token === opts.token && AppState.currentState === 'active' && foregroundTicker) {
+    updateDriverLocationTrackingOpts(opts);
+    kickForegroundPost();
+    return;
+  }
+
   const generation = ++trackGeneration;
   const seconds = clampGpsRefreshSeconds(opts.refreshSeconds);
   refreshMs = seconds * 1000;
   activeOpts = { ...opts, refreshSeconds: seconds };
-  needsMapFix = true;
+  postToken += 1;
+  postInFlight = false;
 
-  // Eerst de native taak uit. Die levert bij distanceInterval 0 een sample per
-  // GPS-fix en blokkeert de UI als hij meeloopt terwijl het scherm open is.
-  if (AppState.currentState !== 'background') {
-    await pauseBackgroundLocationUpdates();
-  }
-  if (generation !== trackGeneration) return;
+  void Promise.race([
+    (async () => {
+      try {
+        await ensureForegroundLocationPermission();
+      } catch {
+        /* online mag zonder Always */
+      }
+      if (generation !== trackGeneration) return;
+      await prepareBackgroundLocation(opts.token, opts.vehicleId);
+    })(),
+    new Promise<void>((resolve) => setTimeout(resolve, 2500)),
+  ]).catch(() => undefined);
 
-  await prepareBackgroundLocation(opts.token, opts.vehicleId);
-  if (generation !== trackGeneration) return;
-  if (AppState.currentState === 'background') {
-    await ensureBackgroundLocationRunning(seconds);
+  if (AppState.currentState !== 'background' || !DRIVER_BG.backgroundLocation) {
+    void pauseBackgroundLocationUpdates().catch(() => undefined);
   } else {
-    await startForegroundTicker(generation);
-    await pauseBackgroundLocationUpdates();
+    void ensureBackgroundLocationRunning(seconds).catch(() => undefined);
   }
+
   if (generation !== trackGeneration) return;
   bindAppState();
+  if (AppState.currentState === 'active') {
+    startForegroundTicker(generation);
+  }
 
-  // Always-prompt zelden en laat — systeembalk tijdens actief gebruik liet de app crashen.
-  setTimeout(() => {
-    if (generation !== trackGeneration || !activeOpts) return;
-    if (AppState.currentState !== 'active') return;
-    void requestBackgroundLocationUpgrade().catch(() => false);
-  }, 45000);
+  void publishDriverLocationForMap(opts.token, opts.vehicleId).catch(() => undefined);
 }
 
-/** Stopt een lopende start zonder het opgeslagen token te wissen. */
 export function invalidateDriverLocationTracking(): void {
   trackGeneration += 1;
   stopForegroundTicker();
@@ -263,10 +272,9 @@ export function invalidateDriverLocationTracking(): void {
   postInFlight = false;
 }
 
-export async function stopDriverLocationTracking() {
+export async function stopDriverLocationTracking(): Promise<void> {
   trackGeneration += 1;
   activeOpts = null;
-  needsMapFix = false;
   if (appStateSub) {
     appStateSub.remove();
     appStateSub = null;
@@ -274,31 +282,26 @@ export async function stopDriverLocationTracking() {
   stopForegroundTicker();
   postToken += 1;
   postInFlight = false;
-  await stopBackgroundLocation();
-  lastSentAt = 0;
+  void stopBackgroundLocation().catch(() => undefined);
 }
 
 /**
- * Directe locatie voor de klantkaart bij online gaan (blokkeert de schuif niet
- * als je ’m fire-and-forget aanroept). Vraagt zo nodig while-using toestemming.
+ * Directe locatie voor de klantkaart. Gebruikt cache / last-known — nooit getCurrent.
  */
 export async function publishDriverLocationForMap(
   token: string,
   vehicleId?: number | null
 ): Promise<boolean> {
+  if (!DRIVER_BG.locationTracking) return false;
   try {
-    await ensureForegroundLocationPermission();
+    await Promise.race([
+      ensureForegroundLocationPermission(),
+      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('perm-timeout')), 2000)),
+    ]);
   } catch {
-    return false;
+    /* probeer toch met cache */
   }
   const coords = await readDriverMapPosition();
   if (!coords) return false;
-  try {
-    await sendDriverLocation(token, coords, vehicleId);
-    needsMapFix = false;
-    lastSentAt = Date.now();
-    return true;
-  } catch {
-    return false;
-  }
+  return postCoords(token, coords, vehicleId);
 }

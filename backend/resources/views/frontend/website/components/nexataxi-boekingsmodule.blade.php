@@ -789,8 +789,9 @@
                                             <div class="booking-confirm-label text-slate-500 dark:text-slate-400" data-summary-offer-label>{{ !empty($skipOffersStep) ? 'Tarief' : 'Voertuig / aanbieding' }}</div>
                                         </div>
                                         <div class="hidden w-full" data-summary-vehicle-image-wrap>
-                                            <div class="flex items-center justify-center px-2 py-1.5 min-h-[6.5rem] sm:min-h-[7.5rem]">
+                                            <div class="flex flex-col items-center justify-center gap-1 px-2 py-1.5 min-h-[6.5rem] sm:min-h-[7.5rem]" data-summary-vehicle-image-frame>
                                                 <img src="" alt="" class="w-full max-h-32 sm:max-h-36 h-auto object-contain object-center block" data-summary-vehicle-image>
+                                                <span class="booking-vehicle-placeholder-badge hidden" data-summary-vehicle-placeholder-badge hidden>{{ __('Geen foto') }}</span>
                                             </div>
                                         </div>
                                         <div class="px-2.5 py-1.5">
@@ -1773,6 +1774,82 @@ html.dark [data-nexataxi-booking-module] .booking-confirm-label,
     width: auto;
     max-width: 100%;
     margin-inline: auto;
+}
+[data-nexataxi-booking-module] [data-summary-vehicle-image-frame].is-placeholder {
+    border: 1.5px dashed rgb(148 163 184);
+    border-radius: 0.5rem;
+    background: rgb(241 245 249 / 0.85);
+    margin-inline: 0.5rem;
+}
+.dark [data-nexataxi-booking-module] [data-summary-vehicle-image-frame].is-placeholder,
+[data-nexataxi-booking-module][data-booking-skin="dark"] [data-summary-vehicle-image-frame].is-placeholder {
+    border-color: rgb(71 85 105);
+    background: rgb(15 23 42 / 0.55);
+}
+[data-nexataxi-booking-module] [data-summary-vehicle-image-frame].is-placeholder img[data-summary-vehicle-image] {
+    opacity: 0.85;
+    filter: none;
+}
+.booking-vehicle-placeholder-badge {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.15rem;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(100 116 139); /* slate-500 */
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.dark .booking-vehicle-placeholder-badge,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-vehicle-placeholder-badge {
+    color: rgb(148 163 184); /* slate-400 */
+}
+.booking-vehicle-placeholder-badge[hidden],
+.booking-vehicle-placeholder-badge.hidden {
+    display: none !important;
+}
+.booking-vehicle-summary__media-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    flex-shrink: 0;
+    align-self: center;
+    width: clamp(5.5rem, 28%, 7.5rem);
+}
+.booking-vehicle-summary__media-stack[hidden],
+.booking-vehicle-summary__media-stack.hidden {
+    display: none !important;
+}
+@media (max-width: 1023px) {
+    .booking-vehicle-summary__media-stack {
+        width: clamp(4.75rem, 26%, 6.5rem);
+    }
+}
+.booking-vehicle-summary__media-stack .booking-vehicle-summary__media {
+    width: 100%;
+}
+.booking-vehicle-summary__media-stack.is-placeholder .booking-vehicle-summary__media {
+    border: 1.5px dashed rgb(148 163 184);
+    background: rgb(241 245 249 / 0.9);
+}
+.dark .booking-vehicle-summary__media-stack.is-placeholder .booking-vehicle-summary__media,
+[data-nexataxi-booking-module][data-booking-skin="dark"] .booking-vehicle-summary__media-stack.is-placeholder .booking-vehicle-summary__media {
+    border-color: rgb(71 85 105);
+    background: rgb(15 23 42 / 0.55);
+}
+.booking-vehicle-summary__media-stack.is-placeholder .booking-vehicle-summary__media img {
+    object-fit: contain !important;
+    opacity: 0.85;
+    filter: none;
+    padding: 0.2rem;
 }
 [data-nexataxi-booking-module] [data-booking-payment-block].booking-confirm-surface {
     padding-top: 0.75rem;
@@ -3549,6 +3626,7 @@ section#boek-rit[data-nexataxi-booking-module],
     display: none !important;
 }
 .booking-vehicle-summary__media {
+    position: relative;
     width: clamp(5.5rem, 28%, 7.5rem);
     aspect-ratio: 16 / 10;
     height: auto;
@@ -6814,6 +6892,33 @@ section#boek-rit[data-nexataxi-booking-module],
             : String(bookingVehiclePlaceholderUrl || '').trim();
     }
 
+    function isBookingVehiclePlaceholderUrl(url) {
+        var src = String(url || '').trim();
+        if (!src) return false;
+        var placeholders = [
+            String(bookingVehiclePlaceholderUrl || '').trim(),
+            String(bookingVehiclePlaceholderVanUrl || '').trim(),
+        ].filter(Boolean);
+        if (placeholders.some(function(p) { return src === p || src.indexOf(p) === 0; })) {
+            return true;
+        }
+        return /\/modules\/nexa-taxi\/vehicle-placeholder(?:-van)?\.png(?:\?|$)/i.test(src);
+    }
+
+    function setBookingVehiclePlaceholderBadge(wrapEl, badgeEl, imageUrl, isPlaceholder) {
+        if (wrapEl) {
+            wrapEl.classList.toggle('is-placeholder', !!isPlaceholder);
+        }
+        if (!badgeEl) return;
+        if (isPlaceholder && imageUrl) {
+            badgeEl.classList.remove('hidden');
+            badgeEl.removeAttribute('hidden');
+        } else {
+            badgeEl.classList.add('hidden');
+            badgeEl.setAttribute('hidden', '');
+        }
+    }
+
     function resolveSelectedOfferImageUrl(selected) {
         var url = '';
         if (selected && selected.image_url) {
@@ -6945,22 +7050,29 @@ section#boek-rit[data-nexataxi-booking-module],
 
         var vehicleImageWrapEl = root.querySelector('[data-summary-vehicle-image-wrap]');
         var vehicleImageEl = root.querySelector('[data-summary-vehicle-image]');
+        var vehicleImageFrameEl = root.querySelector('[data-summary-vehicle-image-frame]');
+        var vehiclePlaceholderBadgeEl = root.querySelector('[data-summary-vehicle-placeholder-badge]');
         var selectedImageUrl = skipOffersStep
             ? placeholderUrlForPersonRange(state.person_range)
             : resolveSelectedOfferImageUrl(selected);
         if (vehicleImageWrapEl && vehicleImageEl) {
             if (selected && hasCompleteRoute && selectedImageUrl) {
+                var summaryIsPlaceholder = skipOffersStep || isBookingVehiclePlaceholderUrl(selectedImageUrl);
                 vehicleImageEl.src = selectedImageUrl;
-                vehicleImageEl.alt = skipOffersStep
-                    ? 'Taxi'
-                    : (selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig');
+                vehicleImageEl.alt = summaryIsPlaceholder
+                    ? @json(__('Geen foto'))
+                    : (skipOffersStep
+                        ? 'Taxi'
+                        : (selected.title ? ('Voertuig: ' + selected.title) : 'Gekozen voertuig'));
                 vehicleImageWrapEl.classList.remove('hidden');
                 vehicleImageWrapEl.removeAttribute('hidden');
+                setBookingVehiclePlaceholderBadge(vehicleImageFrameEl, vehiclePlaceholderBadgeEl, selectedImageUrl, summaryIsPlaceholder);
             } else {
                 vehicleImageEl.src = '';
                 vehicleImageEl.alt = '';
                 vehicleImageWrapEl.classList.add('hidden');
                 vehicleImageWrapEl.setAttribute('hidden', '');
+                setBookingVehiclePlaceholderBadge(vehicleImageFrameEl, vehiclePlaceholderBadgeEl, '', false);
             }
         }
 
@@ -7179,17 +7291,21 @@ section#boek-rit[data-nexataxi-booking-module],
 
             var imgWrap = card.querySelector('[data-floating-summary-image-wrap]');
             var img = card.querySelector('[data-floating-summary-image]');
+            var imgBadge = card.querySelector('[data-floating-summary-placeholder-badge]');
             if (imgWrap && img) {
                 if (showVehicle && imageUrl) {
+                    var floatingIsPlaceholder = isBookingVehiclePlaceholderUrl(imageUrl);
                     img.src = imageUrl;
-                    img.alt = title || 'Voertuig';
+                    img.alt = floatingIsPlaceholder ? @json(__('Geen foto')) : (title || 'Voertuig');
                     imgWrap.classList.remove('hidden');
                     imgWrap.removeAttribute('hidden');
+                    setBookingVehiclePlaceholderBadge(imgWrap, imgBadge, imageUrl, floatingIsPlaceholder);
                 } else {
                     img.src = '';
                     img.alt = '';
                     imgWrap.classList.add('hidden');
                     imgWrap.setAttribute('hidden', '');
+                    setBookingVehiclePlaceholderBadge(imgWrap, imgBadge, '', false);
                 }
             }
         });

@@ -1033,7 +1033,10 @@ class ContractPortalController extends Controller
                 'absence_id' => $absence?->id,
                 'absence_reason' => $absence?->reason,
             ];
-        })->values();
+        })
+            // Dichtbij → ver (vroegste ophaal eerst), daarna bestemming.
+            ->sortBy(fn (array $item) => (string) ($item['planned_at'] ?? ''))
+            ->values();
     }
 
     /**

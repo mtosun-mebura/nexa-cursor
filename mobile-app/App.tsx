@@ -17,11 +17,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, resolveAppScreen, useAuth } from './src/auth/AuthContext';
 import { hydrateApiBase } from './src/config';
+import { DRIVER_BG } from './src/debug/driverBgKillSwitch';
 import { DemoProvider, useDemo } from './src/demo/DemoContext';
 import { prepareDriverNotificationChannels } from './src/notifications/driverOffers';
 import { parseAppDeepLink } from './src/linking';
 import { LocaleProvider } from './src/i18n';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { ModalBlurHost } from './src/ui/ModalBlurHost';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MarketplaceRegisterScreen } from './src/screens/MarketplaceRegisterScreen';
@@ -59,6 +61,7 @@ const FOREGROUND_KEEP_AWAKE_TAG = 'nexa-app-foreground';
  */
 function KeepScreenAwake() {
   useEffect(() => {
+    if (!DRIVER_BG.keepAwake) return;
     const apply = (state: AppStateStatus) => {
       if (state === 'active') {
         void activateKeepAwakeAsync(FOREGROUND_KEEP_AWAKE_TAG).catch(() => undefined);
@@ -289,19 +292,25 @@ function RootNavigator() {
 function AppShell() {
   const { colors, colorScheme } = useTheme();
   return (
-    <>
-      <StatusBar barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'} />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <StatusBar
+        barStyle={colorScheme === 'light' ? 'dark-content' : 'light-content'}
+        translucent={Platform.OS === 'android'}
+        backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
+      />
       {Platform.OS === 'android' ? (
         <NavigationBar style={colorScheme === 'light' ? 'dark' : 'light'} />
       ) : null}
       <AuthProvider>
         <DemoProvider>
-          <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-            <RootNavigator />
-          </SafeAreaView>
+          <ModalBlurHost>
+            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+              <RootNavigator />
+            </SafeAreaView>
+          </ModalBlurHost>
         </DemoProvider>
       </AuthProvider>
-    </>
+    </View>
   );
 }
 
@@ -368,7 +377,7 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#0B1220' }}>
       <AppErrorBoundary>
         <KeepScreenAwake />
         <ThemeProvider>

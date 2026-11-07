@@ -134,6 +134,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const barStyle = colorScheme === 'light' ? 'dark-content' : 'light-content';
     StatusBar.setBarStyle(barStyle);
     if (Platform.OS !== 'android') return;
+    // Edge-to-edge: system bars transparent so SafeArea/root bg (theme) shows through —
+    // non-translucent StatusBar left white/OS window strips above and below content.
+    StatusBar.setTranslucent(true);
+    StatusBar.setBackgroundColor('transparent');
     try {
       // light = lichte knoppen op een donkere balk; dark = donkere knoppen op een lichte balk.
       NavigationBar.setStyle(colorScheme === 'light' ? 'dark' : 'light');
