@@ -297,6 +297,9 @@ class TaxiDispatchOfferResource
                 && ! $ride->isContractRide()
                 && $ride->status === RideRequest::STATUS_ACCEPTED
                 && (int) ($ride->driver_id ?? 0) > 0,
+            'rating' => $ride->status === RideRequest::STATUS_COMPLETED
+                ? app(\App\Modules\NexaTaxi\Services\TaxiRideRatingService::class)->payloadForRide($conn, $ride)
+                : null,
         ];
     }
 
