@@ -130,6 +130,13 @@ export type DispatchOfferRide = {
     nexa_fee_percent?: number;
     driver_share?: number;
   } | null;
+  /** Klantbeoordeling (alleen bij afgeronde rit). */
+  rating?: {
+    rated?: boolean;
+    stars?: number | null;
+    comment?: string | null;
+    can_rate?: boolean;
+  } | null;
 };
 
 export type DispatchOffer = {
@@ -223,6 +230,8 @@ export type DriverInboxData = {
   archivedOverdueScheduledRides: DriverActiveRide[];
   completedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
+  /** Na ophaalmoment: zo lang mag de tenant nog een nieuw tijdstip voorstellen. */
+  pastPickupGraceMinutes: number;
     pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
     payoutNotices: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
 };
@@ -479,6 +488,8 @@ export function fetchDriverInbox(token: string) {
     meta?: {
       driver_cancel_reasons?: DriverCancelReason[];
       overdue_auto_archive_days?: number;
+      past_pickup_grace_minutes?: number;
+      past_pickup_grace_hours?: number;
     };
   }>('/api/taxi/v1/driver/dispatch/inbox', { token, timeoutMs: 12000 });
 }
@@ -508,9 +519,20 @@ export function inboxDataFromResponse(inbox: {
     payout_notices?: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
   };
   offers?: DispatchOffer[];
-  meta?: { driver_cancel_reasons?: DriverCancelReason[] };
+  meta?: {
+    driver_cancel_reasons?: DriverCancelReason[];
+    past_pickup_grace_minutes?: number;
+    past_pickup_grace_hours?: number;
+  };
 }): DriverInboxData {
   const active = inbox?.data?.active_ride;
+  const graceRaw = Number(inbox?.meta?.past_pickup_grace_minutes);
+  const graceFromHours = Number(inbox?.meta?.past_pickup_grace_hours);
+  const pastPickupGraceMinutes = Number.isFinite(graceRaw) && graceRaw >= 0
+    ? Math.floor(graceRaw)
+    : Number.isFinite(graceFromHours) && graceFromHours >= 0
+      ? Math.floor(graceFromHours * 60)
+      : 120;
   return {
     offers: inboxOffersFromResponse(inbox),
     archivedOffers: asOfferList(inbox?.data?.archived_offers),
@@ -526,6 +548,7 @@ export function inboxDataFromResponse(inbox: {
     cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
       ? inbox.meta.driver_cancel_reasons
       : [],
+    pastPickupGraceMinutes,
     pickupDeniedAlert:
       inbox?.data?.pickup_denied_alert && typeof inbox.data.pickup_denied_alert === 'object'
         ? inbox.data.pickup_denied_alert

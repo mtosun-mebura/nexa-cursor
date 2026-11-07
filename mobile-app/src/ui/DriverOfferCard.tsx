@@ -557,6 +557,28 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               ) : null}
             </View>
           ) : null}
+          {!expanded &&
+          ride?.rating?.rated &&
+          ride.rating.stars != null &&
+          Number(ride.rating.stars) >= 1 ? (
+            <View style={styles.collapsedRating}>
+              <View style={styles.collapsedStars}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Ionicons
+                    key={n}
+                    name={n <= Number(ride.rating?.stars) ? 'star' : 'star-outline'}
+                    size={14}
+                    color={n <= Number(ride.rating?.stars) ? '#F5B301' : colors.muted}
+                  />
+                ))}
+              </View>
+              {ride.rating.comment ? (
+                <Text style={styles.collapsedRatingComment} numberOfLines={2}>
+                  {ride.rating.comment}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
         <View style={styles.headerRight}>
           {!expanded && primaryPrice && !isCancelledOffer ? (
@@ -726,9 +748,32 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
             {freezeTripActions ? (
               <View style={styles.cancelledActions}>
-                <View style={styles.cancelledBanner} accessibilityRole="text">
-                  <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
-                </View>
+                {showOverdueUi && (props.onProposePickup || props.onRelease) ? (
+                  <>
+                    {props.onProposePickup ? (
+                      <Pressable
+                        style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
+                        disabled={busy}
+                        onPress={props.onProposePickup}
+                      >
+                        <Text style={styles.btnPrimaryText}>{t('Nieuw tijdstip voorstellen')}</Text>
+                      </Pressable>
+                    ) : null}
+                    {props.onRelease ? (
+                      <Pressable
+                        style={[styles.btn, styles.btnGhost, styles.btnFull, busy && styles.btnDisabled]}
+                        disabled={busy}
+                        onPress={props.onRelease}
+                      >
+                        <Text style={styles.btnGhostText}>{t('Vrijgeven')}</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <View style={styles.cancelledBanner} accessibilityRole="text">
+                    <Text style={styles.cancelledBannerText}>{t("Niet beschikbaar")}</Text>
+                  </View>
+                )}
               </View>
             ) : null}
             {canComplete ? (
@@ -1096,6 +1141,21 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: colors.muted,
       fontSize: 12,
       lineHeight: 16,
+    },
+    collapsedRating: {
+      marginTop: 6,
+      gap: 3,
+    },
+    collapsedStars: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+    },
+    collapsedRatingComment: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 16,
+      fontStyle: 'italic',
     },
     chevron: {
       width: 30,

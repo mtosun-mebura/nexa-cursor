@@ -4016,7 +4016,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   return (
     <Screen style={styles.shell}>
       {appHeader}
-      {demoActive ? (
+      {demoActive && demo.isSuperAdmin ? (
         <View style={styles.demoModeBanner} accessibilityRole="text">
           <Text style={styles.demoModeBannerTitle}>{t('Demo-modus')}</Text>
           <Text style={styles.demoModeBannerText}>
