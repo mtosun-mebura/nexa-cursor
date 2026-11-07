@@ -612,6 +612,8 @@ export function DriverHomeScreen() {
   /** Keys: `offer:123` (API) of `done:456` (lokale afgeronde archiefritten). */
   const [archiveSelectedKeys, setArchiveSelectedKeys] = useState<Set<string>>(() => new Set());
   const [archiveDeleteBusy, setArchiveDeleteBusy] = useState(false);
+  /** Aanvragen-tabbadge: alleen ‘nieuwe’ ids; verdwijnt zodra de tab open is. */
+  const [requestsTabSeenIds, setRequestsTabSeenIds] = useState<Set<number>>(() => new Set());
   const [declinedOffers, setDeclinedOffers] = useState<DispatchOffer[]>([]);
   const [activeRide, setActiveRide] = useState<DriverActiveRide | null>(null);
   const [parkedRides, setParkedRides] = useState<DriverActiveRide[]>([]);
@@ -1835,10 +1837,37 @@ export function DriverHomeScreen() {
     persistArchiveSeenKeys(keys);
   }
 
+  function markRequestsTabSeen(offerList: DispatchOffer[] = offers) {
+    const ids = offerList
+      .map((offer) => Number(offer.id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    if (ids.length > 0) {
+      setRequestsTabSeenIds((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const id of ids) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+    clearDriverOfferBadge().catch(() => undefined);
+  }
+
   function goToTab(key: DriverTabKey) {
     setTab(key);
     persistDriverTab(key);
+    if (key === 'requests') markRequestsTabSeen();
   }
+
+  useEffect(() => {
+    if (tab !== 'requests' || showArchived) return;
+    markRequestsTabSeen(offers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, showArchived, offers]);
 
   function goToArchive(open: boolean) {
     setShowArchived(open);
@@ -4075,7 +4104,12 @@ export function DriverHomeScreen() {
           goToTab(key);
         }}
         showEarnings={showEarnings}
-        requestsBadge={offers.length}
+        requestsBadge={
+          offers.filter((offer) => {
+            const id = Number(offer.id);
+            return id > 0 && !requestsTabSeenIds.has(id);
+          }).length
+        }
         tripsBadge={jumpRideTarget && tab !== 'trips' ? 1 : 0}
         accent={accentHex(accent)}
       />

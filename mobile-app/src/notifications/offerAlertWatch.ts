@@ -297,15 +297,13 @@ async function checkOnce(input: {
     return id > 0 && !seen.has(id);
   });
   const freshIds = fresh.map((offer) => Number(offer.id)).filter((id) => id > 0);
-  // Voorgrond: Bel via expo-audio. Slot/achtergrond: OS-melding met chime.wav
-  // (vertraagde trigger) — expo-audio valt op slot stil; false “Bel speelde” gaf stilte.
+  // Voorgrond én slot: Bel via expo-audio (stille schakelaar). Slot-banner
+  // gebruikt daarnaast betrouwbaar OS-geluid (APNs of lokale 'default').
   const screenVisible = !input.fromBackground && AppState.currentState === 'active';
-  if (input.online !== false && freshIds.length) {
-    if (screenVisible && DRIVER_BG.rideAlertAudio) {
-      void playDriverOfferToneForIdsAsync(freshIds);
-    } else {
-      void rememberSoundedWithoutPlay(freshIds);
-    }
+  if (input.online !== false && freshIds.length && DRIVER_BG.rideAlertAudio) {
+    void playDriverOfferToneForIdsAsync(freshIds);
+  } else if (freshIds.length) {
+    void rememberSoundedWithoutPlay(freshIds);
   }
   if (!fresh.length || input.online === false) return [];
 

@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { NavigationBar } from 'expo-navigation-bar';
 import {
   ActivityIndicator,
   AppState,
@@ -298,9 +297,6 @@ function AppShell() {
         translucent={Platform.OS === 'android'}
         backgroundColor={Platform.OS === 'android' ? 'transparent' : undefined}
       />
-      {Platform.OS === 'android' ? (
-        <NavigationBar style={colorScheme === 'light' ? 'dark' : 'light'} />
-      ) : null}
       <AuthProvider>
         <DemoProvider>
           <ModalBlurHost>
@@ -354,6 +350,18 @@ export default function App() {
     // De API-host staat al vast. Niet op AsyncStorage wachten: dat liet het
     // scherm op het lege #0B1220-vlak staan als de eerste storage-call hing.
     void hydrateApiBase();
+  }, []);
+
+  useEffect(() => {
+    // Android: herstel default MainActivity als Light/Dark-alias de launcher brak.
+    if (Platform.OS !== 'android') return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { syncAlternateAppIcon } = require('./src/theme/alternateAppIcon') as typeof import('./src/theme/alternateAppIcon');
+      syncAlternateAppIcon('system', null, { force: true });
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {

@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { BootstrapSession, Capabilities } from '../api/auth';
 import { setUnauthorizedHandler } from '../api/client';
 import { unregisterDriverPushToken } from '../notifications/driverPush';
+import { secureDelete, secureGet, secureSet } from '../storage/secureStoreSafe';
 
 const SESSION_KEY = 'nexa_taxi_native_session';
 const GUEST_ROUTE_KEY = 'nexa_taxi_guest_route';
@@ -92,15 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSessionState(next);
     if (!next) {
       setActiveScreen(null);
-      await SecureStore.deleteItemAsync(SESSION_KEY);
+      await secureDelete(SESSION_KEY);
       return;
     }
     const nextScreen = resolveAppScreen(next, next.capabilities?.default_screen);
     setActiveScreen(nextScreen);
-    await SecureStore.setItemAsync(
-      SESSION_KEY,
-      JSON.stringify({ ...next, activeScreen: nextScreen })
-    );
+    await secureSet(SESSION_KEY, JSON.stringify({ ...next, activeScreen: nextScreen }));
   }, []);
 
   const forceReLogin = useCallback(async () => {
@@ -127,13 +124,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 2500);
     (async () => {
       try {
-        const raw = await SecureStore.getItemAsync(SESSION_KEY);
+        const raw = await secureGet(SESSION_KEY);
         if (cancelled) return;
         if (raw) {
           const parsed = JSON.parse(raw) as BootstrapSession & { activeScreen?: string };
           const sanitized = sanitizeSession(parsed);
           if (!sanitized) {
-            await SecureStore.deleteItemAsync(SESSION_KEY);
+            await secureDelete(SESSION_KEY);
             await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'login').catch(() => undefined);
           } else {
             setSessionState(sanitized);
@@ -143,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             );
             setActiveScreen(screen);
             if (sanitized !== parsed || screen !== parsed.activeScreen) {
-              await SecureStore.setItemAsync(
+              await secureSet(
                 SESSION_KEY,
                 JSON.stringify({ ...sanitized, activeScreen: screen })
               );
@@ -179,10 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setActiveScreen: (key) => {
         setActiveScreen(key);
         if (session) {
-          SecureStore.setItemAsync(
-            SESSION_KEY,
-            JSON.stringify({ ...session, activeScreen: key })
-          ).catch(() => undefined);
+          void secureSet(SESSION_KEY, JSON.stringify({ ...session, activeScreen: key }));
         }
       },
       logout,

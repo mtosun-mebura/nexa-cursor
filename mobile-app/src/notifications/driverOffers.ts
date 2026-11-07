@@ -189,16 +189,19 @@ async function ensureSystemOfferChannel(tone?: string | null): Promise<string> {
 }
 
 /**
- * Lokale melding: altijd gekozen ritgeluid (Bel = chime.wav), nooit iOS `true`
- * (dat is de systeemtriangel). Bestanden staan in de bundle + Library/Sounds.
+ * Lokale melding-geluid.
+ * - Android / voorgrond: Bel (chime.wav).
+ * - iOS slot/achtergrond: 'default' — custom wav blijft tijdens wake vaak stil;
+ *   Bel speelt dan via expo-audio (achtergrondtaak / armRideAlert).
  */
 function offerNotificationSound(
   play: boolean,
-  opts?: { tone?: string | null; systemSound?: boolean }
+  opts?: { tone?: string | null; systemSound?: boolean; lockReliable?: boolean }
 ): string | boolean {
   if (!play) return false;
-  // systemSound bewust genegeerd: gebruiker wil Bel, niet de standaardtoon.
-  void opts?.systemSound;
+  if (opts?.systemSound === true || opts?.lockReliable === true) {
+    return 'default';
+  }
   return rideAlertNotificationSound(opts?.tone);
 }
 
@@ -244,12 +247,12 @@ export async function notifyNewDriverOffer(opts: {
   const offerId = Number(opts.offerId || 0) || null;
   const rideRequestId = Number(opts.rideRequestId || 0) || null;
 
-  // Voorgrond: speel gekozen toon. Achtergrond: OS/push speelt al — niet dubbel.
-  if (playSound && AppState.currentState === 'active') {
+  const screenActive = AppState.currentState === 'active';
+  // Voorgrond: Bel via expo-audio. Slot: Bel ook proberen (stille schakelaar);
+  // OS-melding gebruikt dan betrouwbaar 'default' als backup.
+  if (playSound) {
     if (offerId && offerId > 0) offerAlertWatch().playDriverOfferToneForIds([offerId]);
     else buzzAndPlaySelectedTone();
-  } else if (offerId && offerId > 0) {
-    offerAlertWatch().rememberDriverOfferSounded([offerId]);
   }
 
   if (!Notifications) return;
@@ -263,12 +266,14 @@ export async function notifyNewDriverOffer(opts: {
 
   if (offerId) offerAlertWatch().markDriverOfferBannerPresented([offerId]);
 
+  const lockReliable = Platform.OS === 'ios' && !screenActive;
   const shown = await scheduleOfferNotification({
     title,
     body,
     sound: offerNotificationSound(playSound, {
       tone,
       systemSound: opts.systemSound === true,
+      lockReliable,
     }),
     tone,
     badge,
@@ -281,6 +286,7 @@ export async function notifyNewDriverOffer(opts: {
     pickupAt: opts.pickupAt,
     quotedPrice: opts.quotedPrice,
     expiresAt: opts.expiresAt,
+    delayForLockSound: lockReliable,
   });
   if (shown && badge != null) await setDriverOfferBadge(badge);
 }
@@ -300,6 +306,8 @@ async function scheduleOfferNotification(opts: {
   pickupAt?: string | null;
   quotedPrice?: number | null;
   expiresAt?: string | null;
+  /** iOS slot: korte delay zodat OS-geluid niet stilvalt midden in een wake. */
+  delayForLockSound?: boolean;
 }): Promise<boolean> {
   if (!Notifications) return false;
   const channelId =
@@ -308,9 +316,6 @@ async function scheduleOfferNotification(opts: {
         ? await ensureSystemOfferChannel(opts.tone)
         : await ensureSilentOfferChannel()
       : undefined;
-  // iOS-slot: custom sound speelt betrouwbaarder als de melding via een
-  // timeInterval-trigger komt (niet terwijl JS midden in een wake zit).
-  const lockedOrBackground = AppState.currentState !== 'active';
   const sound =
     opts.sound === false
       ? false
@@ -339,18 +344,14 @@ async function scheduleOfferNotification(opts: {
       ? { channelId: channelId || OFFER_SOUND_CHANNEL, color: '#EF4444' }
       : {}),
   };
-  // iOS-slot: custom Bel speelt betrouwbaarder via timeInterval (niet midden in wake).
-  const useDelayedIosSound = Platform.OS === 'ios' && lockedOrBackground && !!sound;
-  const buildTrigger = (): Parameters<
-    NonNullable<typeof Notifications>['scheduleNotificationAsync']
-  >[0]['trigger'] => {
-    if (!useDelayedIosSound || !Notifications) return null;
-    return {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 1,
-      repeats: false,
-    };
-  };
+  const trigger =
+    opts.delayForLockSound && Notifications
+      ? {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 1,
+          repeats: false as const,
+        }
+      : null;
   // Zelfde offerId → vervang i.p.v. stapelen (GPS-poll + inbox-poll).
   const identifier =
     opts.offerId && opts.offerId > 0 ? `driver-offer-${opts.offerId}` : undefined;
@@ -361,7 +362,7 @@ async function scheduleOfferNotification(opts: {
         ...content,
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
       },
-      trigger: buildTrigger(),
+      trigger,
     });
     return true;
   } catch {
@@ -371,7 +372,7 @@ async function scheduleOfferNotification(opts: {
     await Notifications.scheduleNotificationAsync({
       ...(identifier ? { identifier } : {}),
       content,
-      trigger: buildTrigger(),
+      trigger,
     });
     return true;
   } catch {
@@ -438,8 +439,8 @@ export async function notifyDriverOfferClosed(opts: {
   if (!ok) return;
   await ensureIosNotificationSoundsInstalled();
 
-  const lockedOrBackground = AppState.currentState !== 'active';
-  const sound = rideAlertNotificationSound(tone);
+  const lockReliable = Platform.OS === 'ios' && AppState.currentState !== 'active';
+  const sound = lockReliable ? 'default' : rideAlertNotificationSound(tone);
   const channelId =
     Platform.OS === 'android' ? await ensureSystemOfferChannel(tone) : undefined;
   const identifier = offerId > 0 ? `driver-offer-closed-${offerId}` : undefined;
@@ -461,7 +462,7 @@ export async function notifyDriverOfferClosed(opts: {
       : {}),
   };
   const trigger =
-    Platform.OS === 'ios' && lockedOrBackground && Notifications
+    lockReliable && Notifications
       ? {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 1,

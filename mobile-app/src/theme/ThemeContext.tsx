@@ -124,6 +124,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
     if (syncIcon) {
       syncAlternateAppIcon(next, Appearance.getColorScheme() ?? null, { force: true });
+      return;
+    }
+    // In-app weergave wisselen mag Android activity-aliases niet aanpassen
+    // (dat kan alle launchers uitzetten). iOS: terug naar primary icoon zodat
+    // light/dark appearances de telefoon volgen.
+    if (Platform.OS === 'ios') {
+      syncAlternateAppIcon('system', null, { force: true });
     }
   }, []);
 
@@ -147,6 +154,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [colorScheme]);
 
   useEffect(() => {
+    // skipIconSync: geen launcher-alias-wissels (Android crasht/launchers uit).
     if (!ready || skipIconSync.current) return;
     if (preference === 'system' && phoneScheme == null) return;
     const apply = () => syncAlternateAppIcon(preference, phoneScheme);
@@ -173,10 +181,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-  return ctx;
+  // Hot reload / Fast Refresh kan kort buiten de provider renderen — niet crashen.
+  return (
+    ctx ?? {
+      preference: 'system' as ThemePreference,
+      colorScheme: 'dark' as const,
+      colors: DARK_COLORS,
+      setPreference: () => undefined,
+      ready: false,
+    }
+  );
 }
 
 export function useThemeColors(): ColorPalette {
