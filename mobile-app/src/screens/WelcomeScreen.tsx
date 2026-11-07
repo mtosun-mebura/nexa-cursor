@@ -24,6 +24,7 @@ const HELP_EMAIL = 'info@nexasuite.nl';
 const HELP_SUBJECT = 'Help bij de NEXA Taxi app';
 const HELP_URL = `mailto:${HELP_EMAIL}?subject=${encodeURIComponent(HELP_SUBJECT)}`;
 
+/** Hero is altijd donker → witte TAXI-variant. */
 const logo = require('../../assets/nexa-taxi-logo-dark.png');
 const mapHeader = require('../../assets/map-header-background.png');
 const bookingArt = require('../../assets/taxi-booking-background.png');

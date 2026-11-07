@@ -129,13 +129,19 @@ class DriverExpoPushService
                     'data' => $data,
                 ];
             } else {
-                // iOS (en onbekend): data-only wake. Zichtbare push speelde vaak de
-                // systeemtriangel; de app plande daarna nog een lokale Bel → twee meldingen.
-                // Eén lokale Bel-melding (client) is de enige banner/toon.
+                // iOS: zichtbare APNs-banner + geluid. Custom chime.wav uit de app-bundle
+                // (valt terug op systeemtoon als het bestand ontbreekt). `_contentAvailable`
+                // wekt de app zodat Bel via expo-audio nog speelt bij stille schakelaar.
+                // Geen data-only + lokale chime: die blijft op slot vaak stil.
                 $messages[] = [
                     'to' => $token,
+                    'title' => $title,
+                    'body' => $body !== '' ? $body : 'Er staat een nieuwe rit voor je klaar.',
+                    'sound' => 'chime.wav',
                     '_contentAvailable' => true,
                     'priority' => 'high',
+                    'channelId' => 'driver-offers-alert-v10-chime',
+                    'interruptionLevel' => 'time-sensitive',
                     'data' => $data,
                 ];
             }
@@ -228,11 +234,16 @@ class DriverExpoPushService
                         'data' => $data,
                     ];
                 } else {
-                    // iOS: data-only wake — lokale melding speelt Bel (geen systeemtriangel).
+                    // iOS: zichtbare banner + Bel (APNs); content-available voor audio-backup.
                     $messages[] = [
                         'to' => $token,
+                        'title' => 'Rit geannuleerd',
+                        'body' => $body,
+                        'sound' => 'chime.wav',
                         '_contentAvailable' => true,
                         'priority' => 'high',
+                        'channelId' => 'driver-offers-alert-v10-chime',
+                        'interruptionLevel' => 'time-sensitive',
                         'data' => $data,
                     ];
                 }

@@ -40,7 +40,8 @@
     "start": "bash scripts/with-xcode.sh npx expo start",
     "start:ios": "bash scripts/with-xcode.sh npx expo start --ios --localhost",
     "android": "bash scripts/with-xcode.sh npx expo run:android",
-    "ios": "bash scripts/with-xcode.sh npx expo run:ios",
+    "ios": "bash scripts/with-xcode.sh npx expo run:ios --configuration Release",
+    "ios:debug": "bash scripts/with-xcode.sh npx expo run:ios --configuration Debug",
     "web": "expo start --web"
   },
   "private": true,

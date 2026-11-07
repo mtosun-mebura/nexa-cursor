@@ -47,8 +47,9 @@ export function AppBrandLogo({
 }: Props) {
   const { colors, colorScheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // Licht UI → donkere TAXI-tekst; donkere UI → lichte TAXI-tekst.
   const brandSource: ImageSourcePropType =
-    colorScheme === 'light' ? logoLight : logoDark;
+    colorScheme === 'dark' ? logoDark : logoLight;
 
   const image = uri ? (
     <Image

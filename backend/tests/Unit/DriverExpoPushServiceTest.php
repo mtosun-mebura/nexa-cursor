@@ -115,7 +115,7 @@ class DriverExpoPushServiceTest extends TestCase
     }
 
     #[Test]
-    public function ios_new_offer_push_is_data_only_so_the_app_owns_the_bel_banner(): void
+    public function ios_new_offer_push_uses_visible_bel_banner_and_content_available_wake(): void
     {
         $user = User::factory()->create();
         DriverDeviceToken::query()->create([
@@ -145,13 +145,12 @@ class DriverExpoPushServiceTest extends TestCase
             $message = is_array($body) && array_is_list($body) ? ($body[0] ?? []) : $body;
 
             return ($message['to'] ?? null) === 'ExponentPushToken[ios-offer]'
+                && ($message['title'] ?? null) === 'Nieuwe rit'
+                && ($message['sound'] ?? null) === 'chime.wav'
                 && ($message['_contentAvailable'] ?? null) === true
                 && ($message['priority'] ?? null) === 'high'
                 && ($message['data']['type'] ?? null) === 'driver_offer'
-                && (int) ($message['data']['offer_id'] ?? 0) === 12
-                && ! array_key_exists('title', $message)
-                && ! array_key_exists('body', $message)
-                && ! array_key_exists('sound', $message);
+                && (int) ($message['data']['offer_id'] ?? 0) === 12;
         });
     }
 
@@ -194,7 +193,7 @@ class DriverExpoPushServiceTest extends TestCase
     }
 
     #[Test]
-    public function ios_closed_offer_push_is_data_only_so_local_bel_owns_the_sound(): void
+    public function ios_closed_offer_push_uses_visible_bel_banner(): void
     {
         $user = User::factory()->create();
         DriverDeviceToken::query()->create([
@@ -227,10 +226,9 @@ class DriverExpoPushServiceTest extends TestCase
                 && (int) ($message['data']['offer_id'] ?? 0) === 15
                 && (int) ($message['data']['ride_request_id'] ?? 0) === 9
                 && ($message['data']['pickup_address'] ?? null) === 'Stationsplein 1, Amsterdam'
-                && ($message['_contentAvailable'] ?? null) === true
-                && ! array_key_exists('title', $message)
-                && ! array_key_exists('body', $message)
-                && ! array_key_exists('sound', $message);
+                && ($message['title'] ?? null) === 'Rit geannuleerd'
+                && ($message['sound'] ?? null) === 'chime.wav'
+                && ($message['_contentAvailable'] ?? null) === true;
         });
     }
 

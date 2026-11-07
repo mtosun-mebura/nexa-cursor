@@ -746,6 +746,28 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                 </View>
               </View>
             ) : null}
+            {expanded &&
+            isCompletedTrip &&
+            ride?.rating?.rated &&
+            ride.rating.stars != null &&
+            Number(ride.rating.stars) >= 1 ? (
+              <View style={styles.expandedRating} accessibilityRole="text">
+                <Text style={styles.expandedRatingLabel}>{t('Beoordeling')}</Text>
+                <View style={styles.collapsedStars}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Ionicons
+                      key={n}
+                      name={n <= Number(ride.rating?.stars) ? 'star' : 'star-outline'}
+                      size={18}
+                      color={n <= Number(ride.rating?.stars) ? '#F5B301' : colors.muted}
+                    />
+                  ))}
+                </View>
+                {ride.rating.comment ? (
+                  <Text style={styles.expandedRatingComment}>{ride.rating.comment}</Text>
+                ) : null}
+              </View>
+            ) : null}
             {freezeTripActions ? (
               <View style={styles.cancelledActions}>
                 {showOverdueUi && (props.onProposePickup || props.onRelease) ? (
@@ -1156,6 +1178,26 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 12,
       lineHeight: 16,
       fontStyle: 'italic',
+    },
+    expandedRating: {
+      width: '100%',
+      marginTop: 4,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: 'rgba(148,163,184,0.08)',
+      gap: 6,
+    },
+    expandedRatingLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    expandedRatingComment: {
+      color: colors.text,
+      fontSize: 13,
+      lineHeight: 18,
     },
     chevron: {
       width: 30,

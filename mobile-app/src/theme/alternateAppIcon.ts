@@ -18,20 +18,17 @@ let settledFor: string | null | undefined;
 
 /**
  * Icon name for the stored Weergave choice.
- * iOS "system" stays on the primary icon, which already has light and dark appearances.
- * Android has one launcher icon, so system follows the current scheme via an alias.
+ * iOS "system" stays on the primary icon (light/dark appearances in the asset catalog).
+ * Android "system" also stays on the default MainActivity — switching Light/Dark
+ * aliases on every boot disabled MainActivity and broke the launcher.
+ * Explicit Licht/Donker mag wél de alias zetten (alleen bij syncIcon: true).
  */
 export function alternateIconNameForPreference(
   preference: ThemePreference,
-  systemScheme: ColorSchemeName | null | undefined
+  _systemScheme: ColorSchemeName | null | undefined
 ): string | null {
   if (preference === 'light') return LIGHT_ICON;
   if (preference === 'dark') return DARK_ICON;
-  if (Platform.OS === 'android') {
-    if (systemScheme === 'light') return LIGHT_ICON;
-    if (systemScheme === 'dark') return DARK_ICON;
-    return null;
-  }
   return null;
 }
 
@@ -57,17 +54,34 @@ async function applyIcon(target: string | null): Promise<void> {
   if (settledFor === target) return;
   const api = loadModule();
   if (!api?.supportsAlternateIcons) return;
-  const current = api.getAppIconName() ?? null;
+  let current: string | null = null;
+  try {
+    current = api.getAppIconName() ?? null;
+  } catch {
+    current = null;
+  }
   if (current === target) {
     settledFor = target;
     return;
   }
   try {
+    // Android: null = default MainActivity launcher. Nooit half-switchen.
     await api.setAlternateAppIcon(target);
     settledFor = target;
   } catch (error) {
-    if (/cancel/i.test(errorText(error))) settledFor = target;
-    else throw error;
+    if (/cancel/i.test(errorText(error))) {
+      settledFor = target;
+      return;
+    }
+    // Alias-wissel mislukt: probeer default launcher te herstellen.
+    if (Platform.OS === 'android' && target !== null) {
+      try {
+        await api.setAlternateAppIcon(null);
+        settledFor = null;
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
@@ -88,16 +102,6 @@ export function syncAlternateAppIcon(
   systemScheme: ColorSchemeName | null | undefined,
   options?: { force?: boolean }
 ): void {
-  // Android has no adaptive primary icon. Wait until the phone scheme is known
-  // instead of falling through to the dark alias.
-  if (
-    preference === 'system' &&
-    Platform.OS === 'android' &&
-    systemScheme !== 'light' &&
-    systemScheme !== 'dark'
-  ) {
-    return;
-  }
   if (options?.force) settledFor = undefined;
   queued = alternateIconNameForPreference(preference, systemScheme);
   pending = pending.then(drain, drain);
