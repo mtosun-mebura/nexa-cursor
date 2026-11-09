@@ -1,49 +1,50 @@
 <x-email-card
-    heading="Bevestiging taxiboeking #{{ (int) $ride_id }}"
-    page-title="Bevestiging taxiboeking"
+    :heading="__('Bevestiging taxiboeking #:id', ['id' => (int) $ride_id])"
+    :page-title="__('Bevestiging taxiboeking')"
     :logo-html="$logoHtml ?? \App\Services\CompanyEmailLogoService::HTML_PLACEHOLDER"
     :kicker="$company_name ?? null"
+    :lang="app()->getLocale()"
 >
     @if(!empty($customer_name))
-    <p style="margin:0 0 16px;font-size:16px;">Beste {{ $customer_name }},</p>
+    <p style="margin:0 0 16px;font-size:16px;">{{ __('Beste :name,', ['name' => $customer_name]) }}</p>
     @else
-    <p style="margin:0 0 16px;font-size:16px;">Beste klant,</p>
+    <p style="margin:0 0 16px;font-size:16px;">{{ __('Beste klant,') }}</p>
     @endif
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-        Bedankt voor uw boeking. Wij hebben uw ritaanvraag ontvangen en gaan deze zo snel mogelijk inplannen.
+        {{ __('Bedankt voor uw boeking. Wij hebben uw ritaanvraag ontvangen en gaan deze zo snel mogelijk inplannen.') }}
     </p>
     <table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">
         <tr><td style="padding:16px 18px;border-radius:12px;background-color:#e8eef5;">
-            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Datum/tijd:</strong> {{ $pickup_at }}</p>
-            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Ophalen:</strong> {{ $pickup_address ?? '—' }}</p>
-            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>Afzetten:</strong> {{ $dropoff_address ?? '—' }}</p>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>{{ __('Datum/tijd:') }}</strong> {{ $pickup_at }}</p>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>{{ __('Ophalen:') }}</strong> {{ $pickup_address ?? '—' }}</p>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>{{ __('Afzetten:') }}</strong> {{ $dropoff_address ?? '—' }}</p>
             @if(isset($quoted_price) && $quoted_price !== null && $quoted_price !== '')
-            <p style="margin:0;font-size:15px;line-height:1.6;"><strong>Prijsindicatie:</strong> € {{ number_format((float) $quoted_price, 2, ',', '.') }}</p>
+            <p style="margin:0;font-size:15px;line-height:1.6;"><strong>{{ __('Prijsindicatie:') }}</strong> € {{ number_format((float) $quoted_price, 2, ',', '.') }}</p>
             @endif
         </td></tr>
     </table>
-    <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Samenvatting van uw boeking</p>
+    <p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">{{ __('Samenvatting van uw boeking') }}</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;white-space:pre-wrap;">{{ $summary_text }}</p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">{{ __('U ontvangt een aparte melding zodra een chauffeur uw rit heeft geaccepteerd.') }}</p>
     @if(!empty($cancel_url))
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-        Wilt u de rit toch niet laten doorgaan? U kunt hem hieronder annuleren zolang er nog geen chauffeur is toegewezen.
+        {{ __('Wilt u de rit toch niet laten doorgaan? U kunt hem hieronder annuleren zolang er nog geen chauffeur is toegewezen.') }}
         @if(!empty($was_paid))
-        Bij annuleren wordt het vooraf betaalde bedrag teruggestort.
+        {{ __('Bij annuleren wordt het vooraf betaalde bedrag teruggestort.') }}
         @endif
     </p>
     <p style="margin:0 0 18px;text-align:center;">
         <a href="{{ $cancel_url }}" style="display:inline-block;background-color:#ffffff;color:#b91c1c;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;border:1px solid #fecaca;">
-            <span style="color:#b91c1c;">Rit annuleren</span>
+            <span style="color:#b91c1c;">{{ __('Rit annuleren') }}</span>
         </a>
     </p>
     @endif
     @if(!empty($portal_login_url))
     <p style="margin:0 0 18px;text-align:center;">
         <a href="{{ $portal_login_url }}" style="display:inline-block;background-color:#ea580c;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:6px;">
-            <span style="color:#ffffff;">Open Mijn Taxi</span>
+            <span style="color:#ffffff;">{{ __('Open Mijn Taxi') }}</span>
         </a>
     </p>
     @endif
-    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">Vragen? Neem contact op met {!! \App\Support\EmailCardHtml::companyNameHtml($company_name ?? 'ons', $company_website_url ?? null) !!}.</p>
+    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">{{ __('Vragen? Neem contact op met') }} {!! \App\Support\EmailCardHtml::companyNameHtml($company_name ?? __('ons'), $company_website_url ?? null) !!}.</p>
 </x-email-card>

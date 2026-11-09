@@ -16,9 +16,10 @@
                             @if(!empty($logoHtml))
                                 {!! $logoHtml !!}
                             @endif
-                            @if(!empty($companyName) && ! \App\Support\EmailCardHtml::isRedundantBrandKicker((string) $companyName))
-                                <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ $companyName }}</p>
-                            @endif
+                            {!! \App\Support\EmailCardHtml::headerBrandKickerHtml(
+                                !empty($companyName) ? (string) $companyName : null,
+                                !empty($logoHtml) ? (string) $logoHtml : null
+                            ) !!}
                             <h1 style="margin: 0; color: #ffffff; font-size: 22px; line-height: 1.3;">Beste {{ $greetingName }},</h1>
                         </td>
                     </tr>

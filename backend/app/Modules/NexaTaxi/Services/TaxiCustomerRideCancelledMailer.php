@@ -87,66 +87,84 @@ class TaxiCustomerRideCancelledMailer
             return true;
         }
 
-        $companyId = (int) ($ride->company_id ?? 0);
+        // Marktplaatsritten hebben vaak nog geen ride.company_id; zelfde tenant als boekingsmail.
+        $companyId = app(TaxiRideCancellationService::class)->settingsCompanyIdForRide($ride);
         $company = $companyId > 0 ? Company::query()->find($companyId) : null;
         $settings = $companyId > 0
             ? InvoiceSetting::getSettingsForCompany($companyId)
             : InvoiceSetting::getSettings();
 
-        $companyName = (string) ($settings->company_name ?? $company?->name ?? 'Nexa Taxi');
-        $companyEmail = (string) ($settings->company_email ?? $company?->email ?? '');
-        $pickupAt = $ride->pickup_at
-            ? (ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i') ?: '—')
-            : '—';
-
-        $reason = (string) ($context['reason'] ?? TaxiRideCancellationService::REASON_CUSTOMER);
-        $driverMessage = trim((string) ($context['message'] ?? ''));
-        $intro = match (true) {
-            $reason === TaxiRideCancellationService::REASON_AUTO_UNACCEPTED =>
-                'Uw rit is automatisch geannuleerd omdat er binnen de beschikbare tijd geen chauffeur beschikbaar was.',
-            $reason === TaxiRideCancellationService::REASON_DRIVER && $driverMessage !== '' =>
-                $driverMessage,
-            $reason === TaxiRideCancellationService::REASON_DRIVER =>
-                'Uw rit is geannuleerd door de chauffeur.',
-            default => 'Uw rit is geannuleerd zoals u heeft aangevraagd.',
-        };
-
-        $refunded = ! empty($context['refunded']);
-        $refundError = isset($context['refund_error']) ? trim((string) $context['refund_error']) : '';
-        $wasPaid = in_array($ride->payment_status, [
-            RideRequest::PAYMENT_STATUS_PAID,
-            RideRequest::PAYMENT_STATUS_REFUNDED,
-            RideRequest::PAYMENT_STATUS_REFUND_PENDING,
-            RideRequest::PAYMENT_STATUS_REFUND_FAILED,
-        ], true) || $refunded;
-
-        $days = $this->refundBusinessDays();
-        $refundMessage = null;
-        if ($refunded || ($wasPaid && $refundError === '')) {
-            $refundMessage = 'Het betaalde bedrag wordt teruggestort op de rekening/methode waarmee u heeft betaald. '
-                .'Reken op zichtbaarheid binnen circa '.$days.' werkdagen (afhankelijk van uw bank).';
-        } elseif ($wasPaid && $refundError !== '') {
-            $refundMessage = 'De automatische terugbetaling is nog niet afgerond. Neem contact op met '
-                .$companyName.' zodat we dit voor u kunnen afronden.';
-        } else {
-            $refundMessage = 'Er is geen voorafbetaling gekoppeld aan deze rit; er volgt geen terugstorting.';
+        $companyName = trim((string) ($settings->company_name ?? $company?->name ?? ''));
+        if ($companyName === '') {
+            $companyName = 'Nexa Taxi';
         }
+        $companyEmail = (string) ($settings->company_email ?? $company?->email ?? '');
+        $locale = \App\Modules\NexaTaxi\Support\CustomerMailLocale::forRide($ride);
+        $reason = (string) ($context['reason'] ?? TaxiRideCancellationService::REASON_CUSTOMER);
+        $refunded = ! empty($context['refunded']);
 
-        $html = View::make('emails.taxi-ride-cancelled-customer', [
-            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
-            'company_name' => $companyName,
-            'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($companyId > 0 ? $companyId : null),
-            'company_email' => $companyEmail,
-            'customer_name' => $customerName,
-            'ride_id' => $rideId,
-            'pickup_at' => $pickupAt,
-            'pickup_address' => (string) ($ride->pickup_address ?: '—'),
-            'dropoff_address' => (string) ($ride->dropoff_address ?: '—'),
-            'intro_text' => $intro,
-            'refund_message' => $refundMessage,
-        ])->render();
+        [$subject, $html] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith($locale, function () use (
+            $ride,
+            $rideId,
+            $companyId,
+            $companyName,
+            $companyEmail,
+            $customerName,
+            $context,
+            $reason,
+            $refunded
+        ) {
+            $pickupAt = $ride->pickup_at
+                ? (ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i') ?: '—')
+                : '—';
 
-        $subject = 'Rit #'.$rideId.' geannuleerd — '.$companyName;
+            $driverMessage = trim((string) ($context['message'] ?? ''));
+            $intro = match (true) {
+                $reason === TaxiRideCancellationService::REASON_AUTO_UNACCEPTED =>
+                    __('Uw rit is automatisch geannuleerd omdat er binnen de beschikbare tijd geen chauffeur beschikbaar was.'),
+                $reason === TaxiRideCancellationService::REASON_DRIVER && $driverMessage !== '' =>
+                    $driverMessage,
+                $reason === TaxiRideCancellationService::REASON_DRIVER =>
+                    __('Uw rit is geannuleerd door de chauffeur.'),
+                default => __('Uw rit is geannuleerd zoals u heeft aangevraagd.'),
+            };
+
+            $refundError = isset($context['refund_error']) ? trim((string) $context['refund_error']) : '';
+            $wasPaid = in_array($ride->payment_status, [
+                RideRequest::PAYMENT_STATUS_PAID,
+                RideRequest::PAYMENT_STATUS_REFUNDED,
+                RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+                RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+            ], true) || $refunded;
+
+            $days = $this->refundBusinessDays();
+            $refundMessage = null;
+            if ($refunded || ($wasPaid && $refundError === '')) {
+                $refundMessage = __('Het betaalde bedrag wordt teruggestort op de rekening/methode waarmee u heeft betaald. Reken op zichtbaarheid binnen circa :days werkdagen (afhankelijk van uw bank).', ['days' => $days]);
+            } elseif ($wasPaid && $refundError !== '') {
+                $refundMessage = __('De automatische terugbetaling is nog niet afgerond. Neem contact op met :company zodat we dit voor u kunnen afronden.', ['company' => $companyName]);
+            } else {
+                $refundMessage = __('Er is geen voorafbetaling gekoppeld aan deze rit; er volgt geen terugstorting.');
+            }
+
+            $html = View::make('emails.taxi-ride-cancelled-customer', [
+                'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+                'company_name' => $companyName,
+                'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($companyId > 0 ? $companyId : null),
+                'company_email' => $companyEmail,
+                'customer_name' => $customerName,
+                'ride_id' => $rideId,
+                'pickup_at' => $pickupAt,
+                'pickup_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+                'dropoff_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
+                'intro_text' => $intro,
+                'refund_message' => $refundMessage,
+            ])->render();
+
+            $subject = __('Rit #:id geannuleerd — :company', ['id' => $rideId, 'company' => $companyName]);
+
+            return [$subject, $html];
+        });
 
         try {
             $record = app(TenantCustomerMailService::class)->send([

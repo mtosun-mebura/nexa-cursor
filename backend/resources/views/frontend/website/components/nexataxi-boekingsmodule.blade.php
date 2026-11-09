@@ -3832,11 +3832,13 @@ section#boek-rit[data-nexataxi-booking-module],
         pickup_lat: null,
         pickup_lng: null,
         pickup_place_id: null,
+        pickup_place_name: null,
         pickup_gps_locked: false,
         stopovers_geo: [],
         dropoff_lat: null,
         dropoff_lng: null,
         dropoff_place_id: null,
+        dropoff_place_name: null,
         distance_meters: 0,
         duration_seconds: 0,
         summary_route_polyline: '',
@@ -4732,11 +4734,13 @@ section#boek-rit[data-nexataxi-booking-module],
             pickup_lat: null,
             pickup_lng: null,
             pickup_place_id: null,
+            pickup_place_name: null,
             pickup_gps_locked: false,
             stopovers_geo: [],
             dropoff_lat: null,
             dropoff_lng: null,
             dropoff_place_id: null,
+            dropoff_place_name: null,
             distance_meters: 0,
             duration_seconds: 0,
             summary_route_polyline: '',
@@ -9644,8 +9648,10 @@ section#boek-rit[data-nexataxi-booking-module],
             passengers: parseInt(state.passengers || 1, 10),
             return_trip: !!state.return_trip,
             pickup_address: state.pickup_address,
+            pickup_place_name: state.pickup_place_name || null,
             stopovers: state.stopovers || [],
             dropoff_address: state.dropoff_address,
+            dropoff_place_name: state.dropoff_place_name || null,
             pickup_at: state.pickup_at,
             return_at: state.return_at || null,
             pickup_lat: state.pickup_lat,
@@ -10082,7 +10088,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 if (fallbackIsStation && !/^station\b/i.test(fallback)) {
                     fallback = 'Station ' + fallback;
                 }
-                return { label: fallback, value: fallback, is_station: fallbackIsStation };
+                return { label: fallback, value: fallback, place_name: poiName || '', is_station: fallbackIsStation };
             }
             var a = row.address;
             var street = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.railway || '';
@@ -10117,6 +10123,7 @@ section#boek-rit[data-nexataxi-booking-module],
             return {
                 label: value,
                 value: value,
+                place_name: (poiName && !isStreetAddress) ? poiName : '',
                 is_station: category === 'railway' || placeType === 'station' || placeType === 'halt'
             };
         }
@@ -10217,8 +10224,10 @@ section#boek-rit[data-nexataxi-booking-module],
             }
             if (field === 'pickup_address') {
                 state.pickup_place_id = selectedPlaceId || null;
+                state.pickup_place_name = (suggestion && suggestion.place_name) ? String(suggestion.place_name).trim() : null;
             } else if (field === 'dropoff_address') {
                 state.dropoff_place_id = selectedPlaceId || null;
+                state.dropoff_place_name = (suggestion && suggestion.place_name) ? String(suggestion.place_name).trim() : null;
             }
             hideSuggestionPanel(key);
             var isRouteField = field === 'pickup_address' || field === 'dropoff_address' || stopIndex >= 0;
@@ -10297,6 +10306,7 @@ section#boek-rit[data-nexataxi-booking-module],
                 label: label,
                 value: label,
                 place_id: (prediction && prediction.place_id) || '',
+                place_name: main || '',
                 is_station: station
             };
         }
@@ -10523,12 +10533,14 @@ section#boek-rit[data-nexataxi-booking-module],
             var field = input.getAttribute('data-field');
             if (field === 'pickup_address') {
                 state.pickup_place_id = null;
+                state.pickup_place_name = null;
                 state.pickup_lat = null;
                 state.pickup_lng = null;
                 state.pickup_gps_locked = false;
                 syncMarketplaceAvailabilityPolling();
             } else if (field === 'dropoff_address') {
                 state.dropoff_place_id = null;
+                state.dropoff_place_name = null;
                 state.dropoff_lat = null;
                 state.dropoff_lng = null;
             }
@@ -10772,6 +10784,7 @@ section#boek-rit[data-nexataxi-booking-module],
             updateRouteInputVisualState(pickupInput);
             state.pickup_address = resolved.label;
             state.pickup_place_id = null;
+            state.pickup_place_name = null;
             state.pickup_lat = lat;
             state.pickup_lng = lng;
             state.pickup_gps_locked = true;

@@ -63,21 +63,31 @@ class CompanyEmailLogoService
         );
 
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
-            return $html;
+            // Already-rendered logo (or none): still drop leftover grey company-name kickers.
+            return EmailCardHtml::htmlHasLogoBrandMark($html)
+                ? EmailCardHtml::stripCompanyNameKickers($html)
+                : $html;
         }
 
         $payload = $this->resolveLogoPayload($companyId);
         if ($payload === null) {
-            return str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
+            $html = str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
+
+            // Name fallback is the brand mark — drop leftover grey company-name kickers.
+            return EmailCardHtml::stripCompanyNameKickers($html);
         }
 
         $cid = $message->embedData($payload['data'], 'company-logo', $payload['mime']);
 
-        return str_replace(
+        $html = str_replace(
             self::HTML_PLACEHOLDER,
             $this->imgHtmlWithSrc($cid, 'Logo'),
             $html
         );
+
+        // Strip AFTER logo embed: stored body_html may still contain the old grey kicker
+        // (stripRedundantBrandKickerHtml runs before the placeholder becomes an <img>).
+        return EmailCardHtml::stripCompanyNameKickers($html);
     }
 
     /**
@@ -224,6 +234,10 @@ class CompanyEmailLogoService
             }
         }
 
+        if (EmailCardHtml::htmlHasLogoBrandMark($html) || trim(strip_tags($logoHtml)) !== '') {
+            $html = EmailCardHtml::stripCompanyNameKickers($html);
+        }
+
         return $html;
     }
 
@@ -272,7 +286,10 @@ class CompanyEmailLogoService
             return '';
         }
 
-        return '<strong>'.e($name).'</strong>';
+        // Brand stand-in when no logo: larger and clearer in the dark email header.
+        return '<p style="margin:0 0 10px;color:#ffffff;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
+            .e($name)
+            .'</p>';
     }
 
     public function imgHtmlWithSrc(string $src, ?string $alt = null, ?int $maxHeightPx = null): string

@@ -3,6 +3,7 @@
 namespace App\Modules\NexaTaxi\Services;
 
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use Carbon\CarbonInterface;
 
 class TaxiBookingSummaryText
@@ -54,36 +55,36 @@ class TaxiBookingSummaryText
 
         $lines = [];
         if ($includeTitle) {
-            $lines[] = 'Nieuwe taxiboeking';
+            $lines[] = __('Nieuwe taxiboeking');
         }
 
         foreach ($fields as $field) {
             $line = match ($field) {
-                'reference' => $ride->id ? 'Referentie: rit #'.$ride->id : null,
-                'customer_name' => 'Naam: '.($ride->customer_name ?: '—'),
-                'customer_phone' => 'Telefoon: '.($ride->customer_phone ?: '—'),
-                'customer_email' => 'E-mail: '.($ride->customer_email ?: '—'),
-                'pickup_address' => 'Ophalen: '.($ride->pickup_address ?: '—'),
-                'dropoff_address' => 'Afzetten: '.($ride->dropoff_address ?: '—'),
-                'pickup_at' => 'Datum/tijd: '.$this->formatDateTimeNl($ride->pickup_at),
-                'passengers' => 'Passagiers: '.(string) ($ride->passengers ?? 1),
-                'baggage' => 'Bagage: '.$this->baggageSummary($step, $sectionConfig),
+                'reference' => $ride->id ? __('Referentie: rit #:id', ['id' => $ride->id]) : null,
+                'customer_name' => __('Naam:').' '.($ride->customer_name ?: '—'),
+                'customer_phone' => __('Telefoon:').' '.($ride->customer_phone ?: '—'),
+                'customer_email' => __('E-mail:').' '.($ride->customer_email ?: '—'),
+                'pickup_address' => __('Ophalen:').' '.RidePlaceName::formatPickup($ride),
+                'dropoff_address' => __('Afzetten:').' '.RidePlaceName::formatDropoff($ride),
+                'pickup_at' => __('Datum/tijd:').' '.$this->formatDateTimeNl($ride->pickup_at),
+                'passengers' => __('Passagiers:').' '.(string) ($ride->passengers ?? 1),
+                'baggage' => __('Bagage:').' '.$this->baggageSummary($step, $sectionConfig),
                 'stopovers' => $stopovers !== []
-                    ? 'Tussenstops: '.implode(' -> ', $stopovers)
+                    ? __('Tussenstops:').' '.implode(' -> ', $stopovers)
                     : null,
                 'return_trip' => ! empty($step['return_trip'])
-                    ? 'Retour: '.(($context['return_at'] ?? null)
-                        ? 'Ja ('.$this->formatDateTimeString((string) $context['return_at']).')'
-                        : 'Ja')
+                    ? __('Retour:').' '.(($context['return_at'] ?? null)
+                        ? __('Ja').' ('.$this->formatDateTimeString((string) $context['return_at']).')'
+                        : __('Ja'))
                     : null,
                 'offer' => (! empty($selected['title']) || array_key_exists('price', $selected))
-                    ? 'Aanbieding/voertuig: '.((string) ($selected['title'] ?? '—'))
+                    ? __('Aanbieding/voertuig:').' '.((string) ($selected['title'] ?? '—'))
                     : null,
                 'price' => (isset($selected['price']) && is_numeric($selected['price']))
-                    ? 'Prijsindicatie: € '.number_format((float) $selected['price'], 2, ',', '.')
+                    ? __('Prijsindicatie:').' € '.number_format((float) $selected['price'], 2, ',', '.')
                     : null,
                 'remarks' => (($remarks = trim((string) ($ride->customer_note ?? ($step['remarks'] ?? '')))) !== '')
-                    ? 'Opmerking: '.$remarks
+                    ? __('Opmerking:').' '.$remarks
                     : null,
                 default => null,
             };
@@ -125,7 +126,7 @@ class TaxiBookingSummaryText
             }
         }
 
-        return $rows !== [] ? implode(', ', $rows) : 'Geen';
+        return $rows !== [] ? implode(', ', $rows) : __('Geen');
     }
 
     public function formatDateTimeNl(mixed $value): string

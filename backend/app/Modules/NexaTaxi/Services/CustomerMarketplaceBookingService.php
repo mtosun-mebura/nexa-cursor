@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\CustomerMailLocale;
 use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Support\TaxiCustomerAppSchema;
 use App\Services\ModuleDatabaseService;
@@ -184,6 +185,11 @@ class CustomerMarketplaceBookingService
         }
         if ($dropoffPlace !== null) {
             $payload['dropoff_place_name'] = $dropoffPlace;
+        }
+        $locale = CustomerMailLocale::normalize($data['locale'] ?? CustomerMailLocale::fromRequest());
+        $payload['locale'] = $locale;
+        if ($customer) {
+            CustomerMailLocale::persistForUser($customer, $locale);
         }
 
         $rideData = [

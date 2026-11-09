@@ -461,7 +461,6 @@ class AdminEmailTemplateController extends Controller
                     <tr>
                         <td style="padding: 30px; background-color: #0f172a; border-radius: 8px 8px 0 0;">
                             {{ COMPANY_LOGO }}
-                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
                             <h1 style="margin: 0; color: #ffffff; font-size: 24px;">{{ NOTIFICATION_TITLE }}</h1>
                         </td>
                     </tr>
@@ -510,7 +509,6 @@ class AdminEmailTemplateController extends Controller
                     <tr>
                         <td class="info-request-email-header" width="100%" bgcolor="#0f172a" style="padding: 24px 30px; background-color: #0f172a; border-radius: 8px 8px 0 0; width: 100%;">
                             {{ COMPANY_LOGO }}
-                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
                             <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.3;">Nieuwe informatieaanvraag</h1>
                         </td>
                     </tr>

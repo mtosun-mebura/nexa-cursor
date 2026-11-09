@@ -2,6 +2,8 @@
 
 namespace App\Modules\NexaTaxi\Support;
 
+use App\Modules\NexaTaxi\Models\RideRequest;
+
 /**
  * Bedrijfs- of locatienaam (bioscoop, stadion, winkel) los van de straatregel.
  * Een kale straat of plaatsnaam wordt niet als extra regel bewaard.
@@ -59,5 +61,32 @@ final class RidePlaceName
         $name = trim((string) ($payload[$key] ?? ''));
 
         return $name !== '' ? $name : null;
+    }
+
+    /**
+     * Eén regel voor e-mail/samenvatting: "Action — Deurningerstraat 155, Enschede".
+     */
+    public static function formatLine(mixed $placeName, mixed $address): string
+    {
+        $line = trim((string) $address);
+        $place = self::distinct($placeName, $line);
+        if ($place === null || $place === '') {
+            return $line !== '' ? $line : '—';
+        }
+        if ($line === '') {
+            return $place;
+        }
+
+        return $place.' — '.$line;
+    }
+
+    public static function formatPickup(RideRequest $ride): string
+    {
+        return self::formatLine($ride->pickupPlaceName(), $ride->pickup_address);
+    }
+
+    public static function formatDropoff(RideRequest $ride): string
+    {
+        return self::formatLine($ride->dropoffPlaceName(), $ride->dropoff_address);
     }
 }

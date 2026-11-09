@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\EmailTemplate;
 use App\Services\CompanyEmailLogoService;
 use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Mail;
 
 class EmailCardHtml
@@ -19,17 +20,14 @@ class EmailCardHtml
     ): string {
         $title = self::safeInline($pageTitle);
         $headingSafe = self::safeInline($heading);
-        $kickerHtml = '';
-        if ($headerKicker !== null && $headerKicker !== '' && ! self::isRedundantBrandKicker($headerKicker)) {
-            $kickerHtml = '<p style="margin:0 0 6px;color:#94a3b8;font-size:13px;letter-spacing:0.04em;">'
-                .self::safeInline($headerKicker)
-                .'</p>';
-        }
+        $kickerHtml = self::headerBrandKickerHtml($headerKicker, $logoHtml);
         $footer = $footerInnerHtml ?? self::poweredByFooter();
+
+        $htmlLang = in_array(App::getLocale(), ['nl', 'en'], true) ? App::getLocale() : 'nl';
 
         return <<<HTML
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="{$htmlLang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -266,6 +264,32 @@ HTML;
             });
     }
 
+    /**
+     * Any content in the logo slot (img, placeholder, or name fallback) is the brand mark.
+     * Company-name kicker is only used when the logo slot is empty.
+     */
+    public static function logoImpliesBrandMark(?string $logoHtml): bool
+    {
+        return trim((string) $logoHtml) !== '';
+    }
+
+    /**
+     * Company name under the logo only when there is no logo; then larger/clearer as brand stand-in.
+     */
+    public static function headerBrandKickerHtml(?string $headerKicker, ?string $logoHtml = null): string
+    {
+        if ($headerKicker === null || trim($headerKicker) === '' || self::isRedundantBrandKicker($headerKicker)) {
+            return '';
+        }
+        if (self::logoImpliesBrandMark($logoHtml)) {
+            return '';
+        }
+
+        return '<p style="margin:0 0 10px;color:#ffffff;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
+            .self::safeInline($headerKicker)
+            .'</p>';
+    }
+
     public static function isRedundantBrandKicker(string $kicker): bool
     {
         $normalized = mb_strtolower(trim(html_entity_decode(strip_tags($kicker), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
@@ -275,12 +299,58 @@ HTML;
 
     public static function stripRedundantBrandKickerHtml(string $html): string
     {
-        if ($html === '' || ! str_contains($html, 'NEXA')) {
+        if ($html === '') {
             return $html;
         }
 
+        if (str_contains($html, 'NEXA')) {
+            $html = preg_replace(
+                '/<p\b[^>]*>\s*NEXA(?:\s+Suite)?\s*<\/p>/i',
+                '',
+                $html
+            ) ?? $html;
+        }
+
+        // Logo slot filled (img, CID, placeholder, or {{ COMPANY_LOGO }}) → drop legacy grey kickers.
+        if (self::htmlHasLogoBrandMark($html)) {
+            $html = self::stripCompanyNameKickers($html);
+        }
+
+        return $html;
+    }
+
+    /**
+     * True when the HTML already has (or will have) a logo brand mark in the header.
+     */
+    public static function htmlHasLogoBrandMark(string $html): bool
+    {
+        if ($html === '') {
+            return false;
+        }
+
+        if (str_contains($html, CompanyEmailLogoService::HTML_PLACEHOLDER)) {
+            return true;
+        }
+
+        if (preg_match('/\{\{\s*COMPANY_LOGO\s*\}\}|\{\{\s*NEXA_LOGO\s*\}\}/i', $html) === 1) {
+            return true;
+        }
+
+        if (preg_match('/src=(["\'])cid:/i', $html) === 1) {
+            return true;
+        }
+
+        return preg_match('/<img\b[^>]*>/i', $html) === 1;
+    }
+
+    /**
+     * Remove legacy small/grey brand kickers (company name under logo).
+     * Only the header kicker pattern (#94a3b8 + 13px, plain text) — not muted body/footer copy.
+     */
+    public static function stripCompanyNameKickers(string $html): string
+    {
         return preg_replace(
-            '/<p\b[^>]*>\s*NEXA(?:\s+Suite)?\s*<\/p>/i',
+            '/<p\b[^>]*style="(?=[^"]*color:\s*#94a3b8)(?=[^"]*font-size:\s*13px)[^"]*"[^>]*>\s*[^<]*?\s*<\/p>/is',
             '',
             $html
         ) ?? $html;

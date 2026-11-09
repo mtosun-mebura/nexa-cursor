@@ -134,8 +134,8 @@ class TaxiCustomerRideAcceptedNotificationService
             'VEHICLE_LABEL' => $vehicleLabel,
             'LICENSE_PLATE' => $licensePlate,
             'PICKUP_AT' => $pickupAt,
-            'PICKUP_ADDRESS' => (string) ($ride->pickup_address ?: '—'),
-            'DROPOFF_ADDRESS' => (string) ($ride->dropoff_address ?: '—'),
+            'PICKUP_ADDRESS' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+            'DROPOFF_ADDRESS' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
             'RIDE_ID' => (string) $ride->id,
             'COMPANY_NAME' => $companyName,
             'COMPANY_NAME_HTML' => $companyNameHtml,
@@ -271,9 +271,7 @@ class TaxiCustomerRideAcceptedNotificationService
             return;
         }
 
-        $template = app(TaxiCustomerAcceptEmailTemplateService::class)
-            ->resolveActiveTemplate($companyId > 0 ? $companyId : null);
-
+        $locale = \App\Modules\NexaTaxi\Support\CustomerMailLocale::forRide($ride);
         $vars = array_merge(
             $variables,
             $this->companyLogos->templateVariable(
@@ -282,25 +280,68 @@ class TaxiCustomerRideAcceptedNotificationService
             )
         );
 
-        if ($template) {
-            $subject = $this->emailTemplates->parseTemplateVariables($template->subject, $vars);
-            $htmlContent = EmailCardHtml::ensurePoweredByLink(
-                $this->emailTemplates->parseTemplateVariables($template->html_content, $vars)
-            );
-            $textContent = $template->text_content
-                ? $this->emailTemplates->parseTemplateVariables($template->text_content, $vars)
-                : strip_tags($htmlContent);
-            $textContent = trim(preg_replace("/\n{3,}/", "\n\n", str_replace("\n\n\n", "\n\n", $textContent)) ?? $textContent);
-        } else {
-            $subject = 'Uw taxirit is geaccepteerd – '.$variables['COMPANY_NAME'];
-            $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
-                .'<p>Uw taxirit is geaccepteerd door <strong>'.e($variables['DRIVER_NAME']).'</strong>.</p>'
-                .'<p><strong>Ophaalmoment:</strong> '.e($variables['PICKUP_AT']).'<br>'
-                .'<strong>Ophalen:</strong> '.e($variables['PICKUP_ADDRESS']).'<br>'
-                .'<strong>Afzetten:</strong> '.e($variables['DROPOFF_ADDRESS']).'</p>'
-                .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
-            $textContent = $this->renderPlainMessage($companyId, $variables);
-        }
+        [$subject, $htmlContent, $textContent] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith(
+            $locale,
+            function () use ($companyId, $vars, $variables, $locale) {
+                $template = app(TaxiCustomerAcceptEmailTemplateService::class)
+                    ->resolveActiveTemplate($companyId > 0 ? $companyId : null);
+
+                if ($locale === 'en') {
+                    $subject = __('Uw taxirit is geaccepteerd – :company', ['company' => $variables['COMPANY_NAME'] ?? '']);
+                    $companyNameHtml = $variables['COMPANY_NAME_HTML'] ?? e($variables['COMPANY_NAME'] ?? __('ons'));
+                    $footer = '<p style="margin:20px 0 0;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">'
+                        .e(__('Vragen? Neem contact op met')).' '.$companyNameHtml.'.'
+                        .'</p>'.EmailCardHtml::poweredByFooter();
+                    $htmlContent = EmailCardHtml::ensurePoweredByLink(
+                        EmailCardHtml::wrap(
+                            __('Rit geaccepteerd'),
+                            __('Uw taxirit is geaccepteerd'),
+                            '<p style="margin:0 0 16px;font-size:16px;">'.e(__('Beste :name,', ['name' => $variables['CUSTOMER_NAME'] ?? __('klant')])).'</p>'
+                            .'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">'.__('Goed nieuws: uw rit is geaccepteerd door :driver.', ['driver' => '<strong>'.e($variables['DRIVER_NAME'] ?? '').'</strong>']).'</p>'
+                            .'<table role="presentation" width="100%" style="width:100%;border-collapse:separate;border-spacing:0;background-color:#e8eef5;border:1px solid #cbd5e1;border-radius:12px;margin:0 0 20px;">'
+                            .'<tr><td style="padding:16px 18px;border-radius:12px;background-color:#e8eef5;">'
+                            .'<p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>'.e(__('Ophaalmoment:')).'</strong> '.e($variables['PICKUP_AT'] ?? '—').'</p>'
+                            .'<p style="margin:0 0 8px;font-size:15px;line-height:1.6;"><strong>'.e(__('Ophalen:')).'</strong> '.e($variables['PICKUP_ADDRESS'] ?? '—').'</p>'
+                            .'<p style="margin:0;font-size:15px;line-height:1.6;"><strong>'.e(__('Afzetten:')).'</strong> '.e($variables['DROPOFF_ADDRESS'] ?? '—').'</p>'
+                            .'</td></tr></table>'
+                            .'<p style="margin:0;font-size:15px;line-height:1.6;">'.e(__('Met vriendelijke groet,')).'<br>'.e($variables['COMPANY_NAME'] ?? '').'</p>',
+                            EmailCardHtml::companyLogoMarkup(),
+                            $footer,
+                        )
+                    );
+                    $textContent = __('Beste :name,', ['name' => $variables['CUSTOMER_NAME'] ?? __('klant')])."\n\n"
+                        .__('Uw taxirit is geaccepteerd door :driver.', ['driver' => $variables['DRIVER_NAME'] ?? ''])."\n\n"
+                        .__('Ophaalmoment:').' '.($variables['PICKUP_AT'] ?? '—')."\n"
+                        .__('Ophalen:').' '.($variables['PICKUP_ADDRESS'] ?? '—')."\n"
+                        .__('Afzetten:').' '.($variables['DROPOFF_ADDRESS'] ?? '—')."\n\n"
+                        .__('Met vriendelijke groet,')."\n".($variables['COMPANY_NAME'] ?? '');
+
+                    return [$subject, $htmlContent, $textContent];
+                }
+
+                if ($template) {
+                    $subject = $this->emailTemplates->parseTemplateVariables($template->subject, $vars);
+                    $htmlContent = EmailCardHtml::ensurePoweredByLink(
+                        $this->emailTemplates->parseTemplateVariables($template->html_content, $vars)
+                    );
+                    $textContent = $template->text_content
+                        ? $this->emailTemplates->parseTemplateVariables($template->text_content, $vars)
+                        : strip_tags($htmlContent);
+                    $textContent = trim(preg_replace("/\n{3,}/", "\n\n", str_replace("\n\n\n", "\n\n", $textContent)) ?? $textContent);
+                } else {
+                    $subject = 'Uw taxirit is geaccepteerd – '.$variables['COMPANY_NAME'];
+                    $htmlContent = '<p>Beste '.e($variables['CUSTOMER_NAME']).',</p>'
+                        .'<p>Uw taxirit is geaccepteerd door <strong>'.e($variables['DRIVER_NAME']).'</strong>.</p>'
+                        .'<p><strong>Ophaalmoment:</strong> '.e($variables['PICKUP_AT']).'<br>'
+                        .'<strong>Ophalen:</strong> '.e($variables['PICKUP_ADDRESS']).'<br>'
+                        .'<strong>Afzetten:</strong> '.e($variables['DROPOFF_ADDRESS']).'</p>'
+                        .'<p>Met vriendelijke groet,<br>'.e($variables['COMPANY_NAME']).'</p>';
+                    $textContent = $this->renderPlainMessage($companyId, $variables);
+                }
+
+                return [$subject, $htmlContent, $textContent];
+            }
+        );
 
         $replyTo = trim($variables['COMPANY_EMAIL']);
 

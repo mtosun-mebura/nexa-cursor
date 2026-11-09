@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl } from '../config';
+import { getLocale } from '../i18n';
 
 export class ApiError extends Error {
   status: number;
@@ -72,6 +73,8 @@ export async function apiRequest<T>(
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
     'X-Nexa-Client': 'native',
+    'X-App-Locale': getLocale(),
+    'Accept-Language': getLocale() === 'en' ? 'en' : 'nl',
   };
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;

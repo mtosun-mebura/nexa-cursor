@@ -31,8 +31,8 @@
         <div class="meta">
             <p><strong>Rit #{{ (int) $ride->id }}</strong></p>
             <p>Datum/tijd: {{ $pickupAt }}</p>
-            <p>Ophalen: {{ $ride->pickup_address ?: '—' }}</p>
-            <p>Afzetten: {{ $ride->dropoff_address ?: '—' }}</p>
+            <p>Ophalen: {{ \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride) }}</p>
+            <p>Afzetten: {{ \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride) }}</p>
         </div>
         @if($wasPaid)
             <p class="note">Het vooraf betaalde bedrag wordt automatisch teruggestort.</p>
