@@ -229,6 +229,8 @@ export type DriverInboxData = {
   overdueScheduledRides: DriverActiveRide[];
   archivedOverdueScheduledRides: DriverActiveRide[];
   completedRides: DriverActiveRide[];
+  /** Afgeronde ritten die de chauffeur naar archief heeft gezet (server-persistent). */
+  archivedCompletedRides: DriverActiveRide[];
   cancelReasons: DriverCancelReason[];
   /** Na ophaalmoment: zo lang mag de tenant nog een nieuw tijdstip voorstellen. */
   pastPickupGraceMinutes: number;
@@ -483,6 +485,7 @@ export function fetchDriverInbox(token: string) {
       overdue_scheduled_rides?: DriverActiveRide[];
       archived_overdue_scheduled_rides?: DriverActiveRide[];
       completed_rides?: DriverActiveRide[];
+      archived_completed_rides?: DriverActiveRide[];
     };
     offers?: DispatchOffer[];
     meta?: {
@@ -515,6 +518,7 @@ export function inboxDataFromResponse(inbox: {
     overdue_scheduled_rides?: DriverActiveRide[];
     archived_overdue_scheduled_rides?: DriverActiveRide[];
     completed_rides?: DriverActiveRide[];
+    archived_completed_rides?: DriverActiveRide[];
     pickup_denied_alert?: { ride_id?: number; title?: string; message?: string } | null;
     payout_notices?: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
   };
@@ -545,6 +549,7 @@ export function inboxDataFromResponse(inbox: {
     overdueScheduledRides: asRideList(inbox?.data?.overdue_scheduled_rides),
     archivedOverdueScheduledRides: asRideList(inbox?.data?.archived_overdue_scheduled_rides),
     completedRides: asRideList(inbox?.data?.completed_rides),
+    archivedCompletedRides: asRideList(inbox?.data?.archived_completed_rides),
     cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
       ? inbox.meta.driver_cancel_reasons
       : [],
@@ -596,6 +601,38 @@ export function deleteArchivedOffers(token: string, offerIds: number[]) {
     method: 'POST',
     token,
     body: { offer_ids: ids },
+  });
+}
+
+export function archiveCompletedRide(token: string, rideId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/archive-completed`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function unarchiveCompletedRide(token: string, rideId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/archive-completed`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function deleteArchivedCompletedRides(token: string, rideIds: number[]) {
+  const ids = [...new Set(rideIds.map((id) => Number(id)).filter((id) => id > 0))].slice(0, 100);
+  return apiRequest<{
+    message?: string;
+    data?: { deleted?: number };
+  }>('/api/taxi/v1/driver/dispatch/archived-completed/delete', {
+    method: 'POST',
+    token,
+    body: { ride_ids: ids },
   });
 }
 

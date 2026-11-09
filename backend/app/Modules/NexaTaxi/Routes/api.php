@@ -184,6 +184,17 @@ Route::prefix('v1/driver')
         Route::post('dispatch/archived-offers/delete', [DriverDispatchController::class, 'deleteArchivedOffers'])
             ->middleware('throttle:taxi-driver-action');
 
+        Route::post('dispatch/rides/{ride}/archive-completed', [DriverDispatchController::class, 'archiveCompletedRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
+        Route::delete('dispatch/rides/{ride}/archive-completed', [DriverDispatchController::class, 'unarchiveCompletedRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/archived-completed/delete', [DriverDispatchController::class, 'deleteArchivedCompletedRides'])
+            ->middleware('throttle:taxi-driver-action');
+
         Route::post('dispatch/rides/{ride}/propose-pickup', [DriverDispatchController::class, 'proposePickup'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
