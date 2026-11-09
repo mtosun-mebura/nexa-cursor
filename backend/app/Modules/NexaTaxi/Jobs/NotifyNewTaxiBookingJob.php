@@ -19,7 +19,7 @@ class NotifyNewTaxiBookingJob
     use Dispatchable, SerializesModels;
 
     /**
-     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null, skip_customer_email?: bool}  $context
      */
     public function __construct(
         public int $rideRequestId,

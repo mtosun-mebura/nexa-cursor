@@ -29,7 +29,13 @@ class TaxiBookingNotificationService
     ) {}
 
     /**
-     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
+     * @param  array{
+     *     stopovers?: list<string>,
+     *     return_at?: string|null,
+     *     section_config?: array<string, mixed>,
+     *     settings_company_id?: int|null,
+     *     skip_customer_email?: bool
+     * }  $context
      */
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
@@ -55,8 +61,11 @@ class TaxiBookingNotificationService
             $settingsCompanyId = $candidateIds[0];
         }
 
+        // E-mail eerst: mag niet wachten op trage/timeoutende WhatsApp-calls.
+        if (! (bool) ($context['skip_customer_email'] ?? false)) {
+            $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+        }
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
-        $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
 
         // Marktplaats loopt via de dispatch-app. E-mail naar chauffeurs alleen bij een websiteboeking.
         $driverEmailAllowed = ! $ride->isNexaSuiteBooking();
@@ -449,6 +458,36 @@ class TaxiBookingNotificationService
                 ]);
             }
         }
+    }
+
+    /**
+     * Directe klantbevestiging (sync), los van WhatsApp/chauffeur-notificaties.
+     *
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
+     */
+    public function notifyCustomerBookingEmail(string $conn, RideRequest $ride, array $context = []): void
+    {
+        $companyId = (int) ($ride->company_id ?? 0);
+        $demo = app(\App\Services\NexaDemoAccountService::class);
+        if ($companyId > 0 && $demo->isDemoCompanyId($companyId)) {
+            return;
+        }
+
+        $candidateIds = $ride->marketplaceCandidateCompanyIds();
+        $settingsCompanyId = $this->resolveSettingsCompanyId(
+            $companyId > 0 ? $companyId : null,
+            isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
+        );
+        if (($settingsCompanyId === null || $settingsCompanyId <= 0) && $candidateIds !== []) {
+            $settingsCompanyId = $candidateIds[0];
+        }
+
+        $summary = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith(
+            'nl',
+            fn () => $this->summaryText->build($ride, $context)
+        );
+
+        $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
     }
 
     private function sendCustomerBookingEmail(
