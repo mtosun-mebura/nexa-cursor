@@ -95,7 +95,7 @@ class MarketplacePickupConfirmationService
         );
 
         $warning = match ($class['result']) {
-            'away' => 'Je staat ongeveer '.(int) $class['distance_meters'].' m van het ophaalpunt. De rit start wel (code klopte).',
+            'away' => 'Je staat ongeveer '.$this->formatApproxDistance($class['distance_meters']).' van het ophaalpunt. De rit start wel (code klopte).',
             'unknown' => 'Je locatie is niet bruikbaar. De rit start wel (code klopte).',
             default => null,
         };
@@ -142,7 +142,7 @@ class MarketplacePickupConfirmationService
         );
         $away = $class['result'] === 'away';
         $warning = $away
-            ? 'Je staat ongeveer '.(int) $class['distance_meters'].' m van de bestemming. De rit is wel afgerond. De uitbetaling gaat naar controle.'
+            ? 'Je staat ongeveer '.$this->formatApproxDistance($class['distance_meters']).' van de bestemming. De rit is wel afgerond. De uitbetaling zal worden verwerkt.'
             : null;
 
         $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
@@ -309,5 +309,24 @@ class MarketplacePickupConfirmationService
             + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
 
         return 2 * 6371000 * asin(min(1.0, sqrt($a)));
+    }
+
+    /**
+     * ≥ 1000 m → "10 km 564 m"; anders alleen meters.
+     */
+    public function formatApproxDistance(?int $meters): string
+    {
+        $meters = max(0, (int) $meters);
+        if ($meters < 1000) {
+            return $meters.' m';
+        }
+
+        $km = intdiv($meters, 1000);
+        $rest = $meters % 1000;
+        if ($rest === 0) {
+            return $km.' km';
+        }
+
+        return $km.' km '.$rest.' m';
     }
 }
