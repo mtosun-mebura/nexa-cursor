@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
 use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
 use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -565,35 +566,48 @@ class NexaTaxiBookingController extends Controller
 
         $loginCodeEmailSent = false;
         if ($pendingLoginCodeSend !== null) {
-            // Optimistic UI-tekst; verzending gebeurt na de response.
-            $loginCodeEmailSent = true;
-            $pendingLogin = $pendingLoginCodeSend;
-            dispatch(function () use ($pendingLogin) {
-                try {
-                    app(TaxiCustomerLoginCodeService::class)->issueAndSend(
-                        $pendingLogin['user'],
-                        $pendingLogin['company_id'],
-                        $pendingLogin['login_url'],
-                        null,
-                        $pendingLogin['mail_type'] ?? \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
-                    );
-                } catch (\Throwable $e) {
-                    Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt (afterResponse).', [
-                        'user_id' => $pendingLogin['user']->id ?? null,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            })->afterResponse();
+            // Direct versturen: klant moet de code meteen in de inbox hebben.
+            try {
+                app(TaxiCustomerLoginCodeService::class)->issueAndSend(
+                    $pendingLoginCodeSend['user'],
+                    $pendingLoginCodeSend['company_id'],
+                    $pendingLoginCodeSend['login_url'],
+                    null,
+                    $pendingLoginCodeSend['mail_type'] ?? \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
+                );
+                $loginCodeEmailSent = true;
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt.', [
+                    'user_id' => $pendingLoginCodeSend['user']->id ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
-        // WhatsApp + e-mails na de response (anders wacht de popup op Meta/SMTP).
+        // Klantbevestiging direct; WhatsApp/chauffeurs na de response (Meta mag de popup niet blokkeren).
         if (! $payAtBooking) {
-            NotifyNewTaxiBookingJob::dispatch((int) $ride->id, [
+            $notificationContext = [
                 'stopovers' => $stopovers,
                 'return_at' => $data['return_at'] ?? null,
                 'section_config' => $sectionConfig,
                 'settings_company_id' => $notificationCompanyId,
-            ])->afterResponse();
+            ];
+            try {
+                app(TaxiBookingNotificationService::class)->notifyCustomerBookingEmail(
+                    $conn,
+                    $ride,
+                    $notificationContext
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Klant-boekingsmail direct versturen mislukt.', [
+                    'ride_request_id' => $ride->id ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            NotifyNewTaxiBookingJob::dispatch((int) $ride->id, array_merge($notificationContext, [
+                'skip_customer_email' => true,
+            ]))->afterResponse();
         }
 
         $receivedMessage = $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.';

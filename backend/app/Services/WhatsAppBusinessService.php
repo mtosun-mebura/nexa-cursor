@@ -131,6 +131,8 @@ class WhatsAppBusinessService
 
         $response = Http::withToken($token)
             ->acceptJson()
+            ->timeout(8)
+            ->connectTimeout(5)
             ->post($url, [
                 'messaging_product' => 'whatsapp',
                 'recipient_type' => 'individual',
@@ -328,6 +330,8 @@ class WhatsAppBusinessService
 
         $response = Http::withToken($token)
             ->acceptJson()
+            ->timeout(8)
+            ->connectTimeout(5)
             ->post($url, [
                 'messaging_product' => 'whatsapp',
                 'to' => $to,
