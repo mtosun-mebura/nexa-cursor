@@ -92,6 +92,7 @@ class TaxiScopedEmailTemplateServiceTest extends TestCase
         ]);
 
         $this->mock(EnvService::class, function ($mock): void {
+            $mock->shouldReceive('forgetMailOverlayCache')->zeroOrMoreTimes();
             $mock->shouldReceive('isMailDeliverableToInbox')->andReturn(true);
             $mock->shouldReceive('applyMailConfigToRuntime');
             $mock->shouldReceive('resolveMailFromHeaders')->andReturn([

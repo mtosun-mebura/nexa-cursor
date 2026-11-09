@@ -20,6 +20,8 @@ class EmailTemplateSampleNoticeTest extends TestCase
             'mail.from.name' => 'NEXA Test',
         ]);
         $this->mock(EnvService::class, function ($mock) {
+            $mock->shouldReceive('forgetMailOverlayCache')->zeroOrMoreTimes();
+            $mock->shouldReceive('isMailDeliverableToInbox')->andReturn(true);
             $mock->shouldReceive('applyMailConfigToRuntime');
             $mock->shouldReceive('applyPlatformMailConfigToRuntime');
             $mock->shouldReceive('resolveMailFromHeaders')->andReturn([

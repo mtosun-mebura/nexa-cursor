@@ -73,7 +73,8 @@ class TaxiBookingNotificationServiceTest extends TestCase
 
         $this->mock(EnvService::class, function ($mock) use ($companyId): void {
             $mock->shouldReceive('get')->andReturn('');
-            $mock->shouldReceive('isMailDeliverableToInbox')->once()->with($companyId)->andReturn(true);
+            $mock->shouldReceive('forgetMailOverlayCache')->zeroOrMoreTimes();
+            $mock->shouldReceive('isMailDeliverableToInbox')->atLeast()->once()->with($companyId)->andReturn(true);
             $mock->shouldReceive('applyMailConfigToRuntime')->once()->with($companyId);
             $mock->shouldReceive('resolveMailFromHeaders')->once()->with($companyId)->andReturn([
                 'from_address' => 'taxi@example.test',
@@ -232,6 +233,7 @@ class TaxiBookingNotificationServiceTest extends TestCase
     {
         $this->mock(EnvService::class, function ($mock): void {
             $mock->shouldReceive('get')->andReturn('');
+            $mock->shouldReceive('forgetMailOverlayCache')->zeroOrMoreTimes();
             $mock->shouldReceive('isMailDeliverableToInbox')->andReturn(true);
             $mock->shouldReceive('applyMailConfigToRuntime')->andReturnNull();
             $mock->shouldReceive('applyPlatformMailConfigToRuntime')->andReturnNull();
