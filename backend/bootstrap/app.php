@@ -54,6 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->api(prepend: [
             \App\Http\Middleware\AppendBearerTokenFromQuery::class,
+            \App\Http\Middleware\CaptureAppLocale::class,
         ]);
 
         $middleware->web(prepend: [

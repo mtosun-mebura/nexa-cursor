@@ -68,8 +68,26 @@ class EmailBrandingLayoutTest extends TestCase
 
         $this->assertStringContainsString('#0f172a', $customer);
         $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $customer);
-        $this->assertStringContainsString('Taxi Tosun', $customer);
+        $this->assertStringContainsString('Taxi Tosun', $customer); // footer contact line
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $customer); // no header kicker under logo
+        $this->assertStringNotContainsString('#94a3b8', $customer);
         $this->assertStringNotContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $customer);
+
+        $cancelled = view('emails.taxi-ride-cancelled-customer', [
+            'customer_name' => 'Jan',
+            'ride_id' => 311,
+            'pickup_at' => '09-11-2026 13:45',
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'company_name' => 'Taxi Tosun',
+            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+            'intro_text' => 'Uw rit is geannuleerd zoals u heeft aangevraagd.',
+            'refund_message' => null,
+        ])->render();
+
+        $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $cancelled);
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $cancelled);
+        $this->assertStringNotContainsString('#94a3b8', $cancelled);
 
         $driver = view('emails.taxi-ride-request-driver', [
             'driver_name' => 'Piet',
@@ -88,7 +106,8 @@ class EmailBrandingLayoutTest extends TestCase
 
         $this->assertStringContainsString('#0f172a', $driver);
         $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $driver);
-        $this->assertStringContainsString('Taxi Tosun', $driver);
+        // Logo slot filled → company name is not repeated as a header kicker.
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $driver);
     }
 
     #[Test]
@@ -117,12 +136,21 @@ class EmailBrandingLayoutTest extends TestCase
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $platform);
         $this->assertStringNotContainsString('NEXA Suite</p>', $platform);
 
-        $tenant = view('emails.contact-acknowledgement', [
+        $tenantWithLogo = view('emails.contact-acknowledgement', [
             'greetingName' => 'Jan',
             'companyName' => 'Taxi Tosun',
             'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
         ])->render();
-        $this->assertStringContainsString('Taxi Tosun</p>', $tenant);
+        // Logo slot filled → company name kicker omitted (logo is the brand mark).
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $tenantWithLogo);
+
+        $tenantWithoutLogo = view('emails.contact-acknowledgement', [
+            'greetingName' => 'Jan',
+            'companyName' => 'Taxi Tosun',
+            'logoHtml' => '',
+        ])->render();
+        $this->assertStringContainsString('Taxi Tosun</p>', $tenantWithoutLogo);
+        $this->assertStringContainsString('font-size:22px', $tenantWithoutLogo);
     }
 
     #[Test]
@@ -204,7 +232,7 @@ class EmailBrandingLayoutTest extends TestCase
     }
 
     #[Test]
-    public function nexa_kicker_is_omitted_but_tenant_kicker_is_kept(): void
+    public function company_kicker_only_when_logo_slot_is_empty(): void
     {
         $nexa = EmailCardHtml::wrap(
             'Onderwerp',
@@ -216,7 +244,7 @@ class EmailBrandingLayoutTest extends TestCase
         );
         $this->assertStringNotContainsString('NEXA Suite</p>', $nexa);
 
-        $tenant = EmailCardHtml::wrap(
+        $withLogo = EmailCardHtml::wrap(
             'Onderwerp',
             'Kop',
             '<p>Inhoud</p>',
@@ -224,6 +252,17 @@ class EmailBrandingLayoutTest extends TestCase
             EmailCardHtml::poweredByFooter(),
             'Taxi Tosun',
         );
-        $this->assertStringContainsString('Taxi Tosun</p>', $tenant);
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $withLogo);
+
+        $withoutLogo = EmailCardHtml::wrap(
+            'Onderwerp',
+            'Kop',
+            '<p>Inhoud</p>',
+            '',
+            EmailCardHtml::poweredByFooter(),
+            'Taxi Tosun',
+        );
+        $this->assertStringContainsString('Taxi Tosun</p>', $withoutLogo);
+        $this->assertStringContainsString('font-size:22px', $withoutLogo);
     }
 }

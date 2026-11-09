@@ -12,6 +12,7 @@ use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\CompanyEntitlementService;
@@ -228,6 +229,8 @@ class NexaTaxiBookingController extends Controller
             'return_trip' => 'nullable|boolean',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
+            'pickup_place_name' => 'nullable|string|max:160',
+            'dropoff_place_name' => 'nullable|string|max:160',
             'pickup_at' => 'required|date',
             'pickup_lat' => 'nullable|numeric',
             'pickup_lng' => 'nullable|numeric',
@@ -466,6 +469,14 @@ class NexaTaxiBookingController extends Controller
             ],
             'pricing' => $quotes,
         ];
+        $pickupPlace = RidePlaceName::distinct($data['pickup_place_name'] ?? null, $data['pickup_address'] ?? '');
+        $dropoffPlace = RidePlaceName::distinct($data['dropoff_place_name'] ?? null, $data['dropoff_address'] ?? '');
+        if ($pickupPlace !== null) {
+            $payload['pickup_place_name'] = $pickupPlace;
+        }
+        if ($dropoffPlace !== null) {
+            $payload['dropoff_place_name'] = $dropoffPlace;
+        }
         if (! empty($resolved['marketplace'])) {
             $payload['channel'] = RideRequest::SOURCE_NEXA_SUITE;
             $payload['marketplace'] = $resolved['marketplace'];

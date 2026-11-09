@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\TaxiBookingSummaryText;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 
 class WhatsAppBookingMessageComposer
 {
@@ -306,8 +307,8 @@ TXT;
     ): array {
         $selected = is_array($ride->selected_offer_payload) ? $ride->selected_offer_payload : [];
         $phone = trim((string) ($ride->customer_phone ?? ''));
-        $pickup = trim((string) ($ride->pickup_address ?? ''));
-        $dropoff = trim((string) ($ride->dropoff_address ?? ''));
+        $pickup = RidePlaceName::formatPickup($ride);
+        $dropoff = RidePlaceName::formatDropoff($ride);
         $pickupAt = $this->summaryText->formatDateTimeNl($ride->pickup_at);
         $offer = trim((string) ($selected['title'] ?? ''));
         $price = (isset($selected['price']) && is_numeric($selected['price']))
@@ -383,7 +384,7 @@ TXT;
         $pickupAt = $ride->pickup_at
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
-        $pickupAddress = trim((string) ($ride->pickup_address ?: '—'));
+        $pickupAddress = RidePlaceName::formatPickup($ride);
         if ($pickupAddress === '') {
             $pickupAddress = '—';
         }
@@ -519,7 +520,7 @@ TXT;
         $pickupAt = $ride->pickup_at
             ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
             : '—';
-        $pickupAddress = trim((string) ($ride->pickup_address ?: '—'));
+        $pickupAddress = RidePlaceName::formatPickup($ride);
         if ($pickupAddress === '') {
             $pickupAddress = '—';
         }
@@ -777,8 +778,8 @@ TXT;
             $companyPhone,
             $format($ride->pickup_at),
             $format($ride->pickup_proposal_at),
-            (string) ($ride->pickup_address ?: '—'),
-            (string) ($ride->dropoff_address ?: '—'),
+            RidePlaceName::formatPickup($ride),
+            RidePlaceName::formatDropoff($ride),
             $driverName,
             $this->resolveStatusLicensePlate($ride, []),
         ];

@@ -41,7 +41,11 @@ class TaxiBookingNotificationService
 
             return;
         }
-        $summary = $this->summaryText->build($ride, $context);
+        // Bedrijf/chauffeur blijven NL; klantmail bouwt de samenvatting opnieuw in de app-taal.
+        $summary = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith(
+            'nl',
+            fn () => $this->summaryText->build($ride, $context)
+        );
 
         $settingsCompanyId = $this->resolveSettingsCompanyId(
             $companyId > 0 ? $companyId : null,
@@ -384,8 +388,8 @@ class TaxiBookingNotificationService
                     'driver_name' => $driverName,
                     'ride_id' => $ride->id,
                     'pickup_at' => $pickupAt,
-                    'pickup_address' => $ride->pickup_address,
-                    'dropoff_address' => $ride->dropoff_address,
+                    'pickup_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+                    'dropoff_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
                     'customer_name' => $ride->customer_name,
                     'customer_phone' => $ride->customer_phone,
                     'customer_email' => $ride->customer_email,
@@ -486,32 +490,37 @@ class TaxiBookingNotificationService
             return;
         }
 
-        $subject = 'Bevestiging van uw taxiboeking #'.$ride->id;
-        $pickupAt = $ride->pickup_at
-            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
-            : '—';
+        $locale = \App\Modules\NexaTaxi\Support\CustomerMailLocale::forRide($ride);
         $customerName = trim((string) ($ride->customer_name ?: ''));
         $brand = $this->companyBrand($settingsCompanyId);
         $cancelUrl = app(TaxiRideCancellationService::class)->customerCancelUrl($ride);
 
-        $html = view('emails.taxi-ride-booking-customer', [
-            'customer_name' => $customerName,
-            'ride_id' => $ride->id,
-            'pickup_at' => $pickupAt,
-            'pickup_address' => $ride->pickup_address,
-            'dropoff_address' => $ride->dropoff_address,
-            'quoted_price' => $ride->quoted_price,
-            'summary_text' => $summary,
-            'company_name' => $brand['name'],
-            'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($settingsCompanyId),
-            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
-            'cancel_url' => $cancelUrl,
-            'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
-            'portal_login_url' => route('login', [
-                'code_login' => 1,
-                'intended' => route('taxi.portal.dashboard'),
-            ]),
-        ])->render();
+        [$subject, $html] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith($locale, function () use ($ride, $settingsCompanyId, $customerName, $brand, $cancelUrl) {
+            $pickupAt = $ride->pickup_at
+                ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+                : '—';
+            $subject = __('Bevestiging van uw taxiboeking #:id', ['id' => $ride->id]);
+            $html = view('emails.taxi-ride-booking-customer', [
+                'customer_name' => $customerName,
+                'ride_id' => $ride->id,
+                'pickup_at' => $pickupAt,
+                'pickup_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+                'dropoff_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
+                'quoted_price' => $ride->quoted_price,
+                'summary_text' => $this->summaryText->build($ride),
+                'company_name' => $brand['name'],
+                'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($settingsCompanyId),
+                'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+                'cancel_url' => $cancelUrl,
+                'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
+                'portal_login_url' => route('login', [
+                    'code_login' => 1,
+                    'intended' => route('taxi.portal.dashboard'),
+                ]),
+            ])->render();
+
+            return [$subject, $html];
+        });
 
         $payload = [
             'company_id' => $settingsCompanyId,

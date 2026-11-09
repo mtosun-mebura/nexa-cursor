@@ -1,5 +1,6 @@
 import { apiRequest } from './client';
 import { resolveApiBaseUrl } from '../config';
+import { getLocale } from '../i18n';
 
 export type QuoteOffer = {
   id: string;
@@ -166,6 +167,7 @@ export type BookPayload = {
   marketplace_radius_km?: number;
   baggage?: Record<string, number>;
   special_baggage?: Record<string, number>;
+  locale?: 'nl' | 'en';
 };
 
 const MARKETPLACE_SECTION = 'component:taxi.algemene_boekingsmodule';
@@ -221,7 +223,10 @@ export async function fetchNearbyTaxis(input: {
 export function bookGuest(body: BookPayload) {
   return apiRequest<BookResponse>('/api/taxi/v1/customer/book/guest', {
     method: 'POST',
-    body,
+    body: {
+      ...body,
+      locale: body.locale ?? getLocale(),
+    },
   });
 }
 

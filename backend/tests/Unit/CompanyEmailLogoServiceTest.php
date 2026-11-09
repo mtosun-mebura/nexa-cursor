@@ -93,6 +93,33 @@ class CompanyEmailLogoServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_strips_legacy_grey_company_kicker_after_logo_embed(): void
+    {
+        Storage::fake('public');
+        $company = Company::query()->create(['name' => 'Taxi Tosun']);
+        Storage::disk('public')->put('settings/co.png', self::TINY_PNG);
+        GeneralSetting::set('logo', 'settings/co.png', $company->id);
+
+        // Stored/resend HTML still has the old grey kicker under the logo placeholder.
+        $html = '<td bgcolor="#0f172a">'
+            .CompanyEmailLogoService::HTML_PLACEHOLDER
+            .'<p style="margin:0 0 6px;color:#94a3b8;font-size:13px;letter-spacing:0.04em;">Taxi Tosun</p>'
+            .'<h1>Bevestiging taxiboeking #311</h1>'
+            .'</td>';
+
+        $message = $this->createMock(Message::class);
+        $message->expects($this->once())
+            ->method('embedData')
+            ->willReturn('cid:test-logo');
+
+        $result = app(CompanyEmailLogoService::class)->embedInHtml($html, $message, $company->id, 'Taxi Tosun');
+
+        $this->assertStringContainsString('src="cid:test-logo"', $result);
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $result);
+        $this->assertStringNotContainsString('#94a3b8', $result);
+    }
+
+    #[Test]
     public function it_falls_back_to_company_name_when_no_logo(): void
     {
         Storage::fake('public');
@@ -100,7 +127,8 @@ class CompanyEmailLogoServiceTest extends TestCase
 
         $vars = app(CompanyEmailLogoService::class)->templateVariable($company->id, 'Zonder Logo BV');
 
-        $this->assertStringContainsString('<strong>Zonder Logo BV</strong>', $vars['COMPANY_LOGO']);
+        $this->assertStringContainsString('Zonder Logo BV', $vars['COMPANY_LOGO']);
+        $this->assertStringContainsString('font-size:22px', $vars['COMPANY_LOGO']);
     }
 
     #[Test]

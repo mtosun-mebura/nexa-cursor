@@ -428,6 +428,7 @@ class User extends Authenticatable
         'agenda_color',
         'pwa_accent',
         'ride_alert_tone',
+        'preferred_locale',
     ];
 
     /**

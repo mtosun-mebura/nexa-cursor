@@ -679,12 +679,16 @@
         { minutes: 60, label: 'Over 1 uur' },
     ];
 
-    /** Zelfde afronding als native defaultPickupDate: volgende 5 minuten. */
+    /**
+     * Zelfde als native defaultPickupDate: huidige klok omhoog naar 5-minutenraster,
+     * daarna exact minutesFromNow erbij (bijv. 09:55 + 10 → 10:05).
+     */
     function presetDate(minutesFromNow) {
-        const d = new Date(Date.now() + minutesFromNow * 60 * 1000);
+        const d = new Date();
         d.setSeconds(0, 0);
         const rem = d.getMinutes() % 5;
         if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
+        d.setMinutes(d.getMinutes() + minutesFromNow);
         return d;
     }
 
@@ -707,6 +711,24 @@
 
     function defaultPickupAt() {
         return toLocalInputValue(presetDate(10));
+    }
+
+    /** Houdt dichtstbijzijnde boekbare ophaaltijd bij; latere handmatige keuzes blijven staan. */
+    function followNearestPickupAt(currentValue) {
+        const next = presetDate(10);
+        const current = parseLocalInputValue(currentValue || '');
+        if (!(current instanceof Date) || Number.isNaN(current.getTime()) || current.getTime() <= next.getTime()) {
+            return toLocalInputValue(next);
+        }
+        return toLocalInputValue(current);
+    }
+
+    function bumpPickupAtToNearest() {
+        const input = el('pickup-at');
+        if (!input) return;
+        const next = followNearestPickupAt(input.value);
+        if (input.value === next) return;
+        setPickupAtValue(next, { silent: true });
     }
 
     function toLocalInputValue(date) {
@@ -773,10 +795,17 @@
         const startSelected = new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const dayDiff = Math.round((startSelected - startToday) / 86400000);
         const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-        if (dayDiff === 0) return 'Vandaag ' + time;
-        if (dayDiff === 1) return 'Morgen ' + time;
-        const day = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
-        return day + ' ' + time;
+        let absolute;
+        if (dayDiff === 0) absolute = 'Vandaag ' + time;
+        else if (dayDiff === 1) absolute = 'Morgen ' + time;
+        else {
+            absolute = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + time;
+        }
+        const mins = Math.round((d.getTime() - now.getTime()) / 60000);
+        if (mins >= 0 && mins <= 120) {
+            return 'Over ' + mins + ' min · ' + absolute;
+        }
+        return absolute;
     }
 
     function setPickupAtValue(value, options) {
@@ -2035,6 +2064,7 @@
             label: label,
             address: label,
             place_id: (item && item.place_id) || '',
+            place_name: main || '',
             types: types,
             is_station: station,
             lat: null,
@@ -2507,7 +2537,8 @@
                 input.value = address;
                 syncAddressClearButton(inputId);
             }
-            onPicked({ lat: coords.lat, lng: coords.lng, address: address });
+            const placeName = String((item && (item.place_name || item.placeName || item.name)) || '').trim() || null;
+            onPicked({ lat: coords.lat, lng: coords.lng, address: address, placeName: placeName });
         }
 
         async function runSearch() {
@@ -2964,6 +2995,8 @@
             passengers: parseInt(el('passengers').value, 10) || 1,
             pickup_address: state.pickup.address,
             dropoff_address: state.dropoff.address,
+            pickup_place_name: state.pickup.placeName || null,
+            dropoff_place_name: state.dropoff.placeName || null,
             pickup_lat: state.pickup.lat,
             pickup_lng: state.pickup.lng,
             dropoff_lat: state.dropoff.lat,
@@ -5320,6 +5353,10 @@
     bindKeyboardTabbarVisibility();
     bindPhotoPreview();
     setPickupAtValue(defaultPickupAt(), { silent: true });
+    setInterval(bumpPickupAtToNearest, 30000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') bumpPickupAtToNearest();
+    });
     // Prefetch Maps SDK early.
     loadGoogleMapsSdk().catch(function () {});
 

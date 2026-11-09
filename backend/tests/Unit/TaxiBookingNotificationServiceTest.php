@@ -181,7 +181,19 @@ class TaxiBookingNotificationServiceTest extends TestCase
     #[Test]
     public function marketplace_cancellation_still_emails_the_customer_about_the_refund(): void
     {
-        $this->mockDeliverableMail();
+        $companyId = 42;
+        $this->mock(EnvService::class, function ($mock) use ($companyId): void {
+            $mock->shouldReceive('get')->andReturn('');
+            $mock->shouldReceive('forgetMailOverlayCache')->zeroOrMoreTimes();
+            $mock->shouldReceive('isMailDeliverableToInbox')->atLeast()->once()->with($companyId)->andReturn(true);
+            $mock->shouldReceive('applyMailConfigToRuntime')->once()->with($companyId);
+            $mock->shouldReceive('applyPlatformMailConfigToRuntime')->never();
+            $mock->shouldReceive('resolveMailFromHeaders')->once()->with($companyId)->andReturn([
+                'from_address' => 'taxi@example.test',
+                'from_name' => 'Taxi BV',
+                'smtp_username' => '',
+            ]);
+        });
 
         $ride = $this->makeRide([
             'company_id' => null,
@@ -192,7 +204,8 @@ class TaxiBookingNotificationServiceTest extends TestCase
                 'marketplace' => [
                     'source' => RideRequest::SOURCE_NEXA_SUITE,
                     'channel' => 'customer_app',
-                    'candidate_company_ids' => [42],
+                    'settings_company_id' => $companyId,
+                    'candidate_company_ids' => [$companyId],
                 ],
             ],
         ]);
@@ -209,6 +222,8 @@ class TaxiBookingNotificationServiceTest extends TestCase
         $this->assertStringContainsString('geannuleerd', $mails[0]['subject']);
         $this->assertStringContainsString('teruggestort', $mails[0]['html']);
         $this->assertStringNotContainsString('chauffeur@example.test', $mails[0]['html']);
+        // Logo-slot gevuld → geen grijze bedrijfsnaam-kicker onder het logo.
+        $this->assertStringNotContainsString('#94a3b8', $mails[0]['html']);
     }
 
     /**

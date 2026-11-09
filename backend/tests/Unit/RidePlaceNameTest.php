@@ -41,4 +41,25 @@ class RidePlaceNameTest extends TestCase
         $this->assertNull(RidePlaceName::fromPayload(['pickup_place_name' => 'Pathé Enschede'], 'dropoff'));
         $this->assertNull(RidePlaceName::fromPayload(null, 'pickup'));
     }
+
+    #[Test]
+    public function format_line_prefixes_business_name_when_distinct(): void
+    {
+        $this->assertSame(
+            'Action — Deurningerstraat 155, Enschede',
+            RidePlaceName::formatLine('Action', 'Deurningerstraat 155, Enschede')
+        );
+        $this->assertSame(
+            'Coolblue — Schuttersveld 1F',
+            RidePlaceName::formatLine('Coolblue', 'Schuttersveld 1F')
+        );
+        $this->assertSame(
+            'Deurningerstraat 155, Enschede',
+            RidePlaceName::formatLine(null, 'Deurningerstraat 155, Enschede')
+        );
+        $this->assertSame(
+            'Deurningerstraat 155, Enschede',
+            RidePlaceName::formatLine('Deurningerstraat 155', 'Deurningerstraat 155, Enschede')
+        );
+    }
 }

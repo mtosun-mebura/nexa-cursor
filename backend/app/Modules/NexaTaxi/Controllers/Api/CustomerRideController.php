@@ -84,6 +84,7 @@ class CustomerRideController extends Controller
             'return_trip' => 'nullable|boolean',
             'marketplace_radius_km' => 'nullable|numeric|min:1|max:100',
             'return_url' => 'nullable|string|max:2000',
+            'locale' => 'nullable|string|in:nl,en',
         ]);
 
         $user = $request->user();
@@ -100,6 +101,10 @@ class CustomerRideController extends Controller
             if (trim((string) ($data['last_name'] ?? '')) === '' && $user->last_name) {
                 $data['last_name'] = $user->last_name;
             }
+        }
+
+        if (empty($data['locale'])) {
+            $data['locale'] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::fromRequest($request);
         }
 
         try {

@@ -748,7 +748,15 @@ class TaxiRideCancellationService
         $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
         $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
 
-        return (int) ($marketplace['settings_company_id'] ?? $marketplace['company_id'] ?? 0);
+        $fromMarketplace = (int) ($marketplace['settings_company_id'] ?? $marketplace['company_id'] ?? 0);
+        if ($fromMarketplace > 0) {
+            return $fromMarketplace;
+        }
+
+        // Zelfde fallback als boekingsbevestiging: branding/logo van eerste marktplaats-kandidaat.
+        $candidates = $ride->marketplaceCandidateCompanyIds();
+
+        return $candidates[0] ?? 0;
     }
 
     private function isUnacceptedOpenBooking(RideRequest $ride): bool
