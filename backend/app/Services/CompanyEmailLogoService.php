@@ -255,7 +255,9 @@ class CompanyEmailLogoService
             }
         }
 
-        if (EmailCardHtml::htmlHasLogoBrandMark($html) || trim(strip_tags($logoHtml)) !== '') {
+        // Only strip text kickers when an image logo is present. The name fallback uses the
+        // same 22px slate style and must remain when there is no logo file.
+        if (str_contains($logoHtml, '<img')) {
             $html = EmailCardHtml::stripCompanyNameKickers($html);
         }
 
