@@ -662,6 +662,7 @@ export function DriverHomeScreen() {
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
   const [pinFormError, setPinFormError] = useState<string | null>(null);
+  const pickupPinInputRef = useRef<TextInput>(null);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
   const [pinBusy, setPinBusy] = useState(false);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
@@ -4794,20 +4795,45 @@ export function DriverHomeScreen() {
       >
         <Text style={styles.pickerTitle}>{t("Ophaalcode")}</Text>
         <Text style={styles.noticeBody}>{t("Vraag de 4-cijferige code aan de klant en vul die hier in. Pas daarna start de rit.")}</Text>
-        <TextInput
-          value={pickupPin}
-          onChangeText={(v) => {
-            setPickupPin(v.replace(/\D/g, '').slice(0, 4));
-            if (pinFormError) setPinFormError(null);
-          }}
-          keyboardType="number-pad"
-          maxLength={4}
-          placeholder="••••"
-          placeholderTextColor={colors.muted}
-          style={styles.pinInput}
-          editable={!pinBusy}
-          autoFocus
-        />
+        <Pressable
+          style={styles.pinSlotsWrap}
+          disabled={pinBusy}
+          onPress={() => pickupPinInputRef.current?.focus()}
+          accessibilityRole="button"
+          accessibilityLabel={t("Ophaalcode")}
+        >
+          <View style={styles.pinSlots} pointerEvents="none">
+            {[0, 1, 2, 3].map((index) => {
+              const digit = pickupPin[index] ?? '';
+              const active = pickupPin.length === index;
+              return (
+                <View
+                  key={index}
+                  style={[styles.pinSlot, active ? styles.pinSlotActive : null]}
+                >
+                  <Text style={digit ? styles.pinSlotDigit : styles.pinSlotDot}>
+                    {digit || '•'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          <TextInput
+            ref={pickupPinInputRef}
+            value={pickupPin}
+            onChangeText={(v) => {
+              setPickupPin(v.replace(/\D/g, '').slice(0, 4));
+              if (pinFormError) setPinFormError(null);
+            }}
+            keyboardType="number-pad"
+            maxLength={4}
+            editable={!pinBusy}
+            autoFocus
+            caretHidden
+            style={styles.pinInputHidden}
+            accessibilityLabel={t("Ophaalcode")}
+          />
+        </Pressable>
         {pinFormError ? <Text style={[styles.noticeBody, { color: colors.danger }]}>{pinFormError}</Text> : null}
         <View style={styles.cancelActions}>
           <Pressable
@@ -5345,18 +5371,52 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       lineHeight: 23,
       marginBottom: 16,
     },
-    pinInput: {
+    pinSlotsWrap: {
+      position: 'relative',
+      marginBottom: 10,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 12,
       backgroundColor: colors.inputBg,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      overflow: 'hidden',
+    },
+    pinSlots: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 12,
+      minHeight: 44,
+    },
+    pinSlot: {
+      width: 40,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: hexAlpha(accentHex, 0.28),
+    },
+    pinSlotActive: {
+      borderBottomColor: accentHex,
+    },
+    pinSlotDigit: {
       color: colors.text,
       fontSize: 28,
       fontWeight: '700',
-      letterSpacing: 10,
-      textAlign: 'center',
-      paddingVertical: 14,
-      marginBottom: 10,
+      lineHeight: 34,
+    },
+    pinSlotDot: {
+      color: colors.muted,
+      fontSize: 28,
+      fontWeight: '700',
+      lineHeight: 34,
+    },
+    pinInputHidden: {
+      ...StyleSheet.absoluteFillObject,
+      opacity: 0.02,
+      color: 'transparent',
+      backgroundColor: 'transparent',
     },
     pickerItem: {
       flexDirection: 'row',
