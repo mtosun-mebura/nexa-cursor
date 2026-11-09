@@ -376,15 +376,23 @@ function openMapsForRide(ride: DriverActiveRide, dest: 'pickup' | 'dropoff' = 'p
 async function openPickupMapsAndNotify(
   token: string | null | undefined,
   ride: DriverActiveRide
-) {
+): Promise<DriverActiveRide | null> {
+  let updated: DriverActiveRide | null = null;
   if (token && ride?.id) {
     try {
-      await markRideEnRoute(token, ride.id);
+      const res = await markRideEnRoute(token, ride.id);
+      const next = res?.data?.ride;
+      if (next && Number(next.id) > 0) {
+        updated = { ...ride, ...next, en_route_to_pickup: true };
+      } else {
+        updated = { ...ride, en_route_to_pickup: true };
+      }
     } catch {
       /* navigatie toch openen */
     }
   }
   openMapsForRide(ride, 'pickup');
+  return updated;
 }
 
 function resolveMediaUrl(url?: string | null): string | null {
@@ -2714,7 +2722,11 @@ export function DriverHomeScreen() {
                     highlighted={focusRideId === ride.id}
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
+                    onOpenMaps={() =>
+                      void openPickupMapsAndNotify(driverToken, ride).then((next) => {
+                        if (next) patchTripRide(next);
+                      })
+                    }
                     onCancel={
                       ride.can_cancel_with_reason
                         ? () => {
@@ -2740,7 +2752,11 @@ export function DriverHomeScreen() {
                     highlighted={focusRideId === ride.id}
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
+                    onOpenMaps={() =>
+                      void openPickupMapsAndNotify(driverToken, ride).then((next) => {
+                        if (next) patchTripRide(next);
+                      })
+                    }
                     onProposePickup={() => openProposePickup(ride)}
                     onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={
@@ -2768,7 +2784,11 @@ export function DriverHomeScreen() {
                     highlighted={focusRideId === ride.id}
                     onHighlightEnd={() => setFocusRideId(null)}
                     onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() => void openPickupMapsAndNotify(driverToken, ride)}
+                    onOpenMaps={() =>
+                      void openPickupMapsAndNotify(driverToken, ride).then((next) => {
+                        if (next) patchTripRide(next);
+                      })
+                    }
                     onProposePickup={() => openProposePickup(ride)}
                     onRelease={() => requestReleaseRide(ride.id)}
                     onCancel={

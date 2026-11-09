@@ -310,6 +310,7 @@ export const EN: Record<string, string> = {
   'Klant niet opgehaald': 'Customer not picked up',
   'Klant opgehaald — voer code in': 'Customer picked up — enter code',
   'Klant opgehaald rit starten': 'Customer picked up, start ride',
+  'Tik eerst op Ophalen om de rit te starten': 'Tap Pick up first to start the ride',
   'Kleine ruimbagage': 'Small hold luggage',
   Kleur: 'Colour',
   'Kleur opslaan mislukt.': 'Could not save the colour.',

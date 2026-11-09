@@ -204,6 +204,11 @@ class TaxiDispatchOfferResource
         $canHandOverToNetwork = self::canHandOverToNetwork($ride);
         $tripMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
         $tripSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $settingsCompanyId = $offerCompanyId
+            ?: ($ride->company_id ? (int) $ride->company_id : null);
+        $enRouteToPickup = $dispatchSettings->rideHasEnRouteToPickup($ride);
+        $requireEnRouteBeforeStart = $dispatchSettings->requireEnRouteBeforeStart($settingsCompanyId);
 
         return [
             'id' => $ride->id,
@@ -269,6 +274,8 @@ class TaxiDispatchOfferResource
             'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'passengers' => (int) $ride->passengers,
             'pickup_confirmation' => app(\App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService::class)->driverPayload($ride),
+            'en_route_to_pickup' => $enRouteToPickup,
+            'require_en_route_before_start' => $requireEnRouteBeforeStart,
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,

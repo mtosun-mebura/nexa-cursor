@@ -59,6 +59,15 @@ return [
     'marketplace_max_wait_minutes' => (int) env('TAXI_DISPATCH_MARKETPLACE_MAX_WAIT_MINUTES', 30),
 
     /**
+     * Blokkeer “Klant opgehaald” tot de chauffeur op Ophalen heeft getikt (en_route).
+     * Per tenant: Admin → Chauffeur dispatch. Standaard aan.
+     */
+    'require_en_route_before_start' => filter_var(
+        env('TAXI_DISPATCH_REQUIRE_EN_ROUTE_BEFORE_START', true),
+        FILTER_VALIDATE_BOOL
+    ),
+
+    /**
      * Minuten dat een geannuleerde marktplaats-/dispatch-aanbieding nog in de
      * chauffeur-inbox blijft (grijs, niet klikbaar) vóór die uit de lijst verdwijnt.
      */

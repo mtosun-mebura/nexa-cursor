@@ -84,6 +84,7 @@ class DispatchSettingsController extends Controller
             'envDefaultMarketplaceMaxWaitMinutes' => (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30),
             'minMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
             'maxMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES,
+            'requireEnRouteBeforeStart' => $this->dispatchSettings->requireEnRouteBeforeStart($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'paymentBookingEnabled' => $this->dispatchSettings->paymentBookingEnabled($companyId),
@@ -227,6 +228,7 @@ class DispatchSettingsController extends Controller
             'unaccepted_auto_cancel_minutes' => ['required', 'integer', 'min:'.$minAutoCancelMinutes, 'max:'.$maxAutoCancelMinutes],
             'customer_unaccepted_decision_minutes' => ['required', 'integer', 'min:'.$minDecisionMinutes, 'max:'.$maxDecisionMinutes],
             'marketplace_max_wait_minutes' => ['required', 'integer', 'min:'.$minMarketplaceMaxWait, 'max:'.$maxMarketplaceMaxWait],
+            'require_en_route_before_start' => ['nullable', 'in:0,1'],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
             'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
@@ -305,6 +307,10 @@ class DispatchSettingsController extends Controller
             (int) $validated['marketplace_max_wait_minutes'],
             $companyId
         );
+        $this->dispatchSettings->setRequireEnRouteBeforeStart(
+            $request->boolean('require_en_route_before_start'),
+            $companyId
+        );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
             (int) $validated['customer_login_code_expires_minutes'],
             $companyId
@@ -361,6 +367,7 @@ class DispatchSettingsController extends Controller
             $rules['unaccepted_auto_cancel_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES];
             $rules['customer_unaccepted_decision_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES];
             $rules['marketplace_max_wait_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES];
+            $rules['require_en_route_before_start'] = ['nullable', 'in:0,1'];
             if ($companyId !== null) {
                 $rules['overdue_auto_archive_days'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, 'max:'.TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS];
             }
@@ -407,6 +414,7 @@ class DispatchSettingsController extends Controller
             $this->dispatchSettings->setUnacceptedAutoCancelMinutes((int) $validated['unaccepted_auto_cancel_minutes'], $companyId);
             $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes((int) $validated['customer_unaccepted_decision_minutes'], $companyId);
             $this->dispatchSettings->setMarketplaceMaxWaitMinutes((int) $validated['marketplace_max_wait_minutes'], $companyId);
+            $this->dispatchSettings->setRequireEnRouteBeforeStart($request->boolean('require_en_route_before_start'), $companyId);
         }
         if (in_array('customer_login', $mutating, true)) {
             $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes((int) $validated['customer_login_code_expires_minutes'], $companyId);

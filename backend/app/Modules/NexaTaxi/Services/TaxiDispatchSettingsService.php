@@ -36,6 +36,9 @@ class TaxiDispatchSettingsService
     /** Marktplaats: max. wachten na “blijven wachten” vóór auto-annulering (minuten). */
     public const KEY_MARKETPLACE_MAX_WAIT_MINUTES = 'taxi_dispatch_marketplace_max_wait_minutes';
 
+    /** Blokkeer “Klant opgehaald” tot chauffeur op Ophalen (en_route) heeft getikt. */
+    public const KEY_REQUIRE_EN_ROUTE_BEFORE_START = 'taxi_dispatch_require_en_route_before_start';
+
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
     public const KEY_BOOKING_WHATSAPP_NUMBER = 'taxi_dispatch_booking_whatsapp_number';
@@ -471,6 +474,57 @@ class TaxiDispatchSettingsService
             (string) $this->clampMarketplaceMaxWaitMinutes($minutes),
             $companyId
         );
+    }
+
+    public function requireEnRouteBeforeStart(?int $companyId = null): bool
+    {
+        $stored = GeneralSetting::get(self::KEY_REQUIRE_EN_ROUTE_BEFORE_START, null, $companyId);
+        if ($stored !== null && $stored !== '') {
+            return $stored === '1';
+        }
+
+        return (bool) config('taxi-dispatch.require_en_route_before_start', true);
+    }
+
+    public function setRequireEnRouteBeforeStart(bool $enabled, ?int $companyId = null): void
+    {
+        GeneralSetting::set(self::KEY_REQUIRE_EN_ROUTE_BEFORE_START, $enabled ? '1' : '0', $companyId);
+    }
+
+    public function rideHasEnRouteToPickup(RideRequest $ride): bool
+    {
+        return data_get($ride->booking_payload, 'customer_status.event')
+            === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+    }
+
+    /**
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function assertCanStartAcceptedRide(RideRequest $ride, ?int $companyId = null): void
+    {
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+        ], true)) {
+            return;
+        }
+
+        $cid = $companyId;
+        if ($cid === null && $ride->company_id) {
+            $cid = (int) $ride->company_id;
+        }
+
+        if (! $this->requireEnRouteBeforeStart($cid)) {
+            return;
+        }
+
+        if ($this->rideHasEnRouteToPickup($ride)) {
+            return;
+        }
+
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'ride' => ['Tik eerst op Ophalen voordat je de rit start.'],
+        ]);
     }
 
     public function clampMarketplaceMaxWaitMinutes(int $minutes): int
