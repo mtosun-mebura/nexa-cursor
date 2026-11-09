@@ -62,20 +62,22 @@ class CompanyEmailLogoService
             \App\Support\NexaBranding::embedInMessage($html, $message)
         );
 
+        $html = EmailCardHtml::ensureLightEmailChrome($html);
+
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
-            // Already-rendered logo (or none): still drop leftover grey company-name kickers.
+            // Already-rendered logo (or none): still drop leftover company-name kickers.
             return EmailCardHtml::htmlHasLogoBrandMark($html)
                 ? EmailCardHtml::stripCompanyNameKickers($html)
                 : $html;
         }
 
-        // Klantmails gebruiken een donkere header (#0f172a) → dark-logo (lichte tekst).
+        // Witte mailheader → light-mode logo (donkere tekst); dark alleen als light ontbreekt.
         $payload = $this->resolveEmailLogoPayload($companyId);
         if ($payload === null) {
-            $html = str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
-
-            // Name fallback is the brand mark — drop leftover grey company-name kickers.
-            return EmailCardHtml::stripCompanyNameKickers($html);
+            // ensureLightEmailChrome already dropped leftover kickers while the logo
+            // placeholder still counted as the brand mark. Do not strip again after the
+            // name fallback is inserted — that fallback uses the same 22px slate style.
+            return str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
         }
 
         $cid = $message->embedData($payload['data'], 'company-logo', $payload['mime']);
@@ -93,9 +95,9 @@ class CompanyEmailLogoService
 
     /**
      * Publieke HTTPS-URL voor e-mailclients (tenant-domein indien bekend).
-     * Standaard dark-variant (donkere mailheader); light alleen als er geen dark-logo is.
+     * Standaard light-variant (witte mailheader); dark alleen op verzoek (PWA).
      */
-    public function publicLogoUrl(?int $companyId, bool $preferDarkHeader = true): ?string
+    public function publicLogoUrl(?int $companyId, bool $preferDarkHeader = false): ?string
     {
         if ($companyId === null || $companyId <= 0) {
             return null;
@@ -113,9 +115,9 @@ class CompanyEmailLogoService
 
     /**
      * Logo-URL op het huidige host (admin-preview op localhost of admin-domein).
-     * Standaard dark-variant voor e-mailheaders; PWA light blijft via pwaLogoUrls.
+     * Standaard light-variant voor e-mailheaders; PWA dark via pwaLogoUrls.
      */
-    public function adminPreviewLogoUrl(?int $companyId, bool $preferDarkHeader = true): ?string
+    public function adminPreviewLogoUrl(?int $companyId, bool $preferDarkHeader = false): ?string
     {
         if ($companyId === null || $companyId <= 0 || ! $this->hasLogoSource($companyId)) {
             return null;
@@ -146,14 +148,14 @@ class CompanyEmailLogoService
     }
 
     /**
-     * Logo voor e-mail (donkere header): dark-blob/pad, anders light.
+     * Logo voor e-mail (witte header): light-blob/pad, anders dark als enige optie.
      *
      * @return array{data: string, mime: string}|null
      */
     public function resolveEmailLogoPayload(?int $companyId): ?array
     {
-        return $this->resolveDarkLogoPayload($companyId)
-            ?? $this->resolveLogoPayload($companyId);
+        return $this->resolveLogoPayload($companyId)
+            ?? $this->resolveDarkLogoPayload($companyId);
     }
 
     /**
@@ -218,8 +220,10 @@ class CompanyEmailLogoService
             return $html;
         }
 
-        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
-            \App\Support\NexaBranding::injectPreviewLogo($html)
+        $html = EmailCardHtml::ensureLightEmailChrome(
+            EmailCardHtml::stripRedundantBrandKickerHtml(
+                \App\Support\NexaBranding::injectPreviewLogo($html)
+            )
         );
 
         $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
@@ -313,8 +317,8 @@ class CompanyEmailLogoService
             return '';
         }
 
-        // Brand stand-in when no logo: larger and clearer in the dark email header.
-        return '<p style="margin:0 0 10px;color:#ffffff;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
+        // Brand stand-in when no logo: larger and clearer in the white email header.
+        return '<p style="margin:0 0 10px;color:#0f172a;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
             .e($name)
             .'</p>';
     }
@@ -325,7 +329,7 @@ class CompanyEmailLogoService
         $maxH = max(24, min(100, $maxHeightPx ?? 56));
         $maxW = (int) round($maxH * 4.5);
 
-        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;">';
+        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;margin:0 0 16px;">';
     }
 
     /**

@@ -470,7 +470,7 @@ class ContractInvoiceService
                 $body,
                 $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
                 EmailCardHtml::poweredByFooter(),
-                (string) $companyName,
+                null,
             );
             $textContent = strip_tags($htmlContent);
         }

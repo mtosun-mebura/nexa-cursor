@@ -2,7 +2,6 @@
     heading="Nieuwe taxirit #{{ (int) $ride_id }}"
     page-title="Nieuwe taxirit"
     :logo-html="$logoHtml ?? \App\Services\CompanyEmailLogoService::HTML_PLACEHOLDER"
-    :kicker="$company_name ?? null"
 >
     @if(!empty($driver_name))
     <p style="margin:0 0 16px;font-size:16px;">Hallo {{ $driver_name }},</p>

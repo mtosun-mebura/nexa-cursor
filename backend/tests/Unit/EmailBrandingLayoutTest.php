@@ -29,11 +29,13 @@ class EmailBrandingLayoutTest extends TestCase
             'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
         ])->render();
 
-        $this->assertStringContainsString('#0f172a', $reset);
+        $this->assertStringContainsString('background-color:#e5e7eb', $reset);
+        $this->assertStringContainsString('color:#0f172a', $reset);
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $reset);
         $this->assertStringContainsString('https://nexasuite.nl', $reset);
         $this->assertStringContainsString('NEXA Suite-account', $reset);
         $this->assertStringNotContainsString('NEXA Suite</p>', $reset);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $reset);
 
         $contact = view('emails.contact', [
             'first_name' => 'Mert',
@@ -44,10 +46,11 @@ class EmailBrandingLayoutTest extends TestCase
             'nexaLogoHtml' => NexaBranding::EMAIL_LOGO_PLACEHOLDER,
         ])->render();
 
-        $this->assertStringContainsString('#0f172a', $contact);
+        $this->assertStringContainsString('background-color:#e5e7eb', $contact);
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $contact);
         $this->assertStringContainsString('https://nexasuite.nl', $contact);
         $this->assertStringNotContainsString('NEXA Suite</p>', $contact);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $contact);
     }
 
     #[Test]
@@ -66,11 +69,13 @@ class EmailBrandingLayoutTest extends TestCase
             'portal_login_url' => 'https://example.test/login',
         ])->render();
 
-        $this->assertStringContainsString('#0f172a', $customer);
+        $this->assertStringContainsString('background-color:#e5e7eb', $customer);
+        $this->assertStringContainsString('color:#0f172a', $customer);
         $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $customer);
         $this->assertStringContainsString('Taxi Tosun', $customer); // footer contact line
         $this->assertStringNotContainsString('Taxi Tosun</p>', $customer); // no header kicker under logo
         $this->assertStringNotContainsString('#94a3b8', $customer);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $customer);
         $this->assertStringNotContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $customer);
 
         $cancelled = view('emails.taxi-ride-cancelled-customer', [
@@ -104,10 +109,11 @@ class EmailBrandingLayoutTest extends TestCase
             'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
         ])->render();
 
-        $this->assertStringContainsString('#0f172a', $driver);
+        $this->assertStringContainsString('background-color:#e5e7eb', $driver);
         $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $driver);
         // Logo slot filled → company name is not repeated as a header kicker.
         $this->assertStringNotContainsString('Taxi Tosun</p>', $driver);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $driver);
     }
 
     #[Test]
@@ -116,7 +122,9 @@ class EmailBrandingLayoutTest extends TestCase
         $template = app(NexaContactAanvraagEmailTemplateService::class)->ensureExists();
 
         $this->assertStringContainsString('{{ NEXA_LOGO }}', (string) $template->html_content);
-        $this->assertStringContainsString('#0f172a', (string) $template->html_content);
+        $this->assertStringContainsString('background-color: #e5e7eb', (string) $template->html_content);
+        $this->assertStringContainsString('color: #0f172a', (string) $template->html_content);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', (string) $template->html_content);
         $this->assertStringNotContainsString('NEXA Suite</p>', (string) $template->html_content);
         $this->assertStringContainsString('table-layout: auto', (string) $template->html_content);
         $this->assertStringContainsString('@media only screen and (max-width: 600px)', (string) $template->html_content);
@@ -154,21 +162,25 @@ class EmailBrandingLayoutTest extends TestCase
     }
 
     #[Test]
-    public function tenant_taxi_templates_use_company_logo_in_dark_header(): void
+    public function tenant_taxi_templates_use_company_logo_in_light_header(): void
     {
         $login = app(TaxiCustomerLoginCodeEmailTemplateService::class)->defaultHtmlContent();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', $login);
-        $this->assertStringContainsString('#0f172a', $login);
+        $this->assertStringContainsString('background-color:#e5e7eb', $login);
+        $this->assertStringContainsString('color:#0f172a', $login);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $login);
         $this->assertStringContainsString('https://nexasuite.nl', $login);
 
         $appLogin = app(TaxiAppLoginCodeEmailTemplateService::class)->defaultHtmlContent();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', $appLogin);
-        $this->assertStringContainsString('#0f172a', $appLogin);
+        $this->assertStringContainsString('background-color:#e5e7eb', $appLogin);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $appLogin);
         $this->assertStringNotContainsString('{{ NEXA_LOGO }}', $appLogin);
 
         $accepted = app(TaxiCustomerAcceptEmailTemplateService::class)->ensureGlobalTemplateExists();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', (string) $accepted->html_content);
-        $this->assertStringContainsString('#0f172a', (string) $accepted->html_content);
+        $this->assertStringContainsString('background-color:#e5e7eb', (string) $accepted->html_content);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', (string) $accepted->html_content);
     }
 
     #[Test]
@@ -192,7 +204,8 @@ class EmailBrandingLayoutTest extends TestCase
             ->first();
 
         $this->assertNotNull($tenant);
-        $this->assertStringContainsString('#0f172a', (string) $tenant->html_content);
+        $this->assertStringContainsString('background-color:#e5e7eb', (string) $tenant->html_content);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', (string) $tenant->html_content);
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', (string) $tenant->html_content);
     }
 
@@ -208,7 +221,9 @@ class EmailBrandingLayoutTest extends TestCase
         );
 
         $this->assertStringContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $html);
-        $this->assertStringContainsString('#0f172a', $html);
+        $this->assertStringContainsString('background-color:#e5e7eb', $html);
+        $this->assertStringContainsString('color:#0f172a', $html);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $html);
         $this->assertStringContainsString('Beste klant', $html);
         $this->assertStringContainsString('https://nexasuite.nl', $html);
         $this->assertStringContainsString('text-decoration:underline', $html);

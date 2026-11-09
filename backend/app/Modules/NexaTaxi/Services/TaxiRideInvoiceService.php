@@ -727,7 +727,7 @@ class TaxiRideInvoiceService
                 $body,
                 $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
                 EmailCardHtml::poweredByFooter(),
-                (string) $companyName,
+                null,
             );
             $textContent = ($variables['INVOICE_PAID_NOTICE_TEXT'] ?? '')
                 ."\n\n"
