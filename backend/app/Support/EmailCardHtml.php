@@ -345,11 +345,12 @@ HTML;
 
     /**
      * Remove legacy small/grey brand kickers (company name under logo).
+     * Only the header kicker pattern (#94a3b8 + 13px, plain text) — not muted body/footer copy.
      */
     public static function stripCompanyNameKickers(string $html): string
     {
         return preg_replace(
-            '/<p\b[^>]*style="[^"]*(?:color:\s*#94a3b8|font-size:\s*13px)[^"]*"[^>]*>.*?<\/p>/is',
+            '/<p\b[^>]*style="(?=[^"]*color:\s*#94a3b8)(?=[^"]*font-size:\s*13px)[^"]*"[^>]*>\s*[^<]*?\s*<\/p>/is',
             '',
             $html
         ) ?? $html;

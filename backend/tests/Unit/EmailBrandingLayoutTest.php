@@ -265,4 +265,19 @@ class EmailBrandingLayoutTest extends TestCase
         $this->assertStringContainsString('Taxi Tosun</p>', $withoutLogo);
         $this->assertStringContainsString('font-size:22px', $withoutLogo);
     }
+
+    #[Test]
+    public function strip_company_name_kickers_keeps_muted_body_copy(): void
+    {
+        $html = '{{ NEXA_LOGO }}'
+            .'<p style="margin:0 0 6px;color:#94a3b8;font-size:13px;letter-spacing:0.04em;">Taxi Tosun</p>'
+            .'<p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">Geen abonnement afnemen?<br>'
+            .'<a href="https://example.test/stop" style="color:#94a3b8;text-decoration:underline;">Proefperiode beëindigen</a></p>';
+
+        $stripped = EmailCardHtml::stripRedundantBrandKickerHtml($html);
+
+        $this->assertStringNotContainsString('Taxi Tosun</p>', $stripped);
+        $this->assertStringContainsString('Proefperiode beëindigen', $stripped);
+        $this->assertStringContainsString('Geen abonnement afnemen?', $stripped);
+    }
 }
