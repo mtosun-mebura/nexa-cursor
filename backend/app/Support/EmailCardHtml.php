@@ -31,23 +31,24 @@ class EmailCardHtml
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light only">
     <meta name="supported-color-schemes" content="light">
     <title>{$title}</title>
+    <style>:root { color-scheme: light only; }</style>
 </head>
-<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f4f4f4;color:#111827;color-scheme:light;">
-<table role="presentation" style="width:100%;border-collapse:collapse;">
-<tr><td style="padding:24px 12px;">
-<table role="presentation" width="100%" style="width:100%;max-width:600px;margin:0 auto;background-color:#ffffff;border:1px solid #d1d5db;border-radius:8px;border-collapse:separate;border-spacing:0;overflow:hidden;">
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#e5e7eb;color:#111827;color-scheme:light only;">
+<table role="presentation" width="100%" bgcolor="#e5e7eb" style="width:100%;border-collapse:collapse;background-color:#e5e7eb;">
+<tr><td bgcolor="#e5e7eb" style="padding:24px 12px;background-color:#e5e7eb;">
+<table role="presentation" width="100%" bgcolor="#ffffff" style="width:100%;max-width:600px;margin:0 auto;background-color:#ffffff;border:1px solid #d1d5db;border-radius:12px;border-collapse:separate;border-spacing:0;overflow:hidden;">
 <tr>
-    <td bgcolor="#0f172a" style="padding:28px 32px;background-color:#0f172a;">
+    <td bgcolor="#ffffff" style="padding:28px 32px 20px;background-color:#ffffff;border-radius:12px 12px 0 0;">
         {$logoHtml}
         {$kickerHtml}
-        <h1 style="margin:0;font-size:22px;line-height:1.3;color:#ffffff;">{$headingSafe}</h1>
+        <h1 style="margin:0;font-size:22px;line-height:1.3;color:#0f172a;">{$headingSafe}</h1>
     </td>
 </tr>
 <tr>
-    <td style="padding:28px 32px;">
+    <td bgcolor="#ffffff" style="padding:8px 32px 28px;background-color:#ffffff;border-radius:0 0 12px 12px;">
         {$bodyInnerHtml}
         {$footer}
     </td>
@@ -233,14 +234,72 @@ HTML;
 
     public static function looksLikeLegacyLayout(string $html): bool
     {
-        if ($html === '' || str_contains($html, '#0f172a')) {
+        if ($html === '') {
             return false;
+        }
+
+        // Current light card chrome (grey page + white rounded card).
+        if (str_contains($html, 'background-color:#e5e7eb') && str_contains($html, 'color-scheme: light only')) {
+            return false;
+        }
+
+        // Dark-header card era → upgrade to light chrome.
+        if (preg_match('/bgcolor=["\']#0f172a["\']/i', $html) === 1) {
+            return true;
         }
 
         return str_contains($html, 'COMPANY_LOGO')
             || str_contains($html, 'NEXA_LOGO')
             || str_contains($html, 'max-width: 600px')
             || str_contains($html, 'max-width:600px');
+    }
+
+    /**
+     * Force light page + white rounded card header so the light-mode logo stays readable
+     * even when the mail client opens the message in dark mode.
+     */
+    public static function ensureLightEmailChrome(string $html): string
+    {
+        if ($html === '') {
+            return $html;
+        }
+
+        // Header cells that used the old slate band.
+        $html = preg_replace(
+            '/(<td\b[^>]*?)\sbgcolor=(["\'])#0f172a\2/i',
+            '$1 bgcolor=$2#ffffff$2',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/(padding:\s*2[48]px\s+3[02]px;?)([^"\']*?)background-color:\s*#0f172a/i',
+            '$1$2background-color:#ffffff',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/background-color:\s*#0f172a([^"\']*?)(padding:\s*2[48]px\s+3[02]px)/i',
+            'background-color:#ffffff$1$2',
+            $html
+        ) ?? $html;
+
+        // Headings that were white on the dark band.
+        $html = preg_replace(
+            '/(<h1\b[^>]*style="[^"]*)\bcolor:\s*#ffffff\b/i',
+            '$1color:#0f172a',
+            $html
+        ) ?? $html;
+
+        // Page canvas behind the card.
+        $html = preg_replace(
+            '/(<body\b[^>]*style="[^"]*)background-color:\s*#f4f4f4/i',
+            '$1background-color:#e5e7eb',
+            $html
+        ) ?? $html;
+
+        if (self::htmlHasLogoBrandMark($html)) {
+            $html = self::stripCompanyNameKickers($html);
+        }
+
+        return $html;
     }
 
     public static function upgradeTypeToCardLayout(string $type, callable $htmlFactory): void
@@ -285,7 +344,7 @@ HTML;
             return '';
         }
 
-        return '<p style="margin:0 0 10px;color:#ffffff;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
+        return '<p style="margin:0 0 10px;color:#0f172a;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
             .self::safeInline($headerKicker)
             .'</p>';
     }
@@ -344,16 +403,22 @@ HTML;
     }
 
     /**
-     * Remove legacy small/grey brand kickers (company name under logo).
-     * Only the header kicker pattern (#94a3b8 + 13px, plain text) — not muted body/footer copy.
+     * Remove brand kickers under the logo (company name repeated as text).
+     * Covers legacy grey 13px, dark-header white 22px, and light-header slate 22px — not muted body/footer copy.
      */
     public static function stripCompanyNameKickers(string $html): string
     {
-        return preg_replace(
+        $patterns = [
             '/<p\b[^>]*style="(?=[^"]*color:\s*#94a3b8)(?=[^"]*font-size:\s*13px)[^"]*"[^>]*>\s*[^<]*?\s*<\/p>/is',
-            '',
-            $html
-        ) ?? $html;
+            '/<p\b[^>]*style="(?=[^"]*color:\s*#ffffff)(?=[^"]*font-size:\s*22px)[^"]*"[^>]*>\s*[^<]*?\s*<\/p>/is',
+            '/<p\b[^>]*style="(?=[^"]*color:\s*#0f172a)(?=[^"]*font-size:\s*22px)(?=[^"]*font-weight:\s*700)[^"]*"[^>]*>\s*[^<]*?\s*<\/p>/is',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $html = preg_replace($pattern, '', $html) ?? $html;
+        }
+
+        return $html;
     }
 
     public static function stripRedundantBrandKickerFromStoredTemplates(): int

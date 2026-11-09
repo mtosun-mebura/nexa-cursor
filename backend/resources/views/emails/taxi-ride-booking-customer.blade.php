@@ -2,7 +2,6 @@
     :heading="__('Bevestiging taxiboeking #:id', ['id' => (int) $ride_id])"
     :page-title="__('Bevestiging taxiboeking')"
     :logo-html="$logoHtml ?? \App\Services\CompanyEmailLogoService::HTML_PLACEHOLDER"
-    :kicker="$company_name ?? null"
     :lang="app()->getLocale()"
 >
     @if(!empty($customer_name))

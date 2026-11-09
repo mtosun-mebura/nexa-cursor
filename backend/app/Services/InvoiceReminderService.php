@@ -133,7 +133,7 @@ class InvoiceReminderService
                 $body,
                 $variables['COMPANY_LOGO'] ?? CompanyEmailLogoService::HTML_PLACEHOLDER,
                 EmailCardHtml::poweredByFooter(),
-                $companyName,
+                null,
             );
             $textContent = strip_tags($htmlContent);
         }
