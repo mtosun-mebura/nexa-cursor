@@ -38,6 +38,24 @@ class TaxiDispatchBookingSettingsTest extends TestCase
         $this->assertTrue($service->bookingCustomerEmailEnabled(99999));
     }
 
+    public function test_require_en_route_before_start_defaults_true(): void
+    {
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+
+        $this->assertTrue($service->requireEnRouteBeforeStart(99999));
+    }
+
+    public function test_require_en_route_before_start_can_be_disabled(): void
+    {
+        $company = Company::query()->create(['name' => 'EnRoute Co', 'slug' => 'enroute-'.uniqid()]);
+        $env = $this->createMock(EnvService::class);
+        $service = new TaxiDispatchSettingsService($env, app(PaymentProviderService::class));
+        $service->setRequireEnRouteBeforeStart(false, (int) $company->id);
+
+        $this->assertFalse($service->requireEnRouteBeforeStart((int) $company->id));
+    }
+
     public function test_customer_email_required_when_booking_or_accept_email_enabled(): void
     {
         $env = $this->createMock(EnvService::class);

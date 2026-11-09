@@ -395,6 +395,10 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     !freezeTripActions &&
     ride?.status === 'accepted' &&
     !!props.onStart;
+  const startBlockedUntilEnRoute =
+    canStart &&
+    ride?.require_en_route_before_start !== false &&
+    ride?.en_route_to_pickup !== true;
   const needsPickupPin =
     !!ride?.pickup_confirmation?.requires_pin || ride?.pickup_confirmation?.method === 'pin';
   const canComplete =
@@ -835,15 +839,38 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               </Pressable>
             ) : null}
             {canStart ? (
-              <Pressable
-                style={[styles.btn, styles.btnPrimary, styles.btnFull, busy && styles.btnDisabled]}
-                disabled={busy}
-                onPress={props.onStart}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  {needsPickupPin ? t("Klant opgehaald — voer code in") : t("Klant opgehaald rit starten")}
-                </Text>
-              </Pressable>
+              <View style={styles.startActionWrap}>
+                <Pressable
+                  style={[
+                    styles.btn,
+                    styles.btnPrimary,
+                    styles.btnFull,
+                    (busy || startBlockedUntilEnRoute) && styles.btnDisabled,
+                  ]}
+                  disabled={busy || startBlockedUntilEnRoute}
+                  onPress={props.onStart}
+                  accessibilityState={{ disabled: busy || startBlockedUntilEnRoute }}
+                  accessibilityHint={
+                    startBlockedUntilEnRoute
+                      ? t('Tik eerst op Ophalen om de rit te starten')
+                      : undefined
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.btnPrimaryText,
+                      startBlockedUntilEnRoute ? styles.btnPrimaryTextMuted : null,
+                    ]}
+                  >
+                    {needsPickupPin ? t("Klant opgehaald — voer code in") : t("Klant opgehaald rit starten")}
+                  </Text>
+                </Pressable>
+                {startBlockedUntilEnRoute ? (
+                  <Text style={styles.startBlockedHint}>
+                    {t('Tik eerst op Ophalen om de rit te starten')}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
             {canComplete ? (
               <Pressable
@@ -1538,6 +1565,20 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       flexBasis: '100%',
       flexGrow: 1,
       minWidth: '100%',
+    },
+    startActionWrap: {
+      width: '100%',
+      gap: 6,
+    },
+    startBlockedHint: {
+      color: colors.muted,
+      fontSize: 12,
+      fontWeight: '500',
+      textAlign: 'center',
+      paddingHorizontal: 4,
+    },
+    btnPrimaryTextMuted: {
+      opacity: 0.65,
     },
     btnInner: {
       flexDirection: 'row',

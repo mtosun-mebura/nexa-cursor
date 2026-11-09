@@ -94,6 +94,10 @@ export type DispatchOfferRide = {
     requires_pin?: boolean;
     can_reask?: boolean;
   } | null;
+  /** Chauffeur heeft Ophalen getikt (klantstatus en_route). */
+  en_route_to_pickup?: boolean;
+  /** Dispatch-instelling: start pas na Ophalen. */
+  require_en_route_before_start?: boolean;
   distance_km?: number | null;
   duration_seconds?: number | null;
   duration_minutes?: number | null;
@@ -637,7 +641,10 @@ export function deleteArchivedCompletedRides(token: string, rideIds: number[]) {
 }
 
 export function markRideEnRoute(token: string, rideId: number) {
-  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
     method: 'POST',
     token,
   });

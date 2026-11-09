@@ -322,6 +322,7 @@ class DriverDispatchController extends Controller
                         'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
                         'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
                         'overdue_auto_archive_days' => $dispatchSettings->overdueAutoArchiveDays($companyId),
+                        'require_en_route_before_start' => $dispatchSettings->requireEnRouteBeforeStart($companyId),
                         'unclaimed_rides' => $unclaimedRides,
                         'network' => $networkMeta,
                         'requires_vehicle_to_accept' => true,
@@ -417,6 +418,19 @@ class DriverDispatchController extends Controller
         $driver = $request->user();
         $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
         $pickup = app(MarketplacePickupConfirmationService::class);
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $driverCompanyId = (int) ($driver->company_id ?? 0) ?: null;
+
+        if ($existing) {
+            try {
+                $dispatchSettings->assertCanStartAcceptedRide($existing, $driverCompanyId);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Tik eerst op Ophalen.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+        }
 
         // Marktplaats: ophaal-PIN verplicht (Uber-achtig) vóór actieve rit.
         if (

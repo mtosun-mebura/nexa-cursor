@@ -7,10 +7,12 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractRideStopService;
+use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Services\WhatsAppBookingMessageComposer;
 use Carbon\Carbon;
 
 class TaxiDispatchOfferResource
@@ -204,6 +206,19 @@ class TaxiDispatchOfferResource
         $canHandOverToNetwork = self::canHandOverToNetwork($ride);
         $tripMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
         $tripSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
+        $settingsCompanyId = $offerCompanyId
+            ?: ($ride->company_id ? (int) $ride->company_id : null);
+        // Inline (geen service-call): unit tests mocken TaxiDispatchSettingsService strikt.
+        $enRouteToPickup = data_get($ride->booking_payload, 'customer_status.event')
+            === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+        $requireStored = GeneralSetting::get(
+            TaxiDispatchSettingsService::KEY_REQUIRE_EN_ROUTE_BEFORE_START,
+            null,
+            $settingsCompanyId
+        );
+        $requireEnRouteBeforeStart = ($requireStored !== null && $requireStored !== '')
+            ? $requireStored === '1'
+            : (bool) config('taxi-dispatch.require_en_route_before_start', true);
 
         return [
             'id' => $ride->id,
@@ -269,6 +284,8 @@ class TaxiDispatchOfferResource
             'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'passengers' => (int) $ride->passengers,
             'pickup_confirmation' => app(\App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService::class)->driverPayload($ride),
+            'en_route_to_pickup' => $enRouteToPickup,
+            'require_en_route_before_start' => $requireEnRouteBeforeStart,
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,

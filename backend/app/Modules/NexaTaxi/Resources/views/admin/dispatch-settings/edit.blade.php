@@ -224,6 +224,24 @@
                         @enderror
                     </td>
                 </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Klant opgehaald blokkeren') }}</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input type="hidden" name="require_en_route_before_start" value="0">
+                        <label class="kt-label flex items-center gap-2 mb-0" for="require_en_route_before_start">
+                            <input type="checkbox"
+                                   name="require_en_route_before_start"
+                                   id="require_en_route_before_start"
+                                   value="1"
+                                   class="kt-switch kt-switch-sm shrink-0"
+                                   {{ old('require_en_route_before_start', $requireEnRouteBeforeStart ? '1' : '0') === '1' ? 'checked' : '' }}>
+                            <span class="text-sm text-muted-foreground">{{ __('Blauwe knop “Klant opgehaald” pas na Ophalen klikbaar') }}</span>
+                        </label>
+                        <p class="text-xs text-muted-foreground mt-1 mb-0">
+                            {{ __('Standaard aan: eerst Ophalen (status onderweg), daarna Klant opgehaald / code. Uit = knop meteen klikbaar na acceptatie.') }}
+                        </p>
+                    </td>
+                </tr>
             </table>
             </div>
             </div>
