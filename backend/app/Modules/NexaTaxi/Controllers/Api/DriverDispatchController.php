@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\DriverCompletedRideArchiveService;
 use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
@@ -209,7 +210,7 @@ class DriverDispatchController extends Controller
             ->reject(fn (RideRequest $ride) => in_array((int) $ride->id, $archivedIds, true))
             ->values();
 
-        $completedRides = RideRequest::on($conn)
+        $completedAll = RideRequest::on($conn)
             ->visibleToDriver((int) $user->id, $vehicleId)
             ->where('status', RideRequest::STATUS_COMPLETED)
             ->where(function ($q) {
@@ -217,8 +218,21 @@ class DriverDispatchController extends Controller
                     ->orWhere('pickup_at', '>=', now()->subDays(14));
             })
             ->orderByDesc('updated_at')
-            ->limit(40)
+            ->limit(80)
             ->get();
+
+        $completedArchive = app(DriverCompletedRideArchiveService::class);
+        $driverId = (int) $user->id;
+        $completedVisible = $completedAll
+            ->reject(fn (RideRequest $ride) => $completedArchive->isArchived($ride, $driverId)
+                || $completedArchive->isDeleted($ride, $driverId))
+            ->take(40)
+            ->values();
+        $archivedCompletedRides = $completedAll
+            ->filter(fn (RideRequest $ride) => $completedArchive->isArchived($ride, $driverId)
+                && ! $completedArchive->isDeleted($ride, $driverId))
+            ->take(40)
+            ->values();
 
         $payoutNotices = [];
         try {
@@ -283,7 +297,10 @@ class DriverDispatchController extends Controller
                     'archived_overdue_scheduled_rides' => $archivedOverdueScheduledRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
                         ->values(),
-                    'completed_rides' => $completedRides
+                    'completed_rides' => $completedVisible
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
+                        ->values(),
+                    'archived_completed_rides' => $archivedCompletedRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
                         ->values(),
                     'overdue_released_offers' => $overdueReleasedOffers
@@ -850,6 +867,113 @@ class DriverDispatchController extends Controller
             ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
             ->whereIn('id', $ids)
             ->delete();
+
+        if ($deleted < 1) {
+            return response()->json(['message' => 'Geen gearchiveerde ritten gevonden om te verwijderen.'], 404);
+        }
+
+        return response()->json([
+            'message' => $deleted === 1
+                ? '1 rit verwijderd uit archief.'
+                : $deleted.' ritten verwijderd uit archief.',
+            'data' => [
+                'deleted' => $deleted,
+            ],
+        ]);
+    }
+
+    public function archiveCompletedRide(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Archiveren is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $row = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->whereKey($ride)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Afgeronde rit niet gevonden.'], 404);
+        }
+
+        $fresh = $archive->archive($row, (int) $user->id);
+
+        return response()->json([
+            'message' => 'Rit naar archief verplaatst.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($fresh, false, false),
+            ],
+        ]);
+    }
+
+    public function unarchiveCompletedRide(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Archiveren is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $row = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->whereKey($ride)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Afgeronde rit niet gevonden.'], 404);
+        }
+
+        $fresh = $archive->unarchive($row, (int) $user->id);
+
+        return response()->json([
+            'message' => 'Rit teruggezet onder Ritten.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($fresh, false, false),
+            ],
+        ]);
+    }
+
+    public function deleteArchivedCompletedRides(
+        Request $request,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Verwijderen uit archief is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $data = $request->validate([
+            'ride_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ride_ids.*' => ['integer', 'min:1'],
+        ]);
+        $ids = array_values(array_unique(array_map('intval', $data['ride_ids'])));
+
+        $rides = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->whereIn('id', $ids)
+            ->get();
+
+        $deleted = 0;
+        foreach ($rides as $ride) {
+            $archive->markDeleted($ride, (int) $user->id);
+            $deleted++;
+        }
 
         if ($deleted < 1) {
             return response()->json(['message' => 'Geen gearchiveerde ritten gevonden om te verwijderen.'], 404);

@@ -21,8 +21,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
   acceptOffer,
+  archiveCompletedRide,
   cancelAcceptedRide,
   declineOffer,
+  deleteArchivedCompletedRides,
   deleteArchivedOffers,
   DispatchOffer,
   DriverActiveRide,
@@ -59,6 +61,7 @@ import {
   isRidePaid,
   isRideInvoiceSent,
   rideRequiresPaymentBeforeComplete,
+  unarchiveCompletedRide,
   updateDriverAccent,
   uploadDriverCompanyLogo,
   uploadDriverProfilePhoto,
@@ -600,7 +603,6 @@ export function DriverHomeScreen() {
   const [vehiclePhotoZoom, setVehiclePhotoZoom] = useState(false);
   const [logoLight, setLogoLight] = useState<string | null>(null);
   const [logoDark, setLogoDark] = useState<string | null>(null);
-  const [canFilterContractRides, setCanFilterContractRides] = useState(false);
   const [rideKindFilter, setRideKindFilter] = useState<RideKindFilter>('taxi');
   const [ridePeriodFilter, setRidePeriodFilter] = useState<RidePeriodFilter>('today');
   const [showEarnings, setShowEarnings] = useState(false);
@@ -624,6 +626,8 @@ export function DriverHomeScreen() {
   >([]);
   const [completedRides, setCompletedRides] = useState<DriverActiveRide[]>([]);
   const [archivedCompletedIds, setArchivedCompletedIds] = useState<number[]>([]);
+  /** Lokale archief-ids (pre-server) eenmalig migreren naar de API. */
+  const pendingLocalCompletedArchiveRef = useRef<number[] | null>(null);
   const [dismissedOverdueArchiveIds, setDismissedOverdueArchiveIds] = useState<number[]>([]);
   const [pastPickupGraceMinutes, setPastPickupGraceMinutes] = useState(120);
   const [archiveSeenKeys, setArchiveSeenKeys] = useState<string[]>([]);
@@ -725,9 +729,11 @@ export function DriverHomeScreen() {
           try {
             const parsed = JSON.parse(savedArchivedRides);
             if (Array.isArray(parsed)) {
-              setArchivedCompletedIds(
-                parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-              );
+              const ids = parsed
+                .map((id) => Number(id))
+                .filter((id) => Number.isFinite(id) && id > 0);
+              pendingLocalCompletedArchiveRef.current = ids;
+              setArchivedCompletedIds(ids);
             }
           } catch {
             /* ignore */
@@ -828,6 +834,57 @@ export function DriverHomeScreen() {
     return openNow;
   }, []);
 
+  const syncCompletedArchiveFromInbox = useCallback(
+    async (
+      inboxData: {
+        completedRides: DriverActiveRide[];
+        archivedCompletedRides: DriverActiveRide[];
+      },
+      extraCompleted: Array<DriverActiveRide | { id: number; status?: string }> = []
+    ) => {
+      let serverArchived = (inboxData.archivedCompletedRides || [])
+        .map((ride) => Number(ride.id))
+        .filter((id) => id > 0);
+      const localPending = pendingLocalCompletedArchiveRef.current;
+      if (localPending && localPending.length > 0 && driverToken) {
+        pendingLocalCompletedArchiveRef.current = null;
+        const missing = localPending.filter((id) => !serverArchived.includes(id));
+        if (missing.length > 0) {
+          await Promise.allSettled(
+            missing.map((id) => archiveCompletedRide(driverToken, id))
+          );
+          serverArchived = [...new Set([...serverArchived, ...missing])];
+        }
+      }
+      const knownIds = new Set<number>([
+        ...serverArchived,
+        ...(inboxData.completedRides || [])
+          .map((ride) => Number(ride.id))
+          .filter((id) => id > 0),
+        ...extraCompleted
+          .map((ride) => Number(ride.id))
+          .filter((id) => id > 0),
+      ]);
+      // Union met lokale/optimistische ids zolang de rit nog bekend is (voorkomt race met poll).
+      setArchivedCompletedIds((prev) => {
+        const next = [
+          ...new Set([...serverArchived, ...prev.filter((id) => knownIds.has(Number(id)))]),
+        ];
+        persistArchivedCompletedIds(next);
+        return next;
+      });
+      setCompletedRides((prev) =>
+        mergeCompletedRides(
+          inboxData.completedRides,
+          inboxData.archivedCompletedRides,
+          extraCompleted,
+          prev.filter((ride) => knownIds.has(Number(ride.id)))
+        ).slice(0, 80)
+      );
+    },
+    [driverToken]
+  );
+
   const refresh = useCallback(async () => {
     if (!driverToken) return;
     if (refreshInFlight.current) {
@@ -896,7 +953,6 @@ export function DriverHomeScreen() {
             }
           : null
       );
-      setCanFilterContractRides(!!me.user.can_handle_contract_rides);
       const canSeeEarnings = !!me.permissions?.earnings_view;
       setShowEarnings(canSeeEarnings);
       setCanViewMonthEarnings(!!me.permissions?.earnings_view_month);
@@ -1001,9 +1057,7 @@ export function DriverHomeScreen() {
           completedFromPlanning = [];
         }
         if (noticeGen !== refreshGen.current) return;
-        setCompletedRides(
-          mergeCompletedRides(inboxData.completedRides, completedFromPlanning).slice(0, 40)
-        );
+        await syncCompletedArchiveFromInbox(inboxData, completedFromPlanning);
         const pickupDenied = await alertPickupDenials({
           rides: [inboxData.activeRide, ...inboxData.parkedAssignedRides],
           alert: inboxData.pickupDeniedAlert,
@@ -1072,7 +1126,7 @@ export function DriverHomeScreen() {
         }, 0);
       }
     }
-  }, [driverToken, handleNewOffers, selectedVehicleId]);
+  }, [driverToken, handleNewOffers, selectedVehicleId, syncCompletedArchiveFromInbox]);
   refreshFn.current = refresh;
 
   /** Alleen inbox — eigen lock, mag nooit door zware refresh geblokkeerd worden (presence/last_seen). */
@@ -1109,15 +1163,13 @@ export function DriverHomeScreen() {
       setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
       setPastPickupGraceMinutes(inboxData.pastPickupGraceMinutes);
       setCancelReasons(inboxData.cancelReasons);
-      setCompletedRides((prev) =>
-        mergeCompletedRides(inboxData.completedRides, prev).slice(0, 40)
-      );
+      await syncCompletedArchiveFromInbox(inboxData);
     } catch {
       /* lichte poll: stil falen, volgende tick opnieuw */
     } finally {
       inboxInFlight.current = false;
     }
-  }, [driverToken, handleNewOffers]);
+  }, [driverToken, handleNewOffers, syncCompletedArchiveFromInbox]);
 
   useEffect(() => {
     if (!contractToken) {
@@ -2286,21 +2338,18 @@ export function DriverHomeScreen() {
     }
   );
   const archivedCompletedSet = useMemo(
-    () => new Set(archivedCompletedIds),
+    () => new Set(archivedCompletedIds.map((id) => Number(id)).filter((id) => id > 0)),
     [archivedCompletedIds]
   );
-  const visibleCompletedRidesAll = completedRides.filter((r) => !archivedCompletedSet.has(r.id));
-  const archivedCompletedRides = completedRides.filter((r) => archivedCompletedSet.has(r.id));
+  const visibleCompletedRidesAll = completedRides.filter(
+    (r) => !archivedCompletedSet.has(Number(r.id))
+  );
+  const archivedCompletedRides = completedRides.filter((r) =>
+    archivedCompletedSet.has(Number(r.id))
+  );
 
-  const hasAnyContractInTrips =
-    (!!activeForTrips && isContractRide(activeForTrips)) ||
-    parkedForTrips.some((r) => isContractRide(r)) ||
-    plannedRidesAll.some((r) => isContractRide(r)) ||
-    overdueNonContractRidesAll.some((r) => isContractRide(r)) ||
-    visibleCompletedRidesAll.some((r) => isContractRide(r)) ||
-    overdueContractRides.length > 0 ||
-    ownArchivedOverdueRides.some((r) => isContractRide(r));
-  const showRideKindFilter = canFilterContractRides || hasAnyContractInTrips;
+  // Filter Alles/Normaal/Contract alleen voor contractanten.
+  const showRideKindFilter = contractantDriver;
   const effectiveRideKind: RideKindFilter = showRideKindFilter ? rideKindFilter : 'all';
   // Alleen bij filter Contract: passagiersbord. Bij Alles/Normaal één ritlijst —
   // anders liggen Openstaand/Verlopen over de chauffeurfilters heen.
@@ -2415,12 +2464,36 @@ export function DriverHomeScreen() {
     persistRidePeriodFilter(period);
   }
 
-  function toggleCompletedArchive(rideId: number) {
+  async function toggleCompletedArchive(rideId: number) {
+    if (!driverToken) return;
+    const wasArchived = archivedCompletedIds.includes(rideId);
     setArchivedCompletedIds((prev) => {
-      const next = prev.includes(rideId) ? prev.filter((id) => id !== rideId) : [...prev, rideId];
+      const next = wasArchived ? prev.filter((id) => id !== rideId) : [...prev, rideId];
       persistArchivedCompletedIds(next);
       return next;
     });
+    try {
+      if (wasArchived) {
+        await unarchiveCompletedRide(driverToken, rideId);
+      } else {
+        await archiveCompletedRide(driverToken, rideId);
+      }
+    } catch (e) {
+      const status = apiErrorStatus(e);
+      // Endpoint nog niet gedeployed (405/404): lokale archiefstatus behouden.
+      if (status === 404 || status === 405) {
+        return;
+      }
+      setArchivedCompletedIds((prev) => {
+        const next = wasArchived ? [...prev, rideId] : prev.filter((id) => id !== rideId);
+        persistArchivedCompletedIds(next);
+        return next;
+      });
+      Alert.alert(
+        t('Archiveren mislukt'),
+        e instanceof ApiError ? e.message : t('Kon de rit niet archiveren. Probeer opnieuw.')
+      );
+    }
   }
 
   useEffect(() => {
@@ -3665,6 +3738,9 @@ export function DriverHomeScreen() {
                   setDeclinedOffers((current) => current.filter((o) => !gone.has(Number(o.id))));
                 }
                 if (doneIds.length > 0) {
+                  if (driverToken) {
+                    await deleteArchivedCompletedRides(driverToken, doneIds);
+                  }
                   const goneDone = new Set(doneIds);
                   setArchivedCompletedIds((prev) => {
                     const next = prev.filter((id) => !goneDone.has(id));
@@ -3791,24 +3867,26 @@ export function DriverHomeScreen() {
           <Text style={styles.archiveBackLink}>{t("Ritten →")}</Text>
         </Pressable>
       </View>
-      <View style={styles.rideKindRow}>
-        {RIDE_KIND_OPTIONS.map((opt) => {
-          const active = rideKindFilter === opt.key;
-          return (
-            <Pressable
-              key={opt.key}
-              style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
-              onPress={() => chooseRideKind(opt.key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
-                {t(opt.label)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {showRideKindFilter ? (
+        <View style={styles.rideKindRow}>
+          {RIDE_KIND_OPTIONS.map((opt) => {
+            const active = rideKindFilter === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
+                onPress={() => chooseRideKind(opt.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
+                  {t(opt.label)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       {archiveSelectableKeys.length > 0 ? (
         <Card>
           <View style={styles.archiveBulkBar}>
