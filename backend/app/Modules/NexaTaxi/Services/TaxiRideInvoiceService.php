@@ -220,6 +220,14 @@ class TaxiRideInvoiceService
                 }
             }
 
+            // Beide (of enige) facturen al verstuurd: opnieuw versturen van de actuele leg toestaan.
+            if ($ride->returnPaidAmount() !== null) {
+                return RideRequest::INVOICE_BILLING_TERUG;
+            }
+            if ($ride->outboundPaidAmount() !== null) {
+                return RideRequest::INVOICE_BILLING_HEEN;
+            }
+
             return null;
         }
 
@@ -227,11 +235,7 @@ class TaxiRideInvoiceService
             return null;
         }
 
-        $invoice = $this->findInvoiceForRide($ride);
-        if ($invoice && $invoice->status === 'sent') {
-            return null;
-        }
-
+        // Lege string = enkelvoudige ritfactuur; ook na status=sent opnieuw verstuurbaar.
         return '';
     }
 
@@ -293,7 +297,6 @@ class TaxiRideInvoiceService
                 && $ride->returnPaidAmount() !== null,
             'can_send' => $sendableLeg !== null
                 && filled($invoice?->invoice_number)
-                && $invoice?->status !== 'sent'
                 && $this->invoicePdfAllowedForRide($ride),
         ];
     }
@@ -352,7 +355,6 @@ class TaxiRideInvoiceService
 
             $invoice->update([
                 'customer_email' => $email,
-                'status' => 'sent',
             ]);
 
             $invoice = $invoice->fresh();
@@ -370,7 +372,6 @@ class TaxiRideInvoiceService
                 if ($summaryInvoice) {
                     $summaryInvoice->update([
                         'customer_email' => $email,
-                        'status' => 'sent',
                     ]);
                     $summaryInvoice = $summaryInvoice->fresh();
                 }
@@ -396,7 +397,12 @@ class TaxiRideInvoiceService
 
             $this->sendInvoiceEmail($invoice, $pdf['bytes'], $extraAttachments);
 
-            return $invoice;
+            $invoice->update(['status' => 'sent']);
+            if ($summaryInvoice) {
+                $summaryInvoice->update(['status' => 'sent']);
+            }
+
+            return $invoice->fresh();
         });
 
         app(TaxiCustomerRideStatusNotificationService::class)->recordAppStatus(
@@ -746,7 +752,7 @@ class TaxiRideInvoiceService
         }
 
         try {
-            app(TenantCustomerMailService::class)->send([
+            $record = app(TenantCustomerMailService::class)->send([
                 'company_id' => $companyId,
                 'type' => TenantCustomerEmail::TYPE_INVOICE,
                 'to_email' => $toEmail,
@@ -761,6 +767,17 @@ class TaxiRideInvoiceService
                 'attachments' => $attachments,
                 'throw' => true,
             ]);
+
+            if ($record->status !== TenantCustomerEmail::STATUS_SENT) {
+                throw ValidationException::withMessages([
+                    'invoice' => [
+                        $record->error_message
+                            ?: ($this->env->mailDeliveryHint($companyId) ?? 'Factuur-e-mail is niet verstuurd.'),
+                    ],
+                ]);
+            }
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             if ($this->isSmtpNotAuthorizedError($e)) {
                 throw ValidationException::withMessages([
@@ -771,7 +788,9 @@ class TaxiRideInvoiceService
                 ]);
             }
 
-            throw $e;
+            throw ValidationException::withMessages([
+                'invoice' => [$this->env->explainMailSendException($e)],
+            ]);
         }
     }
 

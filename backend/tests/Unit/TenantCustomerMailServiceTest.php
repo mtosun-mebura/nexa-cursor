@@ -59,6 +59,48 @@ class TenantCustomerMailServiceTest extends TestCase
         Mail::assertNothingOutgoing();
     }
 
+    public function test_throw_true_raises_on_invalid_recipient(): void
+    {
+        Mail::fake();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Geen geldig e-mailadres.');
+
+        app(TenantCustomerMailService::class)->send([
+            'company_id' => null,
+            'type' => TenantCustomerEmail::TYPE_INVOICE,
+            'to_email' => 'niet-geldig',
+            'subject' => 'Factuur',
+            'html' => '<p>Test</p>',
+            'throw' => true,
+        ]);
+    }
+
+    public function test_undeliverable_mailer_is_logged_as_failed_without_sending(): void
+    {
+        Mail::fake();
+
+        $env = \Mockery::mock(\App\Services\EnvService::class);
+        $env->shouldReceive('forgetMailOverlayCache')->once();
+        $env->shouldReceive('isMailDeliverableToInbox')->once()->with(null)->andReturn(false);
+        $env->shouldReceive('mailDeliveryHint')->once()->with(null)->andReturn(
+            'Mailer staat op „Log (alleen loggen)”.'
+        );
+        $this->app->instance(\App\Services\EnvService::class, $env);
+
+        $record = app(TenantCustomerMailService::class)->send([
+            'company_id' => null,
+            'type' => TenantCustomerEmail::TYPE_INVOICE,
+            'to_email' => 'klant@example.test',
+            'subject' => 'Factuur',
+            'html' => '<p>Test</p>',
+        ]);
+
+        $this->assertSame(TenantCustomerEmail::STATUS_FAILED, $record->status);
+        $this->assertStringContainsString('Log', (string) $record->error_message);
+        Mail::assertNothingOutgoing();
+    }
+
     public function test_resend_creates_a_new_row_and_increments_the_original(): void
     {
         Mail::fake();

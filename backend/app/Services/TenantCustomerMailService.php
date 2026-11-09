@@ -78,21 +78,34 @@ class TenantCustomerMailService
         ];
 
         if ($toEmail === '' || ! filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
-            return $this->record($attributes, TenantCustomerEmail::STATUS_FAILED, 'Geen geldig e-mailadres.');
+            return $this->failOrThrow($attributes, TenantCustomerEmail::STATUS_FAILED, 'Geen geldig e-mailadres.', $throw);
         }
 
         if ($this->demoAccounts->shouldSuppressOutgoingMail()) {
-            return $this->record($attributes, TenantCustomerEmail::STATUS_SKIPPED, 'Demo: uitgaande mail onderdrukt.');
+            return $this->failOrThrow(
+                $attributes,
+                TenantCustomerEmail::STATUS_SKIPPED,
+                'Demo: uitgaande mail onderdrukt.',
+                $throw
+            );
         }
 
         $usePlatformMail = (bool) ($data['platform_mail'] ?? false);
+        $this->env->forgetMailOverlayCache();
         if ($usePlatformMail) {
             $this->env->applyPlatformMailConfigToRuntime();
             $from = $this->env->resolveMailFromHeaders(null, true);
         } else {
+            if (! $this->env->isMailDeliverableToInbox($companyId)) {
+                $hint = $this->env->mailDeliveryHint($companyId)
+                    ?? 'Geen bruikbare SMTP-configuratie voor uitgaande mail.';
+
+                return $this->failOrThrow($attributes, TenantCustomerEmail::STATUS_FAILED, $hint, $throw);
+            }
             $this->env->applyMailConfigToRuntime($companyId);
             $from = $this->env->resolveMailFromHeaders($companyId);
         }
+
         $fromNameOverride = trim((string) ($data['from_name'] ?? ''));
         if ($fromNameOverride !== '') {
             $from['from_name'] = $fromNameOverride;
@@ -174,6 +187,19 @@ class TenantCustomerMailService
         }
 
         return $this->record($attributes, TenantCustomerEmail::STATUS_SENT);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function failOrThrow(array $attributes, string $status, string $error, bool $throw): TenantCustomerEmail
+    {
+        $record = $this->record($attributes, $status, $error);
+        if ($throw) {
+            throw new RuntimeException($error);
+        }
+
+        return $record;
     }
 
     /**

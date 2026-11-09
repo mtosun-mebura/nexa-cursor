@@ -424,9 +424,9 @@ export function DriverSettleRideModal({
                   style={[
                     styles.btn,
                     styles.btnSuccess,
-                    (busy || invoice?.can_send === false) && styles.btnDisabled,
+                    busy && styles.btnDisabled,
                   ]}
-                  disabled={busy || invoice?.can_send === false}
+                  disabled={busy}
                   onPress={onSendInvoice}
                   accessibilityState={{ busy: sendingInvoice }}
                 >
@@ -437,9 +437,11 @@ export function DriverSettleRideModal({
                     </View>
                   ) : (
                     <Text style={styles.btnSuccessText}>
-                      {invoice?.invoice_leg_label
-                        ? `Factuur ${invoice.invoice_leg_label} versturen`
-                        : t("Factuur versturen")}
+                      {invoice?.invoice_sent
+                        ? t("Factuur opnieuw versturen")
+                        : invoice?.invoice_leg_label
+                          ? `Factuur ${invoice.invoice_leg_label} versturen`
+                          : t("Factuur versturen")}
                     </Text>
                   )}
                 </Pressable>

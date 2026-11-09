@@ -251,9 +251,9 @@ class EnvService
     public function mailDeliveryHint(?int $forCompanyId = null): ?string
     {
         $mail = $this->getMailOverlayValues($forCompanyId);
-        $mailer = strtolower(trim((string) ($mail['MAIL_MAILER'] ?? config('mail.default', 'log'))));
+        $mailer = $this->resolveRuntimeMailer($mail['MAIL_MAILER'] ?? null);
 
-        if ($mailer === '' || $mailer === 'log' || $mailer === 'array') {
+        if ($mailer === 'log' || $mailer === 'array') {
             return 'Mailer staat op „Log (alleen loggen)”. E-mails worden nergens naar een inbox verstuurd. Kies SMTP, vul host/poort/gebruikersnaam/wachtwoord in en sla op.';
         }
 
@@ -297,14 +297,26 @@ class EnvService
     /**
      * Of uitgaande mail daadwerkelijk naar een inbox kan (niet alleen log/array).
      */
+    public function forgetMailOverlayCache(): void
+    {
+        $this->mailOverlayCacheByScope = [];
+    }
+
     public function isMailDeliverableToInbox(?int $forCompanyId = null): bool
     {
+        // Altijd verse admin-SMTP-instellingen; cache mag een eerdere "log"-check niet vasthouden.
+        $this->forgetMailOverlayCache();
         $mail = $this->getMailOverlayValues($forCompanyId);
         $this->applyMailConfigToRuntime($forCompanyId);
-        $mailer = (string) ($mail['MAIL_MAILER'] ?? config('mail.default', 'log'));
+        $mailer = $this->resolveRuntimeMailer($mail['MAIL_MAILER'] ?? null);
 
-        if (in_array($mailer, ['log', 'array'], true)) {
+        if ($mailer === 'log') {
             return false;
+        }
+
+        // PHPUnit vangt mail in de array-driver; behandel dat als bezorgbaar in tests.
+        if ($mailer === 'array') {
+            return app()->runningUnitTests();
         }
 
         if ($mailer === 'smtp') {

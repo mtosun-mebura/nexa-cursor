@@ -196,8 +196,8 @@ class ContractInvoiceService
             ? $this->pdf->renderPdfBytes($invoice)
             : $this->pdf->generateAndStore($invoice->fresh())['bytes'];
 
-        $invoice->update(['status' => 'sent']);
         $this->sendInvoiceEmail($invoice->fresh(), $pdfBytes);
+        $invoice->update(['status' => 'sent']);
 
         return $invoice->fresh();
     }
