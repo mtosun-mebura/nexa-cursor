@@ -69,7 +69,8 @@ class CompanyEmailLogoService
                 : $html;
         }
 
-        $payload = $this->resolveLogoPayload($companyId);
+        // Klantmails gebruiken een donkere header (#0f172a) → dark-logo (lichte tekst).
+        $payload = $this->resolveEmailLogoPayload($companyId);
         if ($payload === null) {
             $html = str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
 
@@ -92,8 +93,9 @@ class CompanyEmailLogoService
 
     /**
      * Publieke HTTPS-URL voor e-mailclients (tenant-domein indien bekend).
+     * Standaard dark-variant (donkere mailheader); light alleen als er geen dark-logo is.
      */
-    public function publicLogoUrl(?int $companyId): ?string
+    public function publicLogoUrl(?int $companyId, bool $preferDarkHeader = true): ?string
     {
         if ($companyId === null || $companyId <= 0) {
             return null;
@@ -104,20 +106,24 @@ class CompanyEmailLogoService
 
         $base = $this->resolvePublicBaseUrl($companyId);
         $path = route('email.company-logo', ['company' => $companyId], false);
+        $url = rtrim($base, '/').$path;
 
-        return rtrim($base, '/').$path;
+        return $this->withDarkVariantQuery($url, $companyId, $preferDarkHeader);
     }
 
     /**
      * Logo-URL op het huidige host (admin-preview op localhost of admin-domein).
+     * Standaard dark-variant voor e-mailheaders; PWA light blijft via pwaLogoUrls.
      */
-    public function adminPreviewLogoUrl(?int $companyId): ?string
+    public function adminPreviewLogoUrl(?int $companyId, bool $preferDarkHeader = true): ?string
     {
         if ($companyId === null || $companyId <= 0 || ! $this->hasLogoSource($companyId)) {
             return null;
         }
 
-        return url(route('email.company-logo', ['company' => $companyId], false));
+        $url = url(route('email.company-logo', ['company' => $companyId], false));
+
+        return $this->withDarkVariantQuery($url, $companyId, $preferDarkHeader);
     }
 
     /**
@@ -127,16 +133,27 @@ class CompanyEmailLogoService
      */
     public function pwaLogoUrls(?int $companyId): array
     {
-        $light = $this->adminPreviewLogoUrl($companyId);
+        $light = $this->adminPreviewLogoUrl($companyId, false);
         if ($light === null) {
             return ['light' => null, 'dark' => null];
         }
 
         $dark = $this->resolveDarkLogoPayload($companyId) !== null
-            ? $light.(str_contains($light, '?') ? '&' : '?').'variant=dark'
+            ? $this->withDarkVariantQuery($light, $companyId, true)
             : $light;
 
         return ['light' => $light, 'dark' => $dark];
+    }
+
+    /**
+     * Logo voor e-mail (donkere header): dark-blob/pad, anders light.
+     *
+     * @return array{data: string, mime: string}|null
+     */
+    public function resolveEmailLogoPayload(?int $companyId): ?array
+    {
+        return $this->resolveDarkLogoPayload($companyId)
+            ?? $this->resolveLogoPayload($companyId);
     }
 
     /**
@@ -243,7 +260,17 @@ class CompanyEmailLogoService
 
     public function hasLogoSource(?int $companyId): bool
     {
-        return $this->resolveLogoPayload($companyId) !== null;
+        return $this->resolveLogoPayload($companyId) !== null
+            || $this->resolveDarkLogoPayload($companyId) !== null;
+    }
+
+    private function withDarkVariantQuery(string $url, int $companyId, bool $preferDarkHeader): string
+    {
+        if (! $preferDarkHeader || $this->resolveDarkLogoPayload($companyId) === null) {
+            return $url;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'variant=dark';
     }
 
     /**

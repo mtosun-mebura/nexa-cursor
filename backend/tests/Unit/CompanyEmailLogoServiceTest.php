@@ -93,6 +93,40 @@ class CompanyEmailLogoServiceTest extends TestCase
     }
 
     #[Test]
+    public function email_embed_prefers_dark_logo_for_dark_header(): void
+    {
+        $darkPng = self::TINY_PNG;
+        // Slightly different payload so we can assert which blob was embedded.
+        $lightPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true);
+        $this->assertNotFalse($lightPng);
+        $this->assertNotSame($darkPng, $lightPng);
+
+        $company = Company::query()->create([
+            'name' => 'Taxi Dark Header',
+            'logo_blob' => base64_encode($lightPng),
+            'logo_mime_type' => 'image/png',
+            'logo_dark_blob' => base64_encode($darkPng),
+            'logo_dark_mime_type' => 'image/png',
+        ]);
+
+        $html = '<td bgcolor="#0f172a">'.CompanyEmailLogoService::HTML_PLACEHOLDER.'</td>';
+        $message = $this->createMock(Message::class);
+        $message->expects($this->once())
+            ->method('embedData')
+            ->with($darkPng, 'company-logo', 'image/png')
+            ->willReturn('cid:dark-logo');
+
+        $result = app(CompanyEmailLogoService::class)->embedInHtml($html, $message, $company->id, 'Taxi Dark Header');
+
+        $this->assertStringContainsString('src="cid:dark-logo"', $result);
+        $this->assertStringContainsString('variant=dark', (string) app(CompanyEmailLogoService::class)->adminPreviewLogoUrl($company->id));
+        $this->assertStringNotContainsString(
+            'variant=dark',
+            (string) app(CompanyEmailLogoService::class)->adminPreviewLogoUrl($company->id, false)
+        );
+    }
+
+    #[Test]
     public function it_strips_legacy_grey_company_kicker_after_logo_embed(): void
     {
         Storage::fake('public');
