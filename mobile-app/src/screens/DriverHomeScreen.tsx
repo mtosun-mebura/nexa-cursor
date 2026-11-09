@@ -4838,12 +4838,6 @@ export function DriverHomeScreen() {
         <Text style={styles.noticeBody}>{rideNotice?.body}</Text>
         <View style={styles.cancelActions}>
           <Pressable
-            style={[styles.cancelActionBtn, styles.cancelActionGhost]}
-            onPress={() => setRideNotice(null)}
-          >
-            <Text style={styles.cancelActionGhostText}>{t("Sluiten")}</Text>
-          </Pressable>
-          <Pressable
             style={[styles.cancelActionBtn, styles.cancelActionPrimary]}
             onPress={() => {
               const notice = rideNotice;
