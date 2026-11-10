@@ -244,13 +244,22 @@ HTML;
             return false;
         }
 
-        // Current light card chrome (grey page + white rounded card).
-        if (str_contains($html, 'background-color:#e5e7eb') && str_contains($html, 'color-scheme: light only')) {
+        // Current light card chrome (grey page + grey logo header).
+        if (str_contains($html, 'background-color:#e5e7eb')
+            && str_contains($html, 'color-scheme: light only')
+            && str_contains($html, '#f3f4f6')) {
             return false;
         }
 
         // Dark-header card era → upgrade to light chrome.
         if (preg_match('/bgcolor=["\']#0f172a["\']/i', $html) === 1) {
+            return true;
+        }
+
+        // Light-only card without grey logo band → still upgrade.
+        if (str_contains($html, 'color-scheme: light only')
+            && ! str_contains($html, '#f3f4f6')
+            && (str_contains($html, 'COMPANY_LOGO') || str_contains($html, 'NEXA_LOGO') || str_contains($html, 'NEXA_COMPANY_LOGO'))) {
             return true;
         }
 
@@ -261,7 +270,7 @@ HTML;
     }
 
     /**
-     * Force light page + white rounded card header so the light-mode logo stays readable
+     * Force light page + grey logo header so the light-mode logo stays readable
      * even when the mail client opens the message in dark mode.
      */
     public static function ensureLightEmailChrome(string $html): string
@@ -270,20 +279,32 @@ HTML;
             return $html;
         }
 
-        // Header cells that used the old slate band.
+        // Header cells that used the old slate band → light grey logo band.
         $html = preg_replace(
             '/(<td\b[^>]*?)\sbgcolor=(["\'])#0f172a\2/i',
-            '$1 bgcolor=$2#ffffff$2',
+            '$1 bgcolor=$2#f3f4f6$2',
             $html
         ) ?? $html;
         $html = preg_replace(
             '/(padding:\s*2[48]px\s+3[02]px;?)([^"\']*?)background-color:\s*#0f172a/i',
-            '$1$2background-color:#ffffff',
+            '$1$2background-color:#f3f4f6',
             $html
         ) ?? $html;
         $html = preg_replace(
             '/background-color:\s*#0f172a([^"\']*?)(padding:\s*2[48]px\s+3[02]px)/i',
-            'background-color:#ffffff$1$2',
+            'background-color:#f3f4f6$1$2',
+            $html
+        ) ?? $html;
+
+        // Earlier light-chrome pass used pure white headers; those invert in dark mode.
+        $html = preg_replace(
+            '/(<td\b[^>]*?)\sbgcolor=(["\'])#ffffff\2([^>]*padding:\s*28px 32px)/i',
+            '$1 bgcolor=$2#f3f4f6$2$3',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/(padding:\s*28px 32px(?:\s+20px)?;?)([^"\']*?)background-color:\s*#ffffff/i',
+            '$1$2background-color:#f3f4f6',
             $html
         ) ?? $html;
 

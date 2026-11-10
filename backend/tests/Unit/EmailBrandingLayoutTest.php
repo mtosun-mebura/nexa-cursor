@@ -196,6 +196,7 @@ class EmailBrandingLayoutTest extends TestCase
         $accepted = app(TaxiCustomerAcceptEmailTemplateService::class)->ensureGlobalTemplateExists();
         $this->assertStringContainsString('{{ COMPANY_LOGO }}', (string) $accepted->html_content);
         $this->assertStringContainsString('background-color:#e5e7eb', (string) $accepted->html_content);
+        $this->assertStringContainsString('#f3f4f6', (string) $accepted->html_content);
         $this->assertStringNotContainsString('bgcolor="#0f172a"', (string) $accepted->html_content);
     }
 
@@ -310,5 +311,27 @@ class EmailBrandingLayoutTest extends TestCase
         $this->assertStringNotContainsString('Taxi Tosun</p>', $stripped);
         $this->assertStringContainsString('Proefperiode beëindigen', $stripped);
         $this->assertStringContainsString('Geen abonnement afnemen?', $stripped);
+    }
+
+    #[Test]
+    public function ensure_light_email_chrome_converts_dark_header_to_grey_logo_band(): void
+    {
+        $html = '<body style="background-color:#f4f4f4;">'
+            .'<td bgcolor="#0f172a" style="padding:28px 32px;background-color:#0f172a;">'
+            .'{{ COMPANY_LOGO }}'
+            .'<h1 style="margin:0;color:#ffffff;">Uw taxirit is geaccepteerd</h1>'
+            .'</td></body>';
+
+        $fixed = EmailCardHtml::ensureLightEmailChrome($html);
+
+        $this->assertStringContainsString('bgcolor="#f3f4f6"', $fixed);
+        $this->assertStringContainsString('background-color:#f3f4f6', $fixed);
+        $this->assertStringContainsString('color:#0f172a', $fixed);
+        $this->assertStringNotContainsString('bgcolor="#0f172a"', $fixed);
+        $this->assertStringContainsString('background-color:#e5e7eb', $fixed);
+        $this->assertTrue(EmailCardHtml::looksLikeLegacyLayout($html));
+        $this->assertFalse(EmailCardHtml::looksLikeLegacyLayout(
+            EmailCardHtml::wrap('T', 'K', '<p>x</p>', EmailCardHtml::companyLogoMarkup())
+        ));
     }
 }
