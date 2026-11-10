@@ -11,6 +11,12 @@ export type GuestRideRating = {
   can_rate?: boolean;
 };
 
+export type GuestRideComplaint = {
+  filed?: boolean;
+  can_file?: boolean;
+  complaint_id?: number | null;
+};
+
 export type GuestRide = {
   id: number;
   token: string;
@@ -34,6 +40,7 @@ export type GuestRide = {
   dropoff_lat?: number | null;
   dropoff_lng?: number | null;
   rating?: GuestRideRating | null;
+  complaint?: GuestRideComplaint | null;
   cancellation_message?: string | null;
   cancellation_reason?: string | null;
   refund_message?: string | null;
@@ -221,6 +228,7 @@ export async function saveGuestRide(
     dropoff_lat: meta.dropoff_lat !== undefined ? meta.dropoff_lat : prev?.dropoff_lat ?? null,
     dropoff_lng: meta.dropoff_lng !== undefined ? meta.dropoff_lng : prev?.dropoff_lng ?? null,
     rating: meta.rating !== undefined ? meta.rating : prev?.rating ?? null,
+    complaint: meta.complaint !== undefined ? meta.complaint : prev?.complaint ?? null,
     cancellation_message:
       meta.cancellation_message !== undefined
         ? meta.cancellation_message
@@ -307,6 +315,7 @@ export function guestPatchFromLive(ride: {
   pickup_at?: string | null;
   pickup_at_label?: string | null;
   rating?: GuestRideRating | null;
+  complaint?: GuestRideComplaint | null;
   distance_km?: number | null;
   duration_seconds?: number | null;
   pickup_lat?: number | null;
@@ -337,6 +346,7 @@ export function guestPatchFromLive(ride: {
     dropoff_lat: ride.dropoff_lat ?? undefined,
     dropoff_lng: ride.dropoff_lng ?? undefined,
     rating: ride.rating ?? undefined,
+    complaint: ride.complaint ?? undefined,
     distance_km: ride.distance_km ?? undefined,
     duration_seconds: ride.duration_seconds ?? undefined,
     cancellation_message: ride.cancellation_message ?? undefined,

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { BootstrapSession, Capabilities } from '../api/auth';
-import { setUnauthorizedHandler } from '../api/client';
+import { setDriverBlockedHandler, setUnauthorizedHandler } from '../api/client';
 import { unregisterDriverPushToken } from '../notifications/driverPush';
 import { secureDelete, secureGet, secureSet } from '../storage/secureStoreSafe';
 
@@ -164,7 +164,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUnauthorizedHandler(() => {
       void forceReLogin();
     });
-    return () => setUnauthorizedHandler(null);
+    setDriverBlockedHandler(() => {
+      void forceReLogin();
+    });
+    return () => {
+      setUnauthorizedHandler(null);
+      setDriverBlockedHandler(null);
+    };
   }, [forceReLogin]);
 
   const value = useMemo<AuthState>(

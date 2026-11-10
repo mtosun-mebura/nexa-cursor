@@ -10,7 +10,8 @@ use Illuminate\Validation\ValidationException;
 class TaxiRideRatingService
 {
     public function __construct(
-        protected TaxiDriverProfileMediaService $profiles
+        protected TaxiDriverProfileMediaService $profiles,
+        protected TaxiDriverNotificationService $notifications
     ) {}
 
     public function findForRide(string $conn, int $rideId): ?TaxiRideRating
@@ -96,6 +97,20 @@ class TaxiRideRatingService
         $row->save();
 
         $this->profiles->applyRating($driverId, $stars);
+
+        $starsLabel = $stars.' ster'.($stars === 1 ? '' : 'ren');
+        $body = $comment
+            ? $starsLabel.': '.$comment
+            : 'Je hebt een nieuwe beoordeling van '.$starsLabel.' ontvangen.';
+        $this->notifications->notify($conn, $driverId, [
+            'type' => \App\Modules\NexaTaxi\Models\TaxiDriverNotification::TYPE_NEW_RATING,
+            'title' => 'Nieuwe beoordeling',
+            'body' => $body,
+            'company_id' => (int) ($ride->fulfilling_company_id ?: $ride->company_id ?: 0) ?: null,
+            'related_ride_id' => (int) $ride->id,
+            'related_rating_id' => (int) $row->id,
+            'push' => true,
+        ]);
 
         return $this->payloadForRide($conn, $ride);
     }

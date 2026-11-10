@@ -72,6 +72,26 @@ class Module extends BaseModule
                 'order' => 20,
             ],
             [
+                'key' => 'complaints',
+                'title' => 'Klachten',
+                'route' => 'admin.taxi.complaints.index',
+                'icon' => 'ki-filled ki-message-text-2',
+                'permission_any' => ['complaints.view', 'complaints.manage'],
+                'order' => 25,
+                'children' => [
+                    [
+                        'title' => 'Overzicht',
+                        'route' => 'admin.taxi.complaints.index',
+                        'permission_any' => ['complaints.view', 'complaints.manage'],
+                    ],
+                    [
+                        'title' => 'Geblokkeerde chauffeurs',
+                        'route' => 'admin.taxi.complaints.blocked',
+                        'permission_any' => ['complaints.view', 'complaints.manage'],
+                    ],
+                ],
+            ],
+            [
                 'key' => 'dispatch_settings',
                 'title' => 'Chauffeur dispatch',
                 'route' => 'admin.taxi.dispatch_settings.edit',
@@ -178,6 +198,8 @@ class Module extends BaseModule
             'ai_chatbot.delete',
             'earnings.view',
             'earnings.view_month',
+            'complaints.view',
+            'complaints.manage',
         ];
     }
 }

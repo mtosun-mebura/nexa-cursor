@@ -258,6 +258,49 @@ function asOfferList(raw: unknown): DispatchOffer[] {
   );
 }
 
+export type DriverInboxNotification = {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  related_complaint_id?: number | null;
+  related_ride_id?: number | null;
+  read_at?: string | null;
+  closed_at?: string | null;
+  created_at?: string | null;
+  is_read?: boolean;
+  is_closed?: boolean;
+};
+
+export function fetchDriverNotifications(token: string) {
+  return apiRequest<{
+    notifications?: DriverInboxNotification[];
+    unread_count?: number;
+  }>('/api/taxi/v1/driver/notifications', { token, timeoutMs: 10000 });
+}
+
+export function markDriverNotificationRead(token: string, notificationId: number) {
+  return apiRequest<{
+    success?: boolean;
+    notification?: DriverInboxNotification;
+    unread_count?: number;
+  }>(`/api/taxi/v1/driver/notifications/${notificationId}/read`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function closeDriverNotification(token: string, notificationId: number) {
+  return apiRequest<{
+    success?: boolean;
+    notification?: DriverInboxNotification;
+    unread_count?: number;
+  }>(`/api/taxi/v1/driver/notifications/${notificationId}/close`, {
+    method: 'POST',
+    token,
+  });
+}
+
 export function fetchDriverReviews(token: string) {
   return apiRequest<{ reviews?: DriverReview[] }>('/api/taxi/v1/driver/profile/ratings', { token });
 }

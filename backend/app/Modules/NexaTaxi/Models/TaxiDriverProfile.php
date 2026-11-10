@@ -19,11 +19,16 @@ class TaxiDriverProfile extends Model
         'rating_count',
         'rating_sum',
         'rating_avg',
+        'app_blocked_at',
+        'app_blocked_reason',
+        'app_blocked_by',
+        'app_blocked_complaint_id',
     ];
 
     protected $casts = [
         'rating_count' => 'integer',
         'rating_sum' => 'integer',
         'rating_avg' => 'float',
+        'app_blocked_at' => 'datetime',
     ];
 }

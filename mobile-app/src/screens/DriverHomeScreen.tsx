@@ -33,8 +33,12 @@ import {
   DriverVehicle,
   fetchDriverInbox,
   fetchDriverMe,
+  fetchDriverNotifications,
   fetchDriverReviews,
   fetchDriverVehicles,
+  markDriverNotificationRead,
+  closeDriverNotification,
+  DriverInboxNotification,
   fetchDriverFleet,
   createDriverVehicle,
   updateDriverVehicle,
@@ -601,6 +605,10 @@ export function DriverHomeScreen() {
   const [reviews, setReviews] = useState<DriverReview[]>([]);
   const [reviewsBusy, setReviewsBusy] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [inboxNotifications, setInboxNotifications] = useState<DriverInboxNotification[]>([]);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsBusy, setNotificationsBusy] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [limitedPickerOpen, setLimitedPickerOpen] = useState(false);
   const limitedPickResolve = useRef<((r: { uri: string; mime: string | null } | null) => void) | null>(null);
@@ -1202,6 +1210,13 @@ export function DriverHomeScreen() {
       setPastPickupGraceMinutes(inboxData.pastPickupGraceMinutes);
       setCancelReasons(inboxData.cancelReasons);
       await syncCompletedArchiveFromInbox(inboxData);
+      try {
+        const notes = await fetchDriverNotifications(driverToken);
+        setInboxNotifications(Array.isArray(notes.notifications) ? notes.notifications : []);
+        setInboxUnreadCount(Number(notes.unread_count) || 0);
+      } catch {
+        /* inboxmeldingen mogen poll niet breken */
+      }
     } catch {
       /* lichte poll: stil falen, volgende tick opnieuw */
     } finally {
@@ -2953,6 +2968,60 @@ export function DriverHomeScreen() {
     }
   }
 
+  async function openNotifications() {
+    setNotificationsOpen(true);
+    if (!driverToken) return;
+    setNotificationsBusy(true);
+    try {
+      const notes = await fetchDriverNotifications(driverToken);
+      setInboxNotifications(Array.isArray(notes.notifications) ? notes.notifications : []);
+      setInboxUnreadCount(Number(notes.unread_count) || 0);
+    } catch {
+      /* stil */
+    } finally {
+      setNotificationsBusy(false);
+    }
+  }
+
+  async function onOpenNotification(item: DriverInboxNotification) {
+    if (!driverToken) return;
+    try {
+      if (!item.is_read) {
+        const res = await markDriverNotificationRead(driverToken, item.id);
+        if (typeof res.unread_count === 'number') setInboxUnreadCount(res.unread_count);
+        setInboxNotifications((current) =>
+          current.map((row) =>
+            row.id === item.id
+              ? { ...row, is_read: true, read_at: new Date().toISOString() }
+              : row
+          )
+        );
+      }
+      Alert.alert(item.title, item.body, [
+        { text: t('Sluiten'), style: 'cancel' },
+        {
+          text: t('Archiveren'),
+          onPress: () => {
+            void (async () => {
+              try {
+                const res = await closeDriverNotification(driverToken, item.id);
+                if (typeof res.unread_count === 'number') setInboxUnreadCount(res.unread_count);
+                setInboxNotifications((current) => current.filter((row) => row.id !== item.id));
+                if (item.type === 'new_rating') {
+                  void openReviews();
+                }
+              } catch {
+                /* ignore */
+              }
+            })();
+          },
+        },
+      ]);
+    } catch (e) {
+      Alert.alert(t('Melding'), e instanceof ApiError ? e.message : t('Kon melding niet openen.'));
+    }
+  }
+
   /**
    * Fotobibliotheek. Bij iOS-beperkte toegang tonen we alleen de toegestane foto's
    * (met "Meer foto's toevoegen"); PHPicker (ImagePicker) negeert die selectie.
@@ -4197,6 +4266,30 @@ export function DriverHomeScreen() {
 
         <View style={styles.headerIcons}>
           <Pressable
+            style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
+            onPress={() => {
+              void openNotifications();
+            }}
+            accessibilityLabel={
+              inboxUnreadCount > 0
+                ? t('Meldingen ({count})', { count: inboxUnreadCount })
+                : t('Meldingen')
+            }
+          >
+            {inboxUnreadCount > 0 ? (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>
+                  {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
+                </Text>
+              </View>
+            ) : null}
+            <Ionicons
+              name="notifications-outline"
+              size={22}
+              color={notificationsOpen ? accentHex(accent) : colors.muted}
+            />
+          </Pressable>
+          <Pressable
             style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
             onPress={() => goToArchive(!showArchived)}
             accessibilityLabel={
@@ -4282,6 +4375,44 @@ export function DriverHomeScreen() {
         tripsBadge={jumpRideTarget && tab !== 'trips' ? 1 : 0}
         accent={accentHex(accent)}
       />
+
+      <AppModal
+        visible={notificationsOpen}
+        onRequestClose={() => setNotificationsOpen(false)}
+        panelStyle={styles.reviewsModal}
+      >
+        <Text style={styles.pickerTitle}>{t('Meldingen')}</Text>
+        {notificationsBusy ? <Text style={styles.hint}>{t('Laden…')}</Text> : null}
+        {!notificationsBusy && inboxNotifications.length === 0 ? (
+          <Text style={styles.hint}>{t('Geen openstaande meldingen.')}</Text>
+        ) : null}
+        <ScrollView
+          style={styles.reviewsScroll}
+          contentContainerStyle={styles.reviewsScrollContent}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {inboxNotifications.map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => void onOpenNotification(item)}
+              style={[styles.reviewItem, !item.is_read ? { borderColor: accentHex(accent) } : null]}
+            >
+              <View style={styles.reviewHead}>
+                <Text style={styles.reviewName}>{item.title}</Text>
+                <Text style={styles.reviewDate}>{reviewDateLabel(item.created_at)}</Text>
+              </View>
+              <Text style={styles.reviewComment} numberOfLines={3}>
+                {item.body}
+              </Text>
+              {!item.is_read ? (
+                <Text style={[styles.hint, { marginTop: 6 }]}>{t('Ongelezen')}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </ScrollView>
+        <GhostButton title={t('Sluiten')} onPress={() => setNotificationsOpen(false)} />
+      </AppModal>
 
       <AppModal
         visible={reviewsOpen}
@@ -4958,7 +5089,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     headerIcons: {
       marginLeft: 'auto',
-      minWidth: 72,
+      minWidth: 96,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-end',

@@ -268,6 +268,44 @@ class DriverExpoPushService
      *
      * @return array{devices: int, tickets: list<array{status: string, error: string|null}>, error: string|null}
      */
+    /**
+     * Generieke inbox-/beheerpush (rating, klachtfollow-up, blokkade).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function sendSimple(int $driverId, string $title, string $body, array $data = []): void
+    {
+        if ($driverId <= 0 || trim($title) === '') {
+            return;
+        }
+
+        $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
+        $messages = [];
+        $sentRows = [];
+        foreach ($rows as $row) {
+            $token = trim((string) $row->token);
+            if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
+                continue;
+            }
+            $sentRows[] = $row;
+            $messages[] = [
+                'to' => $token,
+                'title' => mb_substr(trim($title), 0, 80),
+                'body' => mb_substr(trim($body) !== '' ? trim($body) : 'Je hebt een nieuw bericht.', 0, 180),
+                'sound' => 'default',
+                'priority' => 'high',
+                'channelId' => 'driver-inbox',
+                'data' => array_merge(['type' => 'driver_inbox'], $data),
+            ];
+        }
+
+        if ($messages === []) {
+            return;
+        }
+
+        $this->postMessages($driverId, null, $messages, $sentRows);
+    }
+
     public function sendTest(int $driverId): array
     {
         if ($driverId <= 0) {

@@ -109,6 +109,11 @@ export type LiveRide = {
     comment?: string | null;
     can_rate?: boolean;
   } | null;
+  complaint?: {
+    filed?: boolean;
+    can_file?: boolean;
+    complaint_id?: number | null;
+  } | null;
   eta_minutes?: number | null;
   eta_label?: string | null;
   vehicle_location?: {
@@ -278,5 +283,39 @@ export function rateLive(token: string, stars: number, comment?: string | null) 
   }>('/api/taxi/v1/customer/live/rate', {
     method: 'POST',
     body: { token, stars, comment: comment || null },
+  });
+}
+
+export const COMPLAINT_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'late', label: 'Te laat / niet gekomen' },
+  { value: 'unsafe_driving', label: 'Onveilig rijgedrag' },
+  { value: 'rude', label: 'Onbeleefd / ongepast gedrag' },
+  { value: 'dirty_vehicle', label: 'Vies of defect voertuig' },
+  { value: 'wrong_route', label: 'Verkeerde route / omweg' },
+  { value: 'payment', label: 'Betaling / prijs' },
+  { value: 'other', label: 'Overig' },
+];
+
+export function complainLive(
+  token: string,
+  payload: {
+    category: string;
+    description: string;
+    subject?: string | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    preferred_contact?: 'email' | 'phone' | 'none';
+  }
+) {
+  return apiRequest<{
+    success?: boolean;
+    complaint?: LiveRide['complaint'];
+    complaint_id?: number;
+    ride?: LiveRide;
+    message?: string;
+  }>('/api/taxi/v1/customer/live/complain', {
+    method: 'POST',
+    body: { token, ...payload },
   });
 }

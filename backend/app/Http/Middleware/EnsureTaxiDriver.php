@@ -3,9 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Modules\NexaTaxi\Services\TaxiDriverBlockService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Services\CompanyEntitlementService;
+use App\Services\ModuleDatabaseService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Support\TenantPackageCapability;
 use Closure;
@@ -47,6 +49,18 @@ class EnsureTaxiDriver
 
         if (! TaxiDriverAccountStatus::isActive($user)) {
             return TaxiDriverAccountStatus::inactiveResponse();
+        }
+
+        $conn = app(ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+        $blocks = app(TaxiDriverBlockService::class);
+        if ($blocks->isBlocked($conn, (int) $user->id)) {
+            $user->tokens()->where('name', 'taxi-driver')->delete();
+
+            return response()->json([
+                'message' => 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+                'error' => 'driver_blocked',
+                'blocked' => $blocks->blockedPayload($conn, (int) $user->id),
+            ], 403);
         }
 
         $request->attributes->set('taxi_company_id', $companyId);
