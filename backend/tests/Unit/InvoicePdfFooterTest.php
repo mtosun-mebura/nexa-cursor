@@ -273,6 +273,7 @@ class InvoicePdfFooterTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('BETALING VOLDAAN', $html);
+        $this->assertStringContainsString('border-radius: 8px', $html);
         $this->assertStringContainsString('Openstaand bedrag', $html);
         $this->assertStringContainsString('volledig voldaan', $html);
     }

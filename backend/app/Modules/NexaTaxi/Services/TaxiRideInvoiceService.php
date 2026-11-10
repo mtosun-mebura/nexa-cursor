@@ -836,7 +836,7 @@ class TaxiRideInvoiceService
             ? ' Betaald op <strong>'.e($paidOn).'</strong>.'
             : '';
 
-        return '<p style="margin:16px 0;padding:12px 14px;background:#dcfce7;border:2px solid #16a34a;color:#14532d;font-size:14px;line-height:1.5;">'
+        return '<p style="margin:16px 0;padding:12px 14px;background:#dcfce7;border:2px solid #16a34a;border-radius:8px;color:#14532d;font-size:14px;line-height:1.5;">'
             .'<strong>Betaling voldaan.</strong>'.$dateLine
             .' Er zijn geen openstaande bedragen op deze factuur.'
             .'</p>';
