@@ -350,6 +350,7 @@ class CustomerRideLiveStatusService
             'status_updates' => $statusUpdates,
             'status_notify_events' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
             'rating' => $ratingPayload,
+            'complaint' => app(TaxiRideComplaintService::class)->payloadForRide($conn, $ride),
             'pickup_confirmation' => $pickupService->customerPayload($ride),
             'vehicle_location' => $driverLoc,
             'eta_minutes' => $eta['minutes'] ?? null,

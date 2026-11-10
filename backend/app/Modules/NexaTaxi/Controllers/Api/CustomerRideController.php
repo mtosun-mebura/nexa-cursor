@@ -301,6 +301,49 @@ class CustomerRideController extends Controller
         ]);
     }
 
+    public function complainByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        \App\Modules\NexaTaxi\Services\TaxiRideComplaintService $complaints,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'category' => 'required|string|max:40',
+            'description' => 'required|string|min:10|max:4000',
+            'subject' => 'nullable|string|max:160',
+            'customer_name' => 'nullable|string|max:160',
+            'customer_email' => 'nullable|email|max:190',
+            'customer_phone' => 'nullable|string|max:40',
+            'preferred_contact' => 'nullable|string|in:email,phone,none',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $complaint = $complaints->file($conn, $ride, $data);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'complaint' => $complaints->payloadForRide($conn, $ride),
+            'complaint_id' => (int) $complaint->id,
+            'ride' => $live->livePayload($ride->fresh() ?? $ride),
+            'message' => 'Je klacht is ontvangen. We nemen deze in behandeling.',
+        ]);
+    }
+
     public function payByToken(
         Request $request,
         CustomerRideLiveStatusService $live,

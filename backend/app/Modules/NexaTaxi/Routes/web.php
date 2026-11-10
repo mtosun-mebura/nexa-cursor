@@ -5,6 +5,7 @@ use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
 use App\Modules\NexaTaxi\Controllers\Admin\DriverScheduleController;
 use App\Modules\NexaTaxi\Controllers\Admin\GpsTrackingController;
 use App\Modules\NexaTaxi\Controllers\Admin\KnowledgeDocumentController;
+use App\Modules\NexaTaxi\Controllers\Admin\RideComplaintController;
 use App\Modules\NexaTaxi\Controllers\Admin\RideRequestController;
 use App\Modules\NexaTaxi\Controllers\Admin\TarievenController;
 use App\Modules\NexaTaxi\Controllers\Admin\TransportAnnouncementController;
@@ -90,6 +91,24 @@ Route::delete('ride_requests/bulk-destroy', [RideRequestController::class, 'bulk
 Route::resource('ride_requests', RideRequestController::class);
 Route::post('vehicles/upload-image', [VehicleController::class, 'uploadImage'])->name('vehicles.upload-image');
 Route::resource('vehicles', VehicleController::class);
+
+Route::get('klachten', [RideComplaintController::class, 'index'])->name('complaints.index');
+Route::get('klachten/geblokkeerd', [RideComplaintController::class, 'blocked'])->name('complaints.blocked');
+Route::post('klachten/geblokkeerd/{driver}/deblokkeren', [RideComplaintController::class, 'unblock'])
+    ->name('complaints.unblock')
+    ->whereNumber('driver');
+Route::get('klachten/{complaint}', [RideComplaintController::class, 'show'])
+    ->name('complaints.show')
+    ->whereNumber('complaint');
+Route::post('klachten/{complaint}/status', [RideComplaintController::class, 'updateStatus'])
+    ->name('complaints.status')
+    ->whereNumber('complaint');
+Route::post('klachten/{complaint}/bericht', [RideComplaintController::class, 'sendMessage'])
+    ->name('complaints.message')
+    ->whereNumber('complaint');
+Route::post('klachten/{complaint}/blokkeren', [RideComplaintController::class, 'blockDriver'])
+    ->name('complaints.block')
+    ->whereNumber('complaint');
 
 Route::get('chauffeurplanning', [DriverScheduleController::class, 'index'])->name('driver_schedules.index');
 Route::get('chauffeurplanning/events', [DriverScheduleController::class, 'events'])->name('driver_schedules.events');

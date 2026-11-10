@@ -33,6 +33,8 @@ import {
   RideStatusUpdate,
   payLive,
   rateLive,
+  complainLive,
+  COMPLAINT_CATEGORIES,
   QuoteOffer,
   QuoteResponse,
   waitLive,
@@ -47,6 +49,7 @@ import {
   estimateFareEuro,
   estimateRouteMetrics,
   fetchDrivingRoute,
+  followNearestPickupDate,
   formatEuroNl,
   formatPickupAtPayload,
   isPickupAtInPast,
@@ -645,6 +648,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [photoPreviewUri, setPhotoPreviewUri] = useState<string | null>(null);
   const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
+  const [complaintModalToken, setComplaintModalToken] = useState<string | null>(null);
+  const [complaintCategory, setComplaintCategory] = useState('other');
+  const [complaintSubject, setComplaintSubject] = useState('');
+  const [complaintDescription, setComplaintDescription] = useState('');
+  const [complaintPhone, setComplaintPhone] = useState('');
+  const [complaintEmail, setComplaintEmail] = useState('');
+  const [complaintPreferred, setComplaintPreferred] = useState<'email' | 'phone' | 'none'>('email');
+  const [complaintError, setComplaintError] = useState<string | null>(null);
   const [rateComment, setRateComment] = useState('');
   const [rateModalToken, setRateModalToken] = useState<string | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
@@ -698,6 +709,23 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     'pickup' | 'dropoff' | 'pickupAt' | 'firstName' | 'lastName' | 'phone' | 'email' | 'offer' | 'dispatch',
     string
   >>>({});
+
+  // Houd ophaaltijd bij de dichtstbijzijnde boekbare slot als het scherm open blijft.
+  useEffect(() => {
+    const bump = () => {
+      setPickupAt((prev) => followNearestPickupDate(prev, 10));
+      setFieldErrors((e) => (e.pickupAt ? { ...e, pickupAt: undefined } : e));
+    };
+    bump();
+    const id = setInterval(bump, 30_000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') bump();
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
+  }, []);
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [nearbyTaxis, setNearbyTaxis] = useState<NearbyTaxi[]>([]);
@@ -2264,20 +2292,82 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     setRateError(null);
     try {
       const data = await rateLive(token, rateStars, rateComment.trim() || null);
+      const rating =
+        data.ride?.rating ||
+        data.rating || {
+          rated: true,
+          stars: rateStars,
+          comment: rateComment.trim() || null,
+          can_rate: false,
+        };
       if (data.ride) {
-        setLive(data.ride);
-        const next = await updateGuestRide(token, {
-          phase: data.ride.phase,
-          status_label: data.ride.status_label,
-          rating: data.ride.rating || null,
-        });
-        setGuestRides(next);
+        setLive({ ...data.ride, rating });
+      } else if (live && trackToken === token) {
+        setLive({ ...live, rating });
       }
+      const next = await updateGuestRide(token, {
+        ...(data.ride ? guestPatchFromLive(data.ride) : {}),
+        rating,
+      });
+      setGuestRides(next);
       setRateStars(0);
       setRateComment('');
       setRateModalToken(null);
     } catch (e) {
       setRateError(e instanceof ApiError ? e.message : t("Beoordeling opslaan mislukt."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openComplaintModal(token: string) {
+    setComplaintCategory('other');
+    setComplaintSubject('');
+    setComplaintDescription('');
+    setComplaintPhone('');
+    setComplaintEmail('');
+    setComplaintPreferred('email');
+    setComplaintError(null);
+    setComplaintModalToken(token);
+  }
+
+  async function onSubmitComplaint(token: string) {
+    if (complaintDescription.trim().length < 10) {
+      setComplaintError(t('Omschrijf de klacht in minimaal 10 tekens.'));
+      return;
+    }
+    setBusy(true);
+    setComplaintError(null);
+    try {
+      const data = await complainLive(token, {
+        category: complaintCategory,
+        description: complaintDescription.trim(),
+        subject: complaintSubject.trim() || null,
+        customer_phone: complaintPhone.trim() || null,
+        customer_email: complaintEmail.trim() || null,
+        preferred_contact: complaintPreferred,
+      });
+      const complaint =
+        data.ride?.complaint ||
+        data.complaint || {
+          filed: true,
+          can_file: false,
+          complaint_id: data.complaint_id ?? null,
+        };
+      if (data.ride) {
+        setLive({ ...data.ride, complaint });
+      } else if (live && trackToken === token) {
+        setLive({ ...live, complaint });
+      }
+      const next = await updateGuestRide(token, {
+        ...(data.ride ? guestPatchFromLive(data.ride) : {}),
+        complaint,
+      });
+      setGuestRides(next);
+      setComplaintModalToken(null);
+      Alert.alert(t('Klacht ontvangen'), data.message || t('We nemen je melding in behandeling.'));
+    } catch (e) {
+      setComplaintError(e instanceof ApiError ? e.message : t('Klacht indienen mislukt.'));
     } finally {
       setBusy(false);
     }
@@ -3540,9 +3630,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   </View>
                 ) : null}
 
-                {live.rating?.rated && live.rating.stars
-                  ? renderRatingResult(live.rating.stars, live.rating.comment)
+                {live.rating?.rated
+                  ? renderRatingResult(Number(live.rating.stars) || 0, live.rating.comment)
                   : null}
+
+                {live.complaint?.can_file ? (
+                  <View style={{ marginTop: 10 }}>
+                    <GhostButton
+                      title={t('Klacht indienen')}
+                      onPress={() => openComplaintModal(ride.token)}
+                      danger
+                    />
+                  </View>
+                ) : null}
+                {live.complaint?.filed ? (
+                  <Text style={[styles.ratingComment, { marginTop: 10 }]}>
+                    {t('Je klacht is ontvangen en wordt behandeld.')}
+                  </Text>
+                ) : null}
 
                 {live.can_download_invoice || live.phase === 'completed' ? (
                   <View style={{ marginTop: 12 }}>
@@ -3561,9 +3666,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               </View>
             ) : null}
 
-            {!isLiveMatch && ride.rating?.rated && ride.rating.stars
-              ? renderRatingResult(ride.rating.stars, ride.rating.comment)
+            {!isLiveMatch && ride.rating?.rated
+              ? renderRatingResult(Number(ride.rating.stars) || 0, ride.rating.comment)
               : null}
+
+            {!isLiveMatch && completed && ride.complaint?.can_file ? (
+              <View style={{ marginTop: 10 }}>
+                <GhostButton
+                  title={t('Klacht indienen')}
+                  onPress={() => openComplaintModal(ride.token)}
+                  danger
+                />
+              </View>
+            ) : null}
+            {!isLiveMatch && ride.complaint?.filed ? (
+              <Text style={[styles.ratingComment, { marginTop: 10 }]}>
+                {t('Je klacht is ontvangen en wordt behandeld.')}
+              </Text>
+            ) : null}
 
             {!isLiveMatch && completed ? (
               <View style={{ marginTop: 12 }}>
@@ -4261,6 +4381,122 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               title={t("Versturen")}
               onPress={() => {
                 if (rateModalToken) onSubmitRating(rateModalToken);
+              }}
+              loading={busy}
+            />
+          </View>
+        </View>
+      </AppModal>
+
+      <AppModal
+        visible={!!complaintModalToken}
+        onRequestClose={() => {
+          if (!busy) setComplaintModalToken(null);
+        }}
+        dismissDisabled={busy}
+        panelStyle={styles.confirmBanner}
+      >
+        <Text style={styles.confirmTitle}>{t('Klacht indienen')}</Text>
+        <Text style={styles.confirmText}>
+          {t('Meld een probleem over deze rit. We behandelen je klacht via NEXA Suite.')}
+        </Text>
+        <Text style={[styles.rowLabel, { marginBottom: 6 }]}>{t('Categorie')}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {COMPLAINT_CATEGORIES.map((item) => (
+              <Pressable
+                key={item.value}
+                onPress={() => setComplaintCategory(item.value)}
+                style={[
+                  styles.confirmSecondaryBtn,
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderColor:
+                      complaintCategory === item.value ? colors.danger : colors.border,
+                  },
+                ]}
+              >
+                <Text style={styles.confirmSecondaryText}>{t(item.label)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+        <TextInput
+          style={[styles.rateInput, { marginBottom: 10, minHeight: 40 }]}
+          value={complaintSubject}
+          onChangeText={setComplaintSubject}
+          placeholder={t('Onderwerp (optioneel)')}
+          placeholderTextColor={colors.muted}
+        />
+        <TextInput
+          style={[styles.rateInput, { marginBottom: 10, minHeight: 90 }]}
+          value={complaintDescription}
+          onChangeText={setComplaintDescription}
+          placeholder={t('Omschrijving van de klacht')}
+          placeholderTextColor={colors.muted}
+          multiline
+        />
+        <TextInput
+          style={[styles.rateInput, { marginBottom: 10, minHeight: 40 }]}
+          value={complaintEmail}
+          onChangeText={setComplaintEmail}
+          placeholder={t('E-mail voor terugkoppeling (optioneel)')}
+          placeholderTextColor={colors.muted}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={[styles.rateInput, { marginBottom: 10, minHeight: 40 }]}
+          value={complaintPhone}
+          onChangeText={setComplaintPhone}
+          placeholder={t('Telefoon (optioneel)')}
+          placeholderTextColor={colors.muted}
+          keyboardType="phone-pad"
+        />
+        <Text style={[styles.rowLabel, { marginBottom: 6 }]}>{t('Liever contact via')}</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+          {([
+            ['email', t('E-mail')],
+            ['phone', t('Telefoon')],
+            ['none', t('Geen')],
+          ] as const).map(([value, label]) => (
+            <Pressable
+              key={value}
+              onPress={() => setComplaintPreferred(value)}
+              style={[
+                styles.confirmSecondaryBtn,
+                {
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderColor: complaintPreferred === value ? colors.danger : colors.border,
+                },
+              ]}
+            >
+              <Text style={styles.confirmSecondaryText}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {complaintError ? (
+          <Text style={[styles.ratingComment, { color: colors.danger, marginBottom: 12 }]}>
+            {complaintError}
+          </Text>
+        ) : null}
+        <View style={styles.confirmActions}>
+          <View style={styles.confirmActionSlot}>
+            <Pressable
+              onPress={() => setComplaintModalToken(null)}
+              disabled={busy}
+              style={[styles.confirmSecondaryBtn, busy && { opacity: 0.55 }]}
+            >
+              <Text style={styles.confirmSecondaryText}>{t('Annuleren')}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.confirmActionSlot}>
+            <PrimaryButton
+              title={t('Indienen')}
+              onPress={() => {
+                if (complaintModalToken) onSubmitComplaint(complaintModalToken);
               }}
               loading={busy}
             />

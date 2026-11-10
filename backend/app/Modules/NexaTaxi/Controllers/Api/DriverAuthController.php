@@ -283,6 +283,16 @@ class DriverAuthController extends Controller
             return TaxiDriverAccountStatus::inactiveResponse();
         }
 
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $blocks = app(\App\Modules\NexaTaxi\Services\TaxiDriverBlockService::class);
+        if ($blocks->isBlocked($conn, (int) $user->id)) {
+            return response()->json([
+                'message' => 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+                'error' => 'driver_blocked',
+                'blocked' => $blocks->blockedPayload($conn, (int) $user->id),
+            ], 403);
+        }
+
         $user->tokens()->where('name', 'taxi-driver')->delete();
 
         $token = $user->createToken('taxi-driver', ['taxi:driver']);

@@ -35,15 +35,26 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
 }
 
 type UnauthorizedHandler = () => void | Promise<void>;
+type DriverBlockedHandler = (message?: string) => void | Promise<void>;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 let unauthorizedNotified = false;
+let driverBlockedHandler: DriverBlockedHandler | null = null;
+let driverBlockedNotified = false;
 
 /** Wordt aangeroepen bij 401 op een request met Bearer-token (sessie verlopen). */
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   unauthorizedHandler = handler;
   if (handler) {
     unauthorizedNotified = false;
+  }
+}
+
+/** Wordt aangeroepen bij 403 driver_blocked (beheerder blokkeerde de chauffeur). */
+export function setDriverBlockedHandler(handler: DriverBlockedHandler | null) {
+  driverBlockedHandler = handler;
+  if (handler) {
+    driverBlockedNotified = false;
   }
 }
 
@@ -54,6 +65,16 @@ function notifyUnauthorized() {
     // Na logout mag een volgende login weer 401's melden.
     setTimeout(() => {
       unauthorizedNotified = false;
+    }, 1500);
+  });
+}
+
+function notifyDriverBlocked(message?: string) {
+  if (driverBlockedNotified || !driverBlockedHandler) return;
+  driverBlockedNotified = true;
+  Promise.resolve(driverBlockedHandler(message)).finally(() => {
+    setTimeout(() => {
+      driverBlockedNotified = false;
     }, 1500);
   });
 }
@@ -114,6 +135,13 @@ export async function apiRequest<T>(
   if (!res.ok) {
     if (res.status === 401 && options.token) {
       notifyUnauthorized();
+    }
+    const errorCode =
+      data && typeof data === 'object' && 'error' in data
+        ? String((data as { error?: unknown }).error || '')
+        : '';
+    if (res.status === 403 && options.token && errorCode === 'driver_blocked') {
+      notifyDriverBlocked((data as { message?: string }).message);
     }
     throw new ApiError(
       (data as { message?: string }).message || `HTTP ${res.status}`,

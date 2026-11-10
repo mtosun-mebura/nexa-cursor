@@ -55,6 +55,7 @@ return [
         'admin.payout-identities.*',
         'admin.taxi.dispatch_settings.*',
         'admin.taxi.tarieven.*',
+        'admin.taxi.complaints.*',
         'admin.website-pages.*',
         'admin.website-ai.*',
         'admin.frontend-themes.*',

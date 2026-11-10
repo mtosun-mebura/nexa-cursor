@@ -120,6 +120,18 @@ Route::prefix('v1/driver')
             ->middleware('throttle:taxi-driver-read');
         Route::get('profile/ratings', [DriverProfileMediaController::class, 'ratings'])
             ->middleware('throttle:taxi-driver-read');
+
+        Route::get('notifications', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'index'])
+            ->middleware('throttle:taxi-driver-poll');
+        Route::post('notifications/{notification}/read', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'markRead'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
+        Route::post('notifications/{notification}/close', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'close'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
+        Route::post('notifications/{notification}/reopen', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'reopen'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
         Route::post('profile/photo', [DriverProfileMediaController::class, 'uploadProfilePhoto'])
             ->middleware('throttle:taxi-driver-action');
         Route::delete('profile/photo', [DriverProfileMediaController::class, 'deleteProfilePhoto'])
