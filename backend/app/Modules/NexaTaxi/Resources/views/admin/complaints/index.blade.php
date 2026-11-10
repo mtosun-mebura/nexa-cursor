@@ -3,7 +3,7 @@
 @section('title', __('Klachten'))
 
 @section('content')
-<div class="kt-container-fixed min-w-0">
+<div class="kt-container-fixed min-w-0" data-admin-complaints-page="1" data-admin-complaints-latest-id="{{ (int) ($complaintsLatestId ?? 0) }}">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">{{ __('Klachten') }}</h1>
         <a href="{{ route('admin.taxi.complaints.blocked') }}" class="kt-btn kt-btn-outline shrink-0">
@@ -120,4 +120,14 @@
 }
 .complaints-table-wrap .kt-scrollable-x-auto { overflow-x: auto !important; overflow-y: visible !important; }
 </style>
+@endpush
+
+@push('scripts')
+<script>
+document.body.setAttribute('data-admin-complaints-on-index', '1');
+document.body.setAttribute(
+    'data-admin-complaints-latest-id',
+    String({{ (int) ($complaintsLatestId ?? 0) }})
+);
+</script>
 @endpush

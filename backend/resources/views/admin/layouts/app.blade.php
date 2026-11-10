@@ -823,7 +823,14 @@
         }
     </style>
 </head>
-<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased" @if(session('success')) data-admin-just-saved="1" @endif>
+<body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased"
+      @if(session('success')) data-admin-just-saved="1" @endif
+      @if(!empty($adminCanViewTaxiComplaints))
+        data-admin-complaints-pulse-url="{{ route('admin.taxi.complaints.pulse') }}"
+        data-admin-complaints-index-url="{{ route('admin.taxi.complaints.index') }}"
+        data-admin-complaints-open-count="{{ (int) ($adminOpenTaxiComplaints ?? 0) }}"
+      @endif
+>
     @php
         $adminHeaderFlashSuccess = session('success');
         $adminHeaderFlashError = session('error') ?: session('database_backup_error');

@@ -205,17 +205,128 @@ function startShakeAnimation() {
     shakeInterval = setInterval(triggerShake, 5000); // Trigger every 5 seconds (2s shake + 3s pause)
 }
 
+let complaintsLatestSeenId = 0;
+let complaintsPulseReady = false;
+let complaintsPushPermissionAsked = false;
+
+function applyComplaintsBadge(openCount) {
+    const count = Math.max(0, Number(openCount) || 0);
+    const badges = document.querySelectorAll('[data-admin-complaints-badge], #admin-taxi-complaints-badge');
+    badges.forEach((badge) => {
+        badge.textContent = count > 99 ? '99+' : String(count);
+        if (count > 0) {
+            badge.classList.remove('hidden');
+            badge.removeAttribute('hidden');
+        } else {
+            badge.classList.add('hidden');
+            badge.setAttribute('hidden', '');
+        }
+    });
+    document.body?.setAttribute('data-admin-complaints-open-count', String(count));
+}
+
+function notifyNewComplaint(latest) {
+    if (!latest || typeof window.Notification === 'undefined') {
+        return;
+    }
+    if (Notification.permission === 'default' && !complaintsPushPermissionAsked) {
+        complaintsPushPermissionAsked = true;
+        Notification.requestPermission().catch(() => undefined);
+    }
+    if (Notification.permission !== 'granted') {
+        return;
+    }
+    const title = 'Nieuwe klacht';
+    const body = latest.subject
+        || latest.category_label
+        || 'Er is een nieuwe ritklacht binnengekomen.';
+    try {
+        const n = new Notification(title, {
+            body: String(body),
+            tag: 'admin-taxi-complaint-' + String(latest.id || ''),
+        });
+        n.onclick = () => {
+            const indexUrl = document.body?.getAttribute('data-admin-complaints-index-url');
+            window.focus();
+            if (indexUrl) {
+                window.location.href = indexUrl;
+            }
+            n.close();
+        };
+    } catch (_) {
+        // Browser blokkeert notificaties in deze context.
+    }
+}
+
+function updateComplaintsBadge() {
+    const pulseUrl = document.body?.getAttribute('data-admin-complaints-pulse-url');
+    if (!pulseUrl) {
+        return;
+    }
+
+    fetch(pulseUrl, {
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+    })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+            if (!data || data.success === false) {
+                return;
+            }
+            const openCount = Number(data.open_count) || 0;
+            const latestId = Number(data.latest_id) || 0;
+            applyComplaintsBadge(openCount);
+
+            const prevLatest = complaintsLatestSeenId;
+            const onIndex = document.body?.getAttribute('data-admin-complaints-on-index') === '1';
+
+            if (complaintsPulseReady && latestId > prevLatest) {
+                notifyNewComplaint(data.latest);
+                if (onIndex) {
+                    window.location.reload();
+                    return;
+                }
+            }
+
+            complaintsPulseReady = true;
+            complaintsLatestSeenId = Math.max(prevLatest, latestId);
+            document.body?.setAttribute('data-admin-complaints-latest-id', String(complaintsLatestSeenId));
+        })
+        .catch(() => undefined);
+}
+
 // Initialize badge updates
 function initBadgeUpdates() {
+    const initialLatest = Number(document.body?.getAttribute('data-admin-complaints-latest-id') || 0) || 0;
+    if (initialLatest > 0) {
+        complaintsLatestSeenId = initialLatest;
+    }
+
+    if (
+        document.body?.getAttribute('data-admin-complaints-pulse-url') &&
+        typeof window.Notification !== 'undefined' &&
+        Notification.permission === 'default' &&
+        !complaintsPushPermissionAsked
+    ) {
+        complaintsPushPermissionAsked = true;
+        Notification.requestPermission().catch(() => undefined);
+    }
+
     // Update immediately
     updateChatBadge();
     updateNotificationBadge();
+    updateComplaintsBadge();
     
     // Update every 10 seconds
     if (badgeUpdateInterval) clearInterval(badgeUpdateInterval);
     badgeUpdateInterval = setInterval(() => {
         updateChatBadge();
         updateNotificationBadge();
+        updateComplaintsBadge();
     }, 10000);
     
     // Start shake animation
@@ -232,4 +343,5 @@ if (document.readyState === 'loading') {
 // Export functions for use in other scripts
 window.updateChatBadge = updateChatBadge;
 window.updateNotificationBadge = updateNotificationBadge;
+window.updateComplaintsBadge = updateComplaintsBadge;
 

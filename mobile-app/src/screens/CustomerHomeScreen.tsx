@@ -654,7 +654,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [complaintDescription, setComplaintDescription] = useState('');
   const [complaintPhone, setComplaintPhone] = useState('');
   const [complaintEmail, setComplaintEmail] = useState('');
-  const [complaintPreferred, setComplaintPreferred] = useState<'email' | 'phone' | 'none'>('email');
   const [complaintError, setComplaintError] = useState<string | null>(null);
   const [rateComment, setRateComment] = useState('');
   const [rateModalToken, setRateModalToken] = useState<string | null>(null);
@@ -2321,12 +2320,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   function openComplaintModal(token: string) {
+    const guest = guestRides.find((r) => r.token === token);
+    const liveMatch = live && trackToken === token ? live : null;
+    const rideId = Number(liveMatch?.id || guest?.id || 0) || 0;
+    const companyName = String(
+      liveMatch?.company?.name || guest?.company_name || ''
+    ).trim();
+    const subject =
+      rideId > 0
+        ? companyName
+          ? `Klacht over rit #${rideId} bij ${companyName}`
+          : `Klacht over rit #${rideId}`
+        : companyName
+          ? `Klacht bij ${companyName}`
+          : '';
     setComplaintCategory('other');
-    setComplaintSubject('');
+    setComplaintSubject(subject);
     setComplaintDescription('');
-    setComplaintPhone('');
-    setComplaintEmail('');
-    setComplaintPreferred('email');
+    setComplaintPhone(phone.trim());
+    setComplaintEmail(email.trim());
     setComplaintError(null);
     setComplaintModalToken(token);
   }
@@ -2345,7 +2357,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         subject: complaintSubject.trim() || null,
         customer_phone: complaintPhone.trim() || null,
         customer_email: complaintEmail.trim() || null,
-        preferred_contact: complaintPreferred,
+        preferred_contact: 'email',
       });
       const complaint =
         data.ride?.complaint ||
@@ -3188,6 +3200,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       isLiveMatch && live!.quoted_price != null ? live!.quoted_price : ride.quoted_price;
     const cancelled = phase === 'cancelled';
     const completed = phase === 'completed';
+    const complaintFiled = !!(
+      (isLiveMatch ? live?.complaint?.filed : null) || ride.complaint?.filed
+    );
     const active = isActiveRidePhase(phase);
     const approaching = isLiveMatch && driverComing;
     const headerStatus =
@@ -3358,7 +3373,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 accessibilityRole="button"
                 accessibilityState={{ expanded }}
               >
-                <PhasePill phase={phase} />
+                <View style={styles.rideStatusPills}>
+                  <PhasePill phase={phase} />
+                  {complaintFiled ? (
+                    <View
+                      style={[
+                        styles.pill,
+                        {
+                          backgroundColor: colors.danger + '33',
+                          borderColor: colors.danger,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.pillText, { color: colors.danger }]}>
+                        {t('Klacht ingediend')}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </Pressable>
               <Pressable
                 onPress={() => toggleRideExpanded(ride)}
@@ -3634,21 +3666,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   ? renderRatingResult(Number(live.rating.stars) || 0, live.rating.comment)
                   : null}
 
-                {live.complaint?.can_file ? (
-                  <View style={{ marginTop: 10 }}>
-                    <GhostButton
-                      title={t('Klacht indienen')}
-                      onPress={() => openComplaintModal(ride.token)}
-                      danger
-                    />
-                  </View>
-                ) : null}
-                {live.complaint?.filed ? (
-                  <Text style={[styles.ratingComment, { marginTop: 10 }]}>
-                    {t('Je klacht is ontvangen en wordt behandeld.')}
-                  </Text>
-                ) : null}
-
                 {live.can_download_invoice || live.phase === 'completed' ? (
                   <View style={{ marginTop: 12 }}>
                     <GhostButton
@@ -3670,21 +3687,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               ? renderRatingResult(Number(ride.rating.stars) || 0, ride.rating.comment)
               : null}
 
-            {!isLiveMatch && completed && ride.complaint?.can_file ? (
-              <View style={{ marginTop: 10 }}>
-                <GhostButton
-                  title={t('Klacht indienen')}
-                  onPress={() => openComplaintModal(ride.token)}
-                  danger
-                />
-              </View>
-            ) : null}
-            {!isLiveMatch && ride.complaint?.filed ? (
-              <Text style={[styles.ratingComment, { marginTop: 10 }]}>
-                {t('Je klacht is ontvangen en wordt behandeld.')}
-              </Text>
-            ) : null}
-
             {!isLiveMatch && completed ? (
               <View style={{ marginTop: 12 }}>
                 <GhostButton
@@ -3704,6 +3706,23 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 />
               </View>
             ) : null}
+
+            {(isLiveMatch ? live?.complaint?.can_file : completed && ride.complaint?.can_file) ? (
+              <Pressable
+                onPress={() => openComplaintModal(ride.token)}
+                accessibilityRole="button"
+                style={styles.complaintLinkWrap}
+              >
+                <Text style={styles.complaintLinkText}>
+                  {t('Heeft u een klacht over deze rit?')}
+                </Text>
+              </Pressable>
+            ) : null}
+            {(isLiveMatch ? live?.complaint?.filed : ride.complaint?.filed) ? (
+              <Text style={[styles.ratingComment, { marginTop: 10 }]}>
+                {t('Je klacht is ontvangen en wordt behandeld.')}
+              </Text>
+            ) : null}
           </View>
         ) : (
           <View style={styles.rideArchiveBtnWrap}>
@@ -3714,6 +3733,22 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
                 }
               />
+            ) : null}
+            {completed && ride.complaint?.can_file ? (
+              <Pressable
+                onPress={() => openComplaintModal(ride.token)}
+                accessibilityRole="button"
+                style={styles.complaintLinkWrap}
+              >
+                <Text style={styles.complaintLinkText}>
+                  {t('Heeft u een klacht over deze rit?')}
+                </Text>
+              </Pressable>
+            ) : null}
+            {ride.complaint?.filed ? (
+              <Text style={[styles.ratingComment, { marginTop: 10 }]}>
+                {t('Je klacht is ontvangen en wordt behandeld.')}
+              </Text>
             ) : null}
           </View>
         )}
@@ -4394,6 +4429,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           if (!busy) setComplaintModalToken(null);
         }}
         dismissDisabled={busy}
+        showsVerticalScrollIndicator={false}
         panelStyle={styles.confirmBanner}
       >
         <Text style={styles.confirmTitle}>{t('Klacht indienen')}</Text>
@@ -4401,32 +4437,36 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {t('Meld een probleem over deze rit. We behandelen je klacht via NEXA Suite.')}
         </Text>
         <Text style={[styles.rowLabel, { marginBottom: 6 }]}>{t('Categorie')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {COMPLAINT_CATEGORIES.map((item) => (
+        <View style={styles.complaintCategoryWrap}>
+          {COMPLAINT_CATEGORIES.map((item) => {
+            const selected = complaintCategory === item.value;
+            return (
               <Pressable
                 key={item.value}
                 onPress={() => setComplaintCategory(item.value)}
                 style={[
-                  styles.confirmSecondaryBtn,
-                  {
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderColor:
-                      complaintCategory === item.value ? colors.danger : colors.border,
-                  },
+                  styles.complaintChip,
+                  selected ? styles.complaintChipSelected : null,
                 ]}
               >
-                <Text style={styles.confirmSecondaryText}>{t(item.label)}</Text>
+                <Text
+                  style={[
+                    styles.complaintChipText,
+                    selected ? styles.complaintChipTextSelected : null,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t(item.label)}
+                </Text>
               </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+            );
+          })}
+        </View>
         <TextInput
           style={[styles.rateInput, { marginBottom: 10, minHeight: 40 }]}
           value={complaintSubject}
           onChangeText={setComplaintSubject}
-          placeholder={t('Onderwerp (optioneel)')}
+          placeholder={t('Onderwerp')}
           placeholderTextColor={colors.muted}
         />
         <TextInput
@@ -4454,29 +4494,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           placeholderTextColor={colors.muted}
           keyboardType="phone-pad"
         />
-        <Text style={[styles.rowLabel, { marginBottom: 6 }]}>{t('Liever contact via')}</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-          {([
-            ['email', t('E-mail')],
-            ['phone', t('Telefoon')],
-            ['none', t('Geen')],
-          ] as const).map(([value, label]) => (
-            <Pressable
-              key={value}
-              onPress={() => setComplaintPreferred(value)}
-              style={[
-                styles.confirmSecondaryBtn,
-                {
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderColor: complaintPreferred === value ? colors.danger : colors.border,
-                },
-              ]}
-            >
-              <Text style={styles.confirmSecondaryText}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
         {complaintError ? (
           <Text style={[styles.ratingComment, { color: colors.danger, marginBottom: 12 }]}>
             {complaintError}
@@ -4936,6 +4953,12 @@ function makeStyles(colors: ColorPalette) {
       justifyContent: 'space-between',
       gap: 8,
       marginBottom: 8,
+    },
+    rideStatusPills: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 8,
     },
     rideCardAmount: {
       color: colors.text,
@@ -5855,6 +5878,47 @@ function makeStyles(colors: ColorPalette) {
       color: colors.text,
       fontSize: 16,
       fontWeight: '700',
+    },
+    complaintCategoryWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+      width: '100%',
+    },
+    complaintChip: {
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: 'transparent',
+      maxWidth: '100%',
+    },
+    complaintChipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '22',
+    },
+    complaintChipText: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    complaintChipTextSelected: {
+      color: colors.primary,
+    },
+    complaintLinkWrap: {
+      marginTop: 12,
+      alignSelf: 'stretch',
+      alignItems: 'center',
+      paddingVertical: 2,
+    },
+    complaintLinkText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: '600',
+      textAlign: 'center',
+      textDecorationLine: 'underline',
     },
     confirmDangerBtn: {
       borderRadius: 14,

@@ -93,6 +93,7 @@ Route::post('vehicles/upload-image', [VehicleController::class, 'uploadImage'])-
 Route::resource('vehicles', VehicleController::class);
 
 Route::get('klachten', [RideComplaintController::class, 'index'])->name('complaints.index');
+Route::get('klachten/pulse', [RideComplaintController::class, 'pulse'])->name('complaints.pulse');
 Route::get('klachten/geblokkeerd', [RideComplaintController::class, 'blocked'])->name('complaints.blocked');
 Route::post('klachten/geblokkeerd/{driver}/deblokkeren', [RideComplaintController::class, 'unblock'])
     ->name('complaints.unblock')

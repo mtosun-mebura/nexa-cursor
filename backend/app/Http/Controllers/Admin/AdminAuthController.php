@@ -147,7 +147,7 @@ class AdminAuthController extends Controller
         $this->maybePromptTaxiSetup($user);
 
         $path = $intendedUrl ? (AdminReturnUrl::pathFrom($intendedUrl) ?? '') : '';
-        $isUtilityPath = $path && preg_match('#/admin/(chat|notifications)/unread-count#', $path);
+        $isUtilityPath = $path && preg_match('#/admin/((chat|notifications)/unread-count|taxi/klachten/pulse)#', $path);
 
         // Preview-URL: stuur door naar bewerkpagina (inclusief module-parameter) zodat je soepel verder kunt waar je was.
         if ($path && preg_match('#^/admin/website-pages/(\d+)/preview$#', $path, $m)) {

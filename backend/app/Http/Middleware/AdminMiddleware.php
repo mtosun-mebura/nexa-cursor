@@ -34,7 +34,7 @@ class AdminMiddleware
         if (! $authenticated) {
             // Alleen een echte paginapagina als intended bewaren, niet API-endpoints (bijv. unread-count)
             $path = $request->path();
-            $isUtilityPath = preg_match('#^(admin/)?(chat|notifications)/unread-count#', $path);
+            $isUtilityPath = preg_match('#^(admin/)?((chat|notifications)/unread-count|taxi/klachten/pulse)#', $path);
             if (! $isUtilityPath) {
                 $resolved = AdminReturnUrl::resolveIntended($request->fullUrl());
                 if ($resolved !== null) {
