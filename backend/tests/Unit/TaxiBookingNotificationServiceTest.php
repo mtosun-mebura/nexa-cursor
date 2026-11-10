@@ -130,6 +130,7 @@ class TaxiBookingNotificationServiceTest extends TestCase
         $mails = $this->sentMails();
         $this->assertSame(['jan@example.test'], array_column($mails, 'to'));
         $this->assertStringContainsString('Bevestiging van uw taxiboeking', $mails[0]['subject']);
+        $this->assertStringNotContainsString('Open Mijn Taxi', $mails[0]['html']);
         $this->assertTrue(
             RideRequestNotificationLog::on('module_taxi')
                 ->where('ride_request_id', $ride->id)
@@ -168,13 +169,19 @@ class TaxiBookingNotificationServiceTest extends TestCase
         ]);
 
         $byRecipient = [];
+        $customerHtml = '';
         foreach ($this->sentMails() as $mail) {
             $byRecipient[$mail['to']] = $mail['subject'];
+            if ($mail['to'] === 'jan@example.test') {
+                $customerHtml = $mail['html'];
+            }
         }
 
         $this->assertArrayHasKey('jan@example.test', $byRecipient);
         $this->assertArrayHasKey('chauffeur@example.test', $byRecipient);
         $this->assertStringContainsString('Bevestiging van uw taxiboeking', $byRecipient['jan@example.test']);
+        $this->assertStringContainsString('Open Mijn Taxi', $customerHtml);
+        $this->assertStringContainsString('bgcolor="#f3f4f6"', $customerHtml);
         $this->assertStringContainsString('Nieuwe taxirit', $byRecipient['chauffeur@example.test']);
     }
 

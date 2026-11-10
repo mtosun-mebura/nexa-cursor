@@ -331,7 +331,7 @@ class CompanyEmailLogoService
         $maxH = max(24, min(100, $maxHeightPx ?? 56));
         $maxW = (int) round($maxH * 4.5);
 
-        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;margin:0 0 16px;">';
+        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;margin:0;">';
     }
 
     /**

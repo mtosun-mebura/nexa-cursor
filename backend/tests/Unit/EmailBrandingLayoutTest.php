@@ -70,13 +70,29 @@ class EmailBrandingLayoutTest extends TestCase
         ])->render();
 
         $this->assertStringContainsString('background-color:#e5e7eb', $customer);
+        $this->assertStringContainsString('bgcolor="#f3f4f6"', $customer);
         $this->assertStringContainsString('color:#0f172a', $customer);
         $this->assertStringContainsString(CompanyEmailLogoService::HTML_PLACEHOLDER, $customer);
+        $this->assertStringContainsString('Open Mijn Taxi', $customer);
         $this->assertStringContainsString('Taxi Tosun', $customer); // footer contact line
         $this->assertStringNotContainsString('Taxi Tosun</p>', $customer); // no header kicker under logo
         $this->assertStringNotContainsString('#94a3b8', $customer);
         $this->assertStringNotContainsString('bgcolor="#0f172a"', $customer);
         $this->assertStringNotContainsString(NexaBranding::EMAIL_LOGO_PLACEHOLDER, $customer);
+
+        $marketplaceCustomer = view('emails.taxi-ride-booking-customer', [
+            'customer_name' => 'Jan',
+            'ride_id' => 12,
+            'pickup_at' => '19-09-2026 10:00',
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'quoted_price' => 25.5,
+            'summary_text' => 'Samenvatting',
+            'company_name' => 'Taxi Tosun',
+            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+            'portal_login_url' => null,
+        ])->render();
+        $this->assertStringNotContainsString('Open Mijn Taxi', $marketplaceCustomer);
 
         $cancelled = view('emails.taxi-ride-cancelled-customer', [
             'customer_name' => 'Jan',
