@@ -825,7 +825,7 @@
 </head>
 <body class="demo1 kt-sidebar-fixed kt-header-fixed flex h-full bg-background text-base text-foreground antialiased"
       @if(session('success')) data-admin-just-saved="1" @endif
-      @if(!empty($adminCanViewTaxiComplaints))
+      @if(!empty($adminCanViewTaxiComplaints) && \Illuminate\Support\Facades\Route::has('admin.taxi.complaints.pulse') && \Illuminate\Support\Facades\Route::has('admin.taxi.complaints.index'))
         data-admin-complaints-pulse-url="{{ route('admin.taxi.complaints.pulse') }}"
         data-admin-complaints-index-url="{{ route('admin.taxi.complaints.index') }}"
         data-admin-complaints-open-count="{{ (int) ($adminOpenTaxiComplaints ?? 0) }}"
