@@ -13,6 +13,7 @@ use App\Modules\NexaTaxi\Services\TaxiRideComplaintService;
 use App\Modules\NexaTaxi\Support\TaxiDriverComplaintSchema;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use App\Support\Admin\AdminTenantScope;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RideComplaintController extends Controller
@@ -29,9 +30,7 @@ class RideComplaintController extends Controller
         $query = TaxiRideComplaint::on($conn)->orderByDesc('id');
         // Super-admin zonder tenant (of met lege company_id-filter): alle klachten.
         // Filter/queryparam of zijbalk-tenant beperkt optioneel tot één bedrijf.
-        $filterCompanyId = auth()->user()?->hasRole('super-admin')
-            ? app(AdminTenantScope::class)->optionalFilterTenantId($request, 'company_id')
-            : $this->getTenantId();
+        $filterCompanyId = $this->complaintFilterCompanyId($request);
         if ($filterCompanyId) {
             $query->where('company_id', $filterCompanyId);
         }
@@ -63,6 +62,8 @@ class RideComplaintController extends Controller
             ? Company::query()->orderBy('name')->get(['id', 'name'])
             : collect();
 
+        $pulse = app(TaxiRideComplaintService::class)->adminPulse($conn, $filterCompanyId);
+
         return view('taxi::admin.complaints.index', [
             'complaints' => $complaints,
             'companies' => $companies,
@@ -71,7 +72,21 @@ class RideComplaintController extends Controller
             'allCompanies' => $allCompanies,
             'statusLabels' => TaxiRideComplaint::statusLabels(),
             'categoryLabels' => TaxiRideComplaint::CATEGORIES,
+            'complaintsLatestId' => $pulse['latest_id'],
         ]);
+    }
+
+    public function pulse(Request $request, TaxiRideComplaintService $complaints): JsonResponse
+    {
+        $this->assertCanViewComplaints();
+
+        $conn = $this->moduleConnection();
+        $filterCompanyId = $this->complaintFilterCompanyId($request);
+
+        return response()->json(array_merge(
+            ['success' => true],
+            $complaints->adminPulse($conn, $filterCompanyId)
+        ));
     }
 
     public function show(int $complaint, TaxiRideComplaintService $complaints)
@@ -190,6 +205,17 @@ class RideComplaintController extends Controller
         return redirect()
             ->route('admin.taxi.complaints.blocked')
             ->with('success', __('Chauffeur is gedeblokkeerd.'));
+    }
+
+    protected function complaintFilterCompanyId(?Request $request = null): ?int
+    {
+        if (auth()->user()?->hasRole('super-admin')) {
+            return app(AdminTenantScope::class)->optionalFilterTenantId($request, 'company_id');
+        }
+
+        $tenantId = $this->getTenantId();
+
+        return $tenantId ? (int) $tenantId : null;
     }
 
     protected function assertCanViewComplaints(): void

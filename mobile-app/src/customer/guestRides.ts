@@ -41,6 +41,7 @@ export type GuestRide = {
   dropoff_lng?: number | null;
   rating?: GuestRideRating | null;
   complaint?: GuestRideComplaint | null;
+  company_name?: string | null;
   cancellation_message?: string | null;
   cancellation_reason?: string | null;
   refund_message?: string | null;
@@ -229,6 +230,7 @@ export async function saveGuestRide(
     dropoff_lng: meta.dropoff_lng !== undefined ? meta.dropoff_lng : prev?.dropoff_lng ?? null,
     rating: meta.rating !== undefined ? meta.rating : prev?.rating ?? null,
     complaint: meta.complaint !== undefined ? meta.complaint : prev?.complaint ?? null,
+    company_name: meta.company_name !== undefined ? meta.company_name : prev?.company_name ?? null,
     cancellation_message:
       meta.cancellation_message !== undefined
         ? meta.cancellation_message
@@ -316,6 +318,7 @@ export function guestPatchFromLive(ride: {
   pickup_at_label?: string | null;
   rating?: GuestRideRating | null;
   complaint?: GuestRideComplaint | null;
+  company?: { name?: string | null } | null;
   distance_km?: number | null;
   duration_seconds?: number | null;
   pickup_lat?: number | null;
@@ -347,6 +350,7 @@ export function guestPatchFromLive(ride: {
     dropoff_lng: ride.dropoff_lng ?? undefined,
     rating: ride.rating ?? undefined,
     complaint: ride.complaint ?? undefined,
+    company_name: ride.company?.name ?? undefined,
     distance_km: ride.distance_km ?? undefined,
     duration_seconds: ride.duration_seconds ?? undefined,
     cancellation_message: ride.cancellation_message ?? undefined,

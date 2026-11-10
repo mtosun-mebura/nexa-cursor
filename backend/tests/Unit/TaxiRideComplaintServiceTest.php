@@ -69,9 +69,18 @@ class TaxiRideComplaintServiceTest extends TestCase
         $this->assertInstanceOf(TaxiRideComplaint::class, $row);
         $this->assertSame(TaxiRideComplaint::STATUS_OPEN, $row->status);
         $this->assertSame('rude', $row->category);
+        $this->assertSame((int) $ride->id, (int) $row->ride_request_id);
+        $this->assertSame('email', $row->preferred_contact);
+        $this->assertStringContainsString('Klacht over rit #'.$ride->id, (string) $row->subject);
+        $this->assertStringContainsString('Klacht Taxi', (string) $row->subject);
         $payload = $service->payloadForRide('taxi', $ride);
         $this->assertTrue($payload['filed']);
         $this->assertFalse($payload['can_file']);
+
+        $pulse = $service->adminPulse('taxi', (int) $company->id);
+        $this->assertSame(1, $pulse['open_count']);
+        $this->assertSame((int) $row->id, $pulse['latest_id']);
+        $this->assertSame((int) $row->id, (int) ($pulse['latest']['id'] ?? 0));
     }
 
     public function test_block_driver_revokes_app_access_flag(): void

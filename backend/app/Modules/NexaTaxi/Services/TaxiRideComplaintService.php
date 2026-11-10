@@ -42,6 +42,41 @@ class TaxiRideComplaintService
     }
 
     /**
+     * Open klachten voor admin-menu badge / pulse (optioneel gefilterd op bedrijf).
+     *
+     * @return array{
+     *   open_count: int,
+     *   latest_id: int,
+     *   latest: ?array{id: int, subject: ?string, category: string, category_label: string, company_id: int, created_at: ?string}
+     * }
+     */
+    public function adminPulse(string $conn, ?int $companyId = null): array
+    {
+        TaxiDriverComplaintSchema::ensure($conn);
+
+        $base = TaxiRideComplaint::on($conn)->when(
+            $companyId !== null && $companyId > 0,
+            fn ($q) => $q->where('company_id', $companyId)
+        );
+
+        $openCount = (int) (clone $base)->where('status', TaxiRideComplaint::STATUS_OPEN)->count();
+        $latest = (clone $base)->orderByDesc('id')->first();
+
+        return [
+            'open_count' => $openCount,
+            'latest_id' => $latest ? (int) $latest->id : 0,
+            'latest' => $latest ? [
+                'id' => (int) $latest->id,
+                'subject' => $latest->subject,
+                'category' => (string) $latest->category,
+                'category_label' => $latest->categoryLabel(),
+                'company_id' => (int) $latest->company_id,
+                'created_at' => $latest->created_at?->toIso8601String(),
+            ] : null,
+        ];
+    }
+
+    /**
      * @param  array{
      *   category: string,
      *   description: string,
@@ -97,21 +132,25 @@ class TaxiRideComplaintService
             ]);
         }
 
-        $preferred = strtolower(trim((string) ($data['preferred_contact'] ?? 'email')));
-        if (! in_array($preferred, ['email', 'phone', 'none'], true)) {
-            $preferred = 'email';
-        }
+        // Contact terugkoppeling loopt alleen via e-mail.
+        $preferred = 'email';
 
         $companyId = (int) ($ride->fulfilling_company_id ?: $ride->company_id ?: 0);
+        $subject = isset($data['subject']) ? trim((string) $data['subject']) : '';
+        if ($subject === '') {
+            $companyName = Company::query()->find($companyId)?->name;
+            $subject = $companyName
+                ? 'Klacht over rit #'.$ride->id.' bij '.$companyName
+                : 'Klacht over rit #'.$ride->id;
+        }
+
         $row = new TaxiRideComplaint([
             'company_id' => $companyId,
             'ride_request_id' => (int) $ride->id,
             'driver_id' => $driverId,
             'vehicle_id' => $ride->vehicle_id ? (int) $ride->vehicle_id : null,
             'category' => $category,
-            'subject' => isset($data['subject']) && trim((string) $data['subject']) !== ''
-                ? mb_substr(trim((string) $data['subject']), 0, 160)
-                : null,
+            'subject' => mb_substr($subject, 0, 160),
             'description' => $description,
             'customer_name' => $this->nullableTrim($data['customer_name'] ?? $ride->customer_name, 160),
             'customer_email' => $this->nullableTrim($data['customer_email'] ?? $ride->customer_email, 190),
