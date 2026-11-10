@@ -552,10 +552,13 @@ class TaxiBookingNotificationService
                 'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
                 'cancel_url' => $cancelUrl,
                 'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
-                'portal_login_url' => route('login', [
-                    'code_login' => 1,
-                    'intended' => route('taxi.portal.dashboard'),
-                ]),
+                // Mijn Taxi-portaal is voor tenant-websiteboekingen, niet voor marktplaats.
+                'portal_login_url' => $ride->isNexaSuiteBooking()
+                    ? null
+                    : route('login', [
+                        'code_login' => 1,
+                        'intended' => route('taxi.portal.dashboard'),
+                    ]),
             ])->render();
 
             return [$subject, $html];
