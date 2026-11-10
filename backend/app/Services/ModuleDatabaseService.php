@@ -532,29 +532,32 @@ class ModuleDatabaseService
 
     protected function ensureSuperAdminUserOnConnection(string $conn): void
     {
-        $email = ModuleSchemaService::SUPERADMIN_EMAIL;
-        $exists = DB::connection($conn)->table('users')->where('email', $email)->exists();
-        if ($exists) {
-            return;
-        }
-        $now = now();
-        DB::connection($conn)->table('users')->insert([
-            'email' => $email,
-            'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
-            'first_name' => 'Mehmet',
-            'last_name' => 'Tosun',
-            'email_verified_at' => $now,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-        $userId = DB::connection($conn)->table('users')->where('email', $email)->value('id');
+        app(\App\Services\DurableUserCredentials::class)->ensureByEmail(
+            ModuleSchemaService::SUPERADMIN_EMAIL,
+            [
+                'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
+                'first_name' => 'Mehmet',
+                'last_name' => 'Tosun',
+                'email_verified_at' => now(),
+            ],
+            $conn
+        );
+
+        $userId = DB::connection($conn)->table('users')->where('email', ModuleSchemaService::SUPERADMIN_EMAIL)->value('id');
         $roleId = DB::connection($conn)->table('roles')->where('name', 'super-admin')->where('guard_name', 'web')->value('id');
-        if ($roleId) {
-            DB::connection($conn)->table('model_has_roles')->insert([
-                'role_id' => $roleId,
-                'model_type' => \App\Models\User::class,
-                'model_id' => $userId,
-            ]);
+        if ($userId && $roleId) {
+            $hasRole = DB::connection($conn)->table('model_has_roles')
+                ->where('role_id', $roleId)
+                ->where('model_type', \App\Models\User::class)
+                ->where('model_id', $userId)
+                ->exists();
+            if (! $hasRole) {
+                DB::connection($conn)->table('model_has_roles')->insert([
+                    'role_id' => $roleId,
+                    'model_type' => \App\Models\User::class,
+                    'model_id' => $userId,
+                ]);
+            }
         }
     }
 

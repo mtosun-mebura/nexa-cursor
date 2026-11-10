@@ -1,0 +1,793 @@
+import { dateLocale, t } from '../i18n';
+import * as Location from 'expo-location';
+import { API_BASE_DEFAULT, resolveApiBaseUrl } from '../config';
+
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+  address: string;
+  /** Bedrijf, bioscoop, stadion — leeg bij een kale straat. */
+  placeName?: string | null;
+};
+
+export type LatLng = { latitude: number; longitude: number };
+
+export type RouteResult = {
+  coordinates: LatLng[];
+  distance_meters: number;
+  duration_seconds: number;
+};
+
+export const DEFAULT_MAP_CENTER = { lat: 52.2215, lng: 6.8936 }; // Enschede (dev/simulator fallback)
+
+/** Dark Google Maps style — past bij Nexa Taxi UI. */
+export const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2c4d' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#8ec3b9' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a3646' }] },
+  { featureType: 'administrative.country', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#64779e' }] },
+  { featureType: 'administrative.province', elementType: 'geometry.stroke', stylers: [{ color: '#4b6878' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry.stroke', stylers: [{ color: '#334e87' }] },
+  { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#023e58' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#283d6a' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#6f9ba5' }] },
+  { featureType: 'poi', elementType: 'labels.text.stroke', stylers: [{ color: '#1d2c4d' }] },
+  { featureType: 'poi.park', elementType: 'geometry.fill', stylers: [{ color: '#023e58' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#3C7680' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#304a7d' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#98a5be' }] },
+  { featureType: 'road', elementType: 'labels.text.stroke', stylers: [{ color: '#1d2c4d' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c6675' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#255763' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#b0d5ce' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.stroke', stylers: [{ color: '#023e58' }] },
+  { featureType: 'transit', elementType: 'labels.text.fill', stylers: [{ color: '#98a5be' }] },
+  { featureType: 'transit', elementType: 'labels.text.stroke', stylers: [{ color: '#1d2c4d' }] },
+  { featureType: 'transit.line', elementType: 'geometry.fill', stylers: [{ color: '#283d6a' }] },
+  { featureType: 'transit.station', elementType: 'geometry', stylers: [{ color: '#3a4762' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1626' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4e6d70' }] },
+];
+
+type NominatimAddress = {
+  road?: string;
+  pedestrian?: string;
+  residential?: string;
+  footway?: string;
+  cycleway?: string;
+  path?: string;
+  house_number?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  suburb?: string;
+  neighbourhood?: string;
+  postcode?: string;
+  hamlet?: string;
+};
+
+const NL_REGION_RE =
+  /^(nederland|netherlands|overijssel|gelderland|noord-holland|zuid-holland|utrecht|limburg|noord-brabant|friesland|groningen|drenthe|zeeland|flevoland)$/i;
+
+function isNlPostcode(value?: string | null): boolean {
+  return /^\d{4}\s*[A-Z]{2}$/i.test(String(value || '').trim());
+}
+
+function stripPostcode(value?: string | null): string {
+  return String(value || '')
+    .replace(/\b\d{4}\s*[A-Z]{2}\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .trim()
+    .replace(/^,|,$/g, '')
+    .trim();
+}
+
+function cityFromNominatim(
+  displayName?: string | null,
+  address?: NominatimAddress | null
+): string {
+  const fromAddress = stripPostcode(
+    address?.city || address?.town || address?.village || address?.municipality || ''
+  );
+  if (fromAddress && !isNlPostcode(fromAddress)) return fromAddress;
+
+  const parts = String(displayName || '')
+    .split(',')
+    .map((p) => stripPostcode(p))
+    .filter((p) => p && !isNlPostcode(p) && !NL_REGION_RE.test(p));
+  // Laatste bruikbare deel vóór provincie/land is meestal de stad
+  return parts.length >= 2 ? parts[parts.length - 1] : '';
+}
+
+/** Straat (+ huisnr) uit Nominatim-address of display_name. */
+function streetPartsFromNominatim(
+  displayName?: string | null,
+  address?: NominatimAddress | null,
+  poiName?: string | null
+): { street: string; number: string } {
+  const street = String(
+    address?.road ||
+      address?.pedestrian ||
+      address?.residential ||
+      address?.footway ||
+      address?.cycleway ||
+      address?.path ||
+      ''
+  ).trim();
+  let number = String(address?.house_number || '').trim();
+  if (street) return { street, number };
+
+  const poi = String(poiName || '').trim().toLowerCase();
+  const parts = String(displayName || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    // POI-naam is geen straat ("Chitir Chicken, 44, Wesseler-Nering, Enschede, …")
+    .filter((p) => !poi || p.toLowerCase() !== poi);
+  if (!parts.length) return { street: '', number };
+
+  // "44, Wesseler-Nering, Enschede, …"
+  if (/^\d+[a-zA-Z\-]*$/.test(parts[0]) && parts[1] && !isNlPostcode(parts[1]) && !NL_REGION_RE.test(parts[1])) {
+    return { street: parts[1], number: parts[0] };
+  }
+
+  // "Esmarke Rondweg 55, …" of "Esmarke Rondweg, 7534 XX, …"
+  const head = parts[0];
+  if (head && !isNlPostcode(head) && !NL_REGION_RE.test(head) && !/^\d+[a-zA-Z\-]*$/.test(head)) {
+    const withNr = head.match(/^(.*\D)\s+(\d+[a-zA-Z\-]*)$/);
+    if (withNr?.[1]?.trim()) {
+      return { street: withNr[1].trim(), number: number || withNr[2] };
+    }
+    // "Wesseler-Nering, 44, Enschede" komt zelden voor; huisnr uit volgend deel
+    if (!number && parts[1] && /^\d+[a-zA-Z\-]*$/.test(parts[1])) {
+      return { street: head, number: parts[1] };
+    }
+    return { street: head, number };
+  }
+
+  const streetPart = parts.find(
+    (p) => !isNlPostcode(p) && !NL_REGION_RE.test(p) && !/^\d+[a-zA-Z\-]*$/.test(p)
+  );
+  if (!number) {
+    const nrPart = parts.find((p) => /^\d+[a-zA-Z\-]*$/.test(p));
+    if (nrPart) number = nrPart;
+  }
+  return { street: streetPart || '', number };
+}
+
+/** Alleen straat (+ huisnr) en stad — geen provincie/land/postcode. */
+export function compactAddressLabel(
+  displayName: string | null | undefined,
+  address?: NominatimAddress | null,
+  poiName?: string | null
+): string {
+  const { street, number } = streetPartsFromNominatim(displayName, address, poiName);
+  const city = cityFromNominatim(displayName, address);
+  const streetPart = [street, number].filter(Boolean).join(' ').trim();
+  const poi = String(poiName || '').trim();
+  // Backend formatReverseGeocodePayload zet name vaak op "Straat 12" — dat is geen POI.
+  const poiIsStreet =
+    !poi ||
+    isNlPostcode(poi) ||
+    poi.toLowerCase() === street.toLowerCase() ||
+    poi.toLowerCase() === streetPart.toLowerCase() ||
+    (streetPart !== '' && poi.toLowerCase().startsWith(streetPart.toLowerCase())) ||
+    (streetPart !== '' && streetPart.toLowerCase().includes(poi.toLowerCase()));
+  const lead =
+    poi && streetPart && !poiIsStreet ? `${poi}, ${streetPart}` : streetPart || poi;
+  if (lead && !isNlPostcode(lead) && city) return `${lead}, ${city}`;
+  if (lead && !isNlPostcode(lead)) return lead;
+
+  const parts = String(displayName || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!parts.length) return '';
+
+  // "155-20, De Posten, …" → straat + huisnummer
+  if (/^\d+[a-zA-Z\-]*$/.test(parts[0]) && parts[1] && !/^\d/.test(parts[1])) {
+    const streetWithNr = `${parts[1]} ${parts[0]}`;
+    const cityPart =
+      parts.find(
+        (p, i) => i > 1 && !isNlPostcode(p) && !NL_REGION_RE.test(p)
+      ) ||
+      parts[2] ||
+      '';
+    return cityPart ? `${streetWithNr}, ${cityPart}` : streetWithNr;
+  }
+
+  const streetHead = parts.find((p) => !isNlPostcode(p) && !NL_REGION_RE.test(p)) || parts[0];
+  const cityPart =
+    parts.find(
+      (p, i) => i > 0 && p !== streetHead && !isNlPostcode(p) && !NL_REGION_RE.test(p)
+    ) || '';
+  return cityPart && cityPart !== streetHead ? `${streetHead}, ${cityPart}` : streetHead;
+}
+
+export function formatAddress(parts: Location.LocationGeocodedAddress): string {
+  const street = [parts.street, parts.streetNumber].filter(Boolean).join(' ').trim();
+  const city = String(parts.city || parts.subregion || '').trim();
+  if (street && city) return `${street}, ${city}`;
+  return street || city || 'Onbekend adres';
+}
+
+async function fetchJson(
+  url: string,
+  timeoutMs = 8000
+): Promise<{ ok: true; data: unknown } | { ok: false }> {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      ...(ctrl ? { signal: ctrl.signal } : {}),
+    });
+    if (!res.ok) return { ok: false };
+    return { ok: true, data: await res.json() };
+  } catch {
+    return { ok: false };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** Actieve host eerst; bij netwerk/HTTP-fout één keer productie (Test/Cloudflare 502). */
+async function withAddressSearchHosts(): Promise<string[]> {
+  const primary = await resolveApiBaseUrl();
+  if (primary === API_BASE_DEFAULT) return [primary];
+  return [primary, API_BASE_DEFAULT];
+}
+
+async function reverseViaBackend(lat: number, lng: number): Promise<string | null> {
+  const query =
+    `lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`;
+  for (const base of await withAddressSearchHosts()) {
+    const result = await fetchJson(`${base}/nexa-taxi/booking/address-search?${query}`);
+    if (!result.ok || !result.data || typeof result.data !== 'object') continue;
+    const data = result.data as {
+      display_name?: string;
+      address?: NominatimAddress;
+      name?: string;
+    };
+    const label = compactAddressLabel(data.display_name, data.address, data.name);
+    if (label) return label;
+  }
+  return null;
+}
+
+export type AddressSuggestion = {
+  label: string;
+  lat: number;
+  lng: number;
+  /** Google/Nominatim-naam, alleen als die geen straat of plaats is. */
+  placeName?: string | null;
+};
+
+/**
+ * Plaatsnaam boven de straat. Een straat, huisnummer of plaatsnaam zelf telt niet.
+ */
+export function visiblePlaceName(name?: string | null, address?: string | null): string {
+  const place = String(name || '').replace(/\s+/g, ' ').trim();
+  if (!place) return '';
+  const line = String(address || '').replace(/\s+/g, ' ').trim();
+  if (!line) return place;
+  if (place.toLowerCase() === line.toLowerCase()) return '';
+  const parts = line
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const placeLower = place.toLowerCase();
+  if (parts.some((part) => part.toLowerCase() === placeLower)) return '';
+  const street = (parts[0] || '').toLowerCase();
+  if (
+    street &&
+    (street === placeLower || street.startsWith(`${placeLower} `) || placeLower.startsWith(street))
+  ) {
+    return '';
+  }
+  return place;
+}
+
+/** Suggestie: straat + huisnummer en plaats. Geen postcode of wijk. */
+function suggestionLabel(
+  displayName: string | null | undefined,
+  address?: NominatimAddress | null,
+  poiName?: string | null
+): string {
+  const { street, number } = streetPartsFromNominatim(displayName, address, poiName);
+  const city = stripPostcode(cityFromNominatim(displayName, address));
+  const poi = stripPostcode(poiName);
+  const streetPart = stripPostcode([street, number].filter(Boolean).join(' '));
+
+  const withCity = (label: string): string => {
+    const base = stripPostcode(label);
+    if (!base) return '';
+    if (!city || base.toLowerCase().includes(city.toLowerCase())) return base;
+    return `${base}, ${city}`;
+  };
+
+  const poiIsStreet =
+    !poi ||
+    isNlPostcode(poi) ||
+    poi.toLowerCase() === street.toLowerCase() ||
+    poi.toLowerCase() === streetPart.toLowerCase() ||
+    (streetPart !== '' && poi.toLowerCase().startsWith(streetPart.toLowerCase())) ||
+    (streetPart !== '' && streetPart.toLowerCase().includes(poi.toLowerCase()));
+
+  if (streetPart) {
+    if (!poiIsStreet) return withCity(`${poi}, ${streetPart}`);
+    return withCity(streetPart);
+  }
+
+  if (poi && !isNlPostcode(poi)) return withCity(poi);
+
+  const compact = stripPostcode(compactAddressLabel(displayName, address, poiName));
+  if (compact && isNlPostcode(compact.split(',')[0]?.trim())) return '';
+  return withCity(compact);
+}
+
+function isBarePostcodeResult(item: {
+  name?: string;
+  display_name?: string;
+  type?: string;
+  addresstype?: string;
+  class?: string;
+  category?: string;
+  address?: NominatimAddress;
+}): boolean {
+  const type = String(item.type || item.addresstype || '').toLowerCase();
+  const category = String(item.category || item.class || '').toLowerCase();
+  if (type === 'postcode') return true;
+  if (category === 'place' && type === 'postcode') return true;
+  const { street } = streetPartsFromNominatim(item.display_name, item.address, item.name);
+  if (street) return false;
+  const name = String(item.name || '').trim();
+  const postcode = String(item.address?.postcode || '').trim();
+  return isNlPostcode(name) || (!!postcode && !name && !street);
+}
+
+function suggestionMatchScore(label: string, query: string): number {
+  const q = query.toLowerCase().replace(/\s+/g, ' ').trim();
+  const l = label.toLowerCase();
+  if (!q || !l) return 0;
+  let score = 0;
+  if (l.startsWith(q)) score += 40;
+  if (l.includes(q)) score += 20;
+  for (const token of q.split(/[\s,]+/).filter((t) => t.length >= 2)) {
+    if (l.includes(token)) score += 8;
+  }
+  // Huisnummer-match zwaarder
+  const nr = q.match(/\b(\d+[a-z]?)\b/i)?.[1];
+  if (nr && new RegExp(`\\b${nr}\\b`, 'i').test(label)) score += 15;
+  return score;
+}
+
+function parseAddressSuggestions(data: unknown, q: string): AddressSuggestion[] {
+  if (!Array.isArray(data)) return [];
+
+  const seenCoords = new Set<string>();
+  const seenLabels = new Set<string>();
+  const ranked: { label: string; lat: number; lng: number; score: number; placeName: string }[] = [];
+
+  for (const item of data as {
+    display_name?: string;
+    name?: string;
+    lat?: string | number;
+    lon?: string | number;
+    type?: string;
+    addresstype?: string;
+    class?: string;
+    category?: string;
+    address?: NominatimAddress;
+  }[]) {
+    const lat = Number(item.lat);
+    const lng = Number(item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (isBarePostcodeResult(item)) continue;
+
+    const coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    if (seenCoords.has(coordKey)) continue;
+
+    let label = suggestionLabel(item.display_name, item.address, item.name);
+    if (!label) continue;
+    // Altijd een straatnaam (of echte POI), nooit alleen postcode + stad
+    const { street, number } = streetPartsFromNominatim(item.display_name, item.address, item.name);
+    const poi = String(item.name || '').trim();
+    if (!street && (!poi || isNlPostcode(poi))) continue;
+    const streetPart = [street, number].filter(Boolean).join(' ').trim();
+    const city = stripPostcode(cityFromNominatim(item.display_name, item.address));
+    const placeName = visiblePlaceName(poi, [streetPart, city].filter(Boolean).join(', '));
+
+    const labelKey = label.toLowerCase();
+    if (seenLabels.has(labelKey)) {
+      const nr = String(item.address?.house_number || '').trim();
+      if (nr && !label.includes(nr)) {
+        label = label.replace(/,/, ` ${nr},`);
+      } else {
+        continue;
+      }
+      if (seenLabels.has(label.toLowerCase())) continue;
+    }
+
+    seenCoords.add(coordKey);
+    seenLabels.add(label.toLowerCase());
+    ranked.push({
+      label,
+      lat,
+      lng,
+      placeName,
+      score: suggestionMatchScore(label, q),
+    });
+  }
+
+  ranked.sort((a, b) => b.score - a.score);
+  return ranked.slice(0, 6).map(({ label, lat, lng, placeName }) => ({
+    label,
+    lat,
+    lng,
+    placeName: placeName || null,
+  }));
+}
+
+export async function searchAddresses(query: string): Promise<AddressSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 3) return [];
+  const params =
+    `q=${encodeURIComponent(q)}&countrycodes=nl&limit=8&accept-language=nl&addressdetails=1`;
+
+  for (const base of await withAddressSearchHosts()) {
+    const result = await fetchJson(`${base}/nexa-taxi/booking/address-search?${params}`);
+    if (!result.ok) continue; // 502/timeout → volgende host
+    return parseAddressSuggestions(result.data, q);
+  }
+  return [];
+}
+
+function waitForPosition(timeoutMs: number): Promise<Location.LocationObject | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let sub: Location.LocationSubscription | null = null;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      sub?.remove();
+      resolve(null);
+    }, timeoutMs);
+
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 0,
+        timeInterval: 500,
+      },
+      (pos) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        sub?.remove();
+        resolve(pos);
+      }
+    )
+      .then((s) => {
+        sub = s;
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      });
+  });
+}
+
+export async function resolveCurrentPickup(): Promise<GeoPoint> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Geef locatietoegang of vul handmatig een ophaaladres in.');
+  }
+
+  let lat: number | null = null;
+  let lng: number | null = null;
+
+  // Eerst echte GPS — geen IP-schatting (die wijst vaak naar de ISP-stad, bv. Eindhoven).
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    lat = pos.coords.latitude;
+    lng = pos.coords.longitude;
+  } catch {
+    const watched = await waitForPosition(8000);
+    if (watched?.coords) {
+      lat = watched.coords.latitude;
+      lng = watched.coords.longitude;
+    }
+  }
+
+  // Alleen recente last-known (max 2 min), anders riskeren we een oude simulator-locatie.
+  if (lat == null || lng == null) {
+    try {
+      const last = await Location.getLastKnownPositionAsync({
+        maxAge: 1000 * 60 * 2,
+        requiredAccuracy: 500,
+      });
+      if (last?.coords) {
+        lat = last.coords.latitude;
+        lng = last.coords.longitude;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (lat == null || lng == null) {
+    throw new Error(
+      'Geen GPS-fixatie. Op de simulator: Features → Location → Custom Location (Enschede). Of typ je ophaaladres.'
+    );
+  }
+
+  const backendName = await reverseViaBackend(lat, lng);
+  if (backendName) {
+    return { lat, lng, address: backendName };
+  }
+
+  try {
+    const results = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    const address = results[0] ? formatAddress(results[0]) : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return { lat, lng, address };
+  } catch {
+    return { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` };
+  }
+}
+
+export async function geocodeAddress(query: string): Promise<GeoPoint> {
+  const suggestions = await searchAddresses(query);
+  if (suggestions.length) {
+    const first = suggestions[0];
+    return {
+      lat: first.lat,
+      lng: first.lng,
+      address: first.label,
+      placeName: first.placeName || null,
+    };
+  }
+  throw new Error('Adres niet gevonden. Kies een suggestie uit de lijst.');
+}
+
+/** Decode Google/OSRM encoded polyline → coordinates. */
+export function decodePolyline(encoded: string): LatLng[] {
+  const coordinates: LatLng[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let b: number;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    result = 0;
+    shift = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    coordinates.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return coordinates;
+}
+
+/** Route over wegen (OSRM). Fallback: rechte lijn-schatting. */
+export async function fetchDrivingRoute(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): Promise<RouteResult> {
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), 2800) : null;
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${from.lng},${from.lat};${to.lng},${to.lat}` +
+      `?overview=simplified&geometries=polyline&steps=false`;
+    const res = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined);
+    if (res.ok) {
+      const data = await res.json();
+      const route = data?.routes?.[0];
+      if (route?.geometry) {
+        return {
+          coordinates: decodePolyline(String(route.geometry)),
+          distance_meters: Math.max(50, Math.round(Number(route.distance) || 0)),
+          duration_seconds: Math.max(60, Math.round(Number(route.duration) || 0)),
+        };
+      }
+    }
+  } catch {
+    /* fall through */
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  const metrics = estimateRouteMetrics(from, to);
+  return {
+    coordinates: [
+      { latitude: from.lat, longitude: from.lng },
+      { latitude: to.lat, longitude: to.lng },
+    ],
+    ...metrics,
+  };
+}
+
+export function metersBetween(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number }
+): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+export function bearingDegrees(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
+  const x =
+    Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) -
+    Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
+  return (Math.atan2(y, x) * 180) / Math.PI;
+}
+
+export function offsetByMeters(
+  point: { lat: number; lng: number },
+  bearingDeg: number,
+  meters: number
+): { lat: number; lng: number } {
+  const R = 6371000;
+  const br = (bearingDeg * Math.PI) / 180;
+  const lat1 = (point.lat * Math.PI) / 180;
+  const lng1 = (point.lng * Math.PI) / 180;
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(meters / R) + Math.cos(lat1) * Math.sin(meters / R) * Math.cos(br)
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(br) * Math.sin(meters / R) * Math.cos(lat1),
+      Math.cos(meters / R) - Math.sin(lat1) * Math.sin(lat2)
+    );
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI };
+}
+
+/** Zelfde schatting als web-fallback: haversine × 1.25 @ ~30 km/u. */
+export function estimateRouteMetrics(from: { lat: number; lng: number }, to: { lat: number; lng: number }) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  const meters = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance_meters = Math.max(50, Math.round(meters * 1.25));
+  const duration_seconds = Math.max(60, Math.round((distance_meters / 1000 / 30) * 3600));
+  return { distance_meters, duration_seconds };
+}
+
+/** Indicatieve prijs als de quote-API geen offer teruggeeft. */
+export function estimateFareEuro(distanceMeters: number, durationSeconds: number): number {
+  const km = Math.max(0, distanceMeters / 1000);
+  const minutes = Math.max(1, durationSeconds / 60);
+  const raw = 3.8 + km * 2.2 + minutes * 0.35;
+  return Math.round(raw * 100) / 100;
+}
+
+export function formatEuroNl(amount: number): string {
+  return `€ ${amount.toFixed(2).replace('.', ',')}`;
+}
+
+async function ensureLocationPermission(): Promise<boolean> {
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status === 'granted') return true;
+    const asked = await Location.requestForegroundPermissionsAsync();
+    return asked.status === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+async function lastKnownCoords(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const last = await Location.getLastKnownPositionAsync({
+      maxAge: 1000 * 60 * 10,
+      requiredAccuracy: 2500,
+    });
+    if (last?.coords) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/** Alleen de laatst bekende fix. Start geen nieuwe GPS-meting. */
+export async function peekLastKnownCoords(): Promise<{ lat: number; lng: number } | null> {
+  return lastKnownCoords();
+}
+
+/** GPS zonder adres — voor vloot op de kaart voordat er een ophaaladres is. */
+export async function peekCurrentCoords(): Promise<{ lat: number; lng: number } | null> {
+  if (!(await ensureLocationPermission())) return null;
+  const cached = await lastKnownCoords();
+  if (cached) return cached;
+
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Rond af naar volgende 5-minuten (minstens `minutesFromNow` vanaf nu). */
+export function defaultPickupDate(minutesFromNow = 10): Date {
+  const d = new Date(Date.now() + minutesFromNow * 60_000);
+  d.setSeconds(0, 0);
+  const rem = d.getMinutes() % 5;
+  if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
+  return d;
+}
+
+/** Clock-skew grace: "nu" / net-gekozen tijden mogen niet false-failen. */
+export const PICKUP_AT_PAST_GRACE_MS = 60_000;
+
+/** True als ophaaltijd (device local wall-clock) te ver in het verleden ligt. */
+export function isPickupAtInPast(d: Date, nowMs: number = Date.now()): boolean {
+  return d.getTime() < nowMs - PICKUP_AT_PAST_GRACE_MS;
+}
+
+/** Europe/Amsterdam wall-clock string zonder timezone (backend verwacht dit). */
+export function formatPickupAtPayload(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00`;
+}
+
+export function defaultPickupAt(minutesFromNow = 10): string {
+  return formatPickupAtPayload(defaultPickupDate(minutesFromNow));
+}
+
+export function formatPickupAtLabel(d: Date): string {
+  const today = new Date();
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(d) - start(today)) / 86_400_000);
+  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  if (diff === 0) return `${t('Vandaag')} ${time}`;
+  if (diff === 1) return `${t('Morgen')} ${time}`;
+  const day = d.toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
+  return `${day} ${time}`;
+}

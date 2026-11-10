@@ -42,9 +42,9 @@
                    target="_blank"
                    rel="noopener noreferrer"
                    class="kt-btn dashboard-app-launch-btn dashboard-app-launch-btn--chauffeur"
-                   aria-label="Open chauffeur-app in een nieuw tabblad">
+                   aria-label="{{ __('Open chauffeur-app in een nieuw tabblad') }}">
                     <i class="ki-filled ki-car me-2" aria-hidden="true"></i>
-                    Chauffeur-app
+                    {{ __('Chauffeur-app') }}
                 </a>
             @endif
             @if($showContractAppLaunch)
@@ -52,9 +52,9 @@
                    target="_blank"
                    rel="noopener noreferrer"
                    class="kt-btn dashboard-app-launch-btn dashboard-app-launch-btn--contract"
-                   aria-label="Open contract-app in een nieuw tabblad">
+                   aria-label="{{ __('Open contract-app in een nieuw tabblad') }}">
                     <i class="ki-filled ki-briefcase me-2" aria-hidden="true"></i>
-                    Contract-app
+                    {{ __('Contract-app') }}
                 </a>
             @endif
         </div>

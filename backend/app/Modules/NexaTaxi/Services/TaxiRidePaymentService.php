@@ -2,9 +2,12 @@
 
 namespace App\Modules\NexaTaxi\Services;
 
+use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Services\NexaSuitePublicHost;
 use App\Services\PaymentProviderService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -198,10 +201,16 @@ class TaxiRidePaymentService
         });
     }
 
+    public static function usesNativeAppClient(Request $request): bool
+    {
+        return strtolower(trim((string) $request->header('X-Nexa-Client'))) === 'native';
+    }
+
     public function createDriverPayment(
         string $conn,
         RideRequest $ride,
-        float $amount
+        float $amount,
+        bool $useSuiteAccount = false
     ): array {
         $companyId = (int) ($ride->company_id ?? 0);
         if (! $this->dispatchSettings->paymentDriverEnabled($companyId > 0 ? $companyId : null)) {
@@ -227,21 +236,24 @@ class TaxiRidePaymentService
             $ride,
             $amount,
             RidePayment::CHANNEL_DRIVER,
-            route('taxi.chauffeur.payment.return', ['ride' => $ride->id])
+            route('taxi.chauffeur.payment.return', ['ride' => $ride->id]),
+            $useSuiteAccount
         );
     }
 
     public function createBookingPayment(
         string $conn,
         RideRequest $ride,
-        float $amount
+        float $amount,
+        bool $useSuiteAccount = false
     ): array {
         return $this->createMolliePaymentForRide(
             $conn,
             $ride,
             $amount,
             RidePayment::CHANNEL_BOOKING,
-            route('nexataxi.booking.payment.return', ['ride' => $ride->id])
+            route('nexataxi.booking.payment.return', ['ride' => $ride->id]),
+            $useSuiteAccount
         );
     }
 
@@ -253,10 +265,11 @@ class TaxiRidePaymentService
         RideRequest $ride,
         float $amount,
         string $channel,
-        string $redirectUrl
+        string $redirectUrl,
+        bool $useSuiteAccount = false
     ): array {
         $companyId = $this->resolveRideCompanyId($ride);
-        $usesPlatformMollie = $ride->isNexaSuiteBooking() || $companyId === null;
+        $usesPlatformMollie = $useSuiteAccount || $ride->isNexaSuiteBooking() || $companyId === null;
 
         if ($usesPlatformMollie) {
             $suiteMollie = app(\App\Services\NexaSuiteMollieService::class);
@@ -269,9 +282,16 @@ class TaxiRidePaymentService
                 ]);
             }
             $apiKey = $suiteMollie->apiKey();
-            // Rit-webhooks: Nexa Suite-webhook of standaard taxi-endpoint.
-            $webhookUrl = $suiteMollie->webhookUrl()
-                ?? $this->paymentProviders->mollieWebhookUrlForPayment(null);
+            $publicHost = app(NexaSuitePublicHost::class);
+            $redirectUrl = $publicHost->withPublicHost($redirectUrl);
+            // Lege webhook = publieke host. Een ingevulde webhook-URL blijft zoals de admin hem zette.
+            $webhookUrl = $suiteMollie->webhookUrl();
+            if ($webhookUrl === null) {
+                $fallback = $this->paymentProviders->mollieWebhookUrlForPayment(null);
+                $webhookUrl = is_string($fallback) && $fallback !== ''
+                    ? $publicHost->withPublicHost($fallback)
+                    : null;
+            }
         } else {
             $apiKey = $this->paymentProviders->mollieApiKeyForCompany($companyId);
             if (! $apiKey) {
@@ -286,7 +306,7 @@ class TaxiRidePaymentService
             $webhookUrl = $this->paymentProviders->mollieWebhookUrlForPayment($companyId);
         }
 
-        return DB::connection($conn)->transaction(function () use ($conn, $ride, $amount, $channel, $redirectUrl, $apiKey, $companyId, $webhookUrl) {
+        return DB::connection($conn)->transaction(function () use ($conn, $ride, $amount, $channel, $redirectUrl, $apiKey, $companyId, $webhookUrl, $usesPlatformMollie) {
             $ride = RideRequest::on($conn)->whereKey($ride->id)->lockForUpdate()->firstOrFail();
 
             RidePayment::on($conn)
@@ -336,10 +356,13 @@ class TaxiRidePaymentService
                 ]);
             }
 
+            $storedPayload = $molliePayment;
+            $storedPayload['nexa_mollie_account'] = $usesPlatformMollie ? 'suite' : 'tenant';
+
             $ridePayment->update([
                 'mollie_payment_id' => $molliePayment['id'] ?? null,
                 'checkout_url' => $checkoutUrl,
-                'mollie_payload' => $molliePayment,
+                'mollie_payload' => $storedPayload,
             ]);
 
             $ride->update([
@@ -366,7 +389,7 @@ class TaxiRidePaymentService
         $companyId = $ride
             ? $this->resolveRideCompanyId($ride, $ridePayment)
             : (((int) ($ridePayment->company_id ?? 0)) > 0 ? (int) $ridePayment->company_id : null);
-        $apiKey = $this->resolveMollieApiKey($ride, $companyId);
+        $apiKey = $this->resolveMollieApiKey($ride, $companyId, $ridePayment);
         if (! $apiKey || ! $ridePayment->mollie_payment_id) {
             return $ridePayment;
         }
@@ -386,6 +409,13 @@ class TaxiRidePaymentService
         return DB::connection($conn)->transaction(function () use ($conn, $ridePayment, $molliePayment, $status) {
             $ridePayment = RidePayment::on($conn)->whereKey($ridePayment->id)->lockForUpdate()->firstOrFail();
             $ride = RideRequest::on($conn)->whereKey($ridePayment->ride_request_id)->lockForUpdate()->first();
+
+            $account = is_array($ridePayment->mollie_payload)
+                ? ($ridePayment->mollie_payload['nexa_mollie_account'] ?? null)
+                : null;
+            if (is_string($account) && $account !== '') {
+                $molliePayment['nexa_mollie_account'] = $account;
+            }
 
             $updates = [
                 'status' => $status,
@@ -408,36 +438,64 @@ class TaxiRidePaymentService
 
     public function markRidePaid(string $conn, RideRequest $ride, RidePayment $ridePayment): RideRequest
     {
+        $wasWaitingForPayment = $ride->status === RideRequest::STATUS_PENDING_PAYMENT;
+
         $ride->update([
             'payment_status' => RideRequest::PAYMENT_STATUS_PAID,
             'final_price' => $ridePayment->amount,
         ]);
 
-        if ($ride->status === RideRequest::STATUS_PENDING_PAYMENT) {
+        if ($wasWaitingForPayment) {
             $ride->update(['status' => RideRequest::STATUS_PENDING_DISPATCH]);
-            $freshRide = $ride->fresh() ?? $ride;
-            $payload = is_array($freshRide->booking_payload) ? $freshRide->booking_payload : [];
-            $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
-            $candidateIds = array_values(array_filter(array_map(
-                'intval',
-                $marketplace['candidate_company_ids'] ?? []
-            )));
-            $settingsCompanyId = (int) ($marketplace['settings_company_id']
-                ?? $marketplace['company_id']
-                ?? $freshRide->company_id
-                ?? 0);
+        }
 
+        $freshRide = $ride->fresh() ?? $ride;
+        $payload = is_array($freshRide->booking_payload) ? $freshRide->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+        $candidateIds = array_values(array_filter(array_map(
+            'intval',
+            $marketplace['candidate_company_ids'] ?? []
+        )));
+        $settingsCompanyId = (int) ($marketplace['settings_company_id']
+            ?? $marketplace['company_id']
+            ?? $freshRide->company_id
+            ?? 0);
+
+        // Webhook én betaal-terugkomst roepen dit aan. Ontbreekt het aanbod (eerste
+        // poging mislukt, of de rit stond al op pending_dispatch), dan alsnog aanmaken.
+        $waitingForDriver = ! $freshRide->driver_id
+            && in_array($freshRide->status, [
+                RideRequest::STATUS_PENDING_DISPATCH,
+                RideRequest::STATUS_OFFERED,
+            ], true);
+        $hasPendingOffer = RideDispatchOffer::on($conn)
+            ->where('ride_request_id', $freshRide->id)
+            ->where('status', RideDispatchOffer::STATUS_PENDING)
+            ->exists();
+
+        if ($waitingForDriver && ! $hasPendingOffer) {
             if ($candidateIds !== []) {
-                try {
-                    \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatch(
+                \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatchWhenCommitted(
+                    $conn,
+                    (int) $freshRide->id,
+                    0,
+                    $candidateIds,
+                    false
+                );
+            } else {
+                $companyId = (int) ($freshRide->company_id ?? 0);
+                if ($companyId > 0) {
+                    \App\Modules\NexaTaxi\Jobs\StartRideDispatchJob::dispatchWhenCommitted(
+                        $conn,
                         (int) $freshRide->id,
-                        0,
-                        $candidateIds,
-                        false
+                        $companyId
                     );
-                } catch (\Throwable) {
-                    // dispatch failure logged elsewhere
                 }
+            }
+        }
+
+        if ($wasWaitingForPayment) {
+            if ($candidateIds !== []) {
                 try {
                     \App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob::dispatch((int) $freshRide->id, [
                         'settings_company_id' => $settingsCompanyId > 0 ? $settingsCompanyId : null,
@@ -445,19 +503,11 @@ class TaxiRidePaymentService
                 } catch (\Throwable) {
                     // notification failure logged elsewhere
                 }
-            } else {
-                $companyId = (int) ($freshRide->company_id ?? 0);
-                if ($companyId > 0) {
-                    try {
-                        app(RideDispatchService::class)->startDispatch($conn, $freshRide, $companyId);
-                    } catch (\Throwable) {
-                        // dispatch failure logged elsewhere
-                    }
-                    try {
-                        app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $freshRide);
-                    } catch (\Throwable) {
-                        // notification failure logged elsewhere
-                    }
+            } elseif ((int) ($freshRide->company_id ?? 0) > 0) {
+                try {
+                    app(TaxiBookingNotificationService::class)->notifyNewRide($conn, $freshRide);
+                } catch (\Throwable) {
+                    // notification failure logged elsewhere
                 }
             }
         }
@@ -517,7 +567,7 @@ class TaxiRidePaymentService
         }
 
         $companyId = $this->resolveRideCompanyId($ride, $payment);
-        $apiKey = $this->resolveMollieApiKey($ride, $companyId);
+        $apiKey = $this->resolveMollieApiKey($ride, $companyId, $payment);
         if (! $apiKey) {
             $ride->update(['payment_status' => RideRequest::PAYMENT_STATUS_REFUND_FAILED]);
 
@@ -605,11 +655,21 @@ class TaxiRidePaymentService
     }
 
     /**
-     * Nexa Suite / marktplaats → Nexa Suite Mollie; anders tenant-Mollie.
+     * Nexa Suite / marktplaats / native app → Nexa Suite Mollie; anders tenant-Mollie.
+     * Bestaande betalingen volgen het account waarmee ze zijn aangemaakt.
      */
-    protected function resolveMollieApiKey(?RideRequest $ride, ?int $companyId): ?string
+    protected function resolveMollieApiKey(?RideRequest $ride, ?int $companyId, ?RidePayment $payment = null): ?string
     {
-        $usePlatform = $ride?->isNexaSuiteBooking() || $companyId === null || $companyId <= 0;
+        $stored = is_array($payment?->mollie_payload)
+            ? ($payment->mollie_payload['nexa_mollie_account'] ?? null)
+            : null;
+        if ($stored === 'suite') {
+            $usePlatform = true;
+        } elseif ($stored === 'tenant') {
+            $usePlatform = false;
+        } else {
+            $usePlatform = $ride?->isNexaSuiteBooking() || $companyId === null || $companyId <= 0;
+        }
         if ($usePlatform) {
             $suite = app(\App\Services\NexaSuiteMollieService::class);
             if (! $suite->isConfigured()) {
@@ -626,7 +686,10 @@ class TaxiRidePaymentService
         return $this->paymentProviders->mollieApiKeyForCompany($companyId);
     }
 
-    public function handleWebhookPaymentId(string $molliePaymentId): void
+    /**
+     * @return bool false als de betaling nog niet is opgeslagen (Mollie moet opnieuw proberen)
+     */
+    public function handleWebhookPaymentId(string $molliePaymentId): bool
     {
         $conn = app(\App\Services\ModuleDatabaseService::class)->getModuleConnectionName('taxi');
 
@@ -635,9 +698,11 @@ class TaxiRidePaymentService
             ->first();
 
         if (! $ridePayment) {
-            return;
+            return false;
         }
 
         $this->syncRidePaymentFromMollie($conn, $ridePayment);
+
+        return true;
     }
 }

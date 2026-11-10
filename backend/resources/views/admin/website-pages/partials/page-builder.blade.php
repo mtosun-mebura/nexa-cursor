@@ -11,12 +11,12 @@
 @endpush
 
 <div class="builder-frame rounded-xl border-2 border-dashed border-input p-4">
-    <p class="text-xs text-muted-foreground mb-3" id="builder-theme-hint">Kies een module (of Geen voor kernpagina&apos;s); de vaste blokken van het bijbehorende thema worden hier geladen. Vul de inhoud per blok in. Sleep om de volgorde te wijzigen; gebruik de breedte-knoppen voor responsive layout.</p>
+    <p class="text-xs text-muted-foreground mb-3" id="builder-theme-hint">{!! __('Kies een module (of Geen voor kernpagina&apos;s); de vaste blokken van het bijbehorende thema worden hier geladen. Vul de inhoud per blok in. Sleep om de volgorde te wijzigen; gebruik de breedte-knoppen voor responsive layout.') !!}</p>
     <div id="builder-blocks" class="grid grid-cols-12 gap-4">
         {{-- Blokken worden via JS geladen op basis van thema (module_choice) --}}
     </div>
     <div id="builder-empty" class="text-center py-12 text-muted-foreground text-sm">
-        Geen blokken. Kies een module om de thema-blokken te laden.
+        {{ __('Geen blokken. Kies een module om de thema-blokken te laden.') }}
     </div>
 </div>
 <input type="hidden" name="content" id="page_content_json" value="{{ isset($contentJson) ? e($contentJson) : '' }}">

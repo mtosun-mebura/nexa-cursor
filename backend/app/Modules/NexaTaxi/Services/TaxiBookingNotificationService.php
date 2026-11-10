@@ -29,7 +29,13 @@ class TaxiBookingNotificationService
     ) {}
 
     /**
-     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
+     * @param  array{
+     *     stopovers?: list<string>,
+     *     return_at?: string|null,
+     *     section_config?: array<string, mixed>,
+     *     settings_company_id?: int|null,
+     *     skip_customer_email?: bool
+     * }  $context
      */
     public function notifyNewRide(string $conn, RideRequest $ride, array $context = []): void
     {
@@ -41,7 +47,11 @@ class TaxiBookingNotificationService
 
             return;
         }
-        $summary = $this->summaryText->build($ride, $context);
+        // Bedrijf/chauffeur blijven NL; klantmail bouwt de samenvatting opnieuw in de app-taal.
+        $summary = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith(
+            'nl',
+            fn () => $this->summaryText->build($ride, $context)
+        );
 
         $settingsCompanyId = $this->resolveSettingsCompanyId(
             $companyId > 0 ? $companyId : null,
@@ -51,8 +61,21 @@ class TaxiBookingNotificationService
             $settingsCompanyId = $candidateIds[0];
         }
 
+        // E-mail eerst: mag niet wachten op trage/timeoutende WhatsApp-calls.
+        if (! (bool) ($context['skip_customer_email'] ?? false)) {
+            $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+        }
         $this->sendCustomerBookingWhatsapp($conn, $ride, $settingsCompanyId, $context);
-        $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+
+        // Marktplaats loopt via de dispatch-app. E-mail naar chauffeurs alleen bij een websiteboeking.
+        $driverEmailAllowed = ! $ride->isNexaSuiteBooking();
+        if (! $driverEmailAllowed) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                (int) $ride->id,
+                'Marktplaatsboeking: chauffeurs krijgen de rit via de dispatch-app, geen e-mail.'
+            );
+        }
 
         $companyNotifyIds = $companyId > 0 ? [$companyId] : $candidateIds;
         foreach ($companyNotifyIds as $notifyCompanyId) {
@@ -60,7 +83,9 @@ class TaxiBookingNotificationService
                 continue;
             }
             $this->sendCompanyBookingWhatsapp($conn, $ride, $summary, (int) $notifyCompanyId, $context);
-            $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+            if ($driverEmailAllowed) {
+                $this->sendDriverEmails($conn, (int) $notifyCompanyId, $ride, $summary, (int) $notifyCompanyId);
+            }
         }
     }
 
@@ -124,6 +149,16 @@ class TaxiBookingNotificationService
     ): void {
         $rideId = (int) $ride->id;
 
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->recordWhatsappSkipped(
+                $conn,
+                $rideId,
+                'Marktplaats-rit gaat via de app, niet via WhatsApp.'
+            );
+
+            return;
+        }
+
         if (! $this->dispatchSettings->companyBookingWhatsappNotifyEnabled($companyId)) {
             return;
         }
@@ -180,6 +215,21 @@ class TaxiBookingNotificationService
         array $context = []
     ): void {
         $rideId = (int) $ride->id;
+
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->record(
+                $conn,
+                $rideId,
+                RideRequestNotificationLog::CHANNEL_WHATSAPP,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                (string) ($ride->customer_name ?: 'Klant'),
+                trim((string) ($ride->customer_phone ?? '')) ?: null,
+                null,
+                self::LOG_CONTEXT_CUSTOMER_BOOKING.': Marktplaats-rit gaat via de app, niet via WhatsApp.'
+            );
+
+            return;
+        }
 
         if (! $this->whatsapp->isConfigured($companyId)) {
             $this->notificationLogs->record(
@@ -269,6 +319,16 @@ class TaxiBookingNotificationService
     ): void {
         $rideId = (int) $ride->id;
 
+        if ($ride->isNexaSuiteBooking()) {
+            $this->notificationLogs->recordDriverEmailsSkipped(
+                $conn,
+                $rideId,
+                'Marktplaatsboeking: chauffeurs krijgen de rit via de dispatch-app, geen e-mail.'
+            );
+
+            return;
+        }
+
         if ($companyId <= 0) {
             $this->notificationLogs->recordDriverEmailsSkipped(
                 $conn,
@@ -337,8 +397,8 @@ class TaxiBookingNotificationService
                     'driver_name' => $driverName,
                     'ride_id' => $ride->id,
                     'pickup_at' => $pickupAt,
-                    'pickup_address' => $ride->pickup_address,
-                    'dropoff_address' => $ride->dropoff_address,
+                    'pickup_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+                    'dropoff_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
                     'customer_name' => $ride->customer_name,
                     'customer_phone' => $ride->customer_phone,
                     'customer_email' => $ride->customer_email,
@@ -400,6 +460,36 @@ class TaxiBookingNotificationService
         }
     }
 
+    /**
+     * Directe klantbevestiging (sync), los van WhatsApp/chauffeur-notificaties.
+     *
+     * @param  array{stopovers?: list<string>, return_at?: string|null, section_config?: array<string, mixed>, settings_company_id?: int|null}  $context
+     */
+    public function notifyCustomerBookingEmail(string $conn, RideRequest $ride, array $context = []): void
+    {
+        $companyId = (int) ($ride->company_id ?? 0);
+        $demo = app(\App\Services\NexaDemoAccountService::class);
+        if ($companyId > 0 && $demo->isDemoCompanyId($companyId)) {
+            return;
+        }
+
+        $candidateIds = $ride->marketplaceCandidateCompanyIds();
+        $settingsCompanyId = $this->resolveSettingsCompanyId(
+            $companyId > 0 ? $companyId : null,
+            isset($context['settings_company_id']) ? (int) $context['settings_company_id'] : null
+        );
+        if (($settingsCompanyId === null || $settingsCompanyId <= 0) && $candidateIds !== []) {
+            $settingsCompanyId = $candidateIds[0];
+        }
+
+        $summary = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith(
+            'nl',
+            fn () => $this->summaryText->build($ride, $context)
+        );
+
+        $this->sendCustomerBookingEmail($conn, $ride, $summary, $settingsCompanyId);
+    }
+
     private function sendCustomerBookingEmail(
         string $conn,
         RideRequest $ride,
@@ -439,32 +529,40 @@ class TaxiBookingNotificationService
             return;
         }
 
-        $subject = 'Bevestiging van uw taxiboeking #'.$ride->id;
-        $pickupAt = $ride->pickup_at
-            ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
-            : '—';
+        $locale = \App\Modules\NexaTaxi\Support\CustomerMailLocale::forRide($ride);
         $customerName = trim((string) ($ride->customer_name ?: ''));
         $brand = $this->companyBrand($settingsCompanyId);
         $cancelUrl = app(TaxiRideCancellationService::class)->customerCancelUrl($ride);
 
-        $html = view('emails.taxi-ride-booking-customer', [
-            'customer_name' => $customerName,
-            'ride_id' => $ride->id,
-            'pickup_at' => $pickupAt,
-            'pickup_address' => $ride->pickup_address,
-            'dropoff_address' => $ride->dropoff_address,
-            'quoted_price' => $ride->quoted_price,
-            'summary_text' => $summary,
-            'company_name' => $brand['name'],
-            'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($settingsCompanyId),
-            'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
-            'cancel_url' => $cancelUrl,
-            'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
-            'portal_login_url' => route('login', [
-                'code_login' => 1,
-                'intended' => route('taxi.portal.dashboard'),
-            ]),
-        ])->render();
+        [$subject, $html] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::runWith($locale, function () use ($ride, $settingsCompanyId, $customerName, $brand, $cancelUrl) {
+            $pickupAt = $ride->pickup_at
+                ? $ride->pickup_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')
+                : '—';
+            $subject = __('Bevestiging van uw taxiboeking #:id', ['id' => $ride->id]);
+            $html = view('emails.taxi-ride-booking-customer', [
+                'customer_name' => $customerName,
+                'ride_id' => $ride->id,
+                'pickup_at' => $pickupAt,
+                'pickup_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatPickup($ride),
+                'dropoff_address' => \App\Modules\NexaTaxi\Support\RidePlaceName::formatDropoff($ride),
+                'quoted_price' => $ride->quoted_price,
+                'summary_text' => $this->summaryText->build($ride),
+                'company_name' => $brand['name'],
+                'company_website_url' => \App\Support\EmailCardHtml::primaryWebsiteUrlForCompany($settingsCompanyId),
+                'logoHtml' => CompanyEmailLogoService::HTML_PLACEHOLDER,
+                'cancel_url' => $cancelUrl,
+                'was_paid' => $ride->payment_status === RideRequest::PAYMENT_STATUS_PAID,
+                // Mijn Taxi-portaal is voor tenant-websiteboekingen, niet voor marktplaats.
+                'portal_login_url' => $ride->isNexaSuiteBooking()
+                    ? null
+                    : route('login', [
+                        'code_login' => 1,
+                        'intended' => route('taxi.portal.dashboard'),
+                    ]),
+            ])->render();
+
+            return [$subject, $html];
+        });
 
         $payload = [
             'company_id' => $settingsCompanyId,

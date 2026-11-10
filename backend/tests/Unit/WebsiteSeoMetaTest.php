@@ -51,4 +51,21 @@ class WebsiteSeoMetaTest extends TestCase
             'logo_alt' => 'Taxi Royaal',
         ]));
     }
+
+    #[Test]
+    public function soft_query_params_cover_pakket_and_tracking(): void
+    {
+        $this->assertTrue(WebsiteSeoMeta::isSoftQueryParam('pakket'));
+        $this->assertTrue(WebsiteSeoMeta::isSoftQueryParam('utm_source'));
+        $this->assertTrue(WebsiteSeoMeta::isSoftQueryParam('gclid'));
+        $this->assertFalse(WebsiteSeoMeta::isSoftQueryParam('page'));
+        $this->assertFalse(WebsiteSeoMeta::isSoftQueryParam('slug'));
+    }
+
+    #[Test]
+    public function canonical_url_strips_query_string(): void
+    {
+        $request = \Illuminate\Http\Request::create('https://example.test/contact?pakket=Pro&utm_source=mail', 'GET');
+        $this->assertSame('https://example.test/contact', WebsiteSeoMeta::canonicalUrl($request));
+    }
 }

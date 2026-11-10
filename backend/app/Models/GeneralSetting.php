@@ -108,6 +108,30 @@ class GeneralSetting extends Model
         'MAIL_FROM_NAME',
     ];
 
+    /**
+     * Of deze tenant een eigen SMTP-host heeft opgeslagen (zonder platform-fallback).
+     * Alleen MAIL_FROM_NAME telt niet als eigen mailserver.
+     */
+    public static function companyHasOwnMailDelivery(?int $companyId): bool
+    {
+        if ($companyId === null || $companyId <= 0 || ! self::settingsTableAvailable()) {
+            return false;
+        }
+
+        try {
+            $host = self::query()
+                ->where('company_id', $companyId)
+                ->where('key', 'MAIL_HOST')
+                ->whereNotNull('value')
+                ->where('value', '!=', '')
+                ->value('value');
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return trim((string) $host) !== '';
+    }
+
     protected $fillable = [
         'company_id',
         'key',

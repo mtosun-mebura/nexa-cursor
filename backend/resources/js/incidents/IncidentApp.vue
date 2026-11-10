@@ -56,10 +56,20 @@ type Bootstrap = {
   statuses: Option[]
   priorities: Option[]
   companies?: CompanyOption[]
+  locale?: string
+  translations?: Record<string, string>
 }
 
 const props = defineProps<{ bootstrap: Bootstrap }>()
 const b = props.bootstrap
+
+function t(text: string, params?: Record<string, string | number>): string {
+  let out = props.bootstrap.translations?.[text] ?? text
+  if (params) {
+    for (const [name, value] of Object.entries(params)) out = out.split(`:${name}`).join(String(value))
+  }
+  return out
+}
 
 const incidents = ref<Incident[]>([])
 const stats = ref({ open: 0, in_progress: 0, resolved: 0, total: 0, archived: 0 })
@@ -176,7 +186,7 @@ async function loadList() {
   const url = `${b.routes.list}?${params}`
   try {
     const res = await fetch(url, { headers: headers(false) })
-    if (!res.ok) throw new Error('Kon incidenten niet laden.')
+    if (!res.ok) throw new Error(t('Kon incidenten niet laden.'))
     const data = await res.json()
     incidents.value = data.incidents || []
     stats.value = { archived: 0, ...stats.value, ...(data.stats || {}) }
@@ -187,7 +197,7 @@ async function loadList() {
     }
     selectedIds.value = selectedIds.value.filter((id) => incidents.value.some((item) => item.id === id))
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Er ging iets mis.'
+    errorMessage.value = e?.message || t('Er ging iets mis.')
   } finally {
     loading.value = false
   }
@@ -199,7 +209,7 @@ const someSelected = computed(() => selectedIds.value.length > 0 && !allSelected
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100]
 const PAGE_MORE_LIMIT = 5
 type PaginationItem = { type: 'page'; page: number } | { type: 'ellipsis'; jump: number }
-const paginationInfo = computed(() => `Toon ${listMeta.value.from} tot ${listMeta.value.to} van ${listMeta.value.total} incidenten`)
+const paginationInfo = computed(() => t('Toon :from tot :to van :total incidenten', { from: listMeta.value.from, to: listMeta.value.to, total: listMeta.value.total }))
 const paginationItems = computed<PaginationItem[]>(() => {
   const total = Math.max(1, listMeta.value.last_page)
   const current = page.value
@@ -264,16 +274,20 @@ async function archiveSelected(archived: boolean) {
       body: JSON.stringify({ ids: selectedIds.value, archived }),
     })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.message || 'Archiveren is niet gelukt.')
+    if (!res.ok) throw new Error(data?.message || t('Archiveren is niet gelukt.'))
     selectedIds.value = []
     flashSuccess(
       archived
-        ? `${data.count || ''} incident${data.count === 1 ? '' : 'en'} naar archief.`
-        : `${data.count || ''} incident${data.count === 1 ? '' : 'en'} teruggezet.`
+        ? (data.count === 1
+          ? t(':count incident naar archief.', { count: data.count || '' })
+          : t(':count incidenten naar archief.', { count: data.count || '' }))
+        : (data.count === 1
+          ? t(':count incident teruggezet.', { count: data.count || '' })
+          : t(':count incidenten teruggezet.', { count: data.count || '' }))
     )
     await loadList()
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Archiveren is niet gelukt.'
+    errorMessage.value = e?.message || t('Archiveren is niet gelukt.')
   } finally {
     archiveSaving.value = false
   }
@@ -370,9 +384,9 @@ function closeComposer() {
 }
 
 const composerStepMeta = [
-  { n: 1, label: 'Soort' },
-  { n: 2, label: 'Uitleg' },
-  { n: 3, label: 'Versturen' },
+  { n: 1, label: t('Soort') },
+  { n: 2, label: t('Uitleg') },
+  { n: 3, label: t('Versturen') },
 ]
 
 function goToComposerStep(step: number) {
@@ -390,7 +404,7 @@ function addFiles(files: FileList | File[]) {
   for (const file of incoming) {
     if (shots.value.length >= 5) break
     if (file.size > 5 * 1024 * 1024) {
-      errorMessage.value = 'Een afbeelding is groter dan 5MB. Kies een kleinere screenshot.'
+      errorMessage.value = t('Een afbeelding is groter dan 5MB. Kies een kleinere screenshot.')
       continue
     }
     shots.value.push({
@@ -433,7 +447,7 @@ function onPaste(event: ClipboardEvent) {
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       const file = item.getAsFile()
-      if (file) files.push(new File([file], `plak-${Date.now()}.png`, { type: file.type }))
+      if (file) files.push(new File([file], t('plak-:time.png', { time: Date.now() }), { type: file.type }))
     }
   }
   if (files.length) {
@@ -444,7 +458,7 @@ function onPaste(event: ClipboardEvent) {
 
 async function captureScreen() {
   if (!navigator.mediaDevices?.getDisplayMedia) {
-    errorMessage.value = 'Schermafbeelding maken wordt niet ondersteund in deze browser. Plak of sleep een screenshot.'
+    errorMessage.value = t('Schermafbeelding maken wordt niet ondersteund in deze browser. Plak of sleep een screenshot.')
     return
   }
   capturing.value = true
@@ -465,11 +479,11 @@ async function captureScreen() {
     track?.stop()
     stream.getTracks().forEach((t) => t.stop())
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-    if (!blob) throw new Error('Kon geen schermafbeelding maken.')
-    addFiles([new File([blob], `schermafbeelding-${Date.now()}.png`, { type: 'image/png' })])
+    if (!blob) throw new Error(t('Kon geen schermafbeelding maken.'))
+    addFiles([new File([blob], t('schermafbeelding-:time.png', { time: Date.now() }), { type: 'image/png' })])
   } catch (e: any) {
     if (e?.name !== 'NotAllowedError') {
-      errorMessage.value = 'Schermafbeelding is geannuleerd of mislukt. Je kunt ook plakken of slepen.'
+      errorMessage.value = t('Schermafbeelding is geannuleerd of mislukt. Je kunt ook plakken of slepen.')
     }
   } finally {
     stream?.getTracks().forEach((t) => t.stop())
@@ -481,8 +495,8 @@ const canSubmit = computed(() => title.value.trim().length >= 4 && description.v
 
 async function submitIncident() {
   if (!canSubmit.value) {
-    if (title.value.trim().length < 4) errorMessage.value = 'Beschrijf kort wat er aan de hand is (minimaal 4 tekens).'
-    else errorMessage.value = 'Vertel iets meer, zodat we je snel kunnen helpen (minimaal 10 tekens).'
+    if (title.value.trim().length < 4) errorMessage.value = t('Beschrijf kort wat er aan de hand is (minimaal 4 tekens).')
+    else errorMessage.value = t('Vertel iets meer, zodat we je snel kunnen helpen (minimaal 10 tekens).')
     return
   }
   saving.value = true
@@ -504,13 +518,13 @@ async function submitIncident() {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const first = data?.errors ? Object.values(data.errors).flat()[0] : data?.message
-      throw new Error((first as string) || 'Versturen is niet gelukt.')
+      throw new Error((first as string) || t('Versturen is niet gelukt.'))
     }
     submittedIncident.value = data.incident
     submitted.value = true
     await loadList()
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Versturen is niet gelukt.'
+    errorMessage.value = e?.message || t('Versturen is niet gelukt.')
   } finally {
     saving.value = false
   }
@@ -524,7 +538,7 @@ async function openDetail(id: number) {
   })
   try {
     const res = await fetch(`${b.routes.show}/${id}`, { headers: headers(false) })
-    if (!res.ok) throw new Error('Incident niet gevonden.')
+    if (!res.ok) throw new Error(t('Incident niet gevonden.'))
     const data = await res.json()
     detail.value = data.incident
     handleStatus.value = data.incident?.status || 'open'
@@ -535,7 +549,7 @@ async function openDetail(id: number) {
     commentSavedMessage.value = ''
     nextTick(() => growNoteTextarea())
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Kon incident niet openen.'
+    errorMessage.value = e?.message || t('Kon incident niet openen.')
     closeDetail()
   } finally {
     detailLoading.value = false
@@ -596,7 +610,7 @@ function applyIncidentPatch(id: number, patch: Record<string, unknown>) {
 function flashSaved(target: 'note' | 'comment') {
   const messageRef = target === 'note' ? noteSavedMessage : commentSavedMessage
   const timer = target === 'note' ? noteSavedTimer : commentSavedTimer
-  messageRef.value = 'Opgeslagen'
+  messageRef.value = t('Opgeslagen')
   window.clearTimeout(timer)
   const next = window.setTimeout(() => {
     messageRef.value = ''
@@ -619,7 +633,7 @@ async function saveNote() {
     if (handleNote.value.trim()) noteEditing.value = false
     flashSaved('note')
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Toelichting opslaan is niet gelukt.'
+    errorMessage.value = e?.message || t('Toelichting opslaan is niet gelukt.')
   } finally {
     noteSaving.value = false
   }
@@ -634,7 +648,7 @@ async function deleteNote() {
     handleNote.value = ''
     noteEditing.value = true
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Toelichting verwijderen is niet gelukt.'
+    errorMessage.value = e?.message || t('Toelichting verwijderen is niet gelukt.')
   } finally {
     noteDeleting.value = false
   }
@@ -655,7 +669,7 @@ async function saveComment() {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const first = data?.errors ? Object.values(data.errors).flat()[0] : data?.message
-      throw new Error((first as string) || 'Commentaar opslaan is niet gelukt.')
+      throw new Error((first as string) || t('Commentaar opslaan is niet gelukt.'))
     }
     if (data.comment && detail.value) {
       detail.value.comments = [...(detail.value.comments || []), data.comment]
@@ -663,7 +677,7 @@ async function saveComment() {
     commentDraft.value = ''
     flashSaved('comment')
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Commentaar opslaan is niet gelukt.'
+    errorMessage.value = e?.message || t('Commentaar opslaan is niet gelukt.')
   } finally {
     commentSaving.value = false
   }
@@ -681,13 +695,13 @@ async function deleteComment(comment: IncidentComment) {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       const first = data?.errors ? Object.values(data.errors).flat()[0] : data?.message
-      throw new Error((first as string) || 'Commentaar verwijderen is niet gelukt.')
+      throw new Error((first as string) || t('Commentaar verwijderen is niet gelukt.'))
     }
     if (detail.value) {
       detail.value.comments = (detail.value.comments || []).filter((item) => item.id !== comment.id)
     }
   } catch (e: any) {
-    errorMessage.value = e?.message || 'Commentaar verwijderen is niet gelukt.'
+    errorMessage.value = e?.message || t('Commentaar verwijderen is niet gelukt.')
   } finally {
     deletingCommentId.value = null
   }
@@ -703,7 +717,7 @@ async function patchIncident(payload: Record<string, unknown>) {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const first = data?.errors ? Object.values(data.errors).flat()[0] : data?.message
-    throw new Error((first as string) || 'Opslaan is niet gelukt.')
+    throw new Error((first as string) || t('Opslaan is niet gelukt.'))
   }
   if (data.patch) applyIncidentPatch(detail.value.id, data.patch)
   return data
@@ -718,7 +732,7 @@ async function saveStatus() {
     await patchIncident({ status: handleStatus.value })
   } catch (e: any) {
     handleStatus.value = detail.value.status
-    errorMessage.value = e?.message || 'Status opslaan is niet gelukt.'
+    errorMessage.value = e?.message || t('Status opslaan is niet gelukt.')
   } finally {
     statusSaving.value = false
   }
@@ -737,13 +751,13 @@ function cancelPendingDelete() {
 }
 
 const pendingDeleteTitle = computed(() => (
-  pendingDelete.value?.kind === 'comment' ? 'Commentaar verwijderen?' : 'Toelichting verwijderen?'
+  pendingDelete.value?.kind === 'comment' ? t('Commentaar verwijderen?') : t('Toelichting verwijderen?')
 ))
 
 const pendingDeleteText = computed(() => (
   pendingDelete.value?.kind === 'comment'
-    ? 'Dit commentaar wordt definitief verwijderd.'
-    : 'De toelichting voor de klant wordt definitief verwijderd.'
+    ? t('Dit commentaar wordt definitief verwijderd.')
+    : t('De toelichting voor de klant wordt definitief verwijderd.')
 ))
 
 async function confirmPendingDelete() {
@@ -812,12 +826,12 @@ onUnmounted(() => {
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="text-xl font-medium leading-none text-mono mb-0">
-            {{ b.is_super_admin ? 'Incidenten' : 'Hulp nodig?' }}
+            {{ b.is_super_admin ? t('Incidenten') : t('Hulp nodig?') }}
           </h1>
           <p class="text-sm text-muted-foreground mt-2 mb-0">
             {{ b.is_super_admin
-              ? 'Bekijk meldingen, dien zelf een ticket in en werk de status bij.'
-              : 'Meld een storing, vraag of wens. Voeg een screenshot toe, dan kunnen we je sneller helpen.' }}
+              ? t('Bekijk meldingen, dien zelf een ticket in en werk de status bij.')
+              : t('Meld een storing, vraag of wens. Voeg een screenshot toe, dan kunnen we je sneller helpen.') }}
           </p>
         </div>
         <button
@@ -827,7 +841,7 @@ onUnmounted(() => {
           @click="openComposer"
         >
           <i class="ki-filled ki-plus me-2"></i>
-          Nieuw incident
+          {{ t('Nieuw incident') }}
         </button>
       </div>
 
@@ -836,19 +850,19 @@ onUnmounted(() => {
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="incident-stat">
               <span class="incident-stat-value">{{ stats.open }}</span>
-              <span class="incident-stat-label">Nieuw</span>
+              <span class="incident-stat-label">{{ t('Nieuw') }}</span>
             </div>
             <div class="incident-stat">
               <span class="incident-stat-value">{{ stats.in_progress }}</span>
-              <span class="incident-stat-label">In behandeling</span>
+              <span class="incident-stat-label">{{ t('In behandeling') }}</span>
             </div>
             <div class="incident-stat">
               <span class="incident-stat-value">{{ stats.resolved }}</span>
-              <span class="incident-stat-label">Afgehandeld</span>
+              <span class="incident-stat-label">{{ t('Afgehandeld') }}</span>
             </div>
             <div class="incident-stat">
               <span class="incident-stat-value">{{ stats.total }}</span>
-              <span class="incident-stat-label">Totaal</span>
+              <span class="incident-stat-label">{{ t('Totaal') }}</span>
             </div>
           </div>
         </div>
@@ -884,8 +898,8 @@ onUnmounted(() => {
     <div class="kt-card kt-card-grid w-full min-w-0">
       <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5 min-w-0">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="kt-card-title mb-0">{{ showArchived ? 'Archief' : (b.is_super_admin ? 'Alle meldingen' : 'Jouw meldingen') }}</h3>
-          <div class="incident-view-toggle" role="tablist" aria-label="Lijstweergave">
+          <h3 class="kt-card-title mb-0">{{ showArchived ? t('Archief') : (b.is_super_admin ? t('Alle meldingen') : t('Jouw meldingen')) }}</h3>
+          <div class="incident-view-toggle" role="tablist" :aria-label="t('Lijstweergave')">
             <button
               type="button"
               role="tab"
@@ -894,7 +908,7 @@ onUnmounted(() => {
               :aria-selected="!showArchived"
               @click="showArchived = false"
             >
-              Meldingen
+              {{ t('Meldingen') }}
             </button>
             <button
               type="button"
@@ -904,20 +918,20 @@ onUnmounted(() => {
               :aria-selected="showArchived"
               @click="showArchived = true"
             >
-              Archief{{ stats.archived ? ` (${stats.archived})` : '' }}
+              {{ t('Archief') }}{{ stats.archived ? ` (${stats.archived})` : '' }}
             </button>
           </div>
         </div>
         <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0">
           <label ref="searchWrap" class="kt-input admin-search-input-wrap w-full sm:w-64 min-w-0">
             <i class="ki-filled ki-magnifier"></i>
-            <input v-model="search" type="text" placeholder="Zoek op titel of nummer" class="grow" autocomplete="off" data-no-search-clear>
+            <input v-model="search" type="text" :placeholder="t('Zoek op titel of nummer')" class="grow" autocomplete="off" data-no-search-clear>
             <button
               type="button"
               class="admin-search-clear-btn"
               :class="{ 'is-visible': search.length > 0 }"
               :aria-hidden="search.length === 0"
-              aria-label="Zoekveld wissen"
+              :aria-label="t('Zoekveld wissen')"
               tabindex="-1"
               @mousedown="onSearchClearEvent"
               @click="onSearchClearEvent"
@@ -926,11 +940,11 @@ onUnmounted(() => {
             </button>
           </label>
           <select v-model="statusFilter" class="kt-select w-full sm:w-44">
-            <option value="">Alle statussen</option>
+            <option value="">{{ t('Alle statussen') }}</option>
             <option v-for="item in b.statuses" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
           <select v-model="priorityFilter" class="kt-select w-full sm:w-44">
-            <option value="">Alle prioriteiten</option>
+            <option value="">{{ t('Alle prioriteiten') }}</option>
             <option v-for="item in b.priorities" :key="item.value" :value="item.value">{{ item.label }}</option>
           </select>
         </div>
@@ -943,7 +957,7 @@ onUnmounted(() => {
               role="checkbox"
               :aria-checked="allSelected ? 'true' : (someSelected ? 'mixed' : 'false')"
             ></span>
-            Alles
+            {{ t('Alles') }}
           </button>
           <button
             v-if="!showArchived"
@@ -952,7 +966,7 @@ onUnmounted(() => {
             :disabled="!selectedIds.length || archiveSaving"
             @click="archiveSelected(true)"
           >
-            {{ archiveSaving ? 'Archiveren…' : 'Naar archief' }}
+            {{ archiveSaving ? t('Archiveren…') : t('Naar archief') }}
           </button>
           <button
             v-else
@@ -961,11 +975,11 @@ onUnmounted(() => {
             :disabled="!selectedIds.length || archiveSaving"
             @click="archiveSelected(false)"
           >
-            {{ archiveSaving ? 'Terugzetten…' : 'Terugzetten' }}
+            {{ archiveSaving ? t('Terugzetten…') : t('Terugzetten') }}
           </button>
-          <span v-if="selectedIds.length" class="incident-toolbar-count">{{ selectedIds.length }} geselecteerd</span>
+          <span v-if="selectedIds.length" class="incident-toolbar-count">{{ t(':count geselecteerd', { count: selectedIds.length }) }}</span>
         </div>
-        <div v-if="loading" class="incident-empty">Incidenten laden…</div>
+        <div v-if="loading" class="incident-empty">{{ t('Incidenten laden…') }}</div>
         <div v-else-if="errorMessage" class="incident-empty">
           <i class="ki-filled ki-information text-3xl text-destructive mb-3"></i>
           <p class="text-sm text-muted-foreground mb-0">{{ errorMessage }}</p>
@@ -974,8 +988,8 @@ onUnmounted(() => {
           <i class="ki-filled ki-flag text-3xl text-muted-foreground mb-3"></i>
           <p class="text-sm text-muted-foreground mb-0">
             {{ showArchived
-              ? 'Het archief is leeg.'
-              : (b.can_create ? 'Nog geen incidenten. Klik op Nieuw incident om iets te melden.' : 'Er zijn nog geen incidenten.') }}
+              ? t('Het archief is leeg.')
+              : (b.can_create ? t('Nog geen incidenten. Klik op Nieuw incident om iets te melden.') : t('Er zijn nog geen incidenten.')) }}
           </p>
         </div>
         <TransitionGroup v-else name="incident-list" tag="div" class="incident-list">
@@ -988,7 +1002,7 @@ onUnmounted(() => {
             <button
               type="button"
               class="incident-row-check"
-              :aria-label="'Selecteer ' + item.reference"
+              :aria-label="t('Selecteer :reference', { reference: item.reference })"
               @click.stop="onToggleSelect(item.id)"
             >
               <span
@@ -1010,7 +1024,7 @@ onUnmounted(() => {
                   <template v-if="b.is_super_admin && item.company"> · {{ item.company.name }}</template>
                   <template v-if="item.reporter"> · {{ item.reporter.name }}</template>
                   · {{ item.created_at_human }}
-                  <template v-if="item.screenshot_count"> · {{ item.screenshot_count }} screenshot{{ item.screenshot_count === 1 ? '' : 's' }}</template>
+                  <template v-if="item.screenshot_count"> · {{ item.screenshot_count === 1 ? t(':count screenshot', { count: item.screenshot_count }) : t(':count screenshots', { count: item.screenshot_count }) }}</template>
                 </p>
               </div>
               <i class="ki-filled ki-right text-muted-foreground"></i>
@@ -1023,14 +1037,14 @@ onUnmounted(() => {
         class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium"
       >
         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-          Toon
-          <select v-model.number="perPage" class="kt-select incident-perpage-select" aria-label="Toon aantal per pagina">
+          {{ t('Toon') }}
+          <select v-model.number="perPage" class="kt-select incident-perpage-select" :aria-label="t('Toon aantal per pagina')">
             <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}</option>
           </select>
-          per pagina
+          {{ t('per pagina') }}
         </div>
         <div class="admin-datatable-footer__pagination">
-          <div class="kt-datatable-pagination" role="navigation" aria-label="Paginering">
+          <div class="kt-datatable-pagination" role="navigation" :aria-label="t('Paginering')">
             <button
               type="button"
               class="kt-datatable-pagination-button kt-datatable-pagination-prev"
@@ -1038,7 +1052,7 @@ onUnmounted(() => {
               :disabled="page <= 1"
               @click="goToPage(page - 1)"
             >
-              Vorige
+              {{ t('Vorige') }}
             </button>
             <button
               v-for="(item, index) in paginationItems"
@@ -1058,7 +1072,7 @@ onUnmounted(() => {
               :disabled="page >= listMeta.last_page"
               @click="goToPage(page + 1)"
             >
-              Volgende
+              {{ t('Volgende') }}
             </button>
           </div>
         </div>
@@ -1069,18 +1083,18 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="composerOpen" class="incident-overlay" :class="{ 'is-open': composerVisible }" @click.self="closeComposer">
         <div class="incident-panel" :class="{ 'is-open': composerVisible }" role="dialog" aria-modal="true">
-          <button type="button" class="incident-panel-close" aria-label="Sluiten" @click="closeComposer">
+          <button type="button" class="incident-panel-close" :aria-label="t('Sluiten')" @click="closeComposer">
             <i class="ki-filled ki-cross"></i>
           </button>
           <div class="incident-panel-scroll">
           <div v-if="!submitted" class="incident-panel-head">
             <div>
-              <h2 class="text-lg font-medium mb-0">Incident melden</h2>
-              <p class="text-sm text-muted-foreground mt-1 mb-0">In een paar stappen klaar. Screenshot plakken mag gewoon met Ctrl+V.</p>
+              <h2 class="text-lg font-medium mb-0">{{ t('Incident melden') }}</h2>
+              <p class="text-sm text-muted-foreground mt-1 mb-0">{{ t('In een paar stappen klaar. Screenshot plakken mag gewoon met Ctrl+V.') }}</p>
             </div>
           </div>
 
-          <ol v-if="!submitted" class="incident-stepper" aria-label="Stappen">
+          <ol v-if="!submitted" class="incident-stepper" :aria-label="t('Stappen')">
             <li
               v-for="(step, index) in composerStepMeta"
               :key="step.n"
@@ -1095,11 +1109,11 @@ onUnmounted(() => {
                   v-if="composerStep > step.n"
                   type="button"
                   class="incident-stepper-marker incident-stepper-marker--done"
-                  :title="'Ga naar ' + step.label"
+                  :title="t('Ga naar :step', { step: step.label })"
                   @click="goToComposerStep(step.n)"
                 >
                   <i class="ki-filled ki-check text-sm"></i>
-                  <span class="sr-only">{{ step.label }} (voltooid)</span>
+                  <span class="sr-only">{{ t(':step (voltooid)', { step: step.label }) }}</span>
                 </button>
                 <span
                   v-else
@@ -1143,20 +1157,20 @@ onUnmounted(() => {
               <div class="incident-success-mark">
                 <i class="ki-filled ki-check"></i>
               </div>
-              <h3 class="text-lg font-medium mb-1">Verstuurd</h3>
+              <h3 class="text-lg font-medium mb-1">{{ t('Verstuurd') }}</h3>
               <p class="text-sm text-muted-foreground mb-4">
-                {{ submittedIncident.reference }} staat bij NEXA Support. Je krijgt een melding zodra het is afgehandeld.
+                {{ t(':reference staat bij NEXA Support. Je krijgt een melding zodra het is afgehandeld.', { reference: submittedIncident.reference }) }}
               </p>
               <div class="flex flex-wrap gap-2">
                 <button type="button" class="kt-btn kt-btn-primary" @click="closeComposer(); openDetail(submittedIncident.id)">
-                  Bekijk melding
+                  {{ t('Bekijk melding') }}
                 </button>
-                <button type="button" class="kt-btn kt-btn-outline" @click="closeComposer">Sluiten</button>
+                <button type="button" class="kt-btn kt-btn-outline" @click="closeComposer">{{ t('Sluiten') }}</button>
               </div>
             </div>
 
             <div v-else-if="composerStep === 1" key="step1" class="incident-panel-body">
-              <p class="text-sm font-medium mb-3">Wat is er aan de hand?</p>
+              <p class="text-sm font-medium mb-3">{{ t('Wat is er aan de hand?') }}</p>
               <div class="incident-kind-grid">
                 <button
                   v-for="item in b.kinds"
@@ -1172,26 +1186,26 @@ onUnmounted(() => {
                 </button>
               </div>
               <div class="incident-panel-actions">
-                <button type="button" class="kt-btn kt-btn-primary" @click="composerStep = 2">Volgende</button>
+                <button type="button" class="kt-btn kt-btn-primary" @click="composerStep = 2">{{ t('Volgende') }}</button>
               </div>
             </div>
 
             <div v-else-if="composerStep === 2" key="step2" class="incident-panel-body">
               <label class="block mb-4">
-                <span class="text-sm font-medium">Korte titel</span>
-                <input v-model="title" type="text" maxlength="160" class="kt-input mt-1.5 w-full" placeholder="Bijv. Planning opent niet op mobiel">
+                <span class="text-sm font-medium">{{ t('Korte titel') }}</span>
+                <input v-model="title" type="text" maxlength="160" class="kt-input mt-1.5 w-full" :placeholder="t('Bijv. Planning opent niet op mobiel')">
               </label>
               <label class="block mb-4">
-                <span class="text-sm font-medium">URL <span class="text-muted-foreground font-normal">(optioneel)</span></span>
+                <span class="text-sm font-medium">URL <span class="text-muted-foreground font-normal">{{ t('(optioneel)') }}</span></span>
                 <input v-model="pageUrl" type="url" maxlength="2048" class="kt-input mt-1.5 w-full" placeholder="https://…" autocomplete="url">
               </label>
               <label class="block mb-4">
-                <span class="text-sm font-medium">Omschrijving</span>
-                <textarea v-model="description" rows="5" maxlength="5000" class="kt-input mt-1.5 w-full min-h-32" placeholder="Wat gebeurde er, wat verwachtte je, en waar zag je het?"></textarea>
+                <span class="text-sm font-medium">{{ t('Omschrijving') }}</span>
+                <textarea v-model="description" rows="5" maxlength="5000" class="kt-input mt-1.5 w-full min-h-32" :placeholder="t('Wat gebeurde er, wat verwachtte je, en waar zag je het?')"></textarea>
               </label>
               <div>
-                <span class="text-sm font-medium">Screenshots</span>
-                <p class="text-xs text-muted-foreground mt-1 mb-2">Sleep, plak (Ctrl+V / Cmd+V) of maak een schermafbeelding. Max. 5, JPG/PNG/WebP tot 5MB.</p>
+                <span class="text-sm font-medium">{{ t('Screenshots') }}</span>
+                <p class="text-xs text-muted-foreground mt-1 mb-2">{{ t('Sleep, plak (Ctrl+V / Cmd+V) of maak een schermafbeelding. Max. 5, JPG/PNG/WebP tot 5MB.') }}</p>
                 <div
                   class="incident-drop"
                   :class="{ dragging }"
@@ -1202,33 +1216,33 @@ onUnmounted(() => {
                   <input type="file" accept="image/*" multiple class="sr-only" id="incident-file" @change="addFiles(($event.target as HTMLInputElement).files || [])">
                   <label for="incident-file" class="incident-drop-label">
                     <i class="ki-filled ki-picture"></i>
-                    <strong>Klik of sleep afbeelding</strong>
-                    <span>JPG, PNG, WebP (max. 5MB)</span>
+                    <strong>{{ t('Klik of sleep afbeelding') }}</strong>
+                    <span>{{ t('JPG, PNG, WebP (max. 5MB)') }}</span>
                   </label>
                   <button type="button" class="kt-btn kt-btn-outline kt-btn-sm" :disabled="capturing" @click="captureScreen">
                     <i class="ki-filled ki-screen me-1"></i>
-                    {{ capturing ? 'Bezig…' : 'Schermafbeelding maken' }}
+                    {{ capturing ? t('Bezig…') : t('Schermafbeelding maken') }}
                   </button>
                 </div>
                 <div v-if="shots.length" class="incident-thumbs">
                   <div v-for="(shot, index) in shots" :key="shot.id" class="incident-thumb">
-                    <button type="button" class="incident-thumb-open" :aria-label="'Vergroot ' + shot.name" @click="openLightbox(index)">
+                    <button type="button" class="incident-thumb-open" :aria-label="t('Vergroot :name', { name: shot.name })" @click="openLightbox(index)">
                       <img :src="shot.url" :alt="shot.name">
                     </button>
-                    <button type="button" class="incident-thumb-remove" aria-label="Verwijderen" @click.stop="removeShot(shot.id)">
+                    <button type="button" class="incident-thumb-remove" :aria-label="t('Verwijderen')" @click.stop="removeShot(shot.id)">
                       <i class="ki-filled ki-cross"></i>
                     </button>
                   </div>
                 </div>
               </div>
               <div class="incident-panel-actions">
-                <button type="button" class="kt-btn kt-btn-outline" @click="composerStep = 1">Terug</button>
-                <button type="button" class="kt-btn kt-btn-primary" @click="composerStep = 3">Volgende</button>
+                <button type="button" class="kt-btn kt-btn-outline" @click="composerStep = 1">{{ t('Terug') }}</button>
+                <button type="button" class="kt-btn kt-btn-primary" @click="composerStep = 3">{{ t('Volgende') }}</button>
               </div>
             </div>
 
             <div v-else key="step3" class="incident-panel-body">
-              <p class="text-sm font-medium mb-3">Hoe dringend is het?</p>
+              <p class="text-sm font-medium mb-3">{{ t('Hoe dringend is het?') }}</p>
               <div class="incident-priority-grid">
                 <button
                   v-for="item in b.priorities"
@@ -1243,22 +1257,22 @@ onUnmounted(() => {
                 </button>
               </div>
               <div class="incident-summary">
-                <p class="mb-1"><strong>{{ title || 'Geen titel' }}</strong></p>
+                <p class="mb-1"><strong>{{ title || t('Geen titel') }}</strong></p>
                 <p class="text-sm text-muted-foreground mb-0">{{ description.slice(0, 180) }}{{ description.length > 180 ? '…' : '' }}</p>
                 <p v-if="pageUrl.trim()" class="text-xs text-muted-foreground mt-2 mb-0 break-all">{{ pageUrl.trim() }}</p>
-                <p v-if="shots.length" class="text-xs text-muted-foreground mt-2 mb-0">{{ shots.length }} screenshot{{ shots.length === 1 ? '' : 's' }} bijgevoegd</p>
+                <p v-if="shots.length" class="text-xs text-muted-foreground mt-2 mb-0">{{ shots.length === 1 ? t(':count screenshot bijgevoegd', { count: shots.length }) : t(':count screenshots bijgevoegd', { count: shots.length }) }}</p>
               </div>
               <label v-if="b.is_super_admin && (b.companies || []).length" class="block mt-4 mb-0">
-                <span class="text-sm font-medium">Bedrijf (optioneel)</span>
+                <span class="text-sm font-medium">{{ t('Bedrijf (optioneel)') }}</span>
                 <select v-model="companyId" class="kt-select mt-1.5 w-full">
-                  <option value="">Intern / geen specifiek bedrijf</option>
+                  <option value="">{{ t('Intern / geen specifiek bedrijf') }}</option>
                   <option v-for="item in (b.companies || [])" :key="item.id" :value="String(item.id)">{{ item.name }}</option>
                 </select>
               </label>
               <div class="incident-panel-actions">
-                <button type="button" class="kt-btn kt-btn-outline" @click="composerStep = 2">Terug</button>
+                <button type="button" class="kt-btn kt-btn-outline" @click="composerStep = 2">{{ t('Terug') }}</button>
                 <button type="button" class="kt-btn kt-btn-primary" :disabled="saving" @click="submitIncident">
-                  {{ saving ? 'Versturen…' : 'Incident versturen' }}
+                  {{ saving ? t('Versturen…') : t('Incident versturen') }}
                 </button>
               </div>
             </div>
@@ -1271,7 +1285,7 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="detailOpen" class="incident-overlay" :class="{ 'is-open': detailVisible }" @click.self="closeDetail">
         <div class="incident-panel incident-panel-wide" :class="{ 'is-open': detailVisible }" role="dialog" aria-modal="true">
-          <button type="button" class="incident-panel-close" aria-label="Sluiten" @click="closeDetail">
+          <button type="button" class="incident-panel-close" :aria-label="t('Sluiten')" @click="closeDetail">
             <i class="ki-filled ki-cross"></i>
           </button>
           <div class="incident-panel-scroll">
@@ -1279,7 +1293,7 @@ onUnmounted(() => {
             <div class="incident-panel-head-top">
               <div class="incident-panel-head-main">
                 <p class="incident-panel-ref">{{ detail?.reference }}</p>
-                <h2 class="incident-panel-title">{{ detail?.title || 'Incident' }}</h2>
+                <h2 class="incident-panel-title">{{ detail?.title || t('Incident') }}</h2>
               </div>
             </div>
             <div v-if="detail && !detailLoading" class="incident-badges">
@@ -1291,7 +1305,7 @@ onUnmounted(() => {
                 v-model="handleStatus"
                 class="incident-status-select"
                 :class="{ 'is-resolved': handleStatus === 'resolved' }"
-                aria-label="Status"
+                :aria-label="t('Status')"
                 :disabled="statusSaving"
                 @change="saveStatus"
               >
@@ -1300,20 +1314,20 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="incident-panel-body">
-            <div v-if="detailLoading" class="incident-empty">Laden…</div>
+            <div v-if="detailLoading" class="incident-empty">{{ t('Laden…') }}</div>
             <template v-else-if="detail">
               <table class="incident-meta">
                 <tbody>
                   <tr v-if="detail.company">
-                    <th scope="row">Bedrijf</th>
+                    <th scope="row">{{ t('Bedrijf') }}</th>
                     <td>{{ detail.company.name }}</td>
                   </tr>
                   <tr v-if="detail.reporter">
-                    <th scope="row">Gemeld door</th>
+                    <th scope="row">{{ t('Gemeld door') }}</th>
                     <td>{{ detail.reporter.name }}</td>
                   </tr>
                   <tr>
-                    <th scope="row">Gemeld op</th>
+                    <th scope="row">{{ t('Gemeld op') }}</th>
                     <td>{{ detail.created_at_formatted }}</td>
                   </tr>
                   <tr v-if="detail.page_url">
@@ -1328,14 +1342,14 @@ onUnmounted(() => {
                 <p class="incident-description">{{ detail.description }}</p>
               </div>
               <div v-if="detailScreenshots.length" class="incident-frame incident-thumbs-frame">
-                <p class="incident-shots-label">Screenshots</p>
+                <p class="incident-shots-label">{{ t('Screenshots') }}</p>
                 <div class="incident-thumbs">
                   <button
                     v-for="(shot, index) in detailScreenshots"
                     :key="shot.url + '-' + index"
                     type="button"
                     class="incident-thumb"
-                    :aria-label="'Vergroot screenshot ' + (index + 1) + ' van ' + detailScreenshots.length"
+                    :aria-label="t('Vergroot screenshot :number van :total', { number: index + 1, total: detailScreenshots.length })"
                     @click="openLightbox(index)"
                   >
                     <img :src="shot.url" :alt="shot.name">
@@ -1343,49 +1357,49 @@ onUnmounted(() => {
                 </div>
               </div>
               <div v-if="detail.is_handled && !b.is_super_admin" class="incident-resolution">
-                <strong>Afgehandeld</strong>
-                <p class="text-sm mb-0 mt-1">{{ detail.resolution_note || 'Geen toelichting.' }}</p>
+                <strong>{{ t('Afgehandeld') }}</strong>
+                <p class="text-sm mb-0 mt-1">{{ detail.resolution_note || t('Geen toelichting.') }}</p>
                 <p class="text-xs text-muted-foreground mt-2 mb-0">
                   {{ detail.resolved_by?.name }} · {{ detail.resolved_at_formatted }}
                 </p>
               </div>
               <div v-else-if="!b.is_super_admin" class="text-sm text-muted-foreground">
-                We zijn ermee bezig. Je krijgt een melding zodra dit incident is afgehandeld.
+                {{ t('We zijn ermee bezig. Je krijgt een melding zodra dit incident is afgehandeld.') }}
               </div>
               <div v-if="b.is_super_admin" class="incident-handle">
-                <p class="text-sm font-medium mb-3">Afhandeling</p>
+                <p class="text-sm font-medium mb-3">{{ t('Afhandeling') }}</p>
                 <div class="mb-4">
-                  <span class="text-sm">Toelichting voor de klant</span>
+                  <span class="text-sm">{{ t('Toelichting voor de klant') }}</span>
                   <textarea
                     v-if="noteEditing"
                     ref="noteTextarea"
                     v-model="handleNote"
                     rows="4"
                     class="kt-input mt-1.5 w-full incident-autosize"
-                    placeholder="Wat is er gedaan of wat moet de klant weten?"
+                    :placeholder="t('Wat is er gedaan of wat moet de klant weten?')"
                     @input="growNoteTextarea"
                   ></textarea>
                   <div v-else class="incident-note-view">
                     <p class="incident-note-text">{{ detail.resolution_note }}</p>
                     <div class="incident-note-actions">
-                      <button type="button" class="incident-note-edit" aria-label="Toelichting bewerken" @click="noteEditing = true">
+                      <button type="button" class="incident-note-edit" :aria-label="t('Toelichting bewerken')" @click="noteEditing = true">
                         <i class="ki-filled ki-pencil"></i>
                       </button>
-                      <button type="button" class="incident-note-edit" aria-label="Toelichting verwijderen" :disabled="noteDeleting" @click="requestDeleteNote">
+                      <button type="button" class="incident-note-edit" :aria-label="t('Toelichting verwijderen')" :disabled="noteDeleting" @click="requestDeleteNote">
                         <i class="ki-filled ki-trash"></i>
                       </button>
                     </div>
                   </div>
                   <div v-if="noteEditing" class="incident-handle-actions">
                     <span v-if="noteSavedMessage" class="incident-saved-hint" role="status">{{ noteSavedMessage }}</span>
-                    <button type="button" class="kt-btn incident-btn-muted" :disabled="noteSaving" @click="cancelNote">Annuleren</button>
+                    <button type="button" class="kt-btn incident-btn-muted" :disabled="noteSaving" @click="cancelNote">{{ t('Annuleren') }}</button>
                     <button type="button" class="kt-btn kt-btn-primary" :disabled="noteSaving" @click="saveNote">
-                      {{ noteSaving ? 'Opslaan…' : 'Opslaan' }}
+                      {{ noteSaving ? t('Opslaan…') : t('Opslaan') }}
                     </button>
                   </div>
                 </div>
                 <div class="mb-0">
-                  <span class="text-sm">Commentaar</span>
+                  <span class="text-sm">{{ t('Commentaar') }}</span>
                   <div v-if="detail.comments?.length" class="incident-comment-list">
                     <div v-for="comment in detail.comments" :key="comment.id" class="incident-comment">
                       <p class="incident-comment-body">{{ comment.body }}</p>
@@ -1394,7 +1408,7 @@ onUnmounted(() => {
                         <button
                           type="button"
                           class="incident-note-edit"
-                          aria-label="Commentaar verwijderen"
+                          :aria-label="t('Commentaar verwijderen')"
                           :disabled="deletingCommentId === comment.id"
                           @click="requestDeleteComment(comment)"
                         >
@@ -1407,12 +1421,12 @@ onUnmounted(() => {
                     v-model="commentDraft"
                     rows="3"
                     class="kt-input mt-1.5 w-full"
-                    placeholder="Interne notitie voor jezelf of andere ontwikkelaars"
+                    :placeholder="t('Interne notitie voor jezelf of andere ontwikkelaars')"
                   ></textarea>
                   <div class="incident-handle-actions">
                     <span v-if="commentSavedMessage" class="incident-saved-hint" role="status">{{ commentSavedMessage }}</span>
                     <button type="button" class="kt-btn kt-btn-primary" :disabled="commentSaving || !commentDraft.trim()" @click="saveComment">
-                      {{ commentSaving ? 'Opslaan…' : 'Opslaan' }}
+                      {{ commentSaving ? t('Opslaan…') : t('Opslaan') }}
                     </button>
                   </div>
                 </div>
@@ -1437,8 +1451,8 @@ onUnmounted(() => {
           <h3 id="incident-confirm-title" class="incident-confirm-title">{{ pendingDeleteTitle }}</h3>
           <p class="incident-confirm-text">{{ pendingDeleteText }}</p>
           <div class="incident-confirm-actions">
-            <button type="button" class="kt-btn kt-btn-outline" @click="cancelPendingDelete">Annuleren</button>
-            <button type="button" class="incident-confirm-delete" @click="confirmPendingDelete">Verwijderen</button>
+            <button type="button" class="kt-btn kt-btn-outline" @click="cancelPendingDelete">{{ t('Annuleren') }}</button>
+            <button type="button" class="incident-confirm-delete" @click="confirmPendingDelete">{{ t('Verwijderen') }}</button>
           </div>
         </div>
       </div>
@@ -1446,14 +1460,14 @@ onUnmounted(() => {
 
     <Teleport to="body">
       <div v-if="lightboxShot" class="incident-lightbox" @click="closeLightbox">
-        <button type="button" class="incident-lightbox-close" aria-label="Sluiten" @click.stop="closeLightbox">
+        <button type="button" class="incident-lightbox-close" :aria-label="t('Sluiten')" @click.stop="closeLightbox">
           <i class="ki-filled ki-cross"></i>
         </button>
         <button
           v-if="lightboxCanNav"
           type="button"
           class="incident-lightbox-nav is-prev"
-          aria-label="Vorige afbeelding"
+          :aria-label="t('Vorige afbeelding')"
           @click.stop="lightboxPrev"
         >
           <i class="ki-filled ki-left"></i>
@@ -1469,7 +1483,7 @@ onUnmounted(() => {
           v-if="lightboxCanNav"
           type="button"
           class="incident-lightbox-nav is-next"
-          aria-label="Volgende afbeelding"
+          :aria-label="t('Volgende afbeelding')"
           @click.stop="lightboxNext"
         >
           <i class="ki-filled ki-right"></i>

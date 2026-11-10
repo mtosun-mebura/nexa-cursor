@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class NearbyAvailableTaxiFleetService
@@ -25,9 +26,9 @@ class NearbyAvailableTaxiFleetService
 
     /**
      * Online taxi's van NEXA Suite-tenants binnen de straal (laatste bekende positie).
-     * Chauffeurs met een recente actieve rit krijgen busy=true maar blijven zichtbaar.
+     * Chauffeurs met een geaccepteerde/lopende rit zijn verborgen voor andere klanten.
      *
-     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool}>
+     * @return list<array{id: string, lat: float, lng: float, car_style: string, distance_km: ?float, busy: bool, heading: ?float}>
      */
     public function vehicles(?float $lat, ?float $lng, ?float $radiusKm = null): array
     {
@@ -42,7 +43,7 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
-        $companyIds = $this->tenants->eligibleCompanies()
+        $companyIds = $this->tenants->bookableCompanies()
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)
@@ -55,11 +56,11 @@ class NearbyAvailableTaxiFleetService
         TaxiDispatchSchema::ensureVehicleIdColumn($conn);
 
         $cutoff = now()->subSeconds(self::MAX_AGE_SECONDS);
+        // Ook online zonder lat/lng meenemen — vestiging als fallback (anders onzichtbaar
+        // voor de klant terwijl is_online=true).
         $rows = DriverAvailability::on($conn)
             ->whereIn('company_id', $companyIds)
             ->where('is_online', true)
-            ->whereNotNull('lat')
-            ->whereNotNull('lng')
             ->where(function ($query) use ($cutoff) {
                 // Presence = last_seen (dispatch/heartbeat). GPS mag stil staan: dan blijft
                 // location_updated_at oud terwijl last_seen wél ververst — die chauffeurs
@@ -72,7 +73,10 @@ class NearbyAvailableTaxiFleetService
             return [];
         }
 
-        $busyDriverIds = $this->busyDriverIds($conn, $companyIds);
+        $busyDriverIds = $this->busyDriverIds($conn, $companyIds, array_values(array_unique(array_map(
+            static fn ($row) => (int) $row->driver_id,
+            $rows->all()
+        ))));
         $hasVehicleColumn = Schema::connection($conn)->hasColumn('driver_availability', 'vehicle_id');
         $vehicleIds = [];
         foreach ($rows as $row) {
@@ -84,6 +88,9 @@ class NearbyAvailableTaxiFleetService
             ? collect()
             : Vehicle::on($conn)->whereIn('id', array_values(array_unique($vehicleIds)))->get()->keyBy('id');
 
+        $companiesById = $this->tenants->bookableCompanies()->keyBy(fn ($c) => (int) $c->id);
+        $hqCache = [];
+
         $radius = $radiusKm !== null && $radiusKm > 0 ? $radiusKm : self::DEFAULT_RADIUS_KM;
         $hasOrigin = $lat !== null && $lng !== null;
         $out = [];
@@ -92,8 +99,27 @@ class NearbyAvailableTaxiFleetService
             if ($driverId <= 0) {
                 continue;
             }
-            $taxiLat = (float) $row->lat;
-            $taxiLng = (float) $row->lng;
+            // Bezet op een rit: niet tonen aan andere klanten op de vlootkaart.
+            if (isset($busyDriverIds[$driverId])) {
+                continue;
+            }
+            $taxiLat = $row->lat !== null ? (float) $row->lat : null;
+            $taxiLng = $row->lng !== null ? (float) $row->lng : null;
+            if ($taxiLat === null || $taxiLng === null || ! $this->isValidCoord($taxiLat, $taxiLng)) {
+                $companyId = (int) $row->company_id;
+                if (! array_key_exists($companyId, $hqCache)) {
+                    $company = $companiesById->get($companyId);
+                    $hqCache[$companyId] = $company
+                        ? $this->tenants->coordinatesFor($company)
+                        : null;
+                }
+                $hq = $hqCache[$companyId];
+                if (! is_array($hq)) {
+                    continue;
+                }
+                $taxiLat = (float) $hq['lat'];
+                $taxiLng = (float) $hq['lng'];
+            }
             if (! $this->isValidCoord($taxiLat, $taxiLng)) {
                 continue;
             }
@@ -106,13 +132,15 @@ class NearbyAvailableTaxiFleetService
             }
             $vehicleId = $hasVehicleColumn && $row->vehicle_id ? (int) $row->vehicle_id : 0;
             $vehicle = $vehicleId > 0 ? $vehicles->get($vehicleId) : null;
+            $cachedHeading = Cache::get('taxi-gps-heading:'.(int) $row->company_id.':'.$driverId);
             $out[] = [
                 'id' => $this->publicId($driverId),
                 'lat' => $taxiLat,
                 'lng' => $taxiLng,
                 'car_style' => TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle?->type ?? null),
                 'distance_km' => $distanceKm,
-                'busy' => isset($busyDriverIds[$driverId]),
+                'busy' => false,
+                'heading' => is_numeric($cachedHeading) ? round((float) $cachedHeading, 1) : null,
             ];
         }
 
@@ -137,31 +165,44 @@ class NearbyAvailableTaxiFleetService
 
     /**
      * @param  list<int>  $companyIds
+     * @param  list<int>  $driverIds  Online chauffeurs op de kaart. Als die bekend zijn, telt elke
+     *                                geaccepteerde of lopende rit van die chauffeur, ook als de rit
+     *                                bij een ander bedrijf staat.
      * @return array<int, true>
      */
-    private function busyDriverIds(string $connection, array $companyIds): array
+    private function busyDriverIds(string $connection, array $companyIds, array $driverIds = []): array
     {
-        if ($companyIds === [] || ! Schema::connection($connection)->hasTable('ride_requests')) {
+        if (! Schema::connection($connection)->hasTable('ride_requests')) {
             return [];
         }
 
-        // Alleen recente/actieve ritten — oude vastzittende offered/accepted mogen de
-        // live-kaart niet leegtrekken. Openstaande offers tellen niet als "bezet".
-        $activeSince = now()->subHours(12);
-        $ids = RideRequest::on($connection)
-            ->whereIn('company_id', $companyIds)
+        $driverIds = array_values(array_filter(
+            array_map(static fn ($id) => (int) $id, $driverIds),
+            static fn (int $id) => $id > 0
+        ));
+        if ($companyIds === [] && $driverIds === []) {
+            return [];
+        }
+
+        // Bezet = rit die nú loopt: geaccepteerd of contract in dit tijdvak, of onderweg.
+        // Afgerond of op een ander tijdstip telt niet. While-using (verse last_seen) is genoeg.
+        // De rol contractant filtert niemand weg.
+        $hasFulfilling = Schema::connection($connection)->hasColumn('ride_requests', 'fulfilling_company_id');
+        $query = RideRequest::on($connection)
             ->whereNotNull('driver_id')
-            ->whereIn('status', [
-                RideRequest::STATUS_ACCEPTED,
-                RideRequest::STATUS_ASSIGNED,
-            ])
-            ->where(function ($query) use ($activeSince) {
-                $query->where('pickup_at', '>=', $activeSince)
-                    ->orWhere(function ($inner) use ($activeSince) {
-                        $inner->whereNull('pickup_at')
-                            ->where('updated_at', '>=', $activeSince);
-                    });
-            })
+            ->occupyingBookingMap();
+        if ($driverIds !== []) {
+            $query->whereIn('driver_id', $driverIds);
+        } else {
+            $query->where(function ($query) use ($companyIds, $hasFulfilling) {
+                $query->whereIn('company_id', $companyIds);
+                if ($hasFulfilling) {
+                    $query->orWhereIn('fulfilling_company_id', $companyIds);
+                }
+            });
+        }
+
+        $ids = $query
             ->pluck('driver_id')
             ->map(fn ($id) => (int) $id)
             ->filter(fn (int $id) => $id > 0)

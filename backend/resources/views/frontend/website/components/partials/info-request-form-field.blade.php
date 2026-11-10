@@ -23,12 +23,13 @@
     $inputId = $inputId ?? ('email-template-' . $fieldName . '-' . $sectionKey);
     $pricingService = app(\App\Services\NexaPricingService::class);
     $packageOptions = $isNexaPackage ? $pricingService->packageNames() : [];
+    $prefillPackage = \App\Support\WebsiteSeoMeta::softQueryValue('pakket');
     $selectedPackage = $isNexaPackage
-        ? $pricingService->matchPackageName(old($fieldName, request('pakket')))
+        ? $pricingService->matchPackageName(old($fieldName, $prefillPackage))
         : null;
     $oldValue = old($fieldName);
     if ($oldValue === null && $isTextarea) {
-        $fromQuery = $pricingService->matchPackageName(request('pakket'));
+        $fromQuery = $pricingService->matchPackageName(is_string($prefillPackage) ? $prefillPackage : null);
         if ($fromQuery !== null) {
             $oldValue = $pricingService->interestMessage($fromQuery);
         }

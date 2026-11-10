@@ -45,19 +45,18 @@
 <div id="company-config-access-collapsible-root">
 <div class="kt-card w-full min-w-0 mb-6 overflow-hidden settings-collapsible-card settings-collapsible-card--collapsed company-show-section" id="config-access">
     @include('admin.settings.partials.collapsible-header', [
-        'titleHtml' => 'Toegang tot configuraties',
+        'titleHtml' => __('Toegang tot configuraties'),
         'headerClass' => 'px-5 py-5',
     ])
     <div class="settings-collapsible-body config-access-body">
         <div class="kt-card-content py-5 px-0 min-w-0">
             <p class="text-sm text-secondary-foreground mb-4 break-words px-5">
-                Domein, modules, website, mailserver, Google SEO, WhatsApp en Mollie zijn standaard alleen voor super-admin.
-                Kies hier een gebruiker van deze tenant en vink de configuraties aan die die persoon zelf mag invullen.
+                {{ __('Domein, modules, website, mailserver, Google SEO, WhatsApp en Mollie zijn standaard alleen voor super-admin. Kies hier een gebruiker van deze tenant en vink de configuraties aan die die persoon zelf mag invullen.') }}
             </p>
 
             @if($configAccessUsers->isEmpty())
                 <p class="text-sm text-muted-foreground mb-0 mx-5 rounded-lg border border-dashed border-input px-4 py-3">
-                    Er zijn nog geen gebruikers voor deze tenant. Maak eerst een gebruiker aan, daarna kun je toegang geven.
+                    {{ __('Er zijn nog geen gebruikers voor deze tenant. Maak eerst een gebruiker aan, daarna kun je toegang geven.') }}
                 </p>
             @else
                 <form method="post" action="{{ $configAccessFormAction }}" class="min-w-0">
@@ -70,9 +69,9 @@
                         <table class="kt-table kt-table-border-dashed admin-fluid-table align-middle text-sm w-full config-access-table">
                             <thead>
                                 <tr class="text-secondary-foreground font-medium">
-                                    <th class="config-access-user-col text-start">Gebruiker</th>
+                                    <th class="config-access-user-col text-start">{{ __('Gebruiker') }}</th>
                                     @foreach($configCapabilities as $capability)
-                                        <th class="text-center whitespace-nowrap">{{ $capability['label'] }}</th>
+                                        <th class="text-center whitespace-nowrap">{{ __($capability['label']) }}</th>
                                     @endforeach
                                 </tr>
                             </thead>
@@ -99,7 +98,7 @@
                                                         name="grants[{{ $accessUser->id }}][]"
                                                         value="{{ $capability['key'] }}"
                                                         {{ in_array($capability['key'], $userGrants, true) ? 'checked' : '' }}
-                                                        title="{{ $capability['hint'] }}"
+                                                        title="{{ __($capability['hint']) }}"
                                                     >
                                                 </label>
                                             </td>
@@ -111,7 +110,7 @@
                     </div>
                     <div class="mt-4 px-5">
                         <button type="submit" class="kt-btn kt-btn-primary">
-                            Toegang opslaan
+                            {{ __('Toegang opslaan') }}
                         </button>
                     </div>
                 </form>

@@ -86,7 +86,10 @@ class GpsTrackingAccessTest extends TestCase
         $this->assertTrue($view->getData()['canManageCode']);
         $this->assertTrue($view->getData()['canUseLiveDemo']);
         $this->assertFalse($view->getData()['liveDemoEnabled']);
-        $this->assertSame(1, $view->getData()['appearance']['refresh_seconds']);
+        $this->assertSame(
+            \App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService::MIN_REFRESH_SECONDS,
+            $view->getData()['appearance']['refresh_seconds']
+        );
     }
 
     #[Test]
@@ -206,13 +209,13 @@ class GpsTrackingAccessTest extends TestCase
                 'plate_background' => '#f7e125',
                 'plate_text_color' => '#111827',
                 'plate_border_color' => '#111827',
-                'refresh_seconds' => 5,
+                'refresh_seconds' => 15,
             ])
             ->assertOk()
             ->assertJson(['ok' => true]);
 
         $appearance = app(TaxiGpsTrackingSettingsService::class)->appearance((int) $company->id);
-        $this->assertSame(5, $appearance['refresh_seconds']);
+        $this->assertSame(15, $appearance['refresh_seconds']);
         $this->assertSame('#1d4ed8', $appearance['type_colors']['sedan']);
         $this->assertSame('#15803d', $appearance['type_colors']['bus']);
     }

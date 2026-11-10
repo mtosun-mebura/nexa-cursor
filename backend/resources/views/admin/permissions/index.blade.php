@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Permissies Beheer')
+@section('title', __('Permissies Beheer'))
 
 @push('scripts')
 <script>
@@ -272,17 +272,17 @@
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Permissies Beheer
+            {{ __('Permissies Beheer') }}
         </h1>
         <div class="admin-page-actions flex flex-wrap items-center gap-2.5">
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-permissions'))
             <a href="{{ route('admin.permissions.create') }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>
-                Permissie toevoegen
+                {{ __('Permissie toevoegen') }}
             </a>
             <a href="{{ route('admin.permissions.bulk-create') }}" class="kt-btn kt-btn-success">
                 <i class="ki-filled ki-plus me-2"></i>
-                Bulk Aanmaken
+                {{ __('Bulk Aanmaken') }}
             </a>
             @endif
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions'))
@@ -290,13 +290,13 @@
                 <div class="kt-menu-item" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
                     <button type="button" class="kt-btn kt-btn-primary">
                         <i class="ki-filled ki-pencil me-2"></i>
-                        Bulk Bewerken
+                        {{ __('Bulk Bewerken') }}
                         <i class="ki-filled ki-down ms-2 text-xs"></i>
                     </button>
                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[250px]">
                         <div class="kt-menu-item">
                             <a href="{{ route('admin.permissions.bulk-edit') }}" class="kt-menu-link">
-                                <span class="kt-menu-title">Alle Permissies</span>
+                                <span class="kt-menu-title">{{ __('Alle Permissies') }}</span>
                             </a>
                         </div>
                         <div class="kt-menu-separator"></div>
@@ -357,7 +357,7 @@
                         @foreach($allModulesForDropdown as $module)
                         <div class="kt-menu-item">
                             <a href="{{ route('admin.permissions.bulk-edit', ['module' => $module]) }}" class="kt-menu-link">
-                                <span class="kt-menu-title">{{ $baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}</span>
+                                <span class="kt-menu-title">{{ __($baseModuleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module))) }}</span>
                             </a>
                         </div>
                         @endforeach
@@ -377,7 +377,7 @@
                         {{ $stats['total_permissions'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal Permissies
+                        {{ __('Totaal Permissies') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -386,7 +386,7 @@
                         {{ $stats['assigned_permissions'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Toegewezen
+                        {{ __('Toegewezen') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -395,7 +395,7 @@
                         {{ $stats['unassigned_permissions'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Niet Toegewezen
+                        {{ __('Niet Toegewezen') }}
                     </span>
                 </div>
             </div>
@@ -411,8 +411,8 @@
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                         hidden
                         id="bulk-delete-btn"
-                        aria-label="Geselecteerde permissies verwijderen"
-                        title="Verwijderen">
+                        aria-label="{{ __('Geselecteerde permissies verwijderen') }}"
+                        title="{{ __('Verwijderen') }}">
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count">(<span data-permissions-selected-count>0</span>)</span>
                 </button>
@@ -450,7 +450,7 @@
                             @endif
                             <label class="kt-input w-64">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek permissies..."
+                                <input placeholder="{{ __('Zoek permissies...') }}"
                                        type="text"
                                        name="search"
                                        value="{{ request('search') }}"
@@ -496,12 +496,12 @@
                             <select class="kt-select w-36"
                                     name="module"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Module"
+                                    data-kt-select-placeholder="{{ __('Module') }}"
                                     id="module-filter">
-                                <option value="">Alle modules</option>
+                                <option value="">{{ __('Alle modules') }}</option>
                                 @foreach($modules as $module)
                                     <option value="{{ $module }}" {{ request('module') == $module ? 'selected' : '' }}>
-                                        {{ $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)) }}
+                                        {{ __($moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module))) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -509,17 +509,17 @@
                             <select class="kt-select w-36"
                                     name="assigned"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Toegewezen"
+                                    data-kt-select-placeholder="{{ __('Toegewezen') }}"
                                     id="assigned-filter">
-                                <option value="">Alle permissies</option>
-                                <option value="yes" {{ request('assigned') == 'yes' ? 'selected' : '' }}>Toegewezen</option>
-                                <option value="no" {{ request('assigned') == 'no' ? 'selected' : '' }}>Niet toegewezen</option>
+                                <option value="">{{ __('Alle permissies') }}</option>
+                                <option value="yes" {{ request('assigned') == 'yes' ? 'selected' : '' }}>{{ __('Toegewezen') }}</option>
+                                <option value="no" {{ request('assigned') == 'no' ? 'selected' : '' }}>{{ __('Niet toegewezen') }}</option>
                             </select>
                         </form>
                         @if(request('module') || request('assigned') || request('search'))
                         <a href="{{ route('admin.permissions.index') }}"
                            class="kt-btn kt-btn-outline kt-btn-icon"
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -532,7 +532,7 @@
 
             <div class="kt-card-content">
                 @if($allPermissions->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="permissions_table" data-permissions-table="true" data-admin-datatable-label="permissies" data-admin-datatable-on-page="syncPermissionsBulkSelection">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="permissions_table" data-permissions-table="true" data-admin-datatable-label="{{ __('permissies') }}" data-admin-datatable-on-page="syncPermissionsBulkSelection">
                         <div class="kt-scrollable-x-auto">
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
@@ -544,14 +544,14 @@
                                                 <input type="checkbox"
                                                        class="kt-checkbox"
                                                        id="select-all-permissions"
-                                                       title="Selecteer alle verwijderbare permissies">
+                                                       title="{{ __('Selecteer alle verwijderbare permissies') }}">
                                             </label>
                                         </span>
                                     </th>
                                     @endif
-                                    <th class="min-w-[250px]" data-label="Permissie">
+                                    <th class="min-w-[250px]" data-label="{{ __('Permissie') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Permissie</span>
+                                            <span class="kt-table-col-label">{{ __('Permissie') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -567,31 +567,32 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[150px]" data-label="Module">
+                                    <th class="min-w-[150px]" data-label="{{ __('Module') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Module</span>
+                                            <span class="kt-table-col-label">{{ __('Module') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[200px]" data-label="Toegewezen aan">
+                                    <th class="min-w-[200px]" data-label="{{ __('Toegewezen aan') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Toegewezen aan</span>
+                                            <span class="kt-table-col-label">{{ __('Toegewezen aan') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
-                                    <th class="min-w-[120px]" data-label="Status">
+                                    <th class="min-w-[120px]" data-label="{{ __('Status') }}">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
                                     @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions') || auth()->user()->can('delete-permissions'))
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="w-[60px] text-center">{{ __('Acties') }}</th>
                                     @endif
                                 </tr>
                             </thead>
                             <tbody>
                                 @php
+                                    if (! function_exists('getModuleFromPermission')) {
                                     function getModuleFromPermission($permission) {
                                         $parts = explode('-', $permission->name);
                                         if (count($parts) > 1) {
@@ -600,11 +601,12 @@
                                         }
                                         return $permission->group ?? 'other';
                                     }
+                                    }
                                 @endphp
                                 @foreach($allPermissions as $permission)
                                     @php
                                         $module = getModuleFromPermission($permission);
-                                        $moduleDisplay = $moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module));
+                                        $moduleDisplay = __($moduleNames[$module] ?? ucfirst(str_replace(['-', '_'], ' ', $module)));
                                         $canEdit = auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions');
                                         $canDelete = auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-permissions');
                                         $hasRoles = $permission->roles_count > 0;
@@ -624,7 +626,7 @@
                                                        data-permission-name="{{ $permission->name }}">
                                             </label>
                                             @else
-                                            <span class="text-muted-foreground text-xs" title="Niet verwijderbaar: toegewezen aan rollen">
+                                            <span class="text-muted-foreground text-xs" title="{{ __('Niet verwijderbaar: toegewezen aan rollen') }}">
                                                 <i class="ki-filled ki-lock text-lg"></i>
                                             </span>
                                             @endif
@@ -657,14 +659,14 @@
                                                     @endforeach
                                                 </div>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-secondary">Geen rollen</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-secondary">{{ __('Geen rollen') }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($hasRoles)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Toegewezen</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Toegewezen') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Niet toegewezen</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Niet toegewezen') }}</span>
                                             @endif
                                         </td>
                                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-permissions') || auth()->user()->can('delete-permissions'))
@@ -676,7 +678,7 @@
                                                      data-kt-menu-item-placement-rtl="bottom-start"
                                                      data-kt-menu-item-toggle="dropdown"
                                                      data-kt-menu-item-trigger="click">
-                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                                    <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}">
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -690,7 +692,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endif
@@ -703,7 +705,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endif
@@ -715,14 +717,14 @@
                                                             <form action="{{ route('admin.permissions.destroy', $permission) }}"
                                                                   method="POST"
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je deze permissie wilt verwijderen?')">
+                                                                  onsubmit="return confirm(@js(__('Weet je zeker dat je deze permissie wilt verwijderen?')))">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -741,10 +743,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -755,11 +757,11 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen permissies gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen permissies gevonden') }}</h4>
                         @can('create-permissions')
                         <a href="{{ route('admin.permissions.bulk-create') }}" class="kt-btn kt-btn-primary mt-3">
                             <i class="ki-filled ki-plus me-2"></i>
-                            Permissies Bulk Aanmaken
+                            {{ __('Permissies Bulk Aanmaken') }}
                         </a>
                         @endcan
                     </div>
@@ -816,7 +818,7 @@
         function replaceOfWithVan() {
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
-                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');
+                infoSpan.textContent = infoSpan.textContent.replace(' of ', ' ' + @json(__('van')) + ' ');
             }
         }
 
@@ -947,24 +949,27 @@
                 selected.forEach(checkbox => {
                     const row = checkbox.closest('tr');
                     if (row && row.querySelector('i.ki-filled.ki-lock')) {
-                        withRoles.push(checkbox.getAttribute('data-permission-name') || 'Onbekend');
+                        withRoles.push(checkbox.getAttribute('data-permission-name') || @json(__('Onbekend')));
                     }
                 });
 
                 if (withRoles.length > 0) {
-                    alert('De volgende permissies kunnen niet worden verwijderd omdat ze toegewezen zijn aan rollen:\n\n' +
+                    alert(@json(__('De volgende permissies kunnen niet worden verwijderd omdat ze toegewezen zijn aan rollen:')) + '\n\n' +
                           withRoles.join('\n') +
-                          '\n\nSelecteer alleen permissies die niet toegewezen zijn aan rollen.');
+                          '\n\n' + @json(__('Selecteer alleen permissies die niet toegewezen zijn aan rollen.')));
                     return;
                 }
 
+                const bulkDeleteMessage = (selected.length > 1
+                    ? @json(__('Weet je zeker dat je :count permissies wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+                    : @json(__('Weet je zeker dat je :count permissie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+                ).replace(':count', selected.length);
+
                 if (typeof window.showAdminConfirm === 'function') {
                     window.showAdminConfirm({
-                        title: 'Permissies verwijderen',
-                        message: 'Weet je zeker dat je ' + selected.length + ' permissie' +
-                            (selected.length > 1 ? 's' : '') +
-                            ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
-                        confirmLabel: 'Verwijderen'
+                        title: @json(__('Permissies verwijderen')),
+                        message: bulkDeleteMessage,
+                        confirmLabel: @json(__('Verwijderen'))
                     }).then(function (ok) {
                         if (ok) {
                             bulkDeleteForm.submit();
@@ -972,9 +977,7 @@
                     });
                     return;
                 }
-                if (confirm('Weet je zeker dat je ' + selected.length + ' permissie' +
-                           (selected.length > 1 ? 's' : '') +
-                           ' wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) {
+                if (confirm(bulkDeleteMessage)) {
                     bulkDeleteForm.submit();
                 }
             };

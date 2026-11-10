@@ -254,9 +254,20 @@ jobs:
           set -e
           cd "$DEPLOY_DIR"
           dc="${{ steps.pickdc.outputs.dc }}"
-          # Generate key only if APP_KEY is not set (skip if already exists)
-          $dc -f "$COMPOSE_FILE" exec -T backend sh -c "if ! grep -q '^APP_KEY=' /var/www/html/.env || grep -q '^APP_KEY=$' /var/www/html/.env; then php artisan key:generate --force; else echo 'APP_KEY already set, skipping'; fi" || true
+          # APP_KEY mag NOOIT opnieuw gegenereerd worden op een bestaande DB.
+          # Alleen aanvullen als de regel echt ontbreekt/leeg is (nieuwe omgeving).
+          $dc -f "$COMPOSE_FILE" exec -T backend sh -c '
+            if grep -qE "^APP_KEY=base64:" /var/www/html/.env; then
+              echo "APP_KEY already set, skipping key:generate"
+            elif ! grep -q "^APP_KEY=" /var/www/html/.env || grep -qE "^APP_KEY=\s*$" /var/www/html/.env; then
+              echo "APP_KEY missing — generating once for new environment"
+              php artisan key:generate --force
+            else
+              echo "APP_KEY present (non-empty), skipping key:generate"
+            fi
+          ' || true
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan migrate --force
+          # Bootstrap seed: maakt ontbrekende rollen/superadmin aan; overschrijft NOOIT wachtwoorden.
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan db:seed --class=Database\\Seeders\\ApplicationBootstrapSeeder --force
           # Clear all caches first to ensure fresh state
           $dc -f "$COMPOSE_FILE" exec -T backend php artisan config:clear

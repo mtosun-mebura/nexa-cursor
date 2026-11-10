@@ -47,6 +47,52 @@ class TransportRoutePlannerServiceTest extends TestCase
         ], $pickupAddresses);
     }
 
+    public function test_return_route_starts_at_school_after_boarding_delay(): void
+    {
+        $service = new TransportRoutePlannerService;
+
+        $group = new TransportGroup([
+            'destination_address' => 'Openbare Basisschool (OBS) Roombeek, Bosuilstraat, Enschede, Nederland',
+            'destination_lat' => 52.2322563,
+            'destination_lng' => 6.8961133,
+            'destination_arrival_time' => '08:00',
+            'has_return_trip' => true,
+            'return_pickup_time' => '15:00',
+            'return_boarding_delay_minutes' => 15,
+        ]);
+
+        $template = new TransportRouteTemplate([
+            'direction' => TransportRouteTemplate::DIRECTION_RETURN,
+            'driver_start_mode' => 'first_stop',
+            'buffer_seconds' => 120,
+        ]);
+
+        $members = new Collection([
+            $this->memberWithPassenger(1, 'Burcu Tosun-Aksakal', 'Zeelandstraat 16', 52.2037369, 6.8826177),
+            $this->memberWithPassenger(2, 'Mehmet Ali Tosun', 'Deurningerstraat 155', 52.2290894, 6.8894108),
+        ]);
+
+        $result = $service->planReturnRoute($group, $template, $members);
+
+        $this->assertSame('15:00:00', $result['departure_time']);
+        $this->assertNotEmpty($result['stops']);
+
+        $pickups = array_values(array_filter($result['stops'], fn (array $s) => $s['stop_type'] === 'pickup'));
+        $this->assertCount(2, $pickups);
+        foreach ($pickups as $pickup) {
+            $this->assertSame('15:00:00', $pickup['planned_at_time']);
+            $this->assertStringContainsString('Roombeek', $pickup['address']);
+        }
+
+        $dropoffs = array_values(array_filter(
+            $result['stops'],
+            fn (array $s) => in_array($s['stop_type'], ['dropoff', 'destination'], true)
+        ));
+        $this->assertCount(2, $dropoffs);
+        $this->assertGreaterThanOrEqual('15:15:00', $dropoffs[0]['planned_at_time']);
+        $this->assertSame('destination', $dropoffs[array_key_last($dropoffs)]['stop_type']);
+    }
+
     private function memberWithPassenger(
         int $passengerId,
         string $name,

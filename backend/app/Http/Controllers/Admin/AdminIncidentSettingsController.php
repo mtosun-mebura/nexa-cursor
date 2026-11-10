@@ -35,8 +35,8 @@ class AdminIncidentSettingsController extends Controller
         $validated = $request->validate([
             'notification_email' => ['required', 'email', 'max:255'],
         ], [
-            'notification_email.required' => 'E-mailadres is verplicht.',
-            'notification_email.email' => 'Voer een geldig e-mailadres in.',
+            'notification_email.required' => __('E-mailadres is verplicht.'),
+            'notification_email.email' => __('Voer een geldig e-mailadres in.'),
         ]);
 
         GeneralSetting::set(
@@ -46,11 +46,11 @@ class AdminIncidentSettingsController extends Controller
 
         return redirect()
             ->route('admin.incidents.settings.edit')
-            ->with('success', 'Incident-e-mailinstellingen opgeslagen.');
+            ->with('success', __('Incident-e-mailinstellingen opgeslagen.'));
     }
 
     private function ensureSuperAdmin(): void
     {
-        abort_unless(auth()->user()?->isSuperAdmin(), 403, 'Alleen super-admins hebben toegang tot incidentinstellingen.');
+        abort_unless(auth()->user()?->isSuperAdmin(), 403, __('Alleen super-admins hebben toegang tot incidentinstellingen.'));
     }
 }

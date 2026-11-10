@@ -74,15 +74,25 @@ class RideDispatchOffer extends Model
     }
 
     /**
-     * Inbox: openstaande aanbiedingen voor deze chauffeur binnen het pickup-grace-venster.
+     * Inbox: openstaande aanbiedingen voor deze chauffeur.
+     * Geen pickup-cutoff hier: wachtende klanten (ophalen al verstreken) moeten zichtbaar
+     * blijven tot annulering; expireOffersForPastPickups ruimt verlaten aanbiedingen op.
      */
-    public function scopeInboxForDriver($query, int $driverId, CarbonInterface $pickupCutoff)
+    public function scopeInboxForDriver($query, int $driverId, CarbonInterface $_pickupCutoff)
     {
         return $query
             ->where('driver_id', $driverId)
             ->where('status', self::STATUS_PENDING)
-            ->whereHas('rideRequest', fn ($q) => $q->whereNull('driver_id'))
-            ->ridePickupWithinQueueWindow($pickupCutoff);
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->whereHas('rideRequest', function ($q) {
+                $q->whereNull('driver_id')
+                    ->whereIn('status', [
+                        RideRequest::STATUS_PENDING_DISPATCH,
+                        RideRequest::STATUS_OFFERED,
+                    ]);
+            });
     }
 
     /**
@@ -170,5 +180,22 @@ class RideDispatchOffer extends Model
             ->where('driver_id', $driverId)
             ->whereIn('status', [self::STATUS_DECLINED, self::STATUS_EXPIRED])
             ->whereNotNull('archived_at');
+    }
+
+    /**
+     * Kort zichtbaar na klant-/auto-annulering: superseded offers van geannuleerde ritten.
+     */
+    public function scopeRecentlyCancelledForDriver($query, int $driverId, int $withinMinutes = 5)
+    {
+        $minutes = max(1, min(60, $withinMinutes));
+
+        return $query
+            ->where('driver_id', $driverId)
+            ->where('status', self::STATUS_SUPERSEDED)
+            ->whereNotNull('responded_at')
+            ->where('responded_at', '>=', now()->subMinutes($minutes))
+            ->whereHas('rideRequest', function ($q) {
+                $q->where('status', RideRequest::STATUS_CANCELLED);
+            });
     }
 }

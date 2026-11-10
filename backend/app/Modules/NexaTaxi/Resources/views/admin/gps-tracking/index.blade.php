@@ -1,13 +1,33 @@
 @extends('admin.layouts.app')
 
-@section('title', 'GPS-tracker')
+@section('title', __('GPS-tracker'))
 
 @section('content')
 <style>
+    .nexa-gps-page {
+        display: flex;
+        flex-direction: column;
+        height: calc(100dvh - var(--kt-header-height, 4.375rem) - 4.5rem);
+        max-height: calc(100dvh - var(--kt-header-height, 4.375rem) - 4.5rem);
+        min-height: 0;
+    }
+    .nexa-gps-page > .grid {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .nexa-gps-map-card {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
     .gps-map-canvas {
         width: 100%;
-        height: min(68vh, 640px);
-        min-height: 420px;
+        flex: 1 1 auto;
+        min-height: 220px;
+        height: auto;
         background: #e5e7eb;
     }
     html.dark .gps-map-canvas,
@@ -35,9 +55,9 @@
         font-weight: 800;
         letter-spacing: 0.06em;
         line-height: 1;
-        background: #f7e125;
-        color: #111827;
-        border: 2px solid #111827;
+        background: #003399;
+        color: #ffffff;
+        border: 2px solid #001a66;
         border-radius: 4px;
         padding: 5px 8px;
         margin-bottom: 6px;
@@ -64,135 +84,55 @@
         opacity: 0.78;
         filter: grayscale(0.45) drop-shadow(0 3px 5px rgba(0,0,0,.4));
     }
-    .nexa-gps-legend-wrap {
-        border: 1px solid color-mix(in oklab, var(--foreground) 22%, var(--border));
-        border-radius: 14px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        background: color-mix(in oklab, var(--foreground) 3%, var(--background));
-        max-width: 100%;
+    .nexa-gps-plate-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        padding: 0.65rem 1.25rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in oklab, var(--foreground) 2%, var(--background));
     }
-    .nexa-gps-legend-wrap .kt-table {
-        margin-bottom: 0;
-        width: max-content;
-        min-width: 100%;
+    .nexa-gps-plate-bar__hint {
+        margin: 0;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        color: var(--muted-foreground);
     }
-    .nexa-gps-legend-wrap .kt-table th,
-    .nexa-gps-legend-wrap .kt-table td {
-        white-space: nowrap;
-        vertical-align: middle;
+    .nexa-gps-plate-bar__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+        align-items: center;
     }
-    .nexa-gps-legend-wrap .kt-table td .text-xs {
-        white-space: normal;
+    .nexa-gps-plate-chip {
+        appearance: none;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.6875rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        line-height: 1;
+        background: #003399;
+        color: #ffffff;
+        border: 1.5px solid #001a66;
+        border-radius: 3px;
+        padding: 0.3rem 0.45rem;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,.16);
+        transition: transform .12s ease, box-shadow .12s ease;
     }
-    @media (max-width: 767.98px) {
-        .nexa-gps-legend-wrap {
-            border: 0;
-            border-radius: 0;
-            overflow: visible;
-            background: transparent;
-        }
-        .nexa-gps-legend-wrap .kt-table,
-        .nexa-gps-legend-wrap .kt-table thead,
-        .nexa-gps-legend-wrap .kt-table tbody,
-        .nexa-gps-legend-wrap .kt-table tr,
-        .nexa-gps-legend-wrap .kt-table th,
-        .nexa-gps-legend-wrap .kt-table td {
-            display: block;
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;
-        }
-        .nexa-gps-legend-wrap .kt-table {
-            width: 100%;
-            min-width: 0;
-        }
-        .nexa-gps-legend-wrap .kt-table thead {
-            display: none;
-        }
-        .nexa-gps-legend-wrap .kt-table tbody {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        .nexa-gps-legend-wrap .kt-table tr {
-            border: 1px solid color-mix(in oklab, var(--foreground) 22%, var(--border));
-            border-radius: 14px;
-            background: color-mix(in oklab, var(--foreground) 3%, var(--background));
-            padding: 0.85rem 1rem;
-            box-sizing: border-box;
-        }
-        .nexa-gps-legend-wrap .kt-table td {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.75rem;
-            padding: 0.4rem 0;
-            border: 0;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-        .nexa-gps-legend-wrap .kt-table td:first-child {
-            justify-content: center;
-            padding-top: 0;
-            padding-bottom: 0.65rem;
-            margin-bottom: 0.35rem;
-            border-bottom: 1px solid color-mix(in oklab, var(--foreground) 12%, var(--border));
-        }
-        .nexa-gps-legend-wrap .kt-table td:not(:first-child)::before {
-            content: attr(data-label);
-            flex: 0 0 auto;
-            max-width: 42%;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--muted-foreground);
-            line-height: 1.35;
-        }
-        .nexa-gps-legend-wrap .nexa-gps-legend-cell-value {
-            flex: 1 1 auto;
-            min-width: 0;
-            text-align: right;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-        .nexa-gps-legend-wrap .nexa-gps-seen {
-            white-space: nowrap;
-        }
+    .nexa-gps-plate-chip:hover {
+        transform: translateY(-1px);
+    }
+    .nexa-gps-plate-chip.is-following {
+        box-shadow: 0 0 0 2px #2563eb, 0 1px 3px rgba(0,0,0,.16);
+    }
+    .nexa-gps-plate-chip.is-offline {
+        filter: grayscale(0.35);
+        opacity: 0.85;
     }
     .nexa-gps-map-card,
     .gps-map-canvas {
         scroll-margin-top: 5.5rem;
-    }
-    .nexa-gps-focus-btn {
-        width: 2.75rem;
-        height: 2.75rem;
-        border-radius: 0.85rem;
-        border: 2px solid #fff;
-        box-shadow: 0 0 0 1px rgba(15,23,42,.18);
-        cursor: pointer;
-        padding: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        flex-shrink: 0;
-    }
-    .nexa-gps-focus-btn.is-light {
-        color: #111827;
-    }
-    .nexa-gps-focus-btn i {
-        font-size: 1.15rem;
-        line-height: 1;
-        pointer-events: none;
-        filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
-    }
-    .nexa-gps-focus-btn:hover {
-        transform: scale(1.06);
-    }
-    .nexa-gps-focus-btn.is-following {
-        box-shadow: 0 0 0 1px rgba(15,23,42,.18), 0 0 0 3px #2563eb;
     }
     .nexa-gps-focus-tooltip {
         position: fixed;
@@ -238,29 +178,25 @@
         background: #2563eb;
         color: #fff;
     }
-    .nexa-gps-seen {
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-    }
 </style>
 
-<div class="kt-container-fixed min-w-0">
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
+<div class="kt-container-fixed min-w-0 nexa-gps-page">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 shrink-0">
         <div class="min-w-0 flex-1">
-            <h1 class="text-xl font-medium leading-none text-mono">GPS-tracker</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('GPS-tracker') }}</h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 leading-relaxed" id="gps-page-intro">
-                Live locatie van actieve auto’s. Elke auto die nu online is met GPS verschijnt één keer op de kaart.
+                {{ __('Live locatie van actieve auto’s. Klik op een kenteken om dat voertuig te volgen.') }}
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
-            <div class="gps-view-toggle" role="group" aria-label="Kaartweergave">
-                <button type="button" id="gps-view-online" class="is-active" aria-pressed="true">Online</button>
-                <button type="button" id="gps-view-offline" aria-pressed="false">Offline</button>
+            <div class="gps-view-toggle" role="group" aria-label="{{ __('Kaartweergave') }}">
+                <button type="button" id="gps-view-online" class="is-active" aria-pressed="true">{{ __('Online') }}</button>
+                <button type="button" id="gps-view-offline" aria-pressed="false">{{ __('Offline') }}</button>
             </div>
-            <a href="{{ $settingsUrl }}" class="kt-btn kt-btn-outline">Configuratie</a>
+            <a href="{{ $settingsUrl }}" class="kt-btn kt-btn-outline">{{ __('Configuratie') }}</a>
             @if($canManageCode)
                 <button type="button" class="kt-btn kt-btn-outline" id="gps-open-code">
-                    Veiligheidscode
+                    {{ __('Veiligheidscode') }}
                 </button>
             @endif
         </div>
@@ -271,12 +207,12 @@
     @endif
     @if(!empty($noTenantSelected))
         <div class="kt-alert kt-alert-warning mb-5">
-            Selecteer eerst een tenant (bedrijf) in de zijbalk. GPS-tracker toont alleen voertuigen van het geselecteerde bedrijf.
+            {{ __('Selecteer eerst een tenant (bedrijf) in de zijbalk. GPS-tracker toont alleen voertuigen van het geselecteerde bedrijf.') }}
         </div>
     @endif
     @if(trim((string) $googleMapsApiKey) === '')
         <div class="kt-alert kt-alert-warning mb-5">
-            Er is geen Google Maps-sleutel ingesteld. Voeg die toe bij Algemene configuraties → Google Maps.
+            {{ __('Er is geen Google Maps-sleutel ingesteld. Voeg die toe bij Algemene configuraties → Google Maps.') }}
         </div>
     @endif
 
@@ -284,31 +220,37 @@
         <div class="kt-card w-full min-w-0 overflow-hidden nexa-gps-map-card" id="gps-map-card">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
                 <div class="flex items-center gap-2 min-w-0">
-                    <h5 class="kt-card-title mb-0">Live kaart</h5>
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-outline shrink-0" id="gps-map-theme" aria-pressed="false" aria-label="Schakel kaart naar donkere modus" data-gps-tooltip="Donkere kaart">
+                    <h5 class="kt-card-title mb-0">{{ __('Live kaart') }}</h5>
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-outline shrink-0" id="gps-map-theme" aria-pressed="false" aria-label="{{ __('Schakel kaart naar donkere modus') }}" data-gps-tooltip="{{ __('Donkere kaart') }}">
                         <i class="ki-filled ki-moon" id="gps-map-theme-icon"></i>
                     </button>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm text-muted-foreground" id="gps-status-label">Laden…</span>
+                    <span class="text-sm text-muted-foreground" id="gps-status-label">{{ __('Laden…') }}</span>
                     @if(!empty($canUseLiveDemo))
-                        <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer select-none" for="gps-live-demo" title="Laat alle geconfigureerde voertuigen rijden in de vestigingsstad">
+                        <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer select-none" for="gps-live-demo" title="{{ __('Laat alle geconfigureerde voertuigen rijden in de vestigingsstad') }}">
                             <input type="checkbox"
                                    class="kt-switch kt-switch-sm shrink-0"
                                    id="gps-live-demo"
                                    role="switch"
                                    {{ !empty($liveDemoEnabled) ? 'checked' : '' }}>
-                            <span>Demo</span>
+                            <span>{{ __('Demo') }}</span>
                         </label>
                     @endif
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary" id="gps-follow-fleet" aria-pressed="true" title="Kaart volgt automatisch alle auto’s en kentekens">
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-primary" id="gps-follow-fleet" aria-pressed="true" title="{{ __('Kaart volgt automatisch alle auto’s en kentekens') }}">
                         <i class="ki-filled ki-geolocation me-1"></i>
-                        Volg vloot
+                        {{ __('Volg vloot') }}
                     </button>
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="gps-fit-bounds" title="Toon alle auto’s weer">
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" id="gps-fit-bounds" title="{{ __('Toon alle auto’s weer') }}">
                         <i class="ki-filled ki-arrows-circle me-1"></i>
-                        Alles tonen
+                        {{ __('Alles tonen') }}
                     </button>
+                </div>
+            </div>
+            <div class="nexa-gps-plate-bar" id="gps-legend">
+                <p class="nexa-gps-plate-bar__hint" id="gps-plate-hint">{{ __('Klik op een kenteken om het voertuig te volgen.') }}</p>
+                <div class="nexa-gps-plate-bar__chips" id="gps-plate-chips" aria-label="{{ __('Voertuigen op de kaart') }}">
+                    <p class="text-sm text-muted-foreground mb-0" id="gps-legend-empty">{{ __('Nog geen voertuigen op de kaart.') }}</p>
                 </div>
             </div>
             <div id="gps-tracking-map" class="gps-map-canvas"
@@ -318,34 +260,24 @@
                  data-zoom="{{ $googleMapsZoom }}"
                  data-type="{{ $googleMapsType }}"></div>
         </div>
-
-        <div class="kt-card w-full min-w-0">
-            <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h5 class="kt-card-title mb-0">Chauffeurs en kentekens</h5>
-                <span class="text-sm text-muted-foreground" id="gps-legend-count"></span>
-            </div>
-            <div class="kt-card-content p-5 lg:p-6" id="gps-legend">
-                <p class="text-sm text-muted-foreground mb-0">Nog geen voertuigen op de kaart.</p>
-            </div>
-        </div>
     </div>
 </div>
 
 <div id="gps-unlock-modal" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="gps-unlock-title">
     <div class="w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="gps-unlock-title" class="text-lg font-semibold text-foreground mb-1">Offline voertuigen tonen</h2>
-            <p class="text-sm text-muted-foreground mb-0">Voer de veiligheidscode in om de laatste bekende locatie van offline chauffeurs te zien. Online voertuigen verdwijnen van de kaart tot je terugschakelt naar Online.</p>
+            <h2 id="gps-unlock-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Offline voertuigen tonen') }}</h2>
+            <p class="text-sm text-muted-foreground mb-0">{{ __('Voer de veiligheidscode in om de laatste bekende locatie van offline chauffeurs te zien. Online voertuigen verdwijnen van de kaart tot je terugschakelt naar Online.') }}</p>
         </div>
         <form id="gps-unlock-form" class="px-6 py-5 space-y-4">
             <div>
-                <label for="gps-unlock-code" class="kt-label mb-1">Veiligheidscode</label>
+                <label for="gps-unlock-code" class="kt-label mb-1">{{ __('Veiligheidscode') }}</label>
                 <input id="gps-unlock-code" type="password" inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" class="kt-input w-full" maxlength="8" data-gps-code-input>
                 <p class="text-xs text-destructive mt-1 hidden" id="gps-unlock-code-error"></p>
             </div>
             <div class="flex flex-wrap justify-end gap-2">
-                <button type="button" class="kt-btn kt-btn-light" data-gps-close="unlock">Annuleren</button>
-                <button type="submit" class="kt-btn kt-btn-primary">Toon locaties</button>
+                <button type="button" class="kt-btn kt-btn-light" data-gps-close="unlock">{{ __('Annuleren') }}</button>
+                <button type="submit" class="kt-btn kt-btn-primary">{{ __('Toon locaties') }}</button>
             </div>
         </form>
     </div>
@@ -355,32 +287,32 @@
 <div id="gps-code-modal" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="gps-code-title">
     <div class="w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl">
         <div class="border-b border-border px-6 py-5">
-            <h2 id="gps-code-title" class="text-lg font-semibold text-foreground mb-1">Veiligheidscode</h2>
-            <p class="text-sm text-muted-foreground mb-0">Deze code is nodig om offline chauffeurs op de kaart te zien. Gebruik 4 tot 8 cijfers.</p>
+            <h2 id="gps-code-title" class="text-lg font-semibold text-foreground mb-1">{{ __('Veiligheidscode') }}</h2>
+            <p class="text-sm text-muted-foreground mb-0">{{ __('Deze code is nodig om offline chauffeurs op de kaart te zien. Gebruik 4 tot 8 cijfers.') }}</p>
         </div>
         <form id="gps-code-form" method="POST" action="{{ $codeUrl }}" class="px-6 py-5 space-y-4" novalidate>
             @csrf
             @method('PUT')
             @if($offlineCodeSet)
                 <div>
-                    <label for="gps-current-code" class="kt-label mb-1">Huidige code</label>
+                    <label for="gps-current-code" class="kt-label mb-1">{{ __('Huidige code') }}</label>
                     <input id="gps-current-code" type="password" name="current_code" inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" class="kt-input w-full @error('current_code') border-destructive @enderror" maxlength="8" data-gps-code-input>
                     <p class="text-xs text-destructive mt-1{{ $errors->has('current_code') ? '' : ' hidden' }}" id="gps-current-code-error" data-gps-code-error>{{ $errors->first('current_code') }}</p>
                 </div>
             @endif
             <div>
-                <label for="gps-new-code" class="kt-label mb-1">Nieuwe code</label>
+                <label for="gps-new-code" class="kt-label mb-1">{{ __('Nieuwe code') }}</label>
                 <input id="gps-new-code" type="password" name="code" inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" class="kt-input w-full @error('code') border-destructive @enderror" maxlength="8" required data-gps-code-input>
                 <p class="text-xs text-destructive mt-1{{ $errors->has('code') ? '' : ' hidden' }}" id="gps-new-code-error" data-gps-code-error>{{ $errors->first('code') }}</p>
             </div>
             <div>
-                <label for="gps-new-code-confirm" class="kt-label mb-1">Bevestig code</label>
+                <label for="gps-new-code-confirm" class="kt-label mb-1">{{ __('Bevestig code') }}</label>
                 <input id="gps-new-code-confirm" type="password" name="code_confirmation" inputmode="numeric" pattern="[0-9]{4,8}" autocomplete="off" class="kt-input w-full @error('code_confirmation') border-destructive @enderror" maxlength="8" required data-gps-code-input>
                 <p class="text-xs text-destructive mt-1{{ $errors->has('code_confirmation') ? '' : ' hidden' }}" id="gps-new-code-confirm-error" data-gps-code-error>{{ $errors->first('code_confirmation') }}</p>
             </div>
             <div class="flex flex-wrap justify-end gap-2">
-                <button type="button" class="kt-btn kt-btn-light" data-gps-close="code">Annuleren</button>
-                <button type="submit" class="kt-btn kt-btn-primary">Opslaan</button>
+                <button type="button" class="kt-btn kt-btn-light" data-gps-close="code">{{ __('Annuleren') }}</button>
+                <button type="submit" class="kt-btn kt-btn-primary">{{ __('Opslaan') }}</button>
             </div>
         </form>
     </div>
@@ -421,6 +353,36 @@ window.initGpsTrackingMap = function () {
         openCodeModal: @json($errors->has('current_code') || $errors->has('code') || $errors->has('code_confirmation')),
         hasMapsKey: @json(trim((string) $googleMapsApiKey) !== ''),
         canUseLiveDemo: @json(!empty($canUseLiveDemo))
+    };
+
+    var T = {
+        lightMapAria: @json(__('Schakel kaart naar lichte modus')),
+        darkMapAria: @json(__('Schakel kaart naar donkere modus')),
+        lightMap: @json(__('Lichte kaart')),
+        darkMap: @json(__('Donkere kaart')),
+        codeDigits: @json(__('De code bestaat uit :min tot :max cijfers.')),
+        enterCode: @json(__('Vul de veiligheidscode in.')),
+        enterCurrentCode: @json(__('Vul de huidige veiligheidscode in.')),
+        enterNewCode: @json(__('Vul een nieuwe veiligheidscode in.')),
+        confirmNewCode: @json(__('Bevestig de nieuwe veiligheidscode.')),
+        codesMismatch: @json(__('De opgegeven nieuwe codes komen niet overeen.')),
+        noOffline: @json(__('Geen offline voertuigen. De laatste bekende locatie is alleen zichtbaar als een chauffeur offline is.')),
+        noVehicles: @json(__('Nog geen voertuigen op de kaart. Zet een chauffeur online in de chauffeur-app.')),
+        clickPlate: @json(__('Klik op een kenteken om het voertuig te volgen.')),
+        mapFollows: @json(__('Kaart volgt :plate')),
+        followOnMap: @json(__('Volg :plate op de kaart')),
+        introOffline: @json(__('Laatst bekende locatie van offline voertuigen. Online auto’s zijn verborgen tot je terugschakelt naar Online.')),
+        introOnline: @json(__('Live locatie van actieve auto’s. Elke auto die nu online is met GPS verschijnt één keer op de kaart.')),
+        setCodeFirst: @json(__('Stel eerst een veiligheidscode in.')),
+        noCompany: @json(__('Geen bedrijf geselecteerd')),
+        loadFailed: @json(__('Locaties konden niet worden geladen.')),
+        countOffline: @json(__(':count offline')),
+        countOnline: @json(__(':count online')),
+        statusDemo: @json(__(':status · demo')),
+        loadFailedShort: @json(__('Kon locaties niet laden')),
+        wrongCode: @json(__('Code onjuist.')),
+        demoFailed: @json(__('Demo kon niet worden gezet.')),
+        noMapsKey: @json(__('Geen Google Maps-sleutel'))
     };
 
     var map = null;
@@ -483,8 +445,8 @@ window.initGpsTrackingMap = function () {
         if (!btn) return;
         if (icon) icon.className = mapDark ? 'ki-filled ki-sun' : 'ki-filled ki-moon';
         btn.setAttribute('aria-pressed', mapDark ? 'true' : 'false');
-        btn.setAttribute('aria-label', mapDark ? 'Schakel kaart naar lichte modus' : 'Schakel kaart naar donkere modus');
-        btn.setAttribute('data-gps-tooltip', mapDark ? 'Lichte kaart' : 'Donkere kaart');
+        btn.setAttribute('aria-label', mapDark ? T.lightMapAria : T.darkMapAria);
+        btn.setAttribute('data-gps-tooltip', mapDark ? T.lightMap : T.darkMap);
     }
 
     function applyMapTheme(dark, fromUser) {
@@ -517,7 +479,7 @@ window.initGpsTrackingMap = function () {
 
     var GPS_CODE_MIN = 4;
     var GPS_CODE_MAX = 8;
-    var GPS_CODE_DIGIT_MSG = 'De code bestaat uit ' + GPS_CODE_MIN + ' tot ' + GPS_CODE_MAX + ' cijfers.';
+    var GPS_CODE_DIGIT_MSG = T.codeDigits.replace(':min', GPS_CODE_MIN).replace(':max', GPS_CODE_MAX);
 
     function gpsCodeDigits(value) {
         return String(value || '').replace(/\D+/g, '').slice(0, GPS_CODE_MAX);
@@ -547,7 +509,7 @@ window.initGpsTrackingMap = function () {
                 if (input.value !== next) input.value = next;
                 if (input.getAttribute('data-gps-code-checked') === '1') {
                     if (input.closest('#gps-code-form')) validateGpsCodeForm(false);
-                    else setGpsFieldError(input, gpsCodeDigits(input.value) === '' ? 'Vul de veiligheidscode in.' : gpsCodeFormatError(input.value));
+                    else setGpsFieldError(input, gpsCodeDigits(input.value) === '' ? T.enterCode : gpsCodeFormatError(input.value));
                 }
             });
         });
@@ -575,22 +537,22 @@ window.initGpsTrackingMap = function () {
         }
         if (current) {
             var currentVal = gpsCodeDigits(current.value);
-            var currentMsg = currentVal === '' ? 'Vul de huidige veiligheidscode in.' : gpsCodeFormatError(current.value);
+            var currentMsg = currentVal === '' ? T.enterCurrentCode : gpsCodeFormatError(current.value);
             setGpsFieldError(current, currentMsg);
             if (currentMsg) ok = false;
         }
         if (neu) {
             var newVal = gpsCodeDigits(neu.value);
-            var newMsg = newVal === '' ? 'Vul een nieuwe veiligheidscode in.' : gpsCodeFormatError(neu.value);
+            var newMsg = newVal === '' ? T.enterNewCode : gpsCodeFormatError(neu.value);
             setGpsFieldError(neu, newMsg);
             if (newMsg) ok = false;
         }
         if (confirm) {
             var confirmVal = gpsCodeDigits(confirm.value);
             var confirmMsg = '';
-            if (confirmVal === '') confirmMsg = 'Bevestig de nieuwe veiligheidscode.';
+            if (confirmVal === '') confirmMsg = T.confirmNewCode;
             else if (gpsCodeFormatError(confirm.value)) confirmMsg = GPS_CODE_DIGIT_MSG;
-            else if (neu && confirmVal !== gpsCodeDigits(neu.value)) confirmMsg = 'De opgegeven nieuwe codes komen niet overeen.';
+            else if (neu && confirmVal !== gpsCodeDigits(neu.value)) confirmMsg = T.codesMismatch;
             setGpsFieldError(confirm, confirmMsg);
             if (confirmMsg) ok = false;
         }
@@ -821,17 +783,6 @@ window.initGpsTrackingMap = function () {
         });
     }
 
-    function formatSeen(iso) {
-        if (!iso) return 'onbekend';
-        var d = new Date(iso);
-        if (isNaN(d.getTime())) return 'onbekend';
-        return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
-    function seenHtml(iso, id) {
-        return '<span class="nexa-gps-seen" data-gps-seen="' + window.NexaGpsMarker.escapeHtml(String(id || '')) + '">' + formatSeen(iso) + '</span>';
-    }
-
     function legendSignature(items) {
         return items.map(function (item) {
             return String(item.id) + ':' + (item.is_online ? '1' : '0') + ':' + window.NexaGpsMarker.escapeHtml(item.license_plate || '') + ':' + window.NexaGpsMarker.escapeHtml(item.driver_name || '');
@@ -840,50 +791,53 @@ window.initGpsTrackingMap = function () {
 
     function renderLegend(items) {
         var box = $('gps-legend');
-        var count = $('gps-legend-count');
-        if (!box) return;
+        var chips = $('gps-plate-chips');
+        var hint = $('gps-plate-hint');
+        if (!box || !chips) return;
         if (!items.length) {
             var empty = cfg.view === 'offline'
-                ? 'Geen offline voertuigen. De laatste bekende locatie is alleen zichtbaar als een chauffeur offline is.'
-                : 'Nog geen voertuigen op de kaart. Zet een chauffeur online in de chauffeur-app.';
-            box.innerHTML = '<p class="text-sm text-muted-foreground mb-0">' + empty + '</p>';
+                ? T.noOffline
+                : T.noVehicles;
+            chips.innerHTML = '<p class="text-sm text-muted-foreground mb-0" id="gps-legend-empty">' + empty + '</p>';
             box.removeAttribute('data-gps-legend-sig');
-            if (count) count.textContent = '';
+            if (hint) {
+                hint.hidden = true;
+            }
             return;
         }
-        if (count) count.textContent = items.length + (items.length === 1 ? ' voertuig' : ' voertuigen');
+        if (hint) {
+            hint.hidden = false;
+            hint.textContent = T.clickPlate;
+        }
         var signature = legendSignature(items);
-        if (box.getAttribute('data-gps-legend-sig') === signature && box.querySelector('[data-gps-focus]')) {
-            items.forEach(function (item) {
-                var seen = box.querySelector('[data-gps-seen="' + window.NexaGpsMarker.escapeHtml(String(item.id)) + '"]');
-                if (seen) seen.textContent = formatSeen(item.location_updated_at || item.last_seen_at);
-            });
+        if (box.getAttribute('data-gps-legend-sig') === signature && chips.querySelector('[data-gps-focus]')) {
             syncFollowedLegend();
             return;
         }
         box.setAttribute('data-gps-legend-sig', signature);
-        var html = '<div class="nexa-gps-legend-wrap"><table class="kt-table align-middle text-sm w-full admin-keep-table-layout" data-admin-no-cards="true"><thead><tr><th class="w-14"></th><th>Kenteken</th><th>Chauffeur</th><th>Status</th><th>Laatst gezien</th></tr></thead><tbody>';
+        var html = '';
         items.forEach(function (item) {
-            var color = window.NexaGpsMarker.bodyColor(item, appearance);
-            var luma = (function (hex) {
-                var h = String(hex || '').replace('#', '');
-                if (h.length !== 6) return 0;
-                return (0.2126 * parseInt(h.slice(0, 2), 16) + 0.7152 * parseInt(h.slice(2, 4), 16) + 0.0722 * parseInt(h.slice(4, 6), 16)) / 255;
-            })(color);
             var plate = window.NexaGpsMarker.escapeHtml(item.license_plate || '—');
-            var focusHint = followVehicleId === String(item.id)
-                ? 'Kaart volgt ' + plate
-                : 'Zoom in op ' + plate + ' op de kaart';
-            html += '<tr>' +
-                '<td><button type="button" class="nexa-gps-focus-btn' + (luma > 0.72 ? ' is-light' : '') + (followVehicleId === String(item.id) ? ' is-following' : '') + '" data-gps-focus="' + window.NexaGpsMarker.escapeHtml(item.id) + '" data-gps-plate="' + plate + '" data-gps-tooltip="' + focusHint + '" style="background:' + color + '" aria-label="' + focusHint + '" aria-pressed="' + (followVehicleId === String(item.id) ? 'true' : 'false') + '" onclick="if(window.nexaGpsFocusVehicle)window.nexaGpsFocusVehicle(this.getAttribute(\'data-gps-focus\'))"><i class="ki-filled ki-geolocation"></i></button></td>' +
-                '<td class="font-medium text-foreground" data-label="Kenteken"><span class="nexa-gps-legend-cell-value">' + plate + (item.vehicle_name ? '<div class="text-xs text-muted-foreground">' + window.NexaGpsMarker.escapeHtml(item.vehicle_name) + '</div>' : '') + '</span></td>' +
-                '<td data-label="Chauffeur"><span class="nexa-gps-legend-cell-value">' + window.NexaGpsMarker.escapeHtml(item.driver_name) + '</span></td>' +
-                '<td data-label="Status"><span class="nexa-gps-legend-cell-value">' + (item.is_online ? '<span class="text-green-600">Online</span>' : '<span class="text-muted-foreground">Offline</span>') + '</span></td>' +
-                '<td class="text-muted-foreground" data-label="Laatst gezien"><span class="nexa-gps-legend-cell-value">' + seenHtml(item.location_updated_at || item.last_seen_at, item.id) + '</span></td>' +
-                '</tr>';
+            var plateRaw = String(item.license_plate || '—');
+            var following = followVehicleId === String(item.id);
+            var focusHint = following
+                ? T.mapFollows.replace(':plate', plateRaw)
+                : T.followOnMap.replace(':plate', plateRaw);
+            var title = plateRaw + (item.driver_name ? (' · ' + item.driver_name) : '');
+            html += '<button type="button" class="nexa-gps-plate-chip' +
+                (following ? ' is-following' : '') +
+                (item.is_online ? '' : ' is-offline') +
+                '" data-gps-focus="' + window.NexaGpsMarker.escapeHtml(item.id) +
+                '" data-gps-plate="' + plate +
+                '" data-gps-tooltip="' + window.NexaGpsMarker.escapeHtml(focusHint) +
+                '" title="' + window.NexaGpsMarker.escapeHtml(title) +
+                '" aria-label="' + window.NexaGpsMarker.escapeHtml(focusHint) +
+                '" aria-pressed="' + (following ? 'true' : 'false') +
+                '" onclick="if(window.nexaGpsFocusVehicle)window.nexaGpsFocusVehicle(this.getAttribute(\'data-gps-focus\'))">' +
+                plate +
+                '</button>';
         });
-        html += '</tbody></table></div>';
-        box.innerHTML = html;
+        chips.innerHTML = html;
         hideFocusTooltip();
     }
 
@@ -933,8 +887,8 @@ window.initGpsTrackingMap = function () {
             var on = followVehicleId != null && btn.getAttribute('data-gps-focus') === String(followVehicleId);
             var plate = btn.getAttribute('data-gps-plate') || '';
             var hint = on
-                ? ('Kaart volgt ' + plate)
-                : ('Zoom in op ' + plate + ' op de kaart');
+                ? T.mapFollows.replace(':plate', plate)
+                : T.followOnMap.replace(':plate', plate);
             btn.classList.toggle('is-following', on);
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             btn.setAttribute('aria-label', hint);
@@ -1166,15 +1120,15 @@ window.initGpsTrackingMap = function () {
         var intro = $('gps-page-intro');
         if (intro) {
             intro.textContent = cfg.view === 'offline'
-                ? 'Laatst bekende locatie van offline voertuigen. Online auto’s zijn verborgen tot je terugschakelt naar Online.'
-                : 'Live locatie van actieve auto’s. Elke auto die nu online is met GPS verschijnt één keer op de kaart.';
+                ? T.introOffline
+                : T.introOnline;
         }
     }
 
     function askOfflineCode() {
         if (!cfg.offlineCodeSet) {
             if ($('gps-code-modal')) { setModal('gps-code-modal', true); return; }
-            alert('Stel eerst een veiligheidscode in.');
+            alert(T.setCodeFirst);
             return;
         }
         setModal('gps-unlock-modal', true);
@@ -1200,7 +1154,7 @@ window.initGpsTrackingMap = function () {
     async function loadPositions() {
         if (cfg.noTenant) {
             var status = $('gps-status-label');
-            if (status) status.textContent = 'Geen bedrijf geselecteerd';
+            if (status) status.textContent = T.noCompany;
             return;
         }
         try {
@@ -1208,7 +1162,7 @@ window.initGpsTrackingMap = function () {
             var data = await res.json();
             if (!res.ok) {
                 if (cfg.view === 'offline') setViewUi('online', false);
-                throw new Error(data.message || 'Locaties konden niet worden geladen.');
+                throw new Error(data.message || T.loadFailed);
             }
             var items = Array.isArray(data.vehicles) ? data.vehicles : [];
             lastItems = items;
@@ -1223,9 +1177,9 @@ window.initGpsTrackingMap = function () {
             var statusEl = $('gps-status-label');
             if (statusEl) {
                 var countLabel = cfg.view === 'offline'
-                    ? (items.length + ' offline')
-                    : (items.length + ' online');
-                statusEl.textContent = data.live_demo ? (countLabel + ' · demo') : countLabel;
+                    ? T.countOffline.replace(':count', items.length)
+                    : T.countOnline.replace(':count', items.length);
+                statusEl.textContent = data.live_demo ? T.statusDemo.replace(':status', countLabel) : countLabel;
             }
             if (items.length) {
                 if (!fittedOnce) {
@@ -1238,7 +1192,7 @@ window.initGpsTrackingMap = function () {
             }
         } catch (e) {
             var statusErr = $('gps-status-label');
-            if (statusErr) statusErr.textContent = e.message || 'Kon locaties niet laden';
+            if (statusErr) statusErr.textContent = e.message || T.loadFailedShort;
         }
     }
 
@@ -1320,7 +1274,7 @@ window.initGpsTrackingMap = function () {
             e.preventDefault();
             var input = $('gps-unlock-code');
             if (input) input.setAttribute('data-gps-code-checked', '1');
-            var formatMsg = !input || gpsCodeDigits(input.value) === '' ? 'Vul de veiligheidscode in.' : gpsCodeFormatError(input.value);
+            var formatMsg = !input || gpsCodeDigits(input.value) === '' ? T.enterCode : gpsCodeFormatError(input.value);
             if (formatMsg) {
                 setGpsFieldError(input, formatMsg);
                 return;
@@ -1334,14 +1288,14 @@ window.initGpsTrackingMap = function () {
                     body: JSON.stringify({ code: input ? input.value : '' })
                 });
                 var data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'Code onjuist.');
+                if (!res.ok) throw new Error(data.message || T.wrongCode);
                 setModal('gps-unlock-modal', false);
                 setViewUi('offline', true);
                 fittedOnce = false;
                 setFollowFleet(true, false);
                 loadPositions();
             } catch (ex) {
-                setGpsFieldError(input, ex.message || 'Code onjuist.');
+                setGpsFieldError(input, ex.message || T.wrongCode);
             }
         });
     }
@@ -1366,7 +1320,7 @@ window.initGpsTrackingMap = function () {
                     body: JSON.stringify({ enabled: enabled })
                 });
                 var data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'Demo kon niet worden gezet.');
+                if (!res.ok) throw new Error(data.message || T.demoFailed);
                 demoSwitch.checked = !!data.enabled;
                 if (demoSwitch.checked) {
                     fittedOnce = false;
@@ -1425,7 +1379,7 @@ window.initGpsTrackingMap = function () {
     if (cfg.hasMapsKey && typeof google !== 'undefined' && google.maps) bootMap();
     else if (!cfg.hasMapsKey) {
         var status = $('gps-status-label');
-        if (status) status.textContent = 'Geen Google Maps-sleutel';
+        if (status) status.textContent = T.noMapsKey;
         if (!cfg.noTenant) loadPositions();
     }
 })();

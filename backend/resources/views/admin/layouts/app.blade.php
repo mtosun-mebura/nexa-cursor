@@ -45,6 +45,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
+    @include('admin.layouts.partials.js-i18n')
 
     <style>
         /* Maak menu heading borders grijs - voeg border-top toe aan menu items met headings */
@@ -667,6 +668,12 @@
             border: 1px solid rgb(185, 28, 28) !important;
             color: rgb(185, 28, 28) !important;
         }
+        /* Eénregelige monitoringbanner: tekst en actie in het midden.
+           Meerregelige flash-alerts blijven bovenaan uitgelijnd. */
+        #content .kt-alert.kt-alert-danger.admin-monitoring-error-banner {
+            align-items: center !important;
+            padding-block: calc(var(--spacing) * 3.5);
+        }
         #content .kt-alert.kt-alert-danger.hidden {
             display: none !important;
         }
@@ -840,20 +847,20 @@
             if (! empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashSuccess) {
                 $whatsappFlashName = trim((string) ($whatsappConnectionTest['meta']['verified_name'] ?? ''));
                 $adminHeaderFlashSuccess = $whatsappFlashName !== ''
-                    ? 'WhatsApp-verbinding OK — '.$whatsappFlashName
-                    : 'WhatsApp-verbinding OK';
+                    ? __('WhatsApp-verbinding OK — :name', ['name' => $whatsappFlashName])
+                    : __('WhatsApp-verbinding OK');
             } elseif (empty($whatsappConnectionTest['ok']) && ! $adminHeaderFlashError) {
                 $whatsappFlashError = trim((string) ($whatsappConnectionTest['error'] ?? ''));
                 $adminHeaderFlashError = $whatsappFlashError !== ''
-                    ? 'WhatsApp API-verbinding mislukt: '.$whatsappFlashError
-                    : 'WhatsApp API-verbinding mislukt.';
+                    ? __('WhatsApp API-verbinding mislukt: :error', ['error' => $whatsappFlashError])
+                    : __('WhatsApp API-verbinding mislukt.');
             }
         }
         if (! $adminHeaderFlashSuccess && request()->routeIs('admin.newsletters.prospects') && request()->integer('discovered') > 0) {
-            $adminHeaderFlashSuccess = request()->integer('discovered').' bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.';
+            $adminHeaderFlashSuccess = __(':count bedrijven toegevoegd met e-mail, adres en waar mogelijk telefoon.', ['count' => request()->integer('discovered')]);
         }
         if ($adminHeaderFlashSuccess && session('route_departure_time')) {
-            $adminHeaderFlashSuccess .= ' Geschat vertrek: '.session('route_departure_time');
+            $adminHeaderFlashSuccess .= ' '.__('Geschat vertrek: :time', ['time' => session('route_departure_time')]);
         }
         $adminMustChangePassword = ($adminMustChangePassword ?? false) || (bool) (auth()->user()?->must_change_password);
         $adminTrialDeclined = null;
@@ -896,16 +903,19 @@
             if ($taxiSetupCompany) {
                 $taxiSetup = app(\App\Modules\NexaTaxi\Services\TaxiTenantSetupService::class);
                 if ($taxiSetup->appliesTo($taxiSetupCompany)) {
-                    $taxiStatus = $taxiSetup->status($taxiSetupCompany, $adminUser);
-                    if (! empty($taxiStatus['needs_attention'])) {
+                    $companyTaxiStatus = $taxiSetup->status($taxiSetupCompany);
+                    $viewerTaxiStatus = $taxiSetup->status($taxiSetupCompany, $adminUser);
+                    if (! empty($companyTaxiStatus['needs_attention'])) {
                         $taxiSetup->syncNotification($adminUser, $taxiSetupCompany);
+                    } else {
+                        $taxiSetup->clearNotification($adminUser, $taxiSetupCompany);
+                    }
+                    if (! empty($viewerTaxiStatus['needs_attention'])) {
                         $forceOpen = request()->boolean('taxi_setup') || $taxiSetup->consumePrompt();
-                        $adminTaxiSetup = array_merge($taxiStatus, [
+                        $adminTaxiSetup = array_merge($viewerTaxiStatus, [
                             'force_open' => $forceOpen,
                             'company_name' => $taxiSetupCompany->name,
                         ]);
-                    } else {
-                        $taxiSetup->clearNotification($adminUser, $taxiSetupCompany);
                     }
                 }
             }
@@ -948,8 +958,8 @@
                         @php
                             $taxiIncomplete = (int) ($adminTaxiSetup['incomplete_count'] ?? 0);
                             $taxiOpenLabel = $taxiIncomplete === 1
-                                ? '1 openstaande stap'
-                                : $taxiIncomplete . ' openstaande stappen';
+                                ? __('1 openstaande stap')
+                                : __(':count openstaande stappen', ['count' => $taxiIncomplete]);
                         @endphp
                         <div class="kt-alert kt-alert-warning mb-5 flex flex-wrap items-center justify-between gap-3" role="status" data-taxi-setup-banner>
                             <div class="flex min-w-0 items-start gap-2">
@@ -957,8 +967,10 @@
                                 <div class="min-w-0">
                                     <div class="font-semibold">Nexa Taxi is nog niet volledig ingericht</div>
                                     <div class="text-sm text-secondary-foreground">
-                                        {{ $taxiOpenLabel }} — voertuigen, tarieven en mailserver.
-                                        Zonder actief voertuig werkt de boekingsmodule niet.
+                                        {{ $taxiOpenLabel }}@if(!empty($adminTaxiSetup['summary'])) — {{ $adminTaxiSetup['summary'] }}@endif.
+                                        @if(empty($adminTaxiSetup['booking_allowed']))
+                                            Zonder actief voertuig werkt de boekingsmodule niet.
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -968,6 +980,24 @@
                                     onclick="window.adminOpenTaxiSetup && window.adminOpenTaxiSetup()">
                                 Open stappenplan
                             </button>
+                        </div>
+                    @endif
+
+                    @if(request()->routeIs('admin.monitoring.*')
+                        && (int) ($adminMonitoringUnresolvedErrors ?? 0) > 0
+                        && auth()->user()?->isSuperAdmin())
+                        <div class="kt-alert kt-alert-danger admin-monitoring-error-banner mb-5 flex flex-wrap items-center justify-between gap-3" role="alert">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <i class="ki-filled ki-information shrink-0" aria-hidden="true"></i>
+                                <div class="min-w-0 text-sm">
+                                    @if((int) $adminMonitoringUnresolvedErrors === 1)
+                                        {{ __('Er is 1 onopgeloste monitoringfout.') }}
+                                    @else
+                                        {{ __('Er zijn :count onopgeloste monitoringfouten.', ['count' => (int) $adminMonitoringUnresolvedErrors]) }}
+                                    @endif
+                                </div>
+                            </div>
+                            <a href="{{ route('admin.monitoring.index', ['sectie' => 'fouten']) }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">{{ __('Bekijk fouten') }}</a>
                         </div>
                     @endif
 
@@ -1434,7 +1464,43 @@
     <script>
     (function() {
         var SCROLL_KEY = 'admin-scroll-after-save';
+        var LOCALE_SCROLL_KEY = 'admin-scroll-after-locale';
         var IGNORE_ROW_SEL = 'a, button, input, select, textarea, label, [data-no-row-link], .kt-menu, .kt-menu-dropdown, .kt-menu-toggle, .website-page-actions-cell';
+
+        // Taalwissel: scroll eenmalig bewaren. De key gaat direct weg, zodat een latere navigatie bovenaan start.
+        var localeScrollY = null;
+        try {
+            var rawLocaleScroll = sessionStorage.getItem(LOCALE_SCROLL_KEY);
+            if (rawLocaleScroll !== null && rawLocaleScroll !== '') {
+                sessionStorage.removeItem(LOCALE_SCROLL_KEY);
+                var parsedLocaleScroll = parseInt(rawLocaleScroll, 10);
+                if (!isNaN(parsedLocaleScroll) && parsedLocaleScroll >= 0) {
+                    localeScrollY = parsedLocaleScroll;
+                }
+            }
+        } catch (err) {}
+        function restoreLocaleScroll() {
+            if (localeScrollY === null) return;
+            if ('scrollRestoration' in history) {
+                try { history.scrollRestoration = 'manual'; } catch (err) {}
+            }
+            window.scrollTo(0, localeScrollY);
+        }
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented) return;
+            if (e.button && e.button !== 0) return;
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var localeTarget = e.target;
+            if (!localeTarget || typeof localeTarget.closest !== 'function') return;
+            var localeLink = localeTarget.closest('#admin-locale-switch, a[data-admin-locale-switch]');
+            if (!localeLink) return;
+            try {
+                sessionStorage.setItem(LOCALE_SCROLL_KEY, String(window.scrollY || window.pageYOffset || 0));
+            } catch (err) {}
+        }, true);
+        restoreLocaleScroll();
+        requestAnimationFrame(restoreLocaleScroll);
+        window.addEventListener('load', restoreLocaleScroll);
 
         function readPayload() {
             try {
@@ -1761,16 +1827,20 @@
     <!-- Session Expiry Handler -->
     <script>
     (function() {
-        // Alleen op beveiligde adminpagina's (niet op login of meld)
+        // Alleen op beveiligde adminpagina's (niet op login)
         var path = window.location.pathname || '';
-        if (path.includes('/admin/login') || path.includes('/admin/meld/sessie-verlopen')) {
+        if (path.includes('/admin/login')) {
             return;
         }
         if (!path.startsWith('/admin')) {
             return;
         }
 
-        // Sessiecheck bij paginaload: als geen geldige sessie, redirect naar meld met intended
+        function sessionLoginUrl() {
+            return '{{ route("admin.login") }}?intended=' + encodeURIComponent(window.location.href);
+        }
+
+        // Sessiecheck bij paginaload: als geen geldige sessie, direct naar login met intended
         var sessionCheckUrl = '{{ url("/admin/api/session-check") }}';
         fetch(sessionCheckUrl, {
             method: 'GET',
@@ -1778,8 +1848,7 @@
             headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
         }).then(function(response) {
             if (response.status === 401 || response.status === 419) {
-                var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                window.location.href = meldUrl;
+                window.location.href = sessionLoginUrl();
             }
         }).catch(function() { /* negeer netwerkfouten, AJAX-handler vangt later 401 */ });
 
@@ -1818,10 +1887,9 @@
 
             // Check for 401 (Unauthorized), 403 (Forbidden), or 419 (CSRF token mismatch) responses
             if (xhr.status === 401 || xhr.status === 419) {
-                // Redirect naar meld-pagina met huidige URL zodat na inloggen teruggegaan wordt
+                // Direct naar login met huidige URL zodat na inloggen teruggegaan wordt
                 if (!window.location.pathname.includes('/admin/login')) {
-                    var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                    window.location.href = meldUrl;
+                    window.location.href = sessionLoginUrl();
                 }
                 return false;
             } else if (xhr.status === 403) {
@@ -1871,8 +1939,7 @@
                     // Check for 401, 403, or 419 status
                     if (response.status === 401 || response.status === 419) {
                         if (!window.location.pathname.includes('/admin/login')) {
-                            var meldUrl = '{{ route("admin.meld.sessie-verlopen") }}?intended=' + encodeURIComponent(window.location.href);
-                            window.location.href = meldUrl;
+                            window.location.href = sessionLoginUrl();
                         }
                         return Promise.reject(new Error('Session expired'));
                     } else if (response.status === 403) {

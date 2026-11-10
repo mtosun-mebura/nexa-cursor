@@ -9,9 +9,11 @@ return [
     */
     'exempt_route_names' => [
         'admin.dashboard',
+        'admin.monitoring.*',
         'admin.tenant.switch',
         'admin.tenant-setup-checklist',
         'admin.nexa-network.*',
+        'admin.uitleg',
         'admin.handleiding.*',
         'admin.companies.*',
         'admin.modules.index',
@@ -53,6 +55,7 @@ return [
         'admin.payout-identities.*',
         'admin.taxi.dispatch_settings.*',
         'admin.taxi.tarieven.*',
+        'admin.taxi.complaints.*',
         'admin.website-pages.*',
         'admin.website-ai.*',
         'admin.frontend-themes.*',
@@ -62,6 +65,7 @@ return [
         'admin.notifications.*',
         'admin.incidents.*',
         'admin.newsletters.*',
+        'admin.taxi-partner-finder.*',
         'admin.whatsapp-pickup-proposal-mock.*',
     ],
 

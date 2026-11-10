@@ -92,7 +92,7 @@ function syncAdminDatatableKtSelectDisplay(select) {
     display.textContent = selected.textContent.trim();
     display.setAttribute('data-selected', selected.value);
     display.removeAttribute('aria-placeholder');
-    display.setAttribute('aria-label', `Toon ${selected.textContent.trim()} per pagina`);
+    display.setAttribute('aria-label', ((window.NEXA_I18N && window.NEXA_I18N['Toon :count per pagina']) || 'Toon :count per pagina').replace(':count', selected.textContent.trim()));
 }
 
 function refreshAdminDatatableSizeSelect(select) {
@@ -494,7 +494,12 @@ export class AdminClientDatatable {
     renderInfo(total, start, end) {
         const from = total === 0 ? 0 : start + 1;
         const to = total === 0 ? 0 : Math.min(end, total);
-        const text = `Toon ${from} tot ${to} van ${total} ${this.itemLabel}`;
+        const template = (window.NEXA_I18N && window.NEXA_I18N['Toon :from tot :to van :total :label']) || 'Toon :from tot :to van :total :label';
+        const text = template
+            .replace(':from', from)
+            .replace(':to', to)
+            .replace(':total', total)
+            .replace(':label', this.itemLabel);
 
         this.infoEls.forEach((el) => {
             el.textContent = text;
@@ -551,7 +556,7 @@ export class AdminClientDatatable {
 
         this.paginationEl.appendChild(
             createButton(
-                'Vorige',
+                (window.NEXA_I18N && window.NEXA_I18N['Vorige']) || 'Vorige',
                 `kt-datatable-pagination-button kt-datatable-pagination-prev${this.page === 1 ? ' disabled' : ''}`,
                 this.page === 1,
                 () => this.goToPage(this.page - 1),
@@ -591,7 +596,7 @@ export class AdminClientDatatable {
 
         this.paginationEl.appendChild(
             createButton(
-                'Volgende',
+                (window.NEXA_I18N && window.NEXA_I18N['Volgende']) || 'Volgende',
                 `kt-datatable-pagination-button kt-datatable-pagination-next${this.page === totalPages ? ' disabled' : ''}`,
                 this.page === totalPages,
                 () => this.goToPage(this.page + 1),

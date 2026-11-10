@@ -70,7 +70,12 @@ class DriverRidePaymentController extends Controller
         }
 
         try {
-            $result = $payments->createDriverPayment($conn, $rideModel, (float) $data['amount']);
+            $result = $payments->createDriverPayment(
+                $conn,
+                $rideModel,
+                (float) $data['amount'],
+                TaxiRidePaymentService::usesNativeAppClient($request)
+            );
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first(),

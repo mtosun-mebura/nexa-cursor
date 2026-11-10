@@ -51,4 +51,129 @@ class NexaTaxiBookingAddressSearchStationTest extends TestCase
         $this->assertSame('Centraal Station', $data[0]['name'] ?? null);
         $this->assertSame('52.2217028', (string) ($data[0]['lat'] ?? ''));
     }
+
+    #[Test]
+    public function reverse_geocode_puts_house_number_after_street_name(): void
+    {
+        Http::fake([
+            'nominatim.openstreetmap.org/reverse*' => Http::response([
+                'lat' => '52.2215',
+                'lon' => '6.8935',
+                'name' => '155',
+                'display_name' => '155, Deurningerstraat, Walhof, Enschede, Overijssel, Nederland',
+                'addresstype' => 'house',
+                'category' => 'place',
+                'type' => 'house',
+                'address' => [
+                    'house_number' => '155',
+                    'road' => 'Deurningerstraat',
+                    'suburb' => 'Walhof',
+                    'city' => 'Enschede',
+                    'state' => 'Overijssel',
+                    'postcode' => '7514AD',
+                    'country' => 'Nederland',
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/nexa-taxi/booking/address-search?'.http_build_query([
+            'lat' => '52.2215',
+            'lon' => '6.8935',
+        ]));
+
+        $response->assertOk();
+        $display = (string) ($response->json('display_name') ?? '');
+        $this->assertStringContainsString('Deurningerstraat 155', $display);
+        $this->assertDoesNotMatchRegularExpression('/^155,\s*Deurningerstraat/', $display);
+        $this->assertStringContainsString('Enschede', $display);
+    }
+
+    #[Test]
+    public function business_name_is_returned_ahead_of_street_matches(): void
+    {
+        config(['maps.address_business_search_key' => 'test-places-key']);
+
+        Http::fake([
+            'nominatim.openstreetmap.org/search*' => Http::response([
+                [
+                    'lat' => '52.2300',
+                    'lon' => '6.9600',
+                    'category' => 'highway',
+                    'type' => 'residential',
+                    'name' => 'Dentalstraat',
+                    'display_name' => 'Dentalstraat, Glanerbrug, Enschede, Nederland',
+                    'address' => [
+                        'road' => 'Dentalstraat',
+                        'city' => 'Glanerbrug',
+                    ],
+                ],
+            ], 200),
+            'maps.googleapis.com/maps/api/place/textsearch/json*' => Http::response([
+                'status' => 'OK',
+                'results' => [[
+                    'name' => 'Dental Art',
+                    'formatted_address' => 'Gronausestraat 710, Glanerbrug, Nederland',
+                    'geometry' => ['location' => ['lat' => 52.2211, 'lng' => 6.9712]],
+                ]],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/nexa-taxi/booking/address-search?'.http_build_query([
+            'q' => 'dental art glanerbrug',
+            'countrycodes' => 'nl',
+            'limit' => 8,
+        ]));
+
+        $response->assertOk();
+        $data = $response->json();
+        $this->assertSame('Dental Art', $data[0]['name'] ?? null);
+        $this->assertStringContainsString('Gronausestraat 710', (string) ($data[0]['display_name'] ?? ''));
+        $this->assertStringContainsString('Glanerbrug', (string) ($data[0]['display_name'] ?? ''));
+        $this->assertSame('52.2211', (string) ($data[0]['lat'] ?? ''));
+    }
+
+    #[Test]
+    public function street_suggestions_drop_postcode_and_do_not_repeat_the_street(): void
+    {
+        config(['maps.address_business_search_key' => 'test-places-key']);
+
+        Http::fake([
+            'nominatim.openstreetmap.org/search*' => Http::response([], 200),
+            'maps.googleapis.com/maps/api/place/textsearch/json*' => Http::response([
+                'status' => 'OK',
+                'results' => [
+                    [
+                        'name' => 'Roomweg 100',
+                        'formatted_address' => 'Roomweg 100, 5752 SG Deurne, Nederland',
+                        'geometry' => ['location' => ['lat' => 51.461, 'lng' => 5.795]],
+                    ],
+                    [
+                        'name' => 'Roomweg 100, Enschede',
+                        'formatted_address' => 'Roomweg 100, Enschede, Nederland',
+                        'geometry' => ['location' => ['lat' => 52.221, 'lng' => 6.893]],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/nexa-taxi/booking/address-search?'.http_build_query([
+            'q' => 'Roomweg 100',
+            'countrycodes' => 'nl',
+            'limit' => 8,
+        ]));
+
+        $response->assertOk();
+        $labels = array_map(
+            fn ($row) => (string) ($row['display_name'] ?? ''),
+            $response->json()
+        );
+        $this->assertSame([
+            'Roomweg 100, Deurne',
+            'Roomweg 100, Enschede',
+        ], $labels);
+        $this->assertSame('Roomweg', $response->json('0.address.road'));
+        $this->assertSame('100', $response->json('0.address.house_number'));
+        $this->assertSame('Deurne', $response->json('0.address.city'));
+        $this->assertArrayNotHasKey('postcode', $response->json('0.address') ?? []);
+    }
 }

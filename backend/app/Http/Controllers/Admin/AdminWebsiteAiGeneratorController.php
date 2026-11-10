@@ -75,7 +75,7 @@ class AdminWebsiteAiGeneratorController extends Controller
         foreach ($themePalettes as $palette) {
             $themePresets[] = [
                 'key' => 'theme-'.($palette['slug'] ?? 'custom'),
-                'label' => $palette['name'].' (thema)',
+                'label' => __(':name (thema)', ['name' => $palette['name']]),
                 'primary' => $palette['primary'],
                 'secondary' => $palette['secondary'],
             ];
@@ -84,7 +84,7 @@ class AdminWebsiteAiGeneratorController extends Controller
         return view('admin.website-ai.create', [
             'companies' => $companies,
             'themes' => $themes,
-            'colorPresets' => array_merge($themePresets, self::COLOR_PRESETS),
+            'colorPresets' => array_merge($themePresets, array_map(fn (array $preset) => ['label' => __($preset['label'])] + $preset, self::COLOR_PRESETS)),
             'themePalettes' => $themePalettes,
             'defaultPrimary' => $defaultPrimary !== '' ? $defaultPrimary : '#2563eb',
             'defaultSecondary' => $defaultSecondary !== '' ? $defaultSecondary : '#0f172a',
@@ -120,14 +120,14 @@ class AdminWebsiteAiGeneratorController extends Controller
             'generate_images' => ['sometimes', 'boolean'],
             'replace_existing' => ['sometimes', 'boolean'],
         ], [
-            'context.required' => 'Beschrijf waar de website over moet gaan.',
-            'primary_color.regex' => 'Kies een geldige merkkleur (hex).',
-            'secondary_color.regex' => 'Kies een geldige secundaire kleur (hex).',
+            'context.required' => __('Beschrijf waar de website over moet gaan.'),
+            'primary_color.regex' => __('Kies een geldige merkkleur (hex).'),
+            'secondary_color.regex' => __('Kies een geldige secundaire kleur (hex).'),
         ]);
 
         $theme = FrontendTheme::query()->findOrFail((int) $data['frontend_theme_id']);
         if (! FrontendTheme::usesHomeSections((string) $theme->slug) && ! in_array(strtolower((string) $theme->slug), FrontendTheme::HOME_SECTION_SLUGS, true)) {
-            return back()->withInput()->with('error', 'Kies een thema dat de website builder ondersteunt.');
+            return back()->withInput()->with('error', __('Kies een thema dat de website builder ondersteunt.'));
         }
 
         if (function_exists('set_time_limit')) {
@@ -156,9 +156,9 @@ class AdminWebsiteAiGeneratorController extends Controller
 
             $hint = config('app.debug')
                 ? ' '.$e->getMessage()
-                : ' Controleer de bron-URL en probeer het opnieuw.';
+                : ' '.__('Controleer de bron-URL en probeer het opnieuw.');
 
-            return back()->withInput()->with('error', 'Genereren is mislukt.'.$hint);
+            return back()->withInput()->with('error', __('Genereren is mislukt.').$hint);
         }
 
         $created = count($result['created']);
@@ -166,25 +166,25 @@ class AdminWebsiteAiGeneratorController extends Controller
         $skipped = count($result['skipped']);
         $parts = [];
         if ($created > 0) {
-            $parts[] = $created === 1 ? '1 pagina als concept aangemaakt' : $created.' pagina\'s als concept aangemaakt';
+            $parts[] = $created === 1 ? __('1 pagina als concept aangemaakt') : __(':count pagina\'s als concept aangemaakt', ['count' => $created]);
         }
         if ($updated > 0) {
-            $parts[] = $updated === 1 ? '1 pagina als concept bijgewerkt' : $updated.' pagina\'s als concept bijgewerkt';
+            $parts[] = $updated === 1 ? __('1 pagina als concept bijgewerkt') : __(':count pagina\'s als concept bijgewerkt', ['count' => $updated]);
         }
         if ($skipped > 0) {
-            $parts[] = $skipped === 1 ? '1 bestaande pagina overgeslagen' : $skipped.' bestaande pagina\'s overgeslagen';
+            $parts[] = $skipped === 1 ? __('1 bestaande pagina overgeslagen') : __(':count bestaande pagina\'s overgeslagen', ['count' => $skipped]);
         }
         if ($result['images'] > 0) {
-            $parts[] = $result['images'] === 1 ? '1 afbeelding in de mediabibliotheek' : $result['images'].' afbeeldingen in de mediabibliotheek';
+            $parts[] = $result['images'] === 1 ? __('1 afbeelding in de mediabibliotheek') : __(':count afbeeldingen in de mediabibliotheek', ['count' => $result['images']]);
         }
         if ($parts === []) {
-            $parts[] = 'Geen pagina\'s gezet. Zet “Bestaande pagina’s overschrijven” aan.';
+            $parts[] = __('Geen pagina\'s gezet. Zet “Bestaande pagina’s overschrijven” aan.');
         }
         $aiNote = $result['used_openai']
-            ? ' Teksten komen uit OpenAI.'
-            : ' OpenAI was niet beschikbaar; er is een professionele basisstructuur gezet die u in de builder kunt finetunen.';
+            ? ' '.__('Teksten komen uit OpenAI.')
+            : ' '.__('OpenAI was niet beschikbaar; er is een professionele basisstructuur gezet die u in de builder kunt finetunen.');
         $sourceNote = $result['source_pages'] > 0
-            ? ' Bronwebsite: '.$result['source_pages'].' pagina\'s doorgenomen.'
+            ? ' '.__('Bronwebsite: :count pagina\'s doorgenomen.', ['count' => $result['source_pages']])
             : '';
 
         $request->session()->put('selected_tenant', (int) $data['company_id']);
@@ -199,7 +199,7 @@ class AdminWebsiteAiGeneratorController extends Controller
 
             return redirect()
                 ->route('admin.website-pages.builder-v2.edit', $params)
-                ->with('success', implode('. ', $parts).'.'.$sourceNote.$aiNote.(($created > 0 || $updated > 0) ? ' Pagina\'s zijn concepten (niet gepubliceerd).' : ''));
+                ->with('success', implode('. ', $parts).'.'.$sourceNote.$aiNote.(($created > 0 || $updated > 0) ? ' '.__('Pagina\'s zijn concepten (niet gepubliceerd).') : ''));
         }
 
         return redirect()
@@ -210,7 +210,7 @@ class AdminWebsiteAiGeneratorController extends Controller
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->isSuperAdmin()) {
-            abort(403, 'Alleen super-admins kunnen websites met AI genereren.');
+            abort(403, __('Alleen super-admins kunnen websites met AI genereren.'));
         }
     }
 }

@@ -95,7 +95,7 @@ class AdminPlatformBillingSettingsController extends Controller
             if (! PaymentProviderService::isValidMollieApiKeyFormat($plainMollieKey)) {
                 return back()
                     ->withInput()
-                    ->withErrors(['mollie_api_key' => 'Ongeldige Mollie API-sleutel. Gebruik een test_… of live_… sleutel.']);
+                    ->withErrors(['mollie_api_key' => __('Ongeldige Mollie API-sleutel. Gebruik een test_… of live_… sleutel.')]);
             }
             $settings->setEncryptedMollieApiKey($plainMollieKey);
         } elseif ($clearMollieKey) {
@@ -106,7 +106,7 @@ class AdminPlatformBillingSettingsController extends Controller
         $settings->save();
 
         return redirect()->route('admin.platform-billing.settings.edit')
-            ->with('success', 'NEXA-facturatie-instellingen opgeslagen.');
+            ->with('success', __('NEXA-facturatie-instellingen opgeslagen.'));
     }
 
     public function importFromInvoiceSettings(): RedirectResponse
@@ -115,7 +115,7 @@ class AdminPlatformBillingSettingsController extends Controller
         $global = InvoiceSetting::query()->whereNull('company_id')->first();
 
         if (! $global) {
-            return back()->with('error', 'Geen globale factuurinstellingen gevonden om over te nemen.');
+            return back()->with('error', __('Geen globale factuurinstellingen gevonden om over te nemen.'));
         }
 
         PlatformBillingSetting::current()->update([
@@ -140,7 +140,7 @@ class AdminPlatformBillingSettingsController extends Controller
             'sender_email' => $global->company_email,
         ]);
 
-        return back()->with('success', 'Bedrijfs- en factuurgegevens overgenomen uit algemene factuurinstellingen.');
+        return back()->with('success', __('Bedrijfs- en factuurgegevens overgenomen uit algemene factuurinstellingen.'));
     }
 
     private function ensureSuperAdmin(): void

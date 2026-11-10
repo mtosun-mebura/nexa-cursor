@@ -32,7 +32,7 @@
     const UI_STATE_KEY = 'nexa_taxi_driver_ui';
     const RIDE_ALERT_TONE_KEY = 'nexa_taxi_ride_alert_tone';
     const RIDE_ALERT_TONES = ['classic', 'chime', 'alert', 'soft', 'siren'];
-    const RIDE_ALERT_TONE_DEFAULT = 'classic';
+    const RIDE_ALERT_TONE_DEFAULT = 'chime';
     const GPS_COORDS_KEY = 'nexa_taxi_driver_last_gps';
     const GPS_BG_NOTICE_KEY = 'nexa_taxi_gps_bg_notice_shown';
     const GPS_FIX_OPTIONS = {
@@ -333,6 +333,7 @@
     let viewingActiveRideId = null;
     const STOP_ARRIVE_RADIUS_M = 120;
     const NATIVE_GPS_DISTANCE_FILTER_M = 10;
+    let driverAppModes = { chauffeur: true, contract: false, marketplace: false, network: false };
     const MAPS_MAX_WAYPOINTS = 9;
     const NAV_SESSION_KEY = 'nexa_taxi_nav_session';
     let navigationWatchId = null;
@@ -854,10 +855,13 @@
 
     async function api(path, options) {
         const opts = options || {};
+        const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
         const res = await fetch(cfg.apiBase + path, {
             method: opts.method || 'GET',
-            headers: headers(opts.body !== undefined),
-            body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+            headers: headers(!isFormData && opts.body !== undefined),
+            body: opts.body === undefined
+                ? undefined
+                : (isFormData ? opts.body : JSON.stringify(opts.body)),
             credentials: 'same-origin',
             keepalive: !!opts.keepalive,
         });
@@ -880,9 +884,12 @@
             if (data && data.error === 'driver_not_active') {
                 setAccountInactive(true, data.message);
             }
-            const msg = (data && data.message) || 'Er ging iets mis.';
+            const msg = (data && data.message)
+                || (data && data.errors && data.errors.photo && data.errors.photo[0])
+                || (data && data.errors && data.errors.profile_photo && data.errors.profile_photo[0])
+                || 'Er ging iets mis.';
             const err = new Error(msg);
-            err.code = data && data.error;
+            err.code = (data && (data.code || data.error)) || null;
             err.status = res.status;
             err.errors = data && data.errors ? data.errors : null;
             throw err;
@@ -2780,6 +2787,71 @@
             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
 
+    function isAndroidDevice() {
+        return /Android/i.test(navigator.userAgent || '');
+    }
+
+    /**
+     * Browserlabel voor installatie-/meldingenhints (userAgent; Chrome-op-iOS = CriOS).
+     * @returns {'safari'|'chrome'|'firefox'|'edge'|'samsung'|'other'}
+     */
+    function detectBrowserFamily() {
+        const ua = navigator.userAgent || '';
+        if (/CriOS/i.test(ua) || (/Chrome/i.test(ua) && !/Edg|OPR|SamsungBrowser/i.test(ua))) {
+            return 'chrome';
+        }
+        if (/FxiOS|Firefox/i.test(ua)) {
+            return 'firefox';
+        }
+        if (/EdgiOS|Edg\//i.test(ua)) {
+            return 'edge';
+        }
+        if (/SamsungBrowser/i.test(ua)) {
+            return 'samsung';
+        }
+        if (/Safari/i.test(ua) && !/Chrome|CriOS|Android/i.test(ua)) {
+            return 'safari';
+        }
+        return 'other';
+    }
+
+    /** Instructie om de PWA op het beginscherm te zetten, afgestemd op toestel + browser. */
+    function homeScreenInstallHintText() {
+        const browser = detectBrowserFamily();
+        if (isIosDevice()) {
+            if (browser === 'safari' || browser === 'other') {
+                return 'Open de app via het icoon op je beginscherm (Safari → Deel → Zet op beginscherm). Meldingen werken niet in een Safari-tab.';
+            }
+            // Chrome / Firefox / Edge op iOS: zelfde WebKit-beperking, andere menunaam.
+            return 'Open de app via het icoon op je beginscherm (Deel → Zet op beginscherm). Meldingen werken niet in een browsertab.';
+        }
+        if (isAndroidDevice()) {
+            if (browser === 'samsung') {
+                return 'Open de app via het icoon op je startscherm (Samsung Internet → menu → Toevoegen pagina aan → Startscherm). Zo werken meldingen het beste.';
+            }
+            if (browser === 'firefox') {
+                return 'Open de app via het icoon op je startscherm (Firefox → menu → Installeren). Zo werken meldingen het beste.';
+            }
+            // Chrome / Edge / overig Android
+            return 'Open de app via het icoon op je startscherm (Chrome → menu ⋮ → App installeren of Toevoegen aan startscherm). Zo werken meldingen het beste.';
+        }
+        return 'Installeer de app op je apparaat voor betere meldingen.';
+    }
+
+    function homeScreenInstallShortFeedback() {
+        if (isIosDevice()) {
+            const browser = detectBrowserFamily();
+            if (browser === 'safari' || browser === 'other') {
+                return 'Open de app via het icoon op je beginscherm (niet via Safari).';
+            }
+            return 'Open de app via het icoon op je beginscherm (niet via de browser).';
+        }
+        if (isAndroidDevice()) {
+            return 'Open de app via het icoon op je startscherm (niet via de browser-tab).';
+        }
+        return 'Open de geïnstalleerde app, niet via een browsertab.';
+    }
+
     function isStandalonePwa() {
         if (window.navigator.standalone === true) {
             return true;
@@ -2808,6 +2880,17 @@
             return false;
         }
         return true;
+    }
+
+    /** Android (of desktop) in browsertab: installeren is sterk aangeraden als Notification ontbreekt. */
+    function needsHomeScreenForNotifications() {
+        if (isInBrowserTabOnIos()) {
+            return true;
+        }
+        if (isStandalonePwa()) {
+            return false;
+        }
+        return !notificationsApiAvailable();
     }
 
     function notificationsApiAvailable() {
@@ -2991,9 +3074,8 @@
             }
             return;
         }
-        // Op iOS staat de uitleg over Safari -> Deel -> Zet op beginscherm al in de
-        // meldingen-hint. Deze banner blijft daarom voor browsers met een eigen
-        // installatieprompt, zodat de chauffeur die tekst niet twee keer ziet.
+        // Op iOS staat de beginscherm-uitleg al in de meldingen-hint. Deze banner
+        // blijft voor browsers met beforeinstallprompt (o.a. Chrome/Android).
         hint.hidden = true;
         if (typeof window.nexaPwaSyncThemeToggleTop === 'function') {
             window.nexaPwaSyncThemeToggleTop();
@@ -3045,10 +3127,20 @@
             btn.hidden = false;
             btn.disabled = false;
         }
-        if (isInBrowserTabOnIos() || permission === 'unsupported') {
+        if (needsHomeScreenForNotifications()) {
             if (hintText) {
-                hintText.textContent =
-                    'Open de app via het icoon op je beginscherm (Safari → Deel → Zet op beginscherm). Meldingen werken niet in een Safari-tab.';
+                hintText.textContent = homeScreenInstallHintText();
+            }
+            if (btn) {
+                btn.hidden = true;
+            }
+            return;
+        }
+        if (permission === 'unsupported') {
+            if (hintText) {
+                hintText.textContent = isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.'
+                    : homeScreenInstallHintText();
             }
             if (btn) {
                 btn.hidden = true;
@@ -3073,17 +3165,16 @@
                 done(result);
             }
         }
-        if (isInBrowserTabOnIos()) {
-            showNotificationsFeedback(
-                'Open de app via het icoon op je beginscherm (niet via Safari).',
-                'error'
-            );
+        if (needsHomeScreenForNotifications()) {
+            showNotificationsFeedback(homeScreenInstallShortFeedback(), 'error');
             finish('unsupported');
             return;
         }
         if (!notificationsApiAvailable()) {
             showNotificationsFeedback(
-                'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.',
+                isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar. Werk iOS bij (16.4+) en open de app via het beginscherm-icoon.'
+                    : homeScreenInstallShortFeedback(),
                 'error'
             );
             finish('unsupported');
@@ -3140,7 +3231,9 @@
 
         if (!notificationsApiAvailable()) {
             showNotificationsFeedback(
-                'Meldingen zijn niet beschikbaar op dit toestel. Gebruik iOS 16.4 of nieuwer en open via het beginscherm-icoon.',
+                isIosDevice()
+                    ? 'Meldingen zijn niet beschikbaar op dit toestel. Gebruik iOS 16.4 of nieuwer en open via het beginscherm-icoon.'
+                    : homeScreenInstallHintText(),
                 'error'
             );
             return;
@@ -3301,6 +3394,15 @@
         } catch (e) {}
     }
 
+    function focusRequestsTabForNewOffer() {
+        if (!isOnline || !accountActive || currentActiveRide) {
+            return;
+        }
+        showScreen('dispatch');
+        setMainTab('requests');
+        setInboxView('offers');
+    }
+
     function notifyRideWaitingAttention(offer) {
         if (!offer || !offer.id || !isOnline || !accountActive || currentActiveRide) {
             return;
@@ -3319,6 +3421,7 @@
         vibrate([200, 100, 200, 100, 200]);
         showNewRideAlert(true, true);
         showRideOfferPhoneNotification(offer, { waiting: true });
+        focusRequestsTabForNewOffer();
     }
 
     function notifyNewRideOffer(offer) {
@@ -3332,6 +3435,7 @@
         playNewRideSound();
         vibrate([120, 60, 120, 60, 200]);
         showRideOfferPhoneNotification(offer);
+        focusRequestsTabForNewOffer();
     }
 
     function onOfferEnteredWaitingState(offer) {
@@ -5720,7 +5824,9 @@
             updateEmptyState();
             return;
         }
-        isOnline = !!value;
+        const previousOnline = isOnline;
+        const desiredOnline = !!value;
+        isOnline = desiredOnline;
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
         setOnlineUi();
         updateProfileOnlineStatus();
@@ -5767,9 +5873,21 @@
             if (e.code === 'driver_not_active') {
                 return;
             }
+            // Server weigerde (o.a. iban_required): UI terugzetten. Bij mislukte
+            // online-poging altijd offline — nooit localStorage "Online" laten staan
+            // terwijl is_online=false (nearby-taxis zou dan leeg blijven).
+            isOnline = desiredOnline ? false : previousOnline;
+            localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
+            setOnlineUi();
+            updateProfileOnlineStatus();
+            updateNotificationsHint();
+            stopGpsTracking();
+            alert(e.message || (desiredOnline ? 'Online zetten mislukt.' : 'Offline zetten mislukt.'));
             console.warn(e);
         }
-        if (token && accountActive) {
+        // GPS alleen bij échte online-status — location-pings zonder is_online
+        // vullen last_seen maar verschijnen niet op de boekingskaart.
+        if (token && accountActive && isOnline) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -6301,14 +6419,19 @@
             return true;
         }
         nativeGpsActive = true;
+        const marketplace = !!(driverAppModes && driverAppModes.marketplace);
         plugin
             .start(
                 {
-                    backgroundTitle: 'Nexa Chauffeur',
-                    backgroundMessage: 'Je locatie wordt gedeeld zolang je online staat.',
+                    backgroundTitle: marketplace ? 'Nexa Marketplace' : 'Nexa Chauffeur',
+                    backgroundMessage: marketplace
+                        ? 'Locatie blijft actief zodat klanten je taxi in de buurt kunnen vinden.'
+                        : 'Je locatie wordt gedeeld zolang je online staat.',
                     requestPermissions: true,
                     stale: false,
-                    distanceFilter: NATIVE_GPS_DISTANCE_FILTER_M,
+                    distanceFilter: marketplace
+                        ? Math.min(NATIVE_GPS_DISTANCE_FILTER_M, 25)
+                        : NATIVE_GPS_DISTANCE_FILTER_M,
                 },
                 function (position, error) {
                     if (error || !position) {
@@ -8025,6 +8148,9 @@
         }
         if (btnDecline) {
             btnDecline.dataset.offerId = String(offer.id);
+            const hideDecline = isNexaSuiteRide(offer.ride);
+            btnDecline.hidden = hideDecline;
+            btnDecline.style.display = hideDecline ? 'none' : '';
         }
 
         setAddressLink($('#offer-pickup'), offer.ride.pickup_address);
@@ -8068,6 +8194,10 @@
             return false;
         }
         if (ride.is_nexa_suite) {
+            return true;
+        }
+        const fb = ride.fee_breakdown;
+        if (fb && fb.is_marketplace) {
             return true;
         }
         return ride.source === 'nexa_suite';
@@ -8292,7 +8422,7 @@
     }
 
     function scheduledRideActionsHtml(ride, rideId) {
-        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride)) {
+        if (ride && (ride.is_scheduled_overdue || ride.is_pickup_overdue) && !isContractRide(ride) && !isNexaSuiteRide(ride)) {
             return overdueRideActionsHtml(ride, rideId);
         }
         const escapedRideId = escapeHtml(rideId);
@@ -9337,7 +9467,7 @@
                 const isOverdueAccepted = overdueOnly.some(function (item) {
                     return String(item.id) === rideId;
                 });
-                if (isOverdueAccepted) {
+                if (isOverdueAccepted && !isNexaSuiteRide(ride)) {
                     return renderOverdueAcceptedRideCard(ride);
                 }
                 const expanded = !!scheduledRideExpanded[rideId];
@@ -9818,10 +9948,14 @@
         const text = address != null ? String(address).trim() : '';
         const href = text ? mapsSearchUrl(text) : '';
         const linkAttrs = href
-            ? ' href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer"'
-            : ' href="#" aria-disabled="true"';
+            ? ' href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer" data-route-kind="' +
+              escapeHtml(variant) +
+              '"'
+            : ' href="#" aria-disabled="true" data-route-kind="' + escapeHtml(variant) + '"';
         return (
-            '<div class="offer-route-stop">' +
+            '<div class="offer-route-stop" data-route-kind="' +
+            escapeHtml(variant) +
+            '">' +
             '<div class="offer-route-head">' +
             '<span class="offer-route-dot offer-route-dot--' +
             escapeHtml(variant) +
@@ -9837,6 +9971,16 @@
             '</a>' +
             '</div>'
         );
+    }
+
+    function notifyCustomerEnRoute(rideId) {
+        const id = parseInt(rideId, 10) || 0;
+        if (!token || id <= 0) {
+            return Promise.resolve();
+        }
+        return api('/dispatch/rides/' + id + '/en-route', { method: 'POST' }).catch(function () {
+            /* navigatie mag doorgaan */
+        });
     }
 
     function routeTimelineHtml(pickupAddress, dropoffAddress) {
@@ -10302,7 +10446,7 @@
         const data = await res.json();
         if (!res.ok) {
             const err = new Error(data.message || 'Inloggen mislukt.');
-            err.code = data.error;
+            err.code = data.code || data.error;
             throw err;
         }
         token = data.token;
@@ -10434,14 +10578,24 @@
     }
 
     async function verifyLoginCode(email, code, password) {
+        const body = { email: email, code: code };
+        const trimmed = (password || '').trim();
+        if (trimmed === '') {
+            body.skip_password = true;
+        } else {
+            body.password = trimmed;
+        }
         const res = await fetch(cfg.loginCodeVerifyUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ email, code, password }),
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
         });
         const data = await res.json().catch(function () { return {}; });
         if (!res.ok) {
-            throw new Error(data.message || 'Activeren mislukt.');
+            throw new Error((data && data.message) || 'Inloggen mislukt.');
         }
         token = data.token;
         persistToken(token, data.expires_at);
@@ -11662,11 +11816,9 @@
     }
 
     function applyOnlineStateFromServer(isOnlineOnServer) {
-        if (typeof isOnlineOnServer !== 'boolean') {
-            isOnline = localStorage.getItem(ONLINE_KEY) === '1';
-        } else {
-            isOnline = isOnlineOnServer;
-        }
+        // Alleen true als de server dat expliciet zegt — geen localStorage-fallback
+        // die "Online" faked terwijl is_online=false (kaart blijft dan leeg).
+        isOnline = isOnlineOnServer === true;
         localStorage.setItem(ONLINE_KEY, isOnline ? '1' : '0');
         if (!isOnline) {
             inboxLoading = false;
@@ -11674,7 +11826,7 @@
         }
         setOnlineUi();
         updateProfileOnlineStatus();
-        if (token && accountActive) {
+        if (token && accountActive && isOnline) {
             startGpsTracking();
         } else {
             stopGpsTracking();
@@ -11711,6 +11863,137 @@
         statusEl.classList.remove('is-empty');
     }
 
+    let profileMedia = null;
+    let profileMediaBusy = false;
+    let profileMediaPendingKind = null;
+
+    function setProfileMediaPreview(kind, url, emptyGlyph) {
+        const preview = $('#profile-media-' + kind + '-preview');
+        const label = $('#profile-media-' + kind + '-label');
+        if (!preview) {
+            return;
+        }
+        if (url) {
+            const img = document.createElement('img');
+            img.className = 'profile-media__preview' + (kind === 'logo' ? ' is-logo' : '');
+            img.src = url;
+            img.alt = '';
+            img.decoding = 'async';
+            preview.replaceWith(img);
+            img.id = 'profile-media-' + kind + '-preview';
+        } else {
+            const span = document.createElement('span');
+            span.className = 'profile-media__preview is-empty' + (kind === 'logo' ? ' is-logo' : '');
+            span.id = 'profile-media-' + kind + '-preview';
+            span.setAttribute('aria-hidden', 'true');
+            span.textContent = emptyGlyph;
+            preview.replaceWith(span);
+        }
+        if (kind === 'profile' && label) {
+            label.textContent = url ? 'Profielfoto wijzigen' : 'Profielfoto (verplicht)';
+        }
+    }
+
+    function renderProfileMedia(media) {
+        profileMedia = media || null;
+        const ratingRow = $('#profile-rating-row');
+        const ratingEl = $('#profile-rating');
+        if (ratingRow && ratingEl) {
+            const avg = media && media.rating_avg != null ? Number(media.rating_avg) : null;
+            const count = media && media.rating_count ? Number(media.rating_count) : 0;
+            if (avg != null && !Number.isNaN(avg)) {
+                ratingRow.hidden = false;
+                ratingEl.textContent = '★ ' + avg.toFixed(1) + (count ? ' (' + count + ')' : '');
+                ratingEl.classList.remove('is-empty');
+            } else {
+                ratingRow.hidden = true;
+                ratingEl.textContent = '—';
+            }
+        }
+        setProfileMediaPreview('profile', media && media.profile_photo_url, '👤');
+        setProfileMediaPreview('logo', media && media.company_logo_url, '🏢');
+        setProfileMediaPreview('vehicle', media && media.vehicle_photo_url, '🚗');
+    }
+
+    function setProfileMediaError(message) {
+        const err = $('#profile-media-error');
+        if (!err) {
+            return;
+        }
+        if (message) {
+            err.hidden = false;
+            err.textContent = message;
+        } else {
+            err.hidden = true;
+            err.textContent = '';
+        }
+    }
+
+    function setProfileMediaBusy(busy) {
+        profileMediaBusy = !!busy;
+        document.querySelectorAll('[data-media-kind]').forEach(function (btn) {
+            btn.disabled = profileMediaBusy;
+        });
+    }
+
+    async function uploadProfileMedia(kind, file) {
+        if (!token || !file || profileMediaBusy) {
+            return;
+        }
+        const path =
+            kind === 'logo'
+                ? '/profile/company-logo'
+                : kind === 'vehicle'
+                    ? '/profile/vehicle-photo'
+                    : '/profile/photo';
+        const fd = new FormData();
+        const ext = file.type === 'image/png'
+            ? '.png'
+            : (file.type === 'image/webp' ? '.webp' : (file.type === 'image/gif' ? '.gif' : '.jpg'));
+        fd.append('photo', file, file.name || (kind + ext));
+        setProfileMediaBusy(true);
+        setProfileMediaError('');
+        try {
+            const res = await api(path, { method: 'POST', body: fd });
+            if (res && res.media) {
+                renderProfileMedia(res.media);
+                if (profileUser) {
+                    profileUser.media = res.media;
+                }
+            }
+        } catch (e) {
+            setProfileMediaError((e && e.message) || 'Upload mislukt.');
+        } finally {
+            setProfileMediaBusy(false);
+        }
+    }
+
+    function bindProfileMediaPicker() {
+        const fileInput = $('#profile-media-file');
+        if (!fileInput) {
+            return;
+        }
+        document.querySelectorAll('[data-media-kind]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (profileMediaBusy) {
+                    return;
+                }
+                profileMediaPendingKind = btn.getAttribute('data-media-kind');
+                fileInput.value = '';
+                fileInput.click();
+            });
+        });
+        fileInput.addEventListener('change', function () {
+            const file = fileInput.files && fileInput.files[0];
+            const kind = profileMediaPendingKind || 'profile';
+            profileMediaPendingKind = null;
+            if (!file) {
+                return;
+            }
+            uploadProfileMedia(kind, file);
+        });
+    }
+
     function renderProfileUser(user) {
         profileUser = user || null;
         const nameEl = $('#profile-name');
@@ -11731,6 +12014,7 @@
                 delete statusEl.dataset.accountActive;
             }
             setProfileField(statusEl, '');
+            renderProfileMedia(null);
             return;
         }
         const fullName =
@@ -11751,6 +12035,7 @@
         updateProfileOnlineStatus();
         applyAccentFromUser(user);
         applyRideAlertToneFromUser(user);
+        renderProfileMedia(user.media || null);
         syncRideKindFilterUi();
         applyRideKindFilterToViews();
     }
@@ -11813,9 +12098,22 @@
         return next;
     }
 
+    let rideToneDirty = false;
+
     function applyRideAlertToneFromUser(user) {
-        if (user && user.ride_alert_tone) {
-            storeRideAlertTone(user.ride_alert_tone);
+        const serverTone = user && user.ride_alert_tone
+            ? normalizeRideAlertTone(user.ride_alert_tone)
+            : null;
+        if (rideToneDirty) {
+            const local = getRideAlertTone();
+            if (serverTone && serverTone === local) {
+                rideToneDirty = false;
+            }
+            syncRideTonePicker(local);
+            return;
+        }
+        if (serverTone) {
+            storeRideAlertTone(serverTone);
             return;
         }
         syncRideTonePicker(getRideAlertTone());
@@ -11823,6 +12121,7 @@
 
     function persistRideAlertTone(tone) {
         const next = storeRideAlertTone(tone);
+        rideToneDirty = true;
         if (!token) {
             return;
         }
@@ -11830,9 +12129,14 @@
             .then(function (res) {
                 if (res && res.ride_alert_tone && profileUser) {
                     profileUser.ride_alert_tone = res.ride_alert_tone;
+                    if (normalizeRideAlertTone(res.ride_alert_tone) === next) {
+                        rideToneDirty = false;
+                    }
                 }
             })
-            .catch(function () {});
+            .catch(function () {
+                /* lokale keuze blijft via rideToneDirty */
+            });
     }
 
     function bindAccentPicker() {
@@ -11879,7 +12183,10 @@
             renderProfileUser(me.user || null);
             const active = me.user && me.user.is_account_active !== false;
             setAccountInactive(!active);
-            applyOnlineStateFromServer(me.user && me.user.is_online);
+            applyOnlineStateFromServer(!!(me.user && me.user.is_online));
+            if (me.user && me.user.app_modes && typeof me.user.app_modes === 'object') {
+                driverAppModes = Object.assign({}, driverAppModes, me.user.app_modes);
+            }
             if (me.user && me.user.vehicle_id) {
                 persistSelectedVehicle(me.user.vehicle_id);
             }
@@ -12012,7 +12319,7 @@
                 showLoginError('De wachtwoorden komen niet overeen.');
                 return;
             }
-            setButtonLoading(verifyLoginCodeBtn, true, 'Activeren…');
+            setButtonLoading(verifyLoginCodeBtn, true, 'Inloggen…');
             try {
                 await verifyLoginCode(email, code, password);
                 unlockAudio();
@@ -12023,7 +12330,7 @@
                 syncScreenWakeLock();
                 startInboxSync();
             } catch (e) {
-                showLoginError(e.message || 'Activeren mislukt.');
+                showLoginError(e.message || 'Inloggen mislukt.');
             } finally {
                 clearButtonLoading(verifyLoginCodeBtn);
             }
@@ -12718,19 +13025,42 @@
     });
 
     document.addEventListener('click', function (ev) {
-        if (!isIosDevice() || !ev.target || !ev.target.closest) {
+        if (!ev.target || !ev.target.closest) {
             return;
         }
         const link = ev.target.closest('a[href*="google.com/maps"]');
         if (!link) {
             return;
         }
-        const target = mapsTargetFromLink(link.getAttribute('href'));
-        if (!target) {
+        const rideCard = link.closest('[data-ride-id]');
+        const routeKind = link.getAttribute('data-route-kind')
+            || (link.closest('[data-route-kind]') && link.closest('[data-route-kind]').getAttribute('data-route-kind'))
+            || '';
+        const rideId = rideCard ? rideCard.getAttribute('data-ride-id') : '';
+        const shouldNotify = routeKind === 'pickup' && rideId;
+        const open = function () {
+            if (isIosDevice()) {
+                const target = mapsTargetFromLink(link.getAttribute('href'));
+                if (target) {
+                    ev.preventDefault();
+                    openMapsTarget(target);
+                }
+            }
+        };
+        if (shouldNotify) {
+            ev.preventDefault();
+            notifyCustomerEnRoute(rideId).finally(function () {
+                if (isIosDevice()) {
+                    openMapsTarget(mapsTargetFromLink(link.getAttribute('href')));
+                } else {
+                    window.open(link.getAttribute('href'), '_blank', 'noopener,noreferrer');
+                }
+            });
             return;
         }
-        ev.preventDefault();
-        openMapsTarget(target);
+        if (isIosDevice()) {
+            open();
+        }
     });
 
     document.addEventListener('click', function () {
@@ -12753,6 +13083,7 @@
 
     bindAccentPicker();
     bindRideTonePicker();
+    bindProfileMediaPicker();
     bindNavigationMapTheme();
     updateGuideHint();
     bootstrap();

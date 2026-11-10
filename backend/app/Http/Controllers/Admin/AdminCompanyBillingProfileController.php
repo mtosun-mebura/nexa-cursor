@@ -217,7 +217,7 @@ class AdminCompanyBillingProfileController extends Controller
         }
 
         return redirect()->route('admin.platform-billing.tenants.edit', $company)
-            ->with('success', 'Tenant-facturatie opgeslagen.');
+            ->with('success', __('Tenant-facturatie opgeslagen.'));
     }
 
     public function mollieRequestPreview(Request $request, Company $company, PlatformMollieRequestBuilder $mollieRequests): View
@@ -268,7 +268,7 @@ class AdminCompanyBillingProfileController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', 'Mandaat-aanvraag verstuurd per e-mail (€0,01 verificatie).');
+        return back()->with('success', __('Mandaat-aanvraag verstuurd per e-mail (€0,01 verificatie).'));
     }
 
     public function emergencyTerminate(Company $company, TenantSubscriptionService $subscriptions): RedirectResponse
@@ -285,11 +285,11 @@ class AdminCompanyBillingProfileController extends Controller
 
         $endLabel = $profile->subscription_end_date
             ? $profile->subscription_end_date->translatedFormat('j F Y')
-            : 'einde van de maand';
+            : __('einde van de maand');
 
         return redirect()
             ->route('admin.platform-billing.tenants.edit', ['company' => $company, 'saved' => 1])
-            ->with('success', 'Abonnement wordt per '.$endLabel.' beëindigd. De volgende incasso is gestopt.');
+            ->with('success', __('Abonnement wordt per :date beëindigd. De volgende incasso is gestopt.', ['date' => $endLabel]));
     }
 
     private function profileFromRequest(Company $company, Request $request): CompanyBillingProfile

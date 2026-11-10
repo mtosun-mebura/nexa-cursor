@@ -40,7 +40,7 @@ class TransportAnnouncementController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
-            ->with('success', 'Verstoring / melding geplaatst.');
+            ->with('success', __('Verstoring / melding geplaatst.'));
     }
 
     public function update(Request $request, int $customerId, int $announcementId)
@@ -70,7 +70,7 @@ class TransportAnnouncementController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
-            ->with('success', 'Melding bijgewerkt.');
+            ->with('success', __('Melding bijgewerkt.'));
     }
 
     public function destroy(int $customerId, int $announcementId)
@@ -90,7 +90,7 @@ class TransportAnnouncementController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'meldingen'])
-            ->with('success', 'Melding verwijderd.');
+            ->with('success', __('Melding verwijderd.'));
     }
 
     private function validatedAnnouncementData(Request $request): array

@@ -103,6 +103,14 @@ return [
             'estimated_minutes' => 6,
             'capabilities' => ['dispatch'],
         ],
+        'app' => [
+            'title' => 'App',
+            'summary' => 'Native app voor klant, chauffeur, contractant en contractouder.',
+            'icon' => 'ki-phone',
+            'order' => 95,
+            'view' => 'admin.handleiding.pages.app',
+            'estimated_minutes' => 12,
+        ],
         'chauffeur-app' => [
             'title' => 'Chauffeur-app',
             'summary' => 'Inbox, rit starten en afronden op telefoon of tablet.',

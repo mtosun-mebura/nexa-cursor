@@ -18,12 +18,12 @@
     $widthPercentOptions = [100, 90, 80, 70, 60, 50, 40, 30];
 @endphp
 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>
+    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Achtergrond') }}</span>
     <input type="color"
            id="carousel-bg-color-{{ $sectionKey }}-{{ $idx }}_color"
            class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
            value="{{ $slideTextBgColorPicker }}"
-           title="Achtergrondkleur tekstblok"
+           title="{{ __('Achtergrondkleur tekstblok') }}"
            data-target-input="carousel-bg-color-{{ $sectionKey }}-{{ $idx }}">
     <div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">
         <input type="text"
@@ -37,7 +37,7 @@
     </div>
 </div>
 <div class="carousel-slide-bg-opacity-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">
-    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Transparantie</span>
+    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Transparantie') }}</span>
     <div class="carousel-slide-text-bg-opacity-slider hero-overlay-opacity-slider flex-1 min-w-[8rem] max-w-[14rem]">
         <input type="range"
                name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_bg_opacity]"
@@ -51,20 +51,20 @@
                aria-valuemax="100"
                aria-valuenow="{{ $slideTextBgOpacitySlider }}"
                aria-describedby="{{ $opacityId }}-value"
-               title="0 = volledig doorzichtig, 100 = ondoorzichtig">
+               title="{{ __('0 = volledig doorzichtig, 100 = ondoorzichtig') }}">
     </div>
     <span id="{{ $opacityId }}-value"
           class="carousel-slide-text-bg-opacity-value inline-flex items-center justify-center min-w-[2.75rem] rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shrink-0"
           aria-live="polite">{{ $slideTextBgOpacitySlider }}%</span>
     <span id="{{ $opacityId }}-preview"
           class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm"
-          title="Voorbeeld achtergrondvlak"
+          title="{{ __('Voorbeeld achtergrondvlak') }}"
           role="img"
-          aria-label="Voorbeeld achtergrond"></span>
+          aria-label="{{ __('Voorbeeld achtergrond') }}"></span>
 </div>
 <div class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full mt-1">
-    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>
-    <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte tekstblok op slide (%)">
+    <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Breedte') }}</span>
+    <select name="home_sections[{{ $sectionKey }}][items][{{ $idx }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="{{ __('Breedte tekstblok op slide (%)') }}">
         @foreach($widthPercentOptions as $pct)
             <option value="{{ $pct }}" @selected($slideTextBgWidthPct === $pct)>{{ $pct }}%</option>
         @endforeach

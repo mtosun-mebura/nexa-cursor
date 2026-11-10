@@ -3,6 +3,7 @@
     $formFields = $formFields ?? collect();
     $hasFields = $formFields->isNotEmpty();
     $sectionKey = 'preview';
+    $emailTemplate = $emailTemplate ?? null;
     $previewFieldRequired = function ($field) use ($emailTemplate) {
         return isset($emailTemplate)
             ? $emailTemplate->isFormFieldRequired($field)

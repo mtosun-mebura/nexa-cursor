@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Rol Details - ' . ucfirst(str_replace('-', ' ', $role->name)))
+@section('title', __('Rol Details - :name', ['name' => ucfirst(str_replace('-', ' ', $role->name))]))
 
 @push('styles')
 <style>
@@ -205,22 +205,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     {{ ucfirst(str_replace('-', ' ', $role->name)) }}
                 </div>
                 @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                    <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                    <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Systeem') }}</span>
                 @else
-                    <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                    <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Aangepast') }}</span>
                 @endif
             </div>
             <div class="flex flex-wrap justify-center gap-1 lg:gap-4.5 text-sm">
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-key text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $visiblePermissionCount }} rechten
+                        {{ $visiblePermissionCount }} {{ __('rechten') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-people text-muted-foreground text-sm"></i>
                     <span class="text-secondary-foreground font-medium">
-                        {{ $role->users->count() }} gebruikers
+                        {{ $role->users->count() }} {{ __('gebruikers') }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.roles.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
                            class="kt-switch kt-switch-sm" 
                            id="toggle-status-checkbox"
                            {{ $isActive ? 'checked' : '' }}/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             </form>
             @else
@@ -266,13 +266,13 @@ document.addEventListener('DOMContentLoaded', function() {
                        class="kt-switch kt-switch-sm" 
                        checked 
                        disabled/>
-                <span class="ms-2">Actief</span>
+                <span class="ms-2">{{ __('Actief') }}</span>
             </label>
             @endif
             <span class="text-orange-500">|</span>
             <a href="{{ route('admin.roles.edit', $role) }}" class="kt-btn kt-btn-warning">
                 <i class="ki-filled ki-pencil me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endif
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('delete-roles'))
@@ -280,12 +280,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <form action="{{ route('admin.roles.destroy', $role) }}" 
                   method="POST" 
                   class="inline"
-                  onsubmit="return confirm('Weet je zeker dat je deze rol wilt verwijderen?')">
+                  onsubmit="return confirm(@js(__('Weet je zeker dat je deze rol wilt verwijderen?')))">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="kt-btn kt-btn-danger">
                     <i class="ki-filled ki-trash me-2"></i>
-                    Verwijderen
+                    {{ __('Verwijderen') }}
                 </button>
             </form>
             @endif
@@ -297,67 +297,67 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Basic Information -->
         <div class="kt-card min-w-full">
             <div class="kt-card-header">
-                <h3 class="kt-card-title">Basis Informatie</h3>
+                <h3 class="kt-card-title">{{ __('Basis Informatie') }}</h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Rol Naam</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Rol Naam') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground font-medium">{{ ucfirst(str_replace('-', ' ', $role->name)) }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Type</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Type') }}</td>
                         <td class="min-w-48 w-full">
                             @if(in_array($role->name, ['super-admin', 'company-admin', 'staff', 'candidate']))
-                                <span class="kt-badge kt-badge-warning">Systeem</span>
+                                <span class="kt-badge kt-badge-warning">{{ __('Systeem') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-success">Aangepast</span>
+                                <span class="kt-badge kt-badge-success">{{ __('Aangepast') }}</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Status</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Status') }}</td>
                         <td class="min-w-48 w-full">
                             @php
                                 $isActive = $role->is_active ?? true;
                             @endphp
                             @if($isActive)
-                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                             @endif
                         </td>
                     </tr>
                     @if($role->description)
                     <tr>
-                        <td class="text-secondary-foreground font-normal align-top">Beschrijving</td>
+                        <td class="text-secondary-foreground font-normal align-top">{{ __('Beschrijving') }}</td>
                         <td>
                             <span class="text-foreground">{{ $role->description }}</span>
                         </td>
                     </tr>
                     @endif
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Rechten</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aantal Rechten') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="kt-badge kt-badge-info">{{ $visiblePermissionCount }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aantal Gebruikers</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aantal Gebruikers') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="kt-badge kt-badge-secondary">{{ $role->users->count() }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Aangemaakt</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Aangemaakt') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground">{{ $role->created_at->format('d-m-Y H:i') }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal">Laatst bijgewerkt</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Laatst bijgewerkt') }}</td>
                         <td class="min-w-48 w-full">
                             <span class="text-foreground">{{ $role->updated_at->format('d-m-Y H:i') }}</span>
                         </td>
@@ -369,17 +369,17 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Permissions -->
         <div class="kt-card min-w-full">
             <div class="kt-card-header px-5 py-5">
-                <h3 class="kt-card-title">Toegewezen Rechten ({{ $visiblePermissionCount }})</h3>
+                <h3 class="kt-card-title">{{ __('Toegewezen Rechten (:count)', ['count' => $visiblePermissionCount]) }}</h3>
             </div>
             <div class="role-assigned-permissions role-permissions-scroll admin-table-scroll-wrap kt-card-table kt-scrollable-x-auto pb-3 min-w-0">
                 @if($visiblePermissionCount > 0)
                     <table class="kt-table kt-table-border align-middle text-sm w-full admin-keep-table-layout role-permissions-matrix">
                         <thead>
                             <tr>
-                                <th class="text-left text-secondary-foreground font-normal">Module / Resource</th>
+                                <th class="text-left text-secondary-foreground font-normal">{{ __('Module / Resource') }}</th>
                                 @foreach($permissionMatrix['allActions'] as $action)
                                     <th class="text-center text-secondary-foreground font-normal">
-                                        {{ $permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action)) }}
+                                        {{ __($permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action))) }}
                                     </th>
                                 @endforeach
                             </tr>
@@ -407,11 +407,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                             @if($isActiveModule)
                                                 <span class="font-semibold text-foreground text-sm flex items-center gap-1">
                                                     <x-heroicon-s-puzzle-piece class="w-4 h-4 text-primary flex-shrink-0" />
-                                                    {{ $headerDisplayName }}
+                                                    {{ __($headerDisplayName) }}
                                                 </span>
                                             @else
                                                 <span class="font-semibold text-foreground text-sm">
-                                                    {{ $headerDisplayName }}
+                                                    {{ __($headerDisplayName) }}
                                                 </span>
                                             @endif
                                         </td>
@@ -424,11 +424,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <tr class="role-permission-resource-row">
                                             <td class="text-foreground pl-6 role-permission-resource-name">
                                                 <span class="font-medium text-sm">
-                                                    {{ $permissionMatrix['moduleNames'][$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey)) }}
+                                                    {{ __($permissionMatrix['moduleNames'][$moduleKey] ?? ucfirst(str_replace(['-', '_'], ' ', $resource ?? $moduleKey))) }}
                                                 </span>
                                             </td>
                                             @foreach($permissionMatrix['allActions'] as $action)
-                                                <td class="text-center role-permission-action-cell"@if(isset($permissionMatrix['permissionMap'][$moduleKey][$action])) data-permission-action="{{ $permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action)) }}"@endif>
+                                                <td class="text-center role-permission-action-cell"@if(isset($permissionMatrix['permissionMap'][$moduleKey][$action])) data-permission-action="{{ __($permissionMatrix['actionNames'][$action] ?? ucfirst(str_replace('_', ' ', $action))) }}"@endif>
                                                     @if(isset($permissionMatrix['permissionMap'][$moduleKey][$action]))
                                                         <x-heroicon-s-check class="w-5 h-5 text-blue-500 mx-auto" />
                                                     @endif
@@ -442,82 +442,144 @@ document.addEventListener('DOMContentLoaded', function() {
                     </table>
                 @else
                     <div class="p-5">
-                        <p class="text-muted-foreground mb-0">Geen rechten toegewezen aan deze rol.</p>
+                        <p class="text-muted-foreground mb-0">{{ __('Geen rechten toegewezen aan deze rol.') }}</p>
                     </div>
                 @endif
             </div>
         </div>
 
+        @include('admin.roles.partials.dispatch-permissions', ['dispatchEditable' => false])
+
         <!-- Users with this role -->
-        @if($role->users->count() > 0)
-        <div class="kt-card min-w-full">
-            <div class="kt-card-header">
-                <h3 class="kt-card-title">Gebruikers met deze rol ({{ $role->users->count() }})</h3>
-            </div>
-            <div class="kt-card-content">
-                <div class="kt-scrollable-x-auto">
-                    <table class="kt-table kt-table-border align-middle">
-                        <thead>
-                            <tr>
-                                <th class="min-w-[200px]">Gebruiker</th>
-                                <th class="min-w-[200px]">Email</th>
-                                <th class="min-w-[150px]">Bedrijf</th>
-                                <th class="min-w-[100px]">Acties</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($role->users as $user)
-                            <tr>
-                                <td>
-                                    <div class="flex items-center gap-2.5">
-                                        @if($user->photo_blob)
-                                            <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ $user->photo_blob ? route('secure.photo', ['token' => $user->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}"/>
-                                        @else
-                                            <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
-                                                <span class="text-xs font-semibold text-secondary-foreground">
-                                                    {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
-                                                </span>
-                                            </div>
-                                        @endif
-                                        <div class="flex flex-col">
-                                            <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.users.show', $user) }}">
-                                                {{ $user->first_name }} {{ $user->last_name }}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <a class="text-sm text-secondary-foreground hover:text-primary" href="mailto:{{ $user->email }}">
-                                        {{ $user->email }}
-                                    </a>
-                                </td>
-                                <td>
-                                    @if($user->company)
-                                        <span class="kt-badge kt-badge-info">{{ $user->company->name }}</span>
-                                    @else
-                                        <span class="text-sm text-muted-foreground">Geen bedrijf</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bekijken">
-                                            <i class="ki-filled ki-eye"></i>
-                                        </a>
-                                        @can('edit-users')
-                                        <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Bewerken">
-                                            <i class="ki-filled ki-pencil"></i>
-                                        </a>
-                                        @endcan
-                                    </div>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+        @php
+            $roleUsers = $role->users;
+            $roleUserCompanies = $roleUsers->pluck('company')->filter()->unique('id')->sortBy('name')->values();
+        @endphp
+        <div class="kt-card kt-card-grid w-full min-w-0">
+            <div class="kt-card-header px-5 py-5 flex-wrap gap-2 min-w-0">
+                <h3 class="kt-card-title text-sm pb-3 w-full mb-0">{{ __('Gebruikers met deze rol (:count)', ['count' => $roleUsers->count()]) }}</h3>
+                @if($roleUsers->count() > 0)
+                <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center"
+                     data-admin-live-filter="off">
+                    <label class="kt-input w-full sm:w-64 min-w-0">
+                        <i class="ki-filled ki-magnifier"></i>
+                        <input placeholder="{{ __('Zoek gebruiker of e-mail...') }}"
+                               type="text"
+                               name="search"
+                               id="role-users-search"
+                               value=""
+                               autocomplete="off"
+                               data-admin-datatable-search="#role_users_table">
+                    </label>
+                    @if($roleUserCompanies->count() > 0)
+                    <select class="kt-select w-full sm:w-44" name="company" data-admin-datatable-filter="company" aria-label="{{ __('Bedrijf') }}">
+                        <option value="">{{ __('Alle bedrijven') }}</option>
+                        @foreach($roleUserCompanies as $company)
+                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                        @if($roleUsers->contains(fn ($roleUser) => $roleUser->company === null))
+                            <option value="none">{{ __('Geen bedrijf') }}</option>
+                        @endif
+                    </select>
+                    @endif
+                    <button type="button"
+                            data-admin-datatable-reset
+                            class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
+                            title="{{ __('Filters resetten') }}">
+                        <i class="ki-filled ki-arrows-circle text-base"></i>
+                    </button>
                 </div>
+                @endif
+            </div>
+            <div class="kt-card-content p-0 min-w-0">
+                @if($roleUsers->count() > 0)
+                <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="10" id="role_users_table" data-admin-datatable-label="{{ __('gebruikers') }}">
+                    <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+                        <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                            <thead>
+                                <tr>
+                                    <th class="text-secondary-foreground font-normal" data-label="{{ __('Gebruiker') }}">{{ __('Gebruiker') }}</th>
+                                    <th class="text-secondary-foreground font-normal" data-label="{{ __('Email') }}">{{ __('Email') }}</th>
+                                    <th class="text-secondary-foreground font-normal" data-label="{{ __('Bedrijf') }}">{{ __('Bedrijf') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($roleUsers as $user)
+                                <tr data-company="{{ $user->company ? $user->company->id : 'none' }}"
+                                    data-search-text="{{ trim($user->first_name.' '.$user->last_name.' '.$user->email.' '.($user->company->name ?? '')) }}">
+                                    <td>
+                                        <div class="flex items-center gap-2.5">
+                                            @if($user->photo_blob)
+                                                <img alt="{{ $user->first_name }} {{ $user->last_name }}" class="rounded-full size-9 shrink-0" src="{{ route('secure.photo', ['token' => $user->getPhotoToken()]) }}"/>
+                                            @else
+                                                <div class="rounded-full size-9 shrink-0 bg-accent/60 border border-input flex items-center justify-center">
+                                                    <span class="text-xs font-semibold text-secondary-foreground">
+                                                        {{ strtoupper(substr($user->first_name ?? 'U', 0, 1) . substr($user->last_name ?? '', 0, 1)) }}
+                                                    </span>
+                                                </div>
+                                            @endif
+                                            <div class="flex flex-col">
+                                                <a class="text-sm font-medium text-mono hover:text-primary" href="{{ route('admin.users.show', $user) }}">
+                                                    {{ $user->first_name }} {{ $user->last_name }}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a class="text-sm text-secondary-foreground hover:text-primary" href="mailto:{{ $user->email }}">
+                                            {{ $user->email }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        @if($user->company)
+                                            <span class="kt-badge kt-badge-info">{{ $user->company->name }}</span>
+                                        @else
+                                            <span class="text-sm text-muted-foreground">{{ __('Geen bedrijf') }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bekijken') }}">
+                                                <i class="ki-filled ki-eye"></i>
+                                            </a>
+                                            @can('edit-users')
+                                            <a href="{{ route('admin.users.edit', $user) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Bewerken') }}">
+                                                <i class="ki-filled ki-pencil"></i>
+                                            </a>
+                                            @endcan
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
+                        <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
+                            {{ __('Toon') }}
+                            <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            {{ __('per pagina') }}
+                        </div>
+                        <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
+                            <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
+                        </div>
+                        <span class="admin-datatable-footer__info" data-admin-datatable-info="true"></span>
+                    </div>
+                </div>
+                @else
+                    <div class="p-5">
+                        <p class="text-sm text-muted-foreground mb-0">{{ __('Geen gebruikers met deze rol.') }}</p>
+                    </div>
+                @endif
             </div>
         </div>
-        @endif
     </div>
 </div>
 

@@ -49,6 +49,42 @@ class AdminMailSettingsAccessTest extends TestCase
         $this->actingAs($admin)
             ->post(route('admin.settings.mail.update'), [
                 'MAIL_MAILER' => 'log',
+                'MAIL_HOST' => '',
+                'MAIL_FROM_ADDRESS' => 'info@taxiroyaal.test',
+                'MAIL_FROM_NAME' => 'Taxi Royaal',
+            ])
+            ->assertRedirect(route('admin.settings.index'))
+            ->assertSessionHas('success');
+
+        // Zonder eigen SMTP-host: alleen From-naam opslaan; From-adres blijft NEXA Suite.
+        $this->assertSame(
+            'Taxi Royaal',
+            GeneralSetting::query()
+                ->where('company_id', $admin->company_id)
+                ->where('key', 'MAIL_FROM_NAME')
+                ->value('value')
+        );
+        $this->assertNull(
+            GeneralSetting::query()
+                ->where('company_id', $admin->company_id)
+                ->where('key', 'MAIL_FROM_ADDRESS')
+                ->first()
+        );
+    }
+
+    #[Test]
+    public function company_admin_can_save_own_smtp_mail_settings(): void
+    {
+        $admin = $this->companyAdmin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.settings.mail.update'), [
+                'MAIL_MAILER' => 'smtp',
+                'MAIL_HOST' => 'smtp.example.com',
+                'MAIL_PORT' => '587',
+                'MAIL_ENCRYPTION' => 'tls',
+                'MAIL_USERNAME' => 'mail@example.com',
+                'MAIL_PASSWORD' => 'secret',
                 'MAIL_FROM_ADDRESS' => 'info@taxiroyaal.test',
                 'MAIL_FROM_NAME' => 'Taxi Royaal',
             ])
@@ -57,8 +93,12 @@ class AdminMailSettingsAccessTest extends TestCase
 
         $this->assertSame(
             'info@taxiroyaal.test',
-            GeneralSetting::get('MAIL_FROM_ADDRESS', '', $admin->company_id)
+            GeneralSetting::query()
+                ->where('company_id', $admin->company_id)
+                ->where('key', 'MAIL_FROM_ADDRESS')
+                ->value('value')
         );
+        $this->assertTrue(GeneralSetting::companyHasOwnMailDelivery((int) $admin->company_id));
     }
 
     #[Test]

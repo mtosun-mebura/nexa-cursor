@@ -227,7 +227,7 @@ class TaxiGpsTrackingService
             $out[] = [
                 'id' => 'vehicle-'.$vehicleId,
                 'driver_id' => $driverId,
-                'driver_name' => $user ? $this->driverDisplayName($user) : ($name !== '' ? $name : 'Chauffeur'),
+                'driver_name' => $user ? $this->driverDisplayName($user) : ($name !== '' ? $name : __('Chauffeur')),
                 'vehicle_id' => $vehicleId,
                 'vehicle_name' => $name !== '' ? $name : null,
                 'license_plate' => $plate !== '' ? $plate : ($name !== '' ? $name : 'Voertuig #'.$vehicleId),
@@ -289,9 +289,9 @@ class TaxiGpsTrackingService
 
             $out[] = [
                 'id' => $id,
-                'license_plate' => $plate !== '' ? $plate : ($name !== '' ? $name : 'Voertuig #'.$id),
+                'license_plate' => $plate !== '' ? $plate : ($name !== '' ? $name : __('Voertuig #:id', ['id' => $id])),
                 'name' => $name,
-                'driver_name' => $user ? $this->driverDisplayName($user) : 'Geen chauffeur',
+                'driver_name' => $user ? $this->driverDisplayName($user) : __('Geen chauffeur'),
                 'active' => (bool) $vehicle->active,
                 'car_style' => TaxiGpsTrackingSettingsService::styleFromVehicleType($vehicle->type),
                 'color' => is_string($custom) && preg_match('/^#[0-9a-fA-F]{6}$/', $custom) === 1
@@ -380,13 +380,13 @@ class TaxiGpsTrackingService
     private function driverDisplayName(?User $user): string
     {
         if (! $user) {
-            return 'Onbekende chauffeur';
+            return __('Onbekende chauffeur');
         }
         $name = trim(trim((string) ($user->first_name ?? '')).' '.trim((string) ($user->last_name ?? '')));
         if ($name !== '') {
             return $name;
         }
 
-        return (string) ($user->email ?? 'Chauffeur');
+        return (string) ($user->email ?? __('Chauffeur'));
     }
 }

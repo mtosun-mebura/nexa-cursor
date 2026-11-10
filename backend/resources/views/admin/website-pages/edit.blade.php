@@ -1,10 +1,10 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Pagina bewerken')
+@section('title', __('Pagina bewerken'))
 
 @section('content')
 @php
-    $showSuccessMessage = session('success') ?? (request()->query('saved') ? 'Pagina bijgewerkt.' : null);
+    $showSuccessMessage = session('success') ?? (request()->query('saved') ? __('Pagina bijgewerkt.') : null);
 @endphp
 @if($showSuccessMessage)
     <script>window.__websitePageSuccessMessage = @json($showSuccessMessage);</script>
@@ -20,31 +20,31 @@
     })();
     </script>
     @endif
-    <p class="text-sm text-muted-foreground mb-5">De pagina hoort bij een <strong>module</strong> of bij kernpagina's (geen). Pagina's worden altijd getoond in het actieve thema. De inhoud bewerk je met de website builder onderaan.</p>
+    <p class="text-sm text-muted-foreground mb-5">{!! __("De pagina hoort bij een <strong>module</strong> of bij kernpagina's (geen). Pagina's worden altijd getoond in het actieve thema. De inhoud bewerk je met de website builder onderaan.") !!}</p>
     @if($isCentralMarketingWelcome ?? false)
         <div class="kt-alert kt-alert-info mb-5">
             <p>
                 <i class="ki-filled ki-information-2 me-2"></i>
-                Dit is de <strong>centrale NEXA-welkomstpagina</strong> (hoofddomein zonder tenant).<br><br> Slug en bedrijfskoppeling zijn vastgezet; secties en teksten bewerk je hier zoals bij elke andere frontend-pagina.
+                {!! __('Dit is de <strong>centrale NEXA-welkomstpagina</strong> (hoofddomein zonder tenant).<br><br> Slug en bedrijfskoppeling zijn vastgezet; secties en teksten bewerk je hier zoals bij elke andere frontend-pagina.') !!}
             </p>
         </div>
     @endif
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Pagina bewerken
+                {{ __('Pagina bewerken') }}
             </h1>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             @if(!empty($wizardBackUrl))
                 <a href="{{ $wizardBackUrl }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-arrow-left me-2"></i>
-                    Terug naar tenant-wizard
+                    {{ __('Terug naar tenant-wizard') }}
                 </a>
             @endif
             <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug naar overzicht
+                {{ __('Terug naar overzicht') }}
             </a>
             @php
                 $websitePagePreviewUrl = $websiteDevPreviewUrl ?? route('admin.website-pages.preview', $page).($page->module_name ? '?module='.rawurlencode($page->module_name) : '');
@@ -58,11 +58,11 @@
             @endphp
             <a href="{{ $websitePagePreviewUrl }}" target="_blank" rel="noopener" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-eye me-2"></i>
-                Website voorbeeld
+                {{ __('Website voorbeeld') }}
             </a>
             <a href="{{ $builderV2EditUrl }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-design-1 me-2"></i>
-                Visuele editor
+                {{ __('Visuele editor') }}
             </a>
         </div>
     </div>
@@ -104,7 +104,7 @@
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header website-page-info-header flex flex-wrap items-center justify-between gap-3 w-full min-w-0 pt-4 pb-4">
                     <h3 class="kt-card-title w-full sm:w-auto shrink-0">
-                        Pagina-informatie
+                        {{ __('Pagina-informatie') }}
                     </h3>
                     @php
                         // Sentinel: old() met default false zou 'geen old input' niet kunnen onderscheiden van opgeslagen false.
@@ -119,12 +119,12 @@
                     @endphp
                     <div class="flex flex-wrap flex-1 items-center justify-start sm:justify-center gap-x-2 gap-y-2 min-w-0 sm:px-2 w-full sm:w-auto">
                         <label class="kt-label inline-flex flex-wrap items-center gap-2 shrink-0 w-fit max-w-full" for="show_in_menu">
-                            <span class="text-sm font-medium text-secondary-foreground shrink-0">Menuitem</span>
+                            <span class="text-sm font-medium text-secondary-foreground shrink-0">{{ __('Menuitem') }}</span>
                             {{-- Wrapper: form-validation.js gebruikt .relative op het veld; niet op <label> (anders width:100% → links uitgelijnd). --}}
                             <div class="relative w-[120px] max-w-full shrink-0">
                                 <select name="show_in_menu" id="show_in_menu" class="kt-input kt-input-sm w-full" autocomplete="off">
-                                    <option value="1" {{ $__menuOn ? 'selected' : '' }}>Ja</option>
-                                    <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>Nee</option>
+                                    <option value="1" {{ $__menuOn ? 'selected' : '' }}>{{ __('Ja') }}</option>
+                                    <option value="0" {{ ! $__menuOn ? 'selected' : '' }}>{{ __('Nee') }}</option>
                                 </select>
                             </div>
                         </label>
@@ -139,7 +139,7 @@
                                    name="is_active"
                                    value="1"
                                    {{ old('is_active', $page->is_active) ? 'checked' : '' }}/>
-                            <span class="text-sm font-medium text-secondary-foreground">Actief (zichtbaar op de website)</span>
+                            <span class="text-sm font-medium text-secondary-foreground">{{ __('Actief (zichtbaar op de website)') }}</span>
                         </label>
                     </div>
                 </div>
@@ -153,7 +153,7 @@
                         @if(!($isCentralMarketingWelcome ?? false))
                             <tr>
                                 <td class="min-w-56 text-secondary-foreground font-normal">
-                                    Bij welke module hoort deze pagina? *
+                                    {{ __('Bij welke module hoort deze pagina? *') }}
                                 </td>
                                 <td class="min-w-48 w-full">
                                     <select id="module_choice"
@@ -161,7 +161,7 @@
                                             required
                                             data-default-theme-id="{{ $defaultTheme?->id ?? '' }}">
                                         <option value="" data-theme-id="{{ $defaultTheme?->id ?? '' }}"
-                                            {{ !old('module_name', $page->module_name) ? 'selected' : '' }}>Geen (kernpagina's voor home, over ons, contact)</option>
+                                            {{ !old('module_name', $page->module_name) ? 'selected' : '' }}>{!! __("Geen (kernpagina's voor home, over ons, contact)") !!}</option>
                                         @foreach($installedModules as $module)
                                             @php
                                                 $moduleName = $module->getName();
@@ -173,7 +173,7 @@
                                                 {{ old('module_name', $page->module_name) === $moduleName ? 'selected' : '' }}>{{ $module->getDisplayName() }}</option>
                                         @endforeach
                                     </select>
-                                    <div class="text-xs text-muted-foreground mt-1">Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.</div>
+                                    <div class="text-xs text-muted-foreground mt-1">{!! __("Home, Over ons, Contact en Custom kunnen aan een module gekoppeld worden. Alle pagina's worden getoond in het actieve thema.") !!}</div>
                                     <input type="hidden" name="module_name" id="module_name_hidden" value="{{ old('module_name', $page->module_name) }}">
                                 </td>
                             </tr>
@@ -184,7 +184,7 @@
                         @endif
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Thema
+                                {{ __('Thema') }}
                             </td>
                             <td>
                                 @include('admin.website-pages.partials.theme-field')
@@ -192,18 +192,18 @@
                         </tr>
                         <tr id="page_type_row">
                             <td class="text-secondary-foreground font-normal">
-                                Paginatype *
+                                {{ __('Paginatype *') }}
                             </td>
                             <td>
                                 <select name="page_type"
                                         id="page_type"
                                         class="kt-input @error('page_type') border-destructive @enderror"
                                         required>
-                                    <option value="custom" {{ old('page_type', $page->page_type) === 'custom' ? 'selected' : '' }}>Custom (tekstpagina)</option>
+                                    <option value="custom" {{ old('page_type', $page->page_type) === 'custom' ? 'selected' : '' }}>{{ __('Custom (tekstpagina)') }}</option>
                                     <option value="home" {{ old('page_type', $page->page_type) === 'home' ? 'selected' : '' }}>Home</option>
-                                    <option value="about" {{ old('page_type', $page->page_type) === 'about' ? 'selected' : '' }}>Over ons</option>
+                                    <option value="about" {{ old('page_type', $page->page_type) === 'about' ? 'selected' : '' }}>{{ __('Over ons') }}</option>
                                     <option value="contact" {{ old('page_type', $page->page_type) === 'contact' ? 'selected' : '' }}>Contact</option>
-                                    <option value="module" {{ old('page_type', $page->page_type) === 'module' ? 'selected' : '' }}>Module-pagina</option>
+                                    <option value="module" {{ old('page_type', $page->page_type) === 'module' ? 'selected' : '' }}>{{ __('Module-pagina') }}</option>
                                 </select>
                                 @error('page_type')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -212,7 +212,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Paginatitel (SEO) *
+                                {{ __('Paginatitel (SEO) *') }}
                             </td>
                             <td>
                                 <input type="text"
@@ -222,7 +222,7 @@
                                        value="{{ old('title', $page->title) }}"
                                        required
                                        autocomplete="off">
-                                <div class="text-xs text-muted-foreground mt-1">Wordt gebruikt als Google-titel. De menunaam blijft apart.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Wordt gebruikt als Google-titel. De menunaam blijft apart.') }}</div>
                                 @error('title')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -230,7 +230,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Naam in menu
+                                {{ __('Naam in menu') }}
                             </td>
                             <td>
                                 <input type="text"
@@ -240,8 +240,8 @@
                                        value="{{ old('menu_title', $page->menu_title) }}"
                                        maxlength="80"
                                        autocomplete="off"
-                                       placeholder="Korte naam in de navigatie">
-                                <div class="text-xs text-muted-foreground mt-1">Deze tekst staat in het website-menu. SEO-generatie past dit niet aan.</div>
+                                       placeholder="{{ __('Korte naam in de navigatie') }}">
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Deze tekst staat in het website-menu. SEO-generatie past dit niet aan.') }}</div>
                                 @error('menu_title')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -249,7 +249,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Slug *
+                                {{ __('Slug *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input type="text"
@@ -264,9 +264,9 @@
                                        @if($isCentralMarketingWelcome ?? false) readonly @endif>
                                 <div class="text-xs text-muted-foreground mt-1">
                                     @if($isCentralMarketingWelcome ?? false)
-                                        Deze slug is gereserveerd voor de centrale welkomstpagina en kan niet worden gewijzigd.
+                                        {{ __('Deze slug is gereserveerd voor de centrale welkomstpagina en kan niet worden gewijzigd.') }}
                                     @else
-                                        Wordt automatisch ingevuld op basis van de titel. Alleen kleine letters, cijfers en streepjes.
+                                        {{ __('Wordt automatisch ingevuld op basis van de titel. Alleen kleine letters, cijfers en streepjes.') }}
                                     @endif
                                 </div>
                                 @error('slug')
@@ -277,10 +277,10 @@
                         @include('admin.website-pages.partials.website-page-seo-fields', ['metaDescriptionValue' => old('meta_description', $page->meta_description)])
                         <tr id="content_blocks_row" style="display: none;">
                             <td class="text-secondary-foreground font-normal align-top">
-                                Inhoud (blokken)
+                                {{ __('Inhoud (blokken)') }}
                             </td>
                             <td>
-                                <p class="text-xs text-muted-foreground mb-3">Niet in gebruik: alle paginatypes gebruiken nu secties (Hero, footer, copyright + optioneel extra secties).</p>
+                                <p class="text-xs text-muted-foreground mb-3">{{ __('Niet in gebruik: alle paginatypes gebruiken nu secties (Hero, footer, copyright + optioneel extra secties).') }}</p>
                                 @include('admin.website-pages.partials.page-builder', ['contentJson' => old('content', $page->content ?? '')])
                                 @error('content')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -289,7 +289,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Volgorde
+                                {{ __('Volgorde') }}
                             </td>
                             <td>
                                 <input type="number"
@@ -310,10 +310,10 @@
 
             <div id="home_sections_card" class="kt-card w-full min-w-0" data-theme-name="{{ $page->theme?->name ?? 'Metronic' }}">
                 <div class="kt-card-header website-page-sections-header flex flex-wrap items-center justify-between gap-2 min-w-0">
-                    <h3 class="kt-card-title" id="home_sections_card_title">Pagina-secties ({{ $page->theme?->name ?? 'Metronic' }} thema)</h3>
+                    <h3 class="kt-card-title" id="home_sections_card_title">{{ __('Pagina-secties (:theme thema)', ['theme' => $page->theme?->name ?? 'Metronic']) }}</h3>
                     <div class="flex items-center gap-1 shrink-0">
                         <div class="relative" id="home-sections-add-wrap">
-                            <button type="button" id="home-sections-add-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Sectie toevoegen" aria-label="Sectie toevoegen" aria-haspopup="true" aria-expanded="false">
+                            <button type="button" id="home-sections-add-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Sectie toevoegen') }}" aria-label="{{ __('Sectie toevoegen') }}" aria-haspopup="true" aria-expanded="false">
                                 <svg class="w-5 h-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                             </button>
                             <div id="home-sections-add-menu" class="hidden absolute right-0 top-full mt-1 z-20 min-w-[240px] rounded-lg border border-border bg-background shadow-lg py-1 max-h-[70vh] overflow-y-auto">
@@ -325,13 +325,13 @@
                                 @include('admin.website-pages.partials.home-sections-add-menu', ['sectionTypes' => $sectionTypes, 'availableComponents' => $availableComponents])
                             </div>
                         </div>
-                        <button type="button" id="home-sections-collapse-all-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="Alles inklappen" aria-label="Alles inklappen of uitklappen">
+                        <button type="button" id="home-sections-collapse-all-btn" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost text-muted-foreground hover:text-foreground" title="{{ __('Alles inklappen') }}" aria-label="{{ __('Alles inklappen of uitklappen') }}">
                             <svg class="w-5 h-5 text-current" id="home-sections-collapse-all-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12m4.5-4.5V21" /></svg>
                         </button>
                     </div>
                 </div>
                 <div class="kt-card-content p-3 sm:p-5 min-w-0">
-                    <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">Deze secties worden getoond op de homepagina voor dit thema ({{ $page->theme?->name ?? 'Metronic' }}). Pas teksten en knoppen aan; de volgorde hangt af van het thema.</p>
+                    <p class="text-sm text-muted-foreground mb-4" id="home_sections_intro">{{ __('Deze secties worden getoond op de homepagina voor dit thema (:theme). Pas teksten en knoppen aan; de volgorde hangt af van het thema.', ['theme' => $page->theme?->name ?? 'Metronic']) }}</p>
                     @include('admin.website-pages.partials.home-sections', ['homeSections' => $page->getHomeSections(), 'themeSlug' => $page->theme?->slug ?? 'modern', 'isNonHomePage' => $page->page_type !== 'home' && $page->slug !== 'home', 'collapseSectionsByDefault' => $collapseSectionsByDefault ?? false, 'googleMapsApiKey' => $googleMapsApiKey ?? '', 'googleMapsMapId' => $googleMapsMapId ?? '', 'moduleNameForUploads' => $page->module_name ?? null, 'emailTemplates' => $emailTemplates ?? collect(), 'emailTemplateSelectedIds' => $emailTemplateSelectedIds ?? [], 'websitePageCompanyId' => $page->company_id])
                 </div>
             </div>
@@ -339,11 +339,11 @@
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 mt-5 w-full min-w-0">
                 <a href="{{ route('admin.website-pages.index', $wizardIndexQuery ?? []) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>
@@ -407,9 +407,10 @@
         overlay.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4';
         overlay.style.backgroundColor = 'rgba(0,0,0,0.4)';
         overlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
+        var closeLabel = @json(__('Sluiten'));
         overlay.innerHTML =
             '<div class="relative w-[500px] rounded-xl border-2 border-border bg-background p-6 shadow-xl" id="success-modal">' +
-            '<button type="button" class="absolute right-2 top-2 rounded p-1 text-foreground/70 hover:bg-accent hover:text-foreground" id="success-modal-close-x" aria-label="Sluiten">' +
+            '<button type="button" class="absolute right-2 top-2 rounded p-1 text-foreground/70 hover:bg-accent hover:text-foreground" id="success-modal-close-x" aria-label="' + closeLabel + '">' +
             '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
             '</button>' +
             '<div class="flex flex-col items-center gap-3 pt-1">' +
@@ -417,10 +418,10 @@
             '<i class="ki-filled ki-check-circle text-xl text-primary-foreground"></i>' +
             '</div>' +
             '<p id="success-modal-title" class="text-center text-xl font-semibold text-foreground"></p>' +
-            '<button type="button" class="mt-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90" id="success-modal-close-btn">Sluiten</button>' +
+            '<button type="button" class="mt-1 rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90" id="success-modal-close-btn">' + closeLabel + '</button>' +
             '</div></div>';
         document.body.appendChild(overlay);
-        document.getElementById('success-modal-title').textContent = message || 'Pagina bijgewerkt.';
+        document.getElementById('success-modal-title').textContent = message || @json(__('Pagina bijgewerkt.'));
 
         function closeModal() {
             if (autoCloseTimer) clearTimeout(autoCloseTimer);
@@ -599,7 +600,7 @@
             var submitBtn = form.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Bezig met opslaan…';
+                submitBtn.textContent = @json(__('Bezig met opslaan…'));
             }
         });
         // E-mailtemplate-select: bij wijziging direct hidden vullen zodat template_id bij submit altijd aanwezig is
@@ -637,7 +638,7 @@
         var themeSelect = document.getElementById('frontend_theme_id');
         if (!themeSelect || themeSelect.tagName !== 'SELECT') return;
         var opt = themeSelect.options[themeSelect.selectedIndex];
-        var themeName = opt ? opt.textContent.trim() : 'thema';
+        var themeName = opt ? opt.textContent.trim() : @json(__('thema'));
         if (homeSectionsCard) {
             homeSectionsCard.setAttribute('data-theme-name', themeName);
         }
@@ -665,11 +666,11 @@
         if (contentBlocksRow) contentBlocksRow.style.display = 'none';
         var titleEl = document.getElementById('home_sections_card_title');
         var introEl = document.getElementById('home_sections_intro');
-        var themeName = homeSectionsCard ? (homeSectionsCard.getAttribute('data-theme-name') || 'thema') : 'thema';
-        if (titleEl) titleEl.textContent = pt === 'home' ? 'Homepagina secties (' + themeName + ' thema)' : 'Pagina-secties (' + themeName + ' – standaard Hero, footer, copyright)';
+        var themeName = homeSectionsCard ? (homeSectionsCard.getAttribute('data-theme-name') || @json(__('thema'))) : @json(__('thema'));
+        if (titleEl) titleEl.textContent = pt === 'home' ? @json(__('Homepagina secties (:theme thema)')).replace(':theme', themeName) : {{ \Illuminate\Support\Js::from(__('Pagina-secties (:theme – standaard Hero, footer, copyright)')) }}.replace(':theme', themeName);
         if (introEl) introEl.textContent = pt === 'home'
-            ? 'Deze secties worden getoond op de homepagina voor dit thema. Pas teksten en knoppen aan; de volgorde hangt af van het thema.'
-            : 'Standaard tonen deze pagina\'s alleen een Hero-banner, footer en copyright. Voeg hieronder secties toe met de knop "Sectie toevoegen" of pas de Hero aan.';
+            ? @json(__('Deze secties worden getoond op de homepagina voor dit thema. Pas teksten en knoppen aan; de volgorde hangt af van het thema.'))
+            : {{ \Illuminate\Support\Js::from(__('Standaard tonen deze pagina\'s alleen een Hero-banner, footer en copyright. Voeg hieronder secties toe met de knop "Sectie toevoegen" of pas de Hero aan.')) }};
     }
 
     if (moduleChoice) {

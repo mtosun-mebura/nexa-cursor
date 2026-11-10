@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\RideSettlementEligibilityService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Database\Schema\Blueprint;
@@ -41,6 +42,7 @@ class RideSettlementEligibilityServiceTest extends TestCase
             $table->string('settlement_status', 32)->nullable();
             $table->timestamp('settlement_hold_until')->nullable();
             $table->json('settlement_risk_flags')->nullable();
+            $table->json('booking_payload')->nullable();
             $table->timestamp('settlement_evaluated_at')->nullable();
             $table->timestamp('settlement_eligible_at')->nullable();
             $table->timestamps();
@@ -51,7 +53,7 @@ class RideSettlementEligibilityServiceTest extends TestCase
     }
 
     #[Test]
-    public function clean_completion_goes_on_hold_not_eligible(): void
+    public function clean_completion_is_eligible_immediately(): void
     {
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
@@ -68,10 +70,13 @@ class RideSettlementEligibilityServiceTest extends TestCase
 
         $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
 
-        $this->assertSame(RideRequest::SETTLEMENT_HOLD, $result->settlement_status);
-        $this->assertNotNull($result->settlement_hold_until);
-        $this->assertNull($result->settlement_eligible_at);
-        $this->assertFalse($this->service->isPayable($result));
+        $this->assertContains($result->settlement_status, [
+            RideRequest::SETTLEMENT_ELIGIBLE,
+            RideRequest::SETTLEMENT_SETTLED,
+        ]);
+        $this->assertNull($result->settlement_hold_until);
+        $this->assertNotNull($result->settlement_eligible_at);
+        $this->assertTrue($this->service->isPayable($result));
     }
 
     #[Test]
@@ -117,7 +122,7 @@ class RideSettlementEligibilityServiceTest extends TestCase
     }
 
     #[Test]
-    public function missing_gps_is_hold_flag_not_hard_fail(): void
+    public function missing_gps_stays_payable_immediately(): void
     {
         $ride = RideRequest::on('module_taxi')->create([
             'company_id' => 1,
@@ -134,7 +139,11 @@ class RideSettlementEligibilityServiceTest extends TestCase
 
         $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
 
-        $this->assertSame(RideRequest::SETTLEMENT_HOLD, $result->settlement_status);
+        $this->assertContains($result->settlement_status, [
+            RideRequest::SETTLEMENT_ELIGIBLE,
+            RideRequest::SETTLEMENT_SETTLED,
+        ]);
+        $this->assertNull($result->settlement_hold_until);
         $this->assertContains('missing_gps_track', $result->settlement_risk_flags);
     }
 
@@ -249,5 +258,121 @@ class RideSettlementEligibilityServiceTest extends TestCase
         $this->assertNull($result->settlement_eligible_at);
         $this->assertContains('customer_reported_problem', $result->settlement_risk_flags);
         $this->assertFalse($result->isSettlementPayable());
+    }
+
+    #[Test]
+    public function confirmed_pickup_releases_immediately_even_if_start_was_far(): void
+    {
+        $ride = $this->cleanCompletedRide([
+            'pickup_confirmation' => ['status' => 'confirmed'],
+            'pickup_location_check' => ['result' => 'away'],
+        ]);
+
+        $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
+
+        $this->assertSame(RideRequest::SETTLEMENT_ELIGIBLE, $result->settlement_status);
+        $this->assertContains('customer_confirmed_pickup', $result->settlement_risk_flags);
+        $this->assertTrue($result->isSettlementPayable());
+    }
+
+    #[Test]
+    public function denied_pickup_stays_in_review(): void
+    {
+        $ride = $this->cleanCompletedRide([
+            'pickup_confirmation' => ['status' => 'denied'],
+            'pickup_location_check' => ['result' => 'near'],
+        ]);
+
+        $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
+
+        $this->assertSame(RideRequest::SETTLEMENT_REVIEW, $result->settlement_status);
+        $this->assertContains('customer_denied_pickup', $result->settlement_risk_flags);
+        $this->assertFalse($result->isSettlementPayable());
+    }
+
+    #[Test]
+    public function unknown_or_far_start_without_answer_requires_review(): void
+    {
+        $unknown = $this->service->evaluateAfterCompletion('module_taxi', $this->cleanCompletedRide([
+            'pickup_location_check' => ['result' => 'unknown'],
+        ]));
+        $away = $this->service->evaluateAfterCompletion('module_taxi', $this->cleanCompletedRide([
+            'pickup_location_check' => ['result' => 'away'],
+        ]));
+
+        $this->assertSame(RideRequest::SETTLEMENT_REVIEW, $unknown->settlement_status);
+        $this->assertContains('location_unknown_at_start', $unknown->settlement_risk_flags);
+        $this->assertSame(RideRequest::SETTLEMENT_REVIEW, $away->settlement_status);
+        $this->assertContains('started_away_from_pickup', $away->settlement_risk_flags);
+    }
+
+    #[Test]
+    public function completing_far_from_dropoff_stays_in_review_after_yes(): void
+    {
+        $ride = $this->cleanCompletedRide([
+            'pickup_confirmation' => ['status' => 'confirmed'],
+            'pickup_location_check' => ['result' => 'near'],
+            'dropoff_location_check' => ['away' => true],
+        ]);
+
+        $result = $this->service->evaluateAfterCompletion('module_taxi', $ride);
+
+        $this->assertSame(RideRequest::SETTLEMENT_REVIEW, $result->settlement_status);
+        $this->assertContains('completed_away_from_dropoff', $result->settlement_risk_flags);
+        $this->assertFalse($result->isSettlementPayable());
+    }
+
+    #[Test]
+    public function gps_classifier_uses_radius_and_freshness(): void
+    {
+        $pickup = app(MarketplacePickupConfirmationService::class);
+
+        $this->assertSame('near', $pickup->classify(true, 52.0, 6.0, 52.0, 6.0, 250)['result']);
+        $this->assertSame('unknown', $pickup->classify(false, 52.0, 6.0, 52.0, 6.0, 250)['result']);
+        $this->assertSame('away', $pickup->classify(true, 52.0, 6.0, 53.0, 6.0, 250)['result']);
+    }
+
+    #[Test]
+    public function ensure_pin_creates_four_digit_code_for_marketplace_ride(): void
+    {
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'booking_payload' => ['channel' => RideRequest::SOURCE_NEXA_SUITE],
+        ]);
+
+        $pickup = app(MarketplacePickupConfirmationService::class);
+        $this->assertTrue($pickup->appliesTo($ride));
+
+        $withPin = $pickup->ensurePin('module_taxi', $ride);
+        $pin = (string) data_get($withPin->booking_payload, 'pickup_confirmation.pin', '');
+
+        $this->assertMatchesRegularExpression('/^\d{4}$/', $pin);
+        $this->assertSame('pending', data_get($withPin->booking_payload, 'pickup_confirmation.status'));
+        $this->assertSame($pin, $pickup->customerPayload($withPin)['pin'] ?? null);
+        $this->assertTrue($pickup->driverPayload($withPin)['requires_pin'] ?? false);
+        $this->assertArrayNotHasKey('pin', $pickup->driverPayload($withPin) ?? []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function cleanCompletedRide(array $payload): RideRequest
+    {
+        return RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'status' => RideRequest::STATUS_COMPLETED,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'distance_meters' => 5000,
+            'actual_distance_meters' => 5100,
+            'trip_started_at' => now()->subMinutes(20),
+            'trip_completed_at' => now(),
+            'payment_method' => 'ideal',
+            'payment_status' => RideRequest::PAYMENT_STATUS_PAID,
+            'booking_payload' => $payload,
+        ]);
     }
 }

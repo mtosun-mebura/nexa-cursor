@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
 use App\Services\WhatsAppBusinessService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -38,6 +39,7 @@ class RideClaimServiceTest extends TestCase
             $table->string('ride_type', 32)->nullable();
             $table->string('payment_method', 32)->nullable();
             $table->string('source', 32)->nullable();
+            $table->json('booking_payload')->nullable();
             $table->string('pickup_address');
             $table->string('dropoff_address');
             $table->unsignedSmallInteger('passengers')->default(1);
@@ -132,6 +134,10 @@ class RideClaimServiceTest extends TestCase
             ->where('driver_id', $other->id)
             ->first();
         $this->assertSame(RideDispatchOffer::STATUS_SUPERSEDED, $otherOffer->status);
+
+        $signal = Cache::get('taxi_driver_inbox_push:'.$other->id);
+        $this->assertIsArray($signal);
+        $this->assertSame((int) $ride->id, (int) ($signal['ride_request_id'] ?? 0));
     }
 
     public function test_accept_rejects_overlapping_planned_ride(): void
@@ -234,6 +240,68 @@ class RideClaimServiceTest extends TestCase
 
         $this->assertSame(RideRequest::STATUS_ASSIGNED, $started->status);
         $this->assertNotNull($started->trip_started_at);
+    }
+
+    public function test_start_blocks_overdue_own_customer_ride_without_accepted_proposal(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'source' => 'website',
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->subHours(2),
+            'customer_name' => 'Eigen klant',
+        ]);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Het ophaalmoment is verlopen');
+
+        app(RideClaimService::class)->startRide('module_taxi', $driver, $ride->id);
+    }
+
+    public function test_start_allows_overdue_marketplace_ride_without_new_pickup(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'source' => RideRequest::SOURCE_NEXA_SUITE,
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->subHours(2),
+            'customer_name' => 'Marketplace',
+        ]);
+
+        $started = app(RideClaimService::class)->startRide('module_taxi', $driver, $ride->id);
+
+        $this->assertSame(RideRequest::STATUS_ASSIGNED, $started->status);
+    }
+
+    public function test_start_allows_overdue_ride_with_marketplace_payload_only(): void
+    {
+        $driver = User::factory()->create();
+
+        $ride = RideRequest::on('module_taxi')->create([
+            'company_id' => 1,
+            'driver_id' => $driver->id,
+            'status' => RideRequest::STATUS_ACCEPTED,
+            'source' => 'website',
+            'booking_payload' => ['marketplace' => ['candidate_company_ids' => [1]]],
+            'pickup_address' => 'A',
+            'dropoff_address' => 'B',
+            'pickup_at' => now()->subHours(2),
+            'customer_name' => 'Marketplace payload',
+        ]);
+
+        $started = app(RideClaimService::class)->startRide('module_taxi', $driver, $ride->id);
+
+        $this->assertSame(RideRequest::STATUS_ASSIGNED, $started->status);
     }
 
     public function test_complete_marks_ride_completed_for_assigned_driver(): void

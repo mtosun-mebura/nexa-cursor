@@ -49,7 +49,7 @@ class AdminFrontendComponentController extends Controller
         $component = $this->catalogItems()
             ->first(fn ($c) => strcasecmp((string) ($c->id ?? ''), trim($componentId)) === 0);
         if (! $component) {
-            abort(404, 'Component niet gevonden.');
+            abort(404, __('Component niet gevonden.'));
         }
 
         $sampleGoogleReviews = [
@@ -154,7 +154,7 @@ class AdminFrontendComponentController extends Controller
         ]);
         $component = $this->componentService->getById((string) $data['component_id']);
         if (! $component || ! empty($component->is_section_type)) {
-            return response()->json(['success' => false, 'message' => 'Component niet gevonden.'], 404);
+            return response()->json(['success' => false, 'message' => __('Component niet gevonden.')], 404);
         }
 
         $this->componentService->setDisabled((string) $component->id, $request->boolean('disabled'));
@@ -171,7 +171,7 @@ class AdminFrontendComponentController extends Controller
 
         return redirect()
             ->route('admin.frontend-components.index')
-            ->with('success', $isDisabled ? 'Component uitgeschakeld.' : 'Component geactiveerd.');
+            ->with('success', $isDisabled ? __('Component uitgeschakeld.') : __('Component geactiveerd.'));
     }
 
     private function catalogItems(): Collection
@@ -189,7 +189,7 @@ class AdminFrontendComponentController extends Controller
                     'id' => 'section.'.$type,
                     'name' => $label,
                     'module_name' => 'Algemeen',
-                    'description' => 'Ingebouwde pagina-sectie uit de website builder.',
+                    'description' => __('Ingebouwde pagina-sectie uit de website builder.'),
                     'is_section_type' => true,
                     'section_type' => $type,
                 ];
@@ -206,7 +206,7 @@ class AdminFrontendComponentController extends Controller
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admins hebben toegang tot componenten.');
+            abort(403, __('Alleen super-admins hebben toegang tot componenten.'));
         }
     }
 }

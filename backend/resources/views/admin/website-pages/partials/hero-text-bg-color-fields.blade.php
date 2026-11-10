@@ -18,15 +18,15 @@
     $textBgWidthPct = max(30, min(100, $textBgWidthPct));
 @endphp
 <div class="hero-text-bg-fields rounded-lg border border-border p-3 bg-muted/20 space-y-1">
-    <p class="text-sm font-medium text-secondary-foreground mb-2">Achtergrond tekstblok</p>
-    <p class="text-xs text-muted-foreground mb-2">Kleurvlak achter titel en ondertitel, zoals bij slider-tekst.</p>
+    <p class="text-sm font-medium text-secondary-foreground mb-2">{{ __('Achtergrond tekstblok') }}</p>
+    <p class="text-xs text-muted-foreground mb-2">{{ __('Kleurvlak achter titel en ondertitel, zoals bij slider-tekst.') }}</p>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Achtergrond</span>
+        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Achtergrond') }}</span>
         <input type="color"
                id="{{ $colorId }}_color"
                class="carousel-slide-text-bg-color-picker h-10 w-14 rounded border border-input cursor-pointer shrink-0"
                value="{{ $textBgColorPicker }}"
-               title="Achtergrondkleur tekstblok"
+               title="{{ __('Achtergrondkleur tekstblok') }}"
                data-target-input="{{ $colorId }}">
         <div class="carousel-slide-hex-input-wrap relative shrink-0 flex-none w-[90px] min-w-[90px] max-w-[90px]">
             <input type="text"
@@ -40,7 +40,7 @@
         </div>
     </div>
     <div class="carousel-slide-bg-opacity-control flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">
-        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Transparantie</span>
+        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Transparantie') }}</span>
         <div class="carousel-slide-text-bg-opacity-slider hero-overlay-opacity-slider flex-1 min-w-[8rem] max-w-[14rem]">
             <input type="range"
                    name="home_sections[{{ $sectionKey }}][text_bg_opacity]"
@@ -54,24 +54,24 @@
                    aria-valuemax="100"
                    aria-valuenow="{{ $textBgOpacitySlider }}"
                    aria-describedby="{{ $opacityId }}-value"
-                   title="0 = volledig doorzichtig, 100 = ondoorzichtig">
+                   title="{{ __('0 = volledig doorzichtig, 100 = ondoorzichtig') }}">
         </div>
         <span id="{{ $opacityId }}-value"
               class="carousel-slide-text-bg-opacity-value inline-flex items-center justify-center min-w-[2.75rem] rounded-md bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground shrink-0"
               aria-live="polite">{{ $textBgOpacitySlider }}%</span>
         <span id="{{ $opacityId }}-preview"
               class="carousel-slide-text-bg-opacity-preview h-10 w-10 rounded border border-input shrink-0 shadow-sm"
-              title="Voorbeeld achtergrondvlak"
+              title="{{ __('Voorbeeld achtergrondvlak') }}"
               role="img"
-              aria-label="Voorbeeld achtergrond"></span>
+              aria-label="{{ __('Voorbeeld achtergrond') }}"></span>
     </div>
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full basis-full">
-        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">Breedte</span>
-        <select name="home_sections[{{ $sectionKey }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="Breedte tekstblok op banner (%)">
+        <span class="text-xs font-medium text-muted-foreground shrink-0 w-24">{{ __('Breedte') }}</span>
+        <select name="home_sections[{{ $sectionKey }}][text_bg_width_percent]" class="kt-input text-sm w-full max-w-[8rem]" title="{{ __('Breedte tekstblok op banner (%)') }}">
             @foreach ([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
                 <option value="{{ $pct }}" @selected($textBgWidthPct === $pct)>{{ $pct }}%</option>
             @endforeach
         </select>
-        <span class="text-xs text-muted-foreground">Ten opzichte van sectiebreedte op banner</span>
+        <span class="text-xs text-muted-foreground">{{ __('Ten opzichte van sectiebreedte op banner') }}</span>
     </div>
 </div>

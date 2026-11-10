@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Factuur Bewerken')
+@section('title', __('Factuur Bewerken'))
 
 @section('content')
 <div class="kt-container-fixed">
@@ -8,16 +8,16 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Factuur Bewerken: {{ $invoice->invoice_number }}
+                {{ __('Factuur Bewerken:') }} {{ $invoice->invoice_number }}
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Bewerk factuurdetails
+                {{ __('Bewerk factuurdetails') }}
             </div>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.invoices.show', $invoice->id) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left text-base me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -31,18 +31,18 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Basis Informatie
+                        {{ __('Basis Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Bedrijf <span class="text-destructive">*</span>
+                                {{ __('Bedrijf') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select" name="company_id" id="company_id" required>
-                                    <option value="">Selecteer bedrijf</option>
+                                    <option value="">{{ __('Selecteer bedrijf') }}</option>
                                     @foreach($companies as $company)
                                         <option value="{{ $company->id }}" {{ old('company_id', $invoice->company_id) == $company->id ? 'selected' : '' }}>
                                             {{ $company->name }}
@@ -56,7 +56,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Klantnaam
+                                {{ __('Klantnaam') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input w-full @error('customer_name') border-destructive @enderror"
@@ -71,7 +71,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                E-mail klant
+                                {{ __('E-mail klant') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input w-full @error('customer_email') border-destructive @enderror"
@@ -87,14 +87,14 @@
                         @if($skillmatchingAvailable ?? false)
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Match (optioneel)
+                                {{ __('Match (optioneel)') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select" name="job_match_id" id="job_match_id">
-                                    <option value="">Selecteer een kandidaat</option>
+                                    <option value="">{{ __('Selecteer een kandidaat') }}</option>
                                     @foreach($jobMatches as $match)
                                         <option value="{{ $match->id }}" {{ old('job_match_id', $invoice->job_match_id) == $match->id ? 'selected' : '' }}>
-                                            Match #{{ $match->id }} - {{ $match->company->name ?? 'N/A' }}
+                                            {{ __('Match #:id', ['id' => $match->id]) }} - {{ $match->company->name ?? 'N/A' }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -106,7 +106,7 @@
                         @endif
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Factuurdatum <span class="text-destructive">*</span>
+                                {{ __('Factuurdatum') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="kt-input w-64 @error('invoice_date') border-destructive @enderror">
@@ -119,7 +119,7 @@
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
                                            data-kt-date-picker-date-format="DD-MM-YYYY"
-                                           placeholder="Selecteer datum" 
+                                           placeholder="{{ __('Selecteer datum') }}" 
                                            readonly 
                                            type="text"
                                            required/>
@@ -131,7 +131,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Vervaldatum <span class="text-destructive">*</span>
+                                {{ __('Vervaldatum') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full align-top">
                                 <div class="flex items-center gap-2">
@@ -145,7 +145,7 @@
                                            required/>
                                 </div>
                                 <div class="text-xs text-muted-foreground/60 mt-1">
-                                    Wordt automatisch berekend op basis van factuurdatum + {{ $settings->payment_terms_days ?? 30 }} dagen
+                                    {{ __('Wordt automatisch berekend op basis van factuurdatum + :days dagen', ['days' => $settings->payment_terms_days ?? 30]) }}
                                 </div>
                                 @error('due_date')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -154,15 +154,15 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Status <span class="text-destructive">*</span>
+                                {{ __('Status') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select" name="status" id="status" required>
-                                    <option value="draft" {{ old('status', $invoice->status) == 'draft' ? 'selected' : '' }}>Concept</option>
-                                    <option value="in_progress" {{ old('status', $invoice->status) == 'in_progress' ? 'selected' : '' }}>In behandeling</option>
-                                    <option value="sent" {{ old('status', $invoice->status) == 'sent' ? 'selected' : '' }}>Verzonden</option>
-                                    <option value="paid" {{ old('status', $invoice->status) == 'paid' ? 'selected' : '' }}>Betaald</option>
-                                    <option value="cancelled" {{ old('status', $invoice->status) == 'cancelled' ? 'selected' : '' }}>Geannuleerd</option>
+                                    <option value="draft" {{ old('status', $invoice->status) == 'draft' ? 'selected' : '' }}>{{ __('Concept') }}</option>
+                                    <option value="in_progress" {{ old('status', $invoice->status) == 'in_progress' ? 'selected' : '' }}>{{ __('In behandeling') }}</option>
+                                    <option value="sent" {{ old('status', $invoice->status) == 'sent' ? 'selected' : '' }}>{{ __('Verzonden') }}</option>
+                                    <option value="paid" {{ old('status', $invoice->status) == 'paid' ? 'selected' : '' }}>{{ __('Betaald') }}</option>
+                                    <option value="cancelled" {{ old('status', $invoice->status) == 'cancelled' ? 'selected' : '' }}>{{ __('Geannuleerd') }}</option>
                                 </select>
                                 @error('status')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -177,14 +177,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Bedrag Informatie
+                        {{ __('Bedrag Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Bedrag (excl. BTW) <span class="text-destructive">*</span>
+                                {{ __('Bedrag (excl. BTW)') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input @error('amount') border-destructive @enderror" 
@@ -202,7 +202,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                BTW Percentage
+                                {{ __('BTW Percentage') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 @php
@@ -217,12 +217,12 @@
                                        step="1"
                                        min="0"
                                        max="100">
-                                <div class="text-xs text-secondary-foreground mt-1">Standaard: {{ (int)($settings->default_tax_rate ?? 21) }}%</div>
+                                <div class="text-xs text-secondary-foreground mt-1">{{ __('Standaard: :percent%', ['percent' => (int)($settings->default_tax_rate ?? 21)]) }}</div>
                             </td>
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                BTW Bedrag
+                                {{ __('BTW Bedrag') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input" 
@@ -239,7 +239,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Totaal Bedrag (incl. BTW) <span class="text-destructive">*</span>
+                                {{ __('Totaal Bedrag (incl. BTW)') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input font-semibold @error('total_amount') border-destructive @enderror" 
@@ -257,7 +257,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Valuta <span class="text-destructive">*</span>
+                                {{ __('Valuta') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select" name="currency" id="currency" required>
@@ -271,7 +271,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Omschrijving <span class="text-destructive">*</span>
+                                {{ __('Omschrijving') }} <span class="text-destructive">*</span>
                             </td>
                             <td class="min-w-48 w-full">
                                 @php
@@ -294,7 +294,7 @@
                         </tr>
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Deelfactuur
+                                {{ __('Deelfactuur') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex items-center gap-2">
@@ -306,14 +306,14 @@
                                                id="is_partial"
                                                value="1"
                                                {{ old('is_partial', $invoice->is_partial) ? 'checked' : '' }}>
-                                        <span class="ms-2">Deelfactuur</span>
+                                        <span class="ms-2">{{ __('Deelfactuur') }}</span>
                                     </label>
                                 </div>
                             </td>
                         </tr>
                         <tr id="partial-fields-row" class="{{ old('is_partial', $invoice->is_partial) ? '' : 'hidden' }}">
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Ouder Factuurnummer
+                                {{ __('Ouder Factuurnummer') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input" 
@@ -325,7 +325,7 @@
                         </tr>
                         <tr id="partial-number-row" class="{{ old('is_partial', $invoice->is_partial) ? '' : 'hidden' }}">
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Deelnummer
+                                {{ __('Deelnummer') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input" 
@@ -344,21 +344,21 @@
             <div class="kt-card min-w-full lg:col-span-2">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Opmerkingen
+                        {{ __('Opmerkingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Opmerkingen
+                                {{ __('Opmerkingen') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <textarea class="kt-input @error('notes') border-destructive @enderror" 
                                           name="notes" 
                                           id="notes"
                                           rows="4"
-                                          placeholder="Optionele opmerkingen...">{{ old('notes', $invoice->notes) }}</textarea>
+                                          placeholder="{{ __('Optionele opmerkingen...') }}">{{ old('notes', $invoice->notes) }}</textarea>
                                 @error('notes')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -371,11 +371,11 @@
 
         <div class="flex items-center justify-end gap-2.5 mt-5">
             <a href="{{ route('admin.invoices.show', $invoice->id) }}" class="kt-btn kt-btn-outline">
-                Annuleren
+                {{ __('Annuleren') }}
             </a>
             <button type="submit" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-check text-base me-2"></i>
-                Opslaan
+                {{ __('Opslaan') }}
             </button>
         </div>
     </form>
@@ -615,7 +615,7 @@
         // Show loading state
         const loadingOption = document.createElement('option');
         loadingOption.value = '';
-        loadingOption.textContent = 'Laden...';
+        loadingOption.textContent = @js(__('Laden...'));
         loadingOption.disabled = true;
         matchSelect.appendChild(loadingOption);
         
@@ -650,9 +650,9 @@
             const defaultOption = matchSelect.options[0];
             if (defaultOption) {
                 if (matches && matches.length > 0) {
-                    defaultOption.textContent = 'Selecteer een kandidaat';
+                    defaultOption.textContent = @js(__('Selecteer een kandidaat'));
                 } else {
-                    defaultOption.textContent = 'Geen aangenomen match gevonden';
+                    defaultOption.textContent = @js(__('Geen aangenomen match gevonden'));
                 }
             }
             
@@ -697,7 +697,7 @@
             // Ensure default option text is set
             const defaultOption = matchSelect.options[0];
             if (defaultOption) {
-                defaultOption.textContent = 'Geen aangenomen match gevonden';
+                defaultOption.textContent = @js(__('Geen aangenomen match gevonden'));
             }
         });
     }
@@ -727,7 +727,7 @@
                         // Set default option text
                         const defaultOption = matchSelect.options[0];
                         if (defaultOption) {
-                            defaultOption.textContent = 'Geen aangenomen match gevonden';
+                            defaultOption.textContent = @js(__('Geen aangenomen match gevonden'));
                         }
                         // Reinitialize KTSelect
                         const selectWrapper = matchSelect.closest('.kt-select-wrapper');

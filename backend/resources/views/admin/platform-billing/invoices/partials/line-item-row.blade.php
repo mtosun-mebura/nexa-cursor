@@ -13,8 +13,8 @@
         <input type="hidden" name="line_items[{{ $index }}][platform_billing_line_item_id]" value="{{ $catalogId }}" data-line-catalog-id>
         <div class="flex flex-col gap-2 min-w-56">
             @if($catalogLineItems->isNotEmpty())
-                <select class="kt-select w-full" data-line-catalog aria-label="Bestaande factuurregel">
-                    <option value="">Zelf invullen</option>
+                <select class="kt-select w-full" data-line-catalog aria-label="{{ __('Bestaande factuurregel') }}">
+                    <option value="">{{ __('Zelf invullen') }}</option>
                     @foreach($catalogLineItems as $catalogItem)
                         <option value="{{ $catalogItem->id }}" @selected($catalogId === (string) $catalogItem->id)>
                             {{ $catalogItem->name }} (€ {{ number_format((float) $catalogItem->unit_price, 2, ',', '.') }})
@@ -26,7 +26,7 @@
                    type="text"
                    name="line_items[{{ $index }}][description]"
                    value="{{ $item['description'] ?? '' }}"
-                   placeholder="Omschrijving"
+                   placeholder="{{ __('Omschrijving') }}"
                    data-line-description
                    required>
         </div>
@@ -57,7 +57,7 @@
     </td>
     <td class="text-right tabular-nums whitespace-nowrap" data-line-total>€ 0,00</td>
     <td class="admin-table__actions-col text-center">
-        <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost kt-btn-destructive" data-line-remove aria-label="Regel verwijderen" title="Verwijderen">
+        <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost kt-btn-destructive" data-line-remove aria-label="{{ __('Regel verwijderen') }}" title="{{ __('Verwijderen') }}">
             <i class="ki-filled ki-trash"></i>
         </button>
     </td>

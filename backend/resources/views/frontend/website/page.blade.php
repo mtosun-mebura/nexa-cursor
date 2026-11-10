@@ -43,6 +43,14 @@
         {{-- Metronic thema: hero, stats, Waarom Nexa, Wat Wij Bieden, vacatures, CTA (of alleen hero+footer voor niet-home) --}}
         @include('frontend.website.partials.modern-home')
     @endif
+    @if($showContactForm ?? false)
+        <div class="website-section-inner pb-16">
+            <div class="max-w-3xl mx-auto px-4">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-6">Stuur ons een bericht</h2>
+                @include('frontend.website.partials.contact-form')
+            </div>
+        </div>
+    @endif
 @else
 <div class="website-section-inner py-10 md:py-16">
     <article class="w-full max-w-7xl mx-auto">

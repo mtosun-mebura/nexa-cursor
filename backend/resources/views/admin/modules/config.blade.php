@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Module configuratie – ' . $module->getDisplayName())
+@section('title', __('Module configuratie – :name', ['name' => $module->getDisplayName()]))
 
 @push('styles')
 <style>
@@ -70,7 +70,7 @@
 <div class="kt-container-fixed">
     @if($moduleConfigTenantCompany ?? null)
         <div class="mb-5 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground" role="status">
-            Instellingen voor tenant: <strong class="text-foreground">{{ $moduleConfigTenantCompany->name }}</strong>
+            {{ __('Instellingen voor tenant:') }} <strong class="text-foreground">{{ $moduleConfigTenantCompany->name }}</strong>
         </div>
     @endif
 
@@ -81,13 +81,13 @@
                 <h1 class="text-xl font-medium leading-none text-mono">
                     {{ $module->getDisplayName() }}
                 </h1>
-                <p class="text-sm text-muted-foreground mt-0.5">Onderdelen in sidebar en applicatie-instellingen</p>
+                <p class="text-sm text-muted-foreground mt-0.5">{{ __('Onderdelen in sidebar en applicatie-instellingen') }}</p>
             </div>
         </div>
         <div class="pt-3">
             <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -101,19 +101,19 @@
             <!-- Applicatie naam en omschrijving (meta, header, logo's) -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Applicatie</h3>
-                    <p class="text-sm text-muted-foreground mt-1">Naam en omschrijving van de applicatie voor deze module. Wordt gebruikt in meta-tags, header en als alt-tekst bij het logo zodra de module actief is.</p>
+                    <h3 class="kt-card-title">{{ __('Applicatie') }}</h3>
+                    <p class="text-sm text-muted-foreground mt-1">{{ __('Naam en omschrijving van de applicatie voor deze module. Wordt gebruikt in meta-tags, header en als alt-tekst bij het logo zodra de module actief is.') }}</p>
                 </div>
                 <div class="kt-card-content">
                     <div class="mb-6">
-                        <label for="app_name" class="kt-form-label mb-2">Naam van de applicatie</label>
+                        <label for="app_name" class="kt-form-label mb-2">{{ __('Naam van de applicatie') }}</label>
                         <input type="text" name="app_name" id="app_name" class="kt-input w-full max-w-md" value="{{ old('app_name', $app_name ?? '') }}" placeholder="{{ config('app.name') }}">
-                        <p class="text-xs text-muted-foreground mt-1">Wordt o.a. getoond in de footer, in de titel en als alt-tekst bij het logo.</p>
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('Wordt o.a. getoond in de footer, in de titel en als alt-tekst bij het logo.') }}</p>
                     </div>
                     <div class="mb-6">
-                        <label for="app_description" class="kt-form-label mb-2">Omschrijving</label>
-                        <textarea name="app_description" id="app_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="Korte omschrijving van de applicatie...">{{ old('app_description', $app_description ?? '') }}</textarea>
-                        <p class="text-xs text-muted-foreground mt-1">Gebruikt o.a. in meta description voor zoekmachines.</p>
+                        <label for="app_description" class="kt-form-label mb-2">{{ __('Omschrijving') }}</label>
+                        <textarea name="app_description" id="app_description" class="kt-input w-full max-w-md min-h-[100px]" rows="4" placeholder="{{ __('Korte omschrijving van de applicatie...') }}">{{ old('app_description', $app_description ?? '') }}</textarea>
+                        <p class="text-xs text-muted-foreground mt-1">{{ __('Gebruikt o.a. in meta description voor zoekmachines.') }}</p>
                     </div>
                     @php
                         $moduleKey = strtolower((string) ($moduleName ?? ''));
@@ -121,8 +121,8 @@
                         $dashOld = old('dashboard_link_visible', $dashboard_link_visible ?? false);
                         $dashChecked = $dashOld === true || $dashOld === 1 || $dashOld === '1' || $dashOld === 'true';
                         $portalHelp = $moduleKey === 'taxi'
-                            ? 'Toon de knop in de header die naar het taxi-portaal (Mijn Taxi) gaat.'
-                            : 'Toon de knop in de header die naar het Skillmatching-dashboard gaat.';
+                            ? __('Toon de knop in de header die naar het taxi-portaal (Mijn Taxi) gaat.')
+                            : __('Toon de knop in de header die naar het Skillmatching-dashboard gaat.');
                     @endphp
                     @if($moduleKey === 'taxi')
                         @php
@@ -132,14 +132,14 @@
                             $taxiDefaultDark = $taxiAppLogoDefaults['dark'] ?? asset('images/nexa-taxi-logo-dark.png');
                         @endphp
                         <div class="mb-6">
-                            <p class="kt-form-label mb-2">App-logo’s (chauffeur &amp; contract)</p>
+                            <p class="kt-form-label mb-2">{{ __('App-logo’s (chauffeur & contract)') }}</p>
                             <p class="text-xs text-muted-foreground mb-4 max-w-2xl">
-                                Tenants met een abonnement en eigen bedrijfslogo tonen in de apps hun eigen merk (zoals nu).
-                                Bij marketplace en network zonder eigen merk wordt NEXA | TAXI getoond. Upload hier optioneel light/dark; zonder upload gelden de standaardlogo’s.
+                                {{ __('Tenants met een abonnement en eigen bedrijfslogo tonen in de apps hun eigen merk (zoals nu).') }}
+                                {{ __('Bij marketplace en network zonder eigen merk wordt NEXA | TAXI getoond. Upload hier optioneel light/dark; zonder upload gelden de standaardlogo’s.') }}
                             </p>
                             <div class="grid gap-5 sm:grid-cols-2 max-w-3xl">
                                 <div class="min-w-0">
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Light mode</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Light mode') }}</p>
                                     <input type="hidden" name="app_logo_light_remove" id="app_logo_light_remove" value="0">
                                     @include('admin.partials.image-upload-dropzone-inline', [
                                         'name' => 'app_logo_light',
@@ -151,13 +151,13 @@
                                         'existingUrl' => $taxiLightPreview,
                                         'dropzoneKey' => 'taxi-app-light',
                                         'clientMsgId' => 'app-logo-light-client-msg',
-                                        'hintLine' => 'PNG, JPG, SVG, WebP (max. 5MB)',
+                                        'hintLine' => __('PNG, JPG, SVG, WebP (max. 5MB)'),
                                         'maxFileBytes' => 5 * 1024 * 1024,
                                         'removeFlagId' => 'app_logo_light_remove',
                                     ])
                                     <div id="app-logo-light-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
                                     @if(! $taxiLightPreview)
-                                        <p class="text-xs text-muted-foreground mt-2 mb-1">Standaard (NEXA | TAXI):</p>
+                                        <p class="text-xs text-muted-foreground mt-2 mb-1">{{ __('Standaard (NEXA | TAXI):') }}</p>
                                         <img src="{{ $taxiDefaultLight }}" alt="NEXA Taxi light" class="h-8 w-auto max-w-[180px] object-contain">
                                     @endif
                                     @error('app_logo_light')
@@ -165,7 +165,7 @@
                                     @enderror
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Dark mode') }}</p>
                                     <input type="hidden" name="app_logo_dark_remove" id="app_logo_dark_remove" value="0">
                                     @include('admin.partials.image-upload-dropzone-inline', [
                                         'name' => 'app_logo_dark',
@@ -177,13 +177,13 @@
                                         'existingUrl' => $taxiDarkPreview,
                                         'dropzoneKey' => 'taxi-app-dark',
                                         'clientMsgId' => 'app-logo-dark-client-msg',
-                                        'hintLine' => 'PNG, JPG, SVG, WebP (max. 5MB)',
+                                        'hintLine' => __('PNG, JPG, SVG, WebP (max. 5MB)'),
                                         'maxFileBytes' => 5 * 1024 * 1024,
                                         'removeFlagId' => 'app_logo_dark_remove',
                                     ])
                                     <div id="app-logo-dark-client-msg" class="text-xs mt-1 hidden" role="status" aria-live="polite"></div>
                                     @if(! $taxiDarkPreview)
-                                        <p class="text-xs text-muted-foreground mt-2 mb-1">Standaard (NEXA | TAXI):</p>
+                                        <p class="text-xs text-muted-foreground mt-2 mb-1">{{ __('Standaard (NEXA | TAXI):') }}</p>
                                         <img src="{{ $taxiDefaultDark }}" alt="NEXA Taxi dark" class="h-8 w-auto max-w-[180px] object-contain bg-[#0b0f19] rounded px-2 py-1">
                                     @endif
                                     @error('app_logo_dark')
@@ -195,19 +195,19 @@
                     @endif
                     @if($isPortalModule)
                     <div class="mb-6 flex flex-wrap items-center gap-3">
-                        <label class="kt-form-label mb-0">Knop Mijn-omgeving tonen</label>
+                        <label class="kt-form-label mb-0">{{ __('Knop Mijn-omgeving tonen') }}</label>
                         {{-- Eén POST-veld: hidden. kt-switch + dubbele name= veroorzaakte array/false boolean in Laravel → sleutel werd nooit betrouwbaar opgeslagen. --}}
                         <input type="hidden" name="dashboard_link_visible" id="dashboard_link_visible_hidden" value="{{ $dashChecked ? '1' : '0' }}">
                         <input type="checkbox" id="dashboard_link_visible" class="kt-switch kt-switch-sm" value="1" {{ $dashChecked ? 'checked' : '' }} autocomplete="off">
                         <span class="text-sm text-muted-foreground">{{ $portalHelp }}</span>
                     </div>
                     <div class="mb-6">
-                        <label for="dashboard_link_label" class="kt-form-label mb-2">Naam van de Mijn-omgeving</label>
+                        <label for="dashboard_link_label" class="kt-form-label mb-2">{{ __('Naam van de Mijn-omgeving') }}</label>
                         <input type="text" name="dashboard_link_label" id="dashboard_link_label" class="kt-input w-full max-w-md" value="{{ old('dashboard_link_label', $dashboard_link_label ?? 'Mijn Nexa') }}" placeholder="{{ $moduleKey === 'taxi' ? 'Mijn Taxi' : 'Mijn Nexa' }}">
-                        <p class="text-xs text-muted-foreground mt-1">Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn Taxi").</p>
+                        <p class="text-xs text-muted-foreground mt-1">{!! __('Tekst van de knop in de header (bijv. "Mijn Nexa", "Mijn Taxi").') !!}</p>
                     </div>
                     @else
-                    <p class="mb-0 text-sm text-muted-foreground">De Mijn-omgeving-knop is alleen beschikbaar voor modules met een frontend-portaal.</p>
+                    <p class="mb-0 text-sm text-muted-foreground">{{ __('De Mijn-omgeving-knop is alleen beschikbaar voor modules met een frontend-portaal.') }}</p>
                     @endif
                 </div>
             </div>
@@ -215,20 +215,20 @@
             <!-- Module Configuratie -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Onderdelen in menu</h3>
+                    <h3 class="kt-card-title">{{ __('Onderdelen in menu') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     @if(empty($availableItems))
                         <div class="p-5 text-center">
-                            <p class="text-sm text-muted-foreground">Deze module heeft geen configureerbare onderdelen.</p>
+                            <p class="text-sm text-muted-foreground">{{ __('Deze module heeft geen configureerbare onderdelen.') }}</p>
                         </div>
                     @else
                         <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                             <thead>
                                 <tr>
-                                    <th class="min-w-[50px] text-secondary-foreground font-normal">Actief</th>
-                                    <th class="min-w-[200px] text-secondary-foreground font-normal">Onderdeel</th>
-                                    <th class="text-secondary-foreground font-normal">Beschrijving</th>
+                                    <th class="min-w-[50px] text-secondary-foreground font-normal">{{ __('Actief') }}</th>
+                                    <th class="min-w-[200px] text-secondary-foreground font-normal">{{ __('Onderdeel') }}</th>
+                                    <th class="text-secondary-foreground font-normal">{{ __('Beschrijving') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -245,13 +245,13 @@
                                         <td>
                                             <label for="menu-item-{{ $item['key'] }}" class="flex items-center gap-2 cursor-pointer">
                                                 <i class="{{ $item['icon'] ?? 'ki-filled ki-element-11' }} text-lg text-muted-foreground"></i>
-                                                <span class="font-medium text-foreground">{{ $item['title'] }}</span>
+                                                <span class="font-medium text-foreground">{{ __($item['title']) }}</span>
                                             </label>
                                         </td>
                                         <td>
                                             <span class="text-xs text-muted-foreground">
                                                 @if(isset($item['route']))
-                                                    Route: <code class="px-1 py-0.5 rounded text-xs">{{ $item['route'] }}</code>
+                                                    {{ __('Route:') }} <code class="px-1 py-0.5 rounded text-xs">{{ $item['route'] }}</code>
                                                 @endif
                                             </span>
                                         </td>
@@ -264,8 +264,8 @@
             </div>
 
             <div class="flex items-center justify-end gap-2.5">
-                <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">Annuleren</a>
-                <button type="submit" class="kt-btn kt-btn-primary"><i class="ki-filled ki-check me-2"></i>Opslaan</button>
+                <a href="{{ route('admin.modules.index') }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
+                <button type="submit" class="kt-btn kt-btn-primary"><i class="ki-filled ki-check me-2"></i>{{ __('Opslaan') }}</button>
             </div>
 
             <!-- Info Card -->
@@ -276,9 +276,9 @@
                             <i class="ki-filled ki-information-5 text-2xl" style="color: rgb(59, 130, 246);"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h4 class="font-semibold mb-1 text-foreground">Hoe werkt module configuratie?</h4>
+                            <h4 class="font-semibold mb-1 text-foreground">{{ __('Hoe werkt module configuratie?') }}</h4>
                             <p class="text-sm text-muted-foreground">
-                                Instellingen worden per tenant opgeslagen. Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden voor de geselecteerde tenant. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.
+                                {{ __('Instellingen worden per tenant opgeslagen. Vink aan welke onderdelen bij deze module in het Beheer-menu getoond worden voor de geselecteerde tenant. Uitgevinkte onderdelen blijven beschikbaar via hun eigen route, maar staan niet onder deze module in de sidebar.') }}
                             </p>
                         </div>
                     </div>

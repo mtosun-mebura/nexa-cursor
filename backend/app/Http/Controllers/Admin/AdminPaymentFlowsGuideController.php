@@ -83,7 +83,13 @@ class AdminPaymentFlowsGuideController extends Controller
 
         return back()->with(
             'success',
-            "Ledgers nieuw: {$sync['created']}. Payouts: verwerkt {$stats['processed']}, betaald {$stats['paid']}, mislukt {$stats['failed']}, handmatig {$stats['manual']}."
+            __('Ledgers nieuw: :created. Payouts: verwerkt :processed, betaald :paid, mislukt :failed, handmatig :manual.', [
+                'created' => $sync['created'],
+                'processed' => $stats['processed'],
+                'paid' => $stats['paid'],
+                'failed' => $stats['failed'],
+                'manual' => $stats['manual'],
+            ])
         );
     }
 
@@ -95,7 +101,7 @@ class AdminPaymentFlowsGuideController extends Controller
 
         return back()->with(
             'success',
-            'Handmatige payout-poging: '.$settlement->fresh()->statusLabel().' ('.$status.').'
+            __('Handmatige payout-poging: :status (:result).', ['status' => __($settlement->fresh()->statusLabel()), 'result' => $status])
         );
     }
 
@@ -105,7 +111,7 @@ class AdminPaymentFlowsGuideController extends Controller
 
         $payouts->processOne($settlement->fresh(), forceManualSucceed: true);
 
-        return back()->with('success', 'Settlement geforceerd als uitbetaald (naslag). Alleen gebruiken als de overboeking buiten NEXA al is gedaan.');
+        return back()->with('success', __('Settlement geforceerd als uitbetaald (naslag). Alleen gebruiken als de overboeking buiten NEXA al is gedaan.'));
     }
 
     private function authorizeSuperAdmin(): void

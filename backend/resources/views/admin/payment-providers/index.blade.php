@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Betalingsproviders')
+@section('title', __('Betalingsproviders'))
 
 @section('content')
 
@@ -48,12 +48,12 @@
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Betalingsproviders
+            {{ __('Betalingsproviders') }}
         </h1>
         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-payment-providers'))
         <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Nieuwe Betalingsprovider
+            {{ __('Nieuwe Betalingsprovider') }}
         </a>
         @endif
     </div>
@@ -67,7 +67,7 @@
                         {{ $providers->where('is_active', true)->count() }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Actief
+                        {{ __('Actief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -76,7 +76,7 @@
                         {{ $providers->where('is_active', false)->count() }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Inactief
+                        {{ __('Inactief') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -85,7 +85,7 @@
                         {{ $providers->filter(function($provider) { return $provider->getConfigValue('test_mode', false); })->count() }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Test Modus
+                        {{ __('Test Modus') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -94,7 +94,7 @@
                         {{ $providers->count() }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal
+                        {{ __('Totaal') }}
                     </span>
                 </div>
             </div>
@@ -105,7 +105,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2">
                 <h3 class="kt-card-title text-sm pb-3 w-full">
-                    Toon {{ $providers->firstItem() ?? 0 }} tot {{ $providers->lastItem() ?? 0 }} van {{ $providers->total() }} betalingsproviders
+                    {{ __('Toon :from tot :to van :total betalingsproviders', ['from' => $providers->firstItem() ?? 0, 'to' => $providers->lastItem() ?? 0, 'total' => $providers->total()]) }}
                 </h3>
                 <div class="flex flex-wrap gap-2.5 lg:gap-5 justify-end w-full">
                     <!-- Search -->
@@ -131,7 +131,7 @@
                             @endif
                             <label class="kt-input w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek betalingsproviders..." 
+                                <input placeholder="{{ __('Zoek betalingsproviders...') }}" 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
@@ -149,21 +149,21 @@
                             <select class="kt-select w-36" 
                                     name="status" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter"
                                     onchange="this.form.submit()">
-                                <option value="">Alle statussen</option>
-                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                             </select>
                             
                             <select class="kt-select w-36" 
                                     name="provider_type" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Provider Type"
+                                    data-kt-select-placeholder="{{ __('Provider Type') }}"
                                     id="provider-type-filter"
                                     onchange="this.form.submit()">
-                                <option value="">Alle types</option>
+                                <option value="">{{ __('Alle types') }}</option>
                                 <option value="mollie" {{ request('provider_type') == 'mollie' ? 'selected' : '' }}>Mollie</option>
                                 <option value="stripe" {{ request('provider_type') == 'stripe' ? 'selected' : '' }}>Stripe</option>
                                 <option value="paypal" {{ request('provider_type') == 'paypal' ? 'selected' : '' }}>PayPal</option>
@@ -173,18 +173,18 @@
                             <select class="kt-select w-36" 
                                     name="mode" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Modus"
+                                    data-kt-select-placeholder="{{ __('Modus') }}"
                                     id="mode-filter"
                                     onchange="this.form.submit()">
-                                <option value="">Alle modi</option>
-                                <option value="test" {{ request('mode') == 'test' ? 'selected' : '' }}>Test</option>
-                                <option value="live" {{ request('mode') == 'live' ? 'selected' : '' }}>Live</option>
+                                <option value="">{{ __('Alle modi') }}</option>
+                                <option value="test" {{ request('mode') == 'test' ? 'selected' : '' }}>{{ __('Test') }}</option>
+                                <option value="live" {{ request('mode') == 'live' ? 'selected' : '' }}>{{ __('Live') }}</option>
                             </select>
                         </form>
                         @if(request('status') || request('provider_type') || request('mode') || request('search'))
                         <a href="{{ route('admin.payment-providers.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -207,19 +207,19 @@
                                     <th class="min-w-[250px]">
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'name', 'order' => ($currentSort == 'name' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
                                            class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
-                                            <span class="kt-table-col-label">Naam & Beschrijving</span>
+                                            <span class="kt-table-col-label">{{ __('Naam & Beschrijving') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <span class="kt-table-col-sort-btn"></span>
                                             </span>
                                         </a>
                                     </th>
                                     <th class="min-w-[160px]">
-                                        <span class="kt-table-col-label">Bedrijf (tenant)</span>
+                                        <span class="kt-table-col-label">{{ __('Bedrijf (tenant)') }}</span>
                                     </th>
                                     <th class="min-w-[150px]">
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'provider_type', 'order' => ($currentSort == 'provider_type' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
                                            class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
-                                            <span class="kt-table-col-label">Provider Type</span>
+                                            <span class="kt-table-col-label">{{ __('Provider Type') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <span class="kt-table-col-sort-btn"></span>
                                             </span>
@@ -228,7 +228,7 @@
                                     <th class="min-w-[120px]">
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'status', 'order' => ($currentSort == 'status' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
                                            class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <span class="kt-table-col-sort-btn"></span>
                                             </span>
@@ -237,13 +237,13 @@
                                     <th class="min-w-[120px]">
                                         <a href="{{ request()->fullUrlWithQuery(['sort' => 'mode', 'order' => ($currentSort == 'mode' && $currentOrder == 'asc') ? 'desc' : 'asc']) }}" 
                                            class="kt-table-col" style="text-decoration: none; color: inherit; cursor: pointer;">
-                                            <span class="kt-table-col-label">Modus</span>
+                                            <span class="kt-table-col-label">{{ __('Modus') }}</span>
                                             <span class="kt-table-col-sort">
                                                 <span class="kt-table-col-sort-btn"></span>
                                             </span>
                                         </a>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="w-[60px] text-center">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -266,7 +266,7 @@
                                             @elseif($provider->company_id)
                                                 <span class="text-xs text-secondary-foreground">ID {{ $provider->company_id }}</span>
                                             @else
-                                                <span class="text-xs text-destructive">Niet gekoppeld</span>
+                                                <span class="text-xs text-destructive">{{ __('Niet gekoppeld') }}</span>
                                             @endif
                                         </td>
                                         <td>
@@ -276,16 +276,16 @@
                                         </td>
                                         <td>
                                             @if($provider->is_active)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($provider->getConfigValue('test_mode', false))
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Test</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Test') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-primary">Live</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-primary">{{ __('Live') }}</span>
                                             @endif
                                         </td>
                                         <td>
@@ -300,7 +300,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         <div class="kt-menu-item">
@@ -308,7 +308,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-notepad-edit"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         <div class="kt-menu-item">
@@ -318,7 +318,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <x-heroicon-o-bolt class="w-5 h-5" />
                                                                 </span>
-                                                                <span class="kt-menu-title">Test Verbinding</span>
+                                                                <span class="kt-menu-title">{{ __('Test Verbinding') }}</span>
                                                             </button>
                                                         </div>
                                                         <div class="kt-menu-separator"></div>
@@ -335,7 +335,7 @@
                                                                             <x-heroicon-o-play class="w-5 h-5" />
                                                                         @endif
                                                                     </span>
-                                                                    <span class="kt-menu-title">{{ $provider->is_active ? 'Deactiveren' : 'Activeren' }}</span>
+                                                                    <span class="kt-menu-title">{{ $provider->is_active ? __('Deactiveren') : __('Activeren') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -344,14 +344,14 @@
                                                             <form action="{{ route('admin.payment-providers.destroy', $provider) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je deze betalingsprovider wilt verwijderen?')">
+                                                                  onsubmit="return confirm(@json(__('Weet je zeker dat je deze betalingsprovider wilt verwijderen?')))">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -370,11 +370,11 @@
                         <div class="flex items-center justify-between mt-5 pt-5 border-t border-input">
                             <div class="flex items-center gap-2">
                                 <span class="text-sm text-secondary-foreground">
-                                    Pagina {{ $providers->currentPage() }} van {{ $providers->lastPage() }}
+                                    {{ __('Pagina :current van :last', ['current' => $providers->currentPage(), 'last' => $providers->lastPage()]) }}
                                 </span>
                                 <span class="text-sm text-secondary-foreground">|</span>
                                 <span class="text-sm text-secondary-foreground">
-                                    Toon
+                                    {{ __('Toon') }}
                                 </span>
                                 <form method="GET" action="{{ route('admin.payment-providers.index') }}" class="inline">
                                     @if(request('search'))
@@ -408,7 +408,7 @@
                                     </select>
                                 </form>
                                 <span class="text-sm text-secondary-foreground">
-                                    per pagina
+                                    {{ __('per pagina') }}
                                 </span>
                             </div>
                             <div class="flex items-center gap-1">
@@ -445,11 +445,11 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-12 text-center">
                         <i class="ki-filled ki-credit-card text-4xl text-muted-foreground mb-4"></i>
-                        <h5 class="text-lg font-semibold text-mono mb-2">Geen betalingsproviders gevonden</h5>
-                        <p class="text-sm text-secondary-foreground mb-6">Maak je eerste betalingsprovider aan om te beginnen.</p>
+                        <h5 class="text-lg font-semibold text-mono mb-2">{{ __('Geen betalingsproviders gevonden') }}</h5>
+                        <p class="text-sm text-secondary-foreground mb-6">{{ __('Maak je eerste betalingsprovider aan om te beginnen.') }}</p>
                         <a href="{{ route('admin.payment-providers.create') }}" class="kt-btn kt-btn-primary">
                             <i class="ki-filled ki-plus me-2"></i>
-                            Eerste Provider Aanmaken
+                            {{ __('Eerste Provider Aanmaken') }}
                         </a>
                     </div>
                 @endif
@@ -464,7 +464,7 @@
         <div class="kt-modal-content">
             <div class="kt-modal-header">
                 <h3 class="kt-modal-title">
-                    <i class="ki-filled ki-plug me-2"></i>Test Verbinding
+                    <i class="ki-filled ki-plug me-2"></i>{{ __('Test Verbinding') }}
                 </h3>
                 <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="modal">
                     <i class="ki-filled ki-cross"></i>
@@ -474,7 +474,7 @@
                 <div id="testResult"></div>
             </div>
             <div class="kt-modal-footer">
-                <button type="button" class="kt-btn kt-btn-outline" data-kt-dismiss="modal">Sluiten</button>
+                <button type="button" class="kt-btn kt-btn-outline" data-kt-dismiss="modal">{{ __('Sluiten') }}</button>
             </div>
         </div>
     </div>
@@ -514,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const modalElement = document.getElementById('testConnectionModal');
             const resultDiv = document.getElementById('testResult');
             
-            resultDiv.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">Verbinding testen...</p></div>';
+            resultDiv.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">' + @json(__('Verbinding testen...')) + '</p></div>';
             
             // Close menu if opened from menu
             const menu = button.closest('.kt-menu');
@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                resultDiv.innerHTML = `<div class="kt-alert kt-alert-danger"><i class="ki-filled ki-information me-2"></i>Fout bij testen van verbinding: ${error.message}</div>`;
+                resultDiv.innerHTML = `<div class="kt-alert kt-alert-danger"><i class="ki-filled ki-information me-2"></i>${@json(__('Fout bij testen van verbinding:'))} ${error.message}</div>`;
             });
         });
     });

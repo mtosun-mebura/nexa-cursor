@@ -20,7 +20,7 @@
            @if(!empty($required)) required @endif
            @if(!empty($disabled)) disabled @endif
            maxlength="{{ $maxlength ?? 500 }}"
-           placeholder="{{ $placeholder ?? 'Zoek adres...' }}"
+           placeholder="{{ $placeholder ?? __('Zoek adres...') }}"
            autocomplete="off"
            autocorrect="off"
            autocapitalize="none"
@@ -32,7 +32,7 @@
     @if($lngName)
         <input type="hidden" name="{{ $lngName }}" value="{{ $lngValue ?? '' }}" data-admin-address-lng>
     @endif
-    <div class="admin-address-suggestions hidden" data-admin-address-suggestions role="listbox" aria-label="Adresuggesties"></div>
+    <div class="admin-address-suggestions hidden" data-admin-address-suggestions role="listbox" aria-label="{{ __('Adresuggesties') }}"></div>
     @if(!empty($hint))
         <p class="text-xs text-muted-foreground mt-1">{{ $hint }}</p>
     @endif

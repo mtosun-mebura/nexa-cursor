@@ -11,27 +11,27 @@
     <div class="kt-container-fixed mt-5">
         <div class="flex items-center flex-wrap md:flex-nowrap lg:items-center justify-between gap-3 lg:gap-6 mb-5 lg:mb-10 mt-5">
             <div class="flex items-center gap-2.5">
-                <h1 class="text-2xl lg:text-3xl font-bold text-mono">Algemene configuraties</h1>
+                <h1 class="text-2xl lg:text-3xl font-bold text-mono">{{ __('Algemene configuraties') }}</h1>
             </div>
         </div>
 
         <!-- Huidige logo en favicon bovenaan gecentreerd -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12 py-8 mb-8 rounded-xl bg-muted/30 dark:bg-muted/10 border border-border">
             <div class="flex flex-col items-center gap-2">
-                <span class="text-sm font-medium text-muted-foreground">Huidige logo</span>
+                <span class="text-sm font-medium text-muted-foreground">{{ __('Huidige logo') }}</span>
                 @if($logo && Storage::disk('public')->exists($logo))
                     <img alt="Logo" class="h-[35px] w-auto object-contain" src="{{ route('admin.settings.logo') }}?t={{ time() }}" id="logo-preview-top" />
                 @else
-                    <span class="text-sm text-muted-foreground italic py-2" id="logo-preview-placeholder">Geen logo geüpload</span>
+                    <span class="text-sm text-muted-foreground italic py-2" id="logo-preview-placeholder">{{ __('Geen logo geüpload') }}</span>
                     <img alt="Logo" class="h-[35px] w-auto object-contain hidden" src="" id="logo-preview-top" />
                 @endif
             </div>
             <div class="flex flex-col items-center gap-2">
-                <span class="text-sm font-medium text-muted-foreground">Huidige favicon</span>
+                <span class="text-sm font-medium text-muted-foreground">{{ __('Huidige favicon') }}</span>
                 @if($favicon && Storage::disk('public')->exists($favicon))
                     <img alt="Favicon" class="w-12 h-12 object-contain" src="{{ $faviconDisplayUrl ?? route('admin.settings.favicon') }}" id="favicon-preview-top" />
                 @else
-                    <span class="text-sm text-muted-foreground italic py-2" id="favicon-preview-placeholder">Geen favicon geüpload</span>
+                    <span class="text-sm text-muted-foreground italic py-2" id="favicon-preview-placeholder">{{ __('Geen favicon geüpload') }}</span>
                     <img alt="Favicon" class="w-12 h-12 object-contain hidden" src="" id="favicon-preview-top" />
                 @endif
             </div>
@@ -48,34 +48,34 @@
             $logoDarkUrl = ($hasLogo && $useLightDark && $hasLogoDark) ? route('admin.settings.logo-dark') : $logoLightUrl;
         @endphp
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Logo, favicon &amp; avatar'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => e(__('Logo, favicon & avatar'))])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
                     <tbody>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Logo') }}</td>
                         <td class="min-w-48 w-full align-top">
                             <input type="hidden" name="logo_mode" id="logo-mode-input" value="{{ old('logo_mode', $logoMode ?? 'single') }}">
                             <div class="mb-0">
-                                <p class="text-sm text-muted-foreground mb-3">Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).</p>
+                                <p class="text-sm text-muted-foreground mb-3">{{ __('Het logo wordt gebruikt in de admin-sidebar en op de frontend (header en footer).') }}</p>
                                 <div class="flex flex-col gap-2 mb-4">
-                                    <span class="text-sm text-muted-foreground">Eén logo voor beide modi</span>
+                                    <span class="text-sm text-muted-foreground">{{ __('Eén logo voor beide modi') }}</span>
                                     <div class="flex flex-wrap items-center gap-3">
-                                        <input type="checkbox" id="logo-mode-toggle" class="kt-switch kt-switch-sm" {{ old('logo_mode', $logoMode ?? 'single') === 'light_dark' ? 'checked' : '' }} aria-label="Apart logo voor light en dark mode">
-                                        <span class="text-sm text-muted-foreground">Apart logo voor light en dark mode</span>
+                                        <input type="checkbox" id="logo-mode-toggle" class="kt-switch kt-switch-sm" {{ old('logo_mode', $logoMode ?? 'single') === 'light_dark' ? 'checked' : '' }} aria-label="{{ __('Apart logo voor light en dark mode') }}">
+                                        <span class="text-sm text-muted-foreground">{{ __('Apart logo voor light en dark mode') }}</span>
                                     </div>
                                 </div>
 
                                 @if($logoLightUrl)
-                                <p class="text-sm font-medium text-muted-foreground mb-2">Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)</p>
+                                <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Zo ziet het logo eruit in de sidebar en op de frontend (wisselt mee met light/dark modus)') }}</p>
                                 <div id="settings-live-preview-wrap" class="flex items-center justify-start gap-3 mb-4 p-3 rounded-lg border border-border">
                                     <img alt="Logo light" class="logo-light w-auto max-w-[140px] object-contain dark:hidden" style="height: {{ $logoSize }}px;" src="{{ $logoLightUrl }}" id="settings-live-preview-light" />
                                     <img alt="Logo dark" class="logo-dark w-auto max-w-[140px] object-contain hidden dark:block" style="height: {{ $logoSize }}px;" src="{{ $logoDarkUrl }}" id="settings-live-preview-dark" />
                                 </div>
                                 @endif
 
-                                <p class="text-sm font-medium text-muted-foreground mb-2">Light mode (standaard)</p>
+                                <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Light mode (standaard)') }}</p>
                                 <div class="max-w-96 w-full flex flex-col gap-3 items-center mb-4">
                                     <div class="flex flex-col items-center gap-2 w-full">
                                         <div class="inline-flex items-center justify-center rounded-lg border border-border p-3" style="background-color: #ffffff;">
@@ -89,7 +89,7 @@
                                                      id="logo-preview"/>
                                             @endif
                                         </div>
-                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogo ? '' : 'hidden' }}" id="logo-light-remove-btn" title="Light logo verwijderen" aria-label="Light logo verwijderen">
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogo ? '' : 'hidden' }}" id="logo-light-remove-btn" title="{{ __('Light logo verwijderen') }}" aria-label="{{ __('Light logo verwijderen') }}">
                                             <i class="ki-filled ki-trash text-lg"></i>
                                         </button>
                                     </div>
@@ -101,10 +101,10 @@
                                                 </div>
                                             </div>
                                             <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="logo-upload-link">
-                                                Klik of Sleep &amp; Drop
+                                                {{ __('Klik of Sleep & Drop') }}
                                             </a>
                                             <span class="text-xs text-muted-foreground">
-                                                SVG, PNG, JPG, GIF (max. 5MB)
+                                                {{ __('SVG, PNG, JPG, GIF (max. 5MB)') }}
                                             </span>
                                         </div>
                                     </div>
@@ -114,10 +114,10 @@
                                            accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
                                            class="hidden">
                                 </div>
-                                <p class="text-xs text-muted-foreground mt-1 mb-4">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                <p class="text-xs text-muted-foreground mt-1 mb-4">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)') }}</p>
 
                                 <div id="logo-dark-block" class="{{ ($logoMode ?? 'single') === 'light_dark' ? '' : 'hidden' }}">
-                                    <p class="text-sm font-medium text-muted-foreground mb-2">Dark mode</p>
+                                    <p class="text-sm font-medium text-muted-foreground mb-2">{{ __('Dark mode') }}</p>
                                     <div class="max-w-96 w-full flex flex-col gap-3 items-center">
                                         <div class="flex flex-col items-center w-full gap-2">
                                             <div class="inline-flex items-center justify-center rounded-lg border border-border p-3" style="background-color: #0b0f19;">
@@ -131,7 +131,7 @@
                                                          id="logo-dark-preview"/>
                                                 @endif
                                             </div>
-                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogoDark ? '' : 'hidden' }}" id="logo-dark-remove-btn" title="Dark logo verwijderen" aria-label="Dark logo verwijderen">
+                                            <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasLogoDark ? '' : 'hidden' }}" id="logo-dark-remove-btn" title="{{ __('Dark logo verwijderen') }}" aria-label="{{ __('Dark logo verwijderen') }}">
                                                 <i class="ki-filled ki-trash text-lg"></i>
                                             </button>
                                         </div>
@@ -143,10 +143,10 @@
                                                     </div>
                                                 </div>
                                                 <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="logo-dark-upload-link">
-                                                    Klik of Sleep &amp; Drop
+                                                    {{ __('Klik of Sleep & Drop') }}
                                                 </a>
                                                 <span class="text-xs text-muted-foreground">
-                                                    SVG, PNG, JPG, GIF (max. 5MB)
+                                                    {{ __('SVG, PNG, JPG, GIF (max. 5MB)') }}
                                                 </span>
                                             </div>
                                         </div>
@@ -155,15 +155,15 @@
                                                accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml"
                                                class="hidden">
                                     </div>
-                                    <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)</p>
+                                    <p class="text-xs text-muted-foreground mt-1">{{ __('Ondersteunde formaten: JPEG, PNG, JPG, GIF, SVG (max. 5MB)') }}</p>
                                 </div>
                             </div>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Logo grootte (px)</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Logo grootte (px)') }}</td>
                         <td class="min-w-48 w-full align-top">
-                            <p class="text-sm text-muted-foreground mb-3">Stel de hoogte van het logo in pixels in.</p>
+                            <p class="text-sm text-muted-foreground mb-3">{{ __('Stel de hoogte van het logo in pixels in.') }}</p>
                             <select name="logo_size" id="logo_size" class="kt-input" required>
                                 @foreach(range(26, 50, 2) as $size)
                                     <option value="{{ $size }}" {{ $logoSize == (string)$size ? 'selected' : '' }}>{{ $size }}px</option>
@@ -172,9 +172,9 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Favicon</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Favicon') }}</td>
                         <td class="min-w-48 w-full align-top">
-                            <p class="text-sm text-muted-foreground mb-3">Het favicon wordt gebruikt in de browser tab.</p>
+                            <p class="text-sm text-muted-foreground mb-3">{{ __('Het favicon wordt gebruikt in de browser tab.') }}</p>
                             <div class="max-w-96 w-full flex flex-col gap-3">
                                 @if($favicon && Storage::disk('public')->exists($favicon))
                                     <img alt="Favicon Preview" class="w-16 h-16 object-contain self-start"
@@ -193,10 +193,10 @@
                                             </div>
                                         </div>
                                         <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="favicon-upload-link">
-                                            Klik of Sleep &amp; Drop
+                                            {{ __('Klik of Sleep & Drop') }}
                                         </a>
                                         <span class="text-xs text-muted-foreground">
-                                            ICO, PNG, JPG (max. 2MB)
+                                            {{ __('ICO, PNG, JPG (max. 2MB)') }}
                                         </span>
                                     </div>
                                 </div>
@@ -206,22 +206,22 @@
                                        accept="image/x-icon,image/png,image/jpeg"
                                        class="hidden">
                             </div>
-                            <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)</p>
+                            <p class="text-xs text-muted-foreground mt-1">{{ __('Ondersteunde formaten: ICO, PNG, JPG (max. 2MB)') }}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">NEXA Suite-avatar</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('NEXA Suite-avatar') }}</td>
                         <td class="min-w-48 w-full align-top">
                             @php
                                 $hasNexaSuiteAvatar = !empty($nexaSuiteAvatar) && Storage::disk('public')->exists($nexaSuiteAvatar);
                             @endphp
-                            <p class="text-sm text-muted-foreground mb-3">Wordt getoond bij systeemmeldingen in het notificatiepaneel (afzender <span class="font-medium text-foreground">Systeem</span>).</p>
+                            <p class="text-sm text-muted-foreground mb-3">{!! __('Wordt getoond bij systeemmeldingen in het notificatiepaneel (afzender <span class="font-medium text-foreground">Systeem</span>).') !!}</p>
                             <div class="max-w-96 w-full flex flex-col gap-3">
                                 <div class="flex items-center gap-3">
-                                    <img alt="NEXA Suite-avatar" class="size-16 rounded-full object-cover shrink-0 ring-1 ring-border"
+                                    <img alt="{{ __('NEXA Suite-avatar') }}" class="size-16 rounded-full object-cover shrink-0 ring-1 ring-border"
                                          src="{{ $nexaSuiteAvatarUrl ?? asset('assets/media/avatars/300-2.png') }}"
                                          id="nexa-suite-avatar-preview"/>
-                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasNexaSuiteAvatar ? '' : 'hidden' }}" id="nexa-suite-avatar-remove-btn" title="Avatar verwijderen" aria-label="Avatar verwijderen">
+                                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive {{ $hasNexaSuiteAvatar ? '' : 'hidden' }}" id="nexa-suite-avatar-remove-btn" title="{{ __('Avatar verwijderen') }}" aria-label="{{ __('Avatar verwijderen') }}">
                                         <i class="ki-filled ki-trash text-lg"></i>
                                     </button>
                                 </div>
@@ -233,10 +233,10 @@
                                             </div>
                                         </div>
                                         <a class="text-mono text-xs font-medium hover:text-primary mb-px cursor-pointer pointer-events-auto" id="nexa-suite-avatar-upload-link">
-                                            Klik of Sleep &amp; Drop
+                                            {{ __('Klik of Sleep & Drop') }}
                                         </a>
                                         <span class="text-xs text-muted-foreground">
-                                            JPG, PNG, WebP (max. 5MB)
+                                            {{ __('JPG, PNG, WebP (max. 5MB)') }}
                                         </span>
                                     </div>
                                 </div>
@@ -246,14 +246,14 @@
                                        accept="image/jpeg,image/png,image/gif,image/webp"
                                        class="hidden">
                             </div>
-                            <p class="text-xs text-muted-foreground mt-1">Ondersteunde formaten: JPG, PNG, GIF, WebP (max. 5MB). Zonder upload wordt het standaardplaatje gebruikt.</p>
+                            <p class="text-xs text-muted-foreground mt-1">{{ __('Ondersteunde formaten: JPG, PNG, GIF, WebP (max. 5MB). Zonder upload wordt het standaardplaatje gebruikt.') }}</p>
                         </td>
                     </tr>
                     <tr>
                         <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
                             <div class="flex justify-end">
                                 <button type="submit" class="kt-btn kt-btn-primary">
-                                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                                    <i class="ki-filled ki-check me-2"></i> {{ __('Opslaan') }}
                                 </button>
                             </div>
                         </td>
@@ -265,7 +265,7 @@
         </div>
         <!-- Algemene opties. Applicatienaam, omschrijving en Mijn-omgeving-knop staan per module onder Modules Beheer > [module] > Configureren. -->
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Algemene opties'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Algemene opties')])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-form-general-options-section">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
@@ -275,25 +275,25 @@
                     </colgroup>
                     <tbody>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Admin footertekst</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Admin footertekst') }}</td>
                         <td class="min-w-48 w-full min-w-0 align-top">
                             <input type="text" name="admin_footer_brand" id="admin_footer_brand" class="kt-input w-full max-w-xl" value="{{ old('admin_footer_brand', $adminFooterBrand ?? 'Nexa Skillmatching') }}" maxlength="255" placeholder="Nexa Skillmatching">
-                            <p class="text-xs text-muted-foreground mt-1 max-w-full">Tekst rechts van het jaartal in de footer van het admin-panel (bijv. <span class="font-mono">{{ date('Y') }}© Nexa Skillmatching</span>). Het jaar wordt automatisch bijgewerkt.</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-full">{!! __('Tekst rechts van het jaartal in de footer van het admin-panel (bijv. <span class="font-mono">:example</span>). Het jaar wordt automatisch bijgewerkt.', ['example' => e(date('Y').'© Nexa Skillmatching')]) !!}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">AI-assistent tonen</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('AI-assistent tonen') }}</td>
                         <td class="min-w-48 w-full min-w-0 align-top">
                             <div class="flex flex-wrap items-center gap-3 w-full min-w-0 max-w-full">
                                 <input type="checkbox" name="ai_chat_enabled" id="ai_chat_enabled" class="kt-switch kt-switch-sm shrink-0" value="1" {{ old('ai_chat_enabled', $aiChatEnabled ?? '0') === '1' ? 'checked' : '' }}>
-                                <span class="text-sm text-muted-foreground min-w-0">Toon het AI-icoon rechtsboven in de header (naast licht/donker) op de publieke website en het portaal.</span>
+                                <span class="text-sm text-muted-foreground min-w-0">{{ __('Toon het AI-icoon rechtsboven in de header (naast licht/donker) op de publieke website en het portaal.') }}</span>
                             </div>
                         </td>
                     </tr>
                     @foreach($aiChatModules ?? [] as $aiChatModule)
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                            {{ $aiChatModule->display_name ?: $aiChatModule->name }} — webhook (n8n)
+                            {{ __(':module — webhook (n8n)', ['module' => $aiChatModule->display_name ?: $aiChatModule->name]) }}
                         </td>
                         <td class="min-w-48 w-full min-w-0 align-top">
                             <input type="url"
@@ -303,7 +303,7 @@
                                    value="{{ old('ai_chat_webhooks.'.$aiChatModule->name, $aiChatModuleWebhooks[$aiChatModule->name] ?? '') }}"
                                    placeholder="{{ $aiChatModuleWebhookDefaults[$aiChatModule->name] ?? '' }}">
                             @if($loop->first)
-                            <p class="text-xs text-muted-foreground mt-1 max-w-full">Per module de n8n-webhook waarmee de AI-chat praat op de frontend van die module. Leeg laten = standaard uit configuratie. Berichten gaan via de backend; het antwoord wordt in de chat getoond.</p>
+                            <p class="text-xs text-muted-foreground mt-1 max-w-full">{{ __('Per module de n8n-webhook waarmee de AI-chat praat op de frontend van die module. Leeg laten = standaard uit configuratie. Berichten gaan via de backend; het antwoord wordt in de chat getoond.') }}</p>
                             @endif
                         </td>
                     </tr>
@@ -313,7 +313,7 @@
             </div>
             <div class="px-4 sm:px-6 pb-6 pt-2 flex justify-end">
                 <button type="submit" class="kt-btn kt-btn-primary">
-                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                    <i class="ki-filled ki-check me-2"></i> {{ __('Opslaan') }}
                 </button>
             </div>
             </div>
@@ -321,7 +321,7 @@
 
         <!-- Formulier succesbericht (informatieaanvraag / contactformulier op de website) -->
         <div class="kt-card mb-8 settings-collapsible-card settings-collapsible-card--collapsed">
-            @include('admin.settings.partials.collapsible-header', ['titleHtml' => 'Formulier succesbericht'])
+            @include('admin.settings.partials.collapsible-header', ['titleHtml' => __('Formulier succesbericht')])
             <div class="settings-collapsible-body">
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-form-success-section">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table">
@@ -332,61 +332,61 @@
                     <tbody>
                     <tr class="admin-form-success-intro">
                         <td colspan="2" class="px-4 sm:px-6 pt-6 pb-2 align-top">
-                            <p class="text-sm text-muted-foreground mb-0 max-w-full">Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.</p>
+                            <p class="text-sm text-muted-foreground mb-0 max-w-full">{!! __('Teksten en icoon of plaatje die bezoekers zien nadat ze een formulier succesvol hebben verzonden. Geldt voor alle formulieren op de website. Kies een plaatje <em>of</em> een icoon; bij een geüploade plaatje heeft het icoon geen effect.') !!}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Hoofdtekst</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Hoofdtekst') }}</td>
                         <td class="min-w-48 w-full align-top">
                             <input type="text" name="info_request_success_title" id="info_request_success_title" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_title', $infoRequestSuccessTitle ?? 'Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.') }}" maxlength="500" placeholder="Uw bericht is verstuurd. We nemen zo snel mogelijk contact met u op.">
-                            <p class="text-xs text-muted-foreground mt-1">Grote regel onder het icoon/plaatje (max. 500 tekens)</p>
+                            <p class="text-xs text-muted-foreground mt-1">{{ __('Grote regel onder het icoon/plaatje (max. 500 tekens)') }}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Ondertitel</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Ondertitel') }}</td>
                         <td class="min-w-48 w-full align-top">
                             <input type="text" name="info_request_success_subtitle" id="info_request_success_subtitle" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? 'Er wordt binnenkort contact met u opgenomen.') }}" maxlength="500" placeholder="Er wordt binnenkort contact met u opgenomen.">
-                            <p class="text-xs text-muted-foreground mt-1">Kleinere regel eronder (max. 500 tekens)</p>
+                            <p class="text-xs text-muted-foreground mt-1">{{ __('Kleinere regel eronder (max. 500 tekens)') }}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Footertekst</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Footertekst') }}</td>
                         <td class="min-w-48 w-full align-top">
                             <input type="text" name="info_request_success_footer" id="info_request_success_footer" class="kt-input w-full max-w-xl" value="{{ old('info_request_success_footer', $infoRequestSuccessFooter ?? 'Uw bericht is succesvol verzonden.') }}" maxlength="500" placeholder="Uw bericht is succesvol verzonden.">
-                            <p class="text-xs text-muted-foreground mt-1">Regel onderaan de bedanktmelding (max. 500 tekens)</p>
+                            <p class="text-xs text-muted-foreground mt-1">{{ __('Regel onderaan de bedanktmelding (max. 500 tekens)') }}</p>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Teksten uitschakelen</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Teksten uitschakelen') }}</td>
                         <td class="min-w-48 w-full align-top">
                             <div class="flex flex-wrap items-center gap-3 w-full min-w-0">
                                 <input type="checkbox" name="info_request_success_texts_enabled" id="info_request_success_texts_enabled" class="kt-switch kt-switch-sm shrink-0" value="0" {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'checked' : '' }}>
-                                <span class="text-sm text-muted-foreground min-w-0">Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)</span>
+                                <span class="text-sm text-muted-foreground min-w-0">{{ __('Verberg de hoofdtekst, ondertitel en footertekst in de bedanktmelding (alleen icoon/plaatje blijft zichtbaar)') }}</span>
                             </div>
                         </td>
                     </tr>
                     <tr>
-                        <td class="min-w-56 text-secondary-foreground font-normal align-top">Plaatje of icoon</td>
+                        <td class="min-w-56 text-secondary-foreground font-normal align-top">{{ __('Plaatje of icoon') }}</td>
                         <td class="min-w-48 w-full min-w-0 align-top">
-                            <p class="text-sm text-muted-foreground mb-3">Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.</p>
+                            <p class="text-sm text-muted-foreground mb-3">{{ __('Upload een afbeelding of kies een icoon. Bij een geüploade afbeelding wordt het icoon niet getoond.') }}</p>
                         <div class="admin-success-media-row flex flex-wrap gap-6 items-start w-full min-w-0 max-w-full">
                             <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0 max-w-full">
-                                <span class="text-xs font-medium text-secondary-foreground">Plaatje</span>
+                                <span class="text-xs font-medium text-secondary-foreground">{{ __('Plaatje') }}</span>
                                 <div class="flex flex-wrap gap-5 lg:gap-7.5 w-full max-w-full min-w-0 items-start">
                                     <div id="success-image-preview-wrap" class="flex flex-col items-center gap-2 shrink-0 w-full min-w-0 max-w-full {{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? '' : 'hidden' }}">
                                         @php
                                             $successImagePreviewPercent = max(10, min(100, (int) old('info_request_success_image_size_percent', $infoRequestSuccessImageSizePercent ?? 80)));
-                                            $previewContext = $infoRequestFormPreviewContext ?? ['width_percent' => 100, 'layout' => 'text_block_half', 'label' => 'Standaard (100% sectiebreedte)'];
+                                            $previewContext = $infoRequestFormPreviewContext ?? ['width_percent' => 100, 'layout' => 'text_block_half', 'label' => __('Standaard (100% sectiebreedte)')];
                                             $previewWidthPercent = max(30, min(100, (int) ($previewContext['width_percent'] ?? 100)));
                                             $previewLayout = ($previewContext['layout'] ?? 'text_block_half') === 'standalone' ? 'standalone' : 'text_block_half';
-                                            $previewContextLabel = (string) ($previewContext['label'] ?? 'Voorbeeld op de website');
+                                            $previewContextLabel = (string) ($previewContext['label'] ?? __('Voorbeeld op de website'));
                                         @endphp
                                         <div id="admin-success-website-preview-root"
                                              class="admin-success-website-preview admin-success-website-preview--{{ $previewLayout === 'standalone' ? 'standalone' : 'text-block-half' }}"
                                              style="--section-width-pct: {{ $previewWidthPercent }}; --preview-ref-viewport: 90rem;"
                                              data-layout="{{ $previewLayout }}">
                                             @if(!empty($infoRequestFormPreviewContexts) && count($infoRequestFormPreviewContexts) > 1)
-                                                <label for="info-request-preview-context-select" class="sr-only">Pagina voor voorbeeld</label>
+                                                <label for="info-request-preview-context-select" class="sr-only">{{ __('Pagina voor voorbeeld') }}</label>
                                                 <select id="info-request-preview-context-select" class="kt-select admin-success-website-preview-context-select w-full max-w-md mb-2">
                                                     @foreach($infoRequestFormPreviewContexts as $ctx)
                                                         <option value="{{ $ctx['id'] }}"
@@ -396,7 +396,7 @@
                                                     @endforeach
                                                 </select>
                                             @endif
-                                            <p class="admin-success-website-preview-label" id="admin-success-website-preview-label">Voorbeeld op de website · {{ $previewContextLabel }}</p>
+                                            <p class="admin-success-website-preview-label" id="admin-success-website-preview-label">{{ __('Voorbeeld op de website · :label', ['label' => $previewContextLabel]) }}</p>
                                             <div class="admin-success-website-preview-scaler">
                                                 <div class="admin-success-website-preview-stage">
                                                     <div class="admin-success-website-preview-inner">
@@ -405,7 +405,7 @@
                                                             <div class="admin-success-website-preview-form-col">
                                                                 <div class="admin-success-website-preview-success flex flex-col items-center justify-center text-center">
                                                                     <div class="admin-success-website-preview-image-wrap w-full flex justify-center" aria-hidden="true">
-                                                                        <img alt="Success preview" class="admin-success-website-preview-image info-request-success-image h-auto w-auto object-contain max-w-full rounded-lg" style="width: {{ $successImagePreviewPercent }}%;" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="Klik om groot te bekijken"/>
+                                                                        <img alt="Success preview" class="admin-success-website-preview-image info-request-success-image h-auto w-auto object-contain max-w-full rounded-lg" style="width: {{ $successImagePreviewPercent }}%;" src="{{ (!empty($infoRequestSuccessImage) && Storage::disk('public')->exists($infoRequestSuccessImage)) ? route('admin.settings.success-image').'?t='.time() : '' }}" id="success-image-preview" title="{{ __('Klik om groot te bekijken') }}"/>
                                                                     </div>
                                                                     <p id="success-preview-title" class="admin-success-website-preview-text admin-success-website-preview-text--title {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'hidden' : '' }}">{{ old('info_request_success_title', $infoRequestSuccessTitle ?? '') }}</p>
                                                                     <p id="success-preview-subtitle" class="admin-success-website-preview-text admin-success-website-preview-text--subtitle {{ old('info_request_success_texts_enabled', $infoRequestSuccessTextsEnabled ?? '1') === '0' ? 'hidden' : '' }}">{{ old('info_request_success_subtitle', $infoRequestSuccessSubtitle ?? '') }}</p>
@@ -417,43 +417,43 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive" id="success-image-remove-btn" title="Plaatje verwijderen" aria-label="Plaatje verwijderen">
+                                        <button type="button" class="kt-btn kt-btn-sm kt-btn-outline kt-btn-icon text-destructive" id="success-image-remove-btn" title="{{ __('Plaatje verwijderen') }}" aria-label="{{ __('Plaatje verwijderen') }}">
                                             <i class="ki-filled ki-trash text-lg"></i>
                                         </button>
                                     </div>
                                     <div class="flex flex-col flex-1 min-w-[180px]" id="success-image-upload-wrap">
-                                        <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="Klik of sleep een afbeelding">
+                                        <div class="flex flex-col items-center justify-center w-full p-5 lg:p-7 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] min-w-0 cursor-pointer hover:border-primary transition-colors" id="success-image-upload-area" role="button" tabindex="0" title="{{ __('Klik of sleep een afbeelding') }}">
                                             <div class="flex flex-col place-items-center place-content-center text-center w-full pointer-events-none">
                                                 <i class="ki-filled ki-picture text-2xl text-primary mb-1"></i>
-                                                <span class="text-mono text-xs font-medium text-primary">Klik of Sleep &amp; Drop</span>
-                                                <span class="text-xs text-muted-foreground mt-0.5">SVG, PNG, JPG, GIF, WebP (max. 5MB)</span>
+                                                <span class="text-mono text-xs font-medium text-primary">{{ __('Klik of Sleep & Drop') }}</span>
+                                                <span class="text-xs text-muted-foreground mt-0.5">{{ __('SVG, PNG, JPG, GIF, WebP (max. 5MB)') }}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <input type="file" name="info_request_success_image_file" id="success-image-input" accept="image/jpeg,image/png,image/jpg,image/gif,image/svg+xml,image/webp" class="hidden">
                                 <div class="mt-2 w-full max-w-xs">
-                                    <label for="info_request_success_image_size_percent" class="text-xs font-medium text-secondary-foreground block mb-1">Plaatjegrootte</label>
+                                    <label for="info_request_success_image_size_percent" class="text-xs font-medium text-secondary-foreground block mb-1">{{ __('Plaatjegrootte') }}</label>
                                     <select name="info_request_success_image_size_percent" id="info_request_success_image_size_percent" class="kt-select w-full sm:w-32 max-w-full">
                                         @foreach([25, 50, 75, 80, 100] as $pct)
                                             <option value="{{ $pct }}" {{ (old('info_request_success_image_size_percent', $infoRequestSuccessImageSizePercent ?? '80')) == (string) $pct ? 'selected' : '' }}>{{ $pct }}%</option>
                                         @endforeach
                                     </select>
-                                    <p class="text-xs text-muted-foreground mt-1">Breedte t.o.v. het formulier; schaal op desktopbreedte (1440px) uit de page builder</p>
+                                    <p class="text-xs text-muted-foreground mt-1">{{ __('Breedte t.o.v. het formulier; schaal op desktopbreedte (1440px) uit de page builder') }}</p>
                                 </div>
                                 <p id="success-image-error" class="text-sm text-destructive mt-2 hidden" role="alert"></p>
                                 {{-- Modal: plaatje groot bekijken --}}
-                                <div id="success-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Afbeelding groot">
+                                <div id="success-image-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm" aria-hidden="true" role="dialog" aria-modal="true" aria-label="{{ __('Afbeelding groot') }}">
                                     <div class="relative max-h-[90vh] max-w-[90vw] p-4" id="success-image-modal-inner">
-                                        <button type="button" id="success-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="Sluiten">
+                                        <button type="button" id="success-image-modal-close" class="absolute -top-2 -right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-background border border-input text-foreground shadow-md hover:bg-muted" aria-label="{{ __('Sluiten') }}">
                                             <i class="ki-filled ki-cross text-xl"></i>
                                         </button>
-                                        <img id="success-image-modal-img" src="" alt="Grote weergave" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
+                                        <img id="success-image-modal-img" src="" alt="{{ __('Grote weergave') }}" class="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-xl">
                                     </div>
                                 </div>
                             </div>
                             <div class="flex flex-col gap-2 w-full sm:w-auto min-w-0 max-w-full">
-                                <span class="text-xs font-medium text-secondary-foreground">Icoon (als geen plaatje)</span>
+                                <span class="text-xs font-medium text-secondary-foreground">{{ __('Icoon (als geen plaatje)') }}</span>
                                 <div class="flex flex-wrap items-start gap-3 w-full min-w-0">
                                     <div class="flex items-center justify-center w-16 h-16 rounded-lg border border-input bg-muted/30 shrink-0" id="success-icon-preview">
                                         <i class="ki-filled {{ old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-check-circle') }} text-3xl text-green-600"></i>
@@ -461,14 +461,14 @@
                                     <select name="info_request_success_icon" id="info_request_success_icon" class="kt-select w-full sm:w-56 max-w-full min-w-0" data-kt-select="true">
                                         @php
                                             $successIcons = [
-                                                'ki-filled ki-check-circle' => 'Vink in cirkel',
-                                                'ki-filled ki-check' => 'Vinkje',
-                                                'ki-filled ki-like' => 'Duim omhoog',
-                                                'ki-filled ki-love' => 'Hart (like)',
-                                                'ki-filled ki-heart' => 'Hart',
-                                                'ki-filled ki-star' => 'Ster',
-                                                'ki-filled ki-sms' => 'Bericht',
-                                                'ki-filled ki-rocket' => 'Raket',
+                                                'ki-filled ki-check-circle' => __('Vink in cirkel'),
+                                                'ki-filled ki-check' => __('Vinkje'),
+                                                'ki-filled ki-like' => __('Duim omhoog'),
+                                                'ki-filled ki-love' => __('Hart (like)'),
+                                                'ki-filled ki-heart' => __('Hart'),
+                                                'ki-filled ki-star' => __('Ster'),
+                                                'ki-filled ki-sms' => __('Bericht'),
+                                                'ki-filled ki-rocket' => __('Raket'),
                                             ];
                                             $currentIcon = old('info_request_success_icon', $infoRequestSuccessIcon ?? 'ki-filled ki-check-circle');
                                         @endphp
@@ -478,13 +478,13 @@
                                     </select>
                                 </div>
                                 <div class="mt-2 w-full max-w-xs">
-                                    <label for="info_request_success_icon_size" class="text-xs font-medium text-secondary-foreground block mb-1">Icoon grootte</label>
+                                    <label for="info_request_success_icon_size" class="text-xs font-medium text-secondary-foreground block mb-1">{{ __('Icoon grootte') }}</label>
                                     <select name="info_request_success_icon_size" id="info_request_success_icon_size" class="kt-select w-full sm:w-24 max-w-full">
                                         @foreach([48, 64, 80, 96, 120] as $px)
                                             <option value="{{ $px }}" {{ (old('info_request_success_icon_size', $infoRequestSuccessSize ?? '80')) == (string)$px ? 'selected' : '' }}>{{ $px }}px</option>
                                         @endforeach
                                     </select>
-                                    <p class="text-xs text-muted-foreground mt-1">Alleen van toepassing als er geen plaatje is geüpload</p>
+                                    <p class="text-xs text-muted-foreground mt-1">{{ __('Alleen van toepassing als er geen plaatje is geüpload') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -494,7 +494,7 @@
                         <td colspan="2" class="px-4 sm:px-6 pb-6 pt-2 align-top">
                             <div class="flex justify-end">
                                 <button type="submit" class="kt-btn kt-btn-primary">
-                                    <i class="ki-filled ki-check me-2"></i> Opslaan
+                                    <i class="ki-filled ki-check me-2"></i> {{ __('Opslaan') }}
                                 </button>
                             </div>
                         </td>
@@ -519,6 +519,33 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const i18n = {!! json_encode([
+        'Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.' => __('Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.'),
+        'Het bestand mag maximaal 5MB groot zijn.' => __('Het bestand mag maximaal 5MB groot zijn.'),
+        'CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.' => __('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.'),
+        'Er is een fout opgetreden bij het uploaden van het logo.' => __('Er is een fout opgetreden bij het uploaden van het logo.'),
+        'CSRF token niet gevonden. Ververs de pagina.' => __('CSRF token niet gevonden. Ververs de pagina.'),
+        'Upload mislukt' => __('Upload mislukt'),
+        'Fout bij uploaden dark logo.' => __('Fout bij uploaden dark logo.'),
+        'Alleen ICO, PNG en JPG bestanden zijn toegestaan.' => __('Alleen ICO, PNG en JPG bestanden zijn toegestaan.'),
+        'Het bestand mag maximaal 2MB groot zijn.' => __('Het bestand mag maximaal 2MB groot zijn.'),
+        'Er is een fout opgetreden bij het uploaden van het favicon.' => __('Er is een fout opgetreden bij het uploaden van het favicon.'),
+        'Alleen JPG, PNG, GIF en WebP bestanden zijn toegestaan.' => __('Alleen JPG, PNG, GIF en WebP bestanden zijn toegestaan.'),
+        'Er is een fout opgetreden bij het uploaden van de avatar.' => __('Er is een fout opgetreden bij het uploaden van de avatar.'),
+        'Upload mislukt.' => __('Upload mislukt.'),
+        'Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.' => __('Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.'),
+        'Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is :size KB.' => __('Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is :size KB.'),
+        'Het bestand is te groot. Maximaal 5MB toegestaan.' => __('Het bestand is te groot. Maximaal 5MB toegestaan.'),
+        'Upload mislukt. De server gaf een onverwachte reactie (status :status).' => __('Upload mislukt. De server gaf een onverwachte reactie (status :status).'),
+        'Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).' => __('Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).'),
+        'Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.' => __('Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.'),
+        'Er is een fout opgetreden bij het bijwerken van de logo grootte.' => __('Er is een fout opgetreden bij het bijwerken van de logo grootte.'),
+        'Voorbeeld op de website · :label' => __('Voorbeeld op de website · :label'),
+    ], JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) !!};
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(i18n, key) ? i18n[key] : key;
+    }
+
     // Logo mode toggle: één logo vs apart light/dark
     const logoModeToggle = document.getElementById('logo-mode-toggle');
     const logoModeInput = document.getElementById('logo-mode-input');
@@ -579,14 +606,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate file type
             const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
             if (!allowedTypes.includes(file.type)) {
-                alert('Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.');
+                alert(t('Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.'));
                 logoInput.value = '';
                 return;
             }
             
             // Validate file size (max 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 5MB groot zijn.');
+                alert(t('Het bestand mag maximaal 5MB groot zijn.'));
                 logoInput.value = '';
                 return;
             }
@@ -607,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('_token', csrfToken.getAttribute('content'));
             } else {
                 console.error('CSRF token not found!');
-                alert('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.');
+                alert(t('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.'));
                 return;
             }
             
@@ -650,12 +677,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     const sidebarLight = document.querySelectorAll('.logo-light, .default-logo, .small-logo');
                     sidebarLight.forEach(img => { img.src = logoUrl; });
                 } else {
-                    alert(data.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
+                    alert(data.message || t('Er is een fout opgetreden bij het uploaden van het logo.'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert(error.message || 'Er is een fout opgetreden bij het uploaden van het logo.');
+                alert(error.message || t('Er is een fout opgetreden bij het uploaden van het logo.'));
             });
         }
     }
@@ -684,12 +711,12 @@ document.addEventListener('DOMContentLoaded', function() {
         function handleDarkLogoFile(file) {
             const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
             if (!allowedTypes.includes(file.type)) {
-                alert('Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.');
+                alert(t('Alleen SVG, PNG, JPG en GIF bestanden zijn toegestaan.'));
                 logoDarkInput.value = '';
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 5MB groot zijn.');
+                alert(t('Het bestand mag maximaal 5MB groot zijn.'));
                 logoDarkInput.value = '';
                 return;
             }
@@ -703,13 +730,13 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('logo_type', 'dark');
             const csrfToken = document.querySelector('meta[name="csrf-token"]');
             if (csrfToken) formData.append('_token', csrfToken.getAttribute('content'));
-            else { alert('CSRF token niet gevonden. Ververs de pagina.'); return; }
+            else { alert(t('CSRF token niet gevonden. Ververs de pagina.')); return; }
             fetch('{{ route("admin.settings.upload-logo") }}', {
                 method: 'POST',
                 body: formData,
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             })
-            .then(response => response.ok ? response.json() : response.json().then(d => { throw new Error(d.message || 'Upload mislukt'); }))
+            .then(response => response.ok ? response.json() : response.json().then(d => { throw new Error(d.message || t('Upload mislukt')); }))
             .then(data => {
                 if (data.success) {
                     const logoUrl = data.logo_url + '?t=' + new Date().getTime();
@@ -720,9 +747,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (logoModeInput) { logoModeInput.value = 'light_dark'; }
                     if (logoModeToggle) { logoModeToggle.checked = true; }
                     if (logoDarkBlock) { logoDarkBlock.classList.remove('hidden'); }
-                } else alert(data.message || 'Fout bij uploaden dark logo.');
+                } else alert(data.message || t('Fout bij uploaden dark logo.'));
             })
-            .catch(err => { console.error(err); alert(err.message || 'Fout bij uploaden dark logo.'); });
+            .catch(err => { console.error(err); alert(err.message || t('Fout bij uploaden dark logo.')); });
         }
     }
 
@@ -851,14 +878,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate file type
             const allowedTypes = ['image/x-icon', 'image/png', 'image/jpeg', 'image/jpg'];
             if (!allowedTypes.includes(file.type)) {
-                alert('Alleen ICO, PNG en JPG bestanden zijn toegestaan.');
+                alert(t('Alleen ICO, PNG en JPG bestanden zijn toegestaan.'));
                 faviconInput.value = '';
                 return;
             }
             
             // Validate file size (max 2MB)
             if (file.size > 2 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 2MB groot zijn.');
+                alert(t('Het bestand mag maximaal 2MB groot zijn.'));
                 faviconInput.value = '';
                 return;
             }
@@ -879,7 +906,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('_token', csrfToken.getAttribute('content'));
             } else {
                 console.error('CSRF token not found!');
-                alert('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.');
+                alert(t('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.'));
                 return;
             }
             
@@ -916,12 +943,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (faviconPlaceholder) faviconPlaceholder.classList.add('hidden');
                     console.log('Favicon succesvol geüpload.');
                 } else {
-                    alert(data.message || 'Er is een fout opgetreden bij het uploaden van het favicon.');
+                    alert(data.message || t('Er is een fout opgetreden bij het uploaden van het favicon.'));
                 }
             })
             .catch(error => {
                 console.error('Error uploading favicon:', error);
-                alert(error.message || 'Er is een fout opgetreden bij het uploaden van het favicon.');
+                alert(error.message || t('Er is een fout opgetreden bij het uploaden van het favicon.'));
                 // Keep the preview even if upload fails
             });
         }
@@ -970,12 +997,12 @@ document.addEventListener('DOMContentLoaded', function() {
         function handleNexaSuiteAvatarFile(file) {
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
             if (!allowedTypes.includes(file.type)) {
-                alert('Alleen JPG, PNG, GIF en WebP bestanden zijn toegestaan.');
+                alert(t('Alleen JPG, PNG, GIF en WebP bestanden zijn toegestaan.'));
                 nexaSuiteAvatarInput.value = '';
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                alert('Het bestand mag maximaal 5MB groot zijn.');
+                alert(t('Het bestand mag maximaal 5MB groot zijn.'));
                 nexaSuiteAvatarInput.value = '';
                 return;
             }
@@ -994,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (csrfToken) {
                 formData.append('_token', csrfToken.getAttribute('content'));
             } else {
-                alert('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.');
+                alert(t('CSRF token niet gevonden. Ververs de pagina en probeer opnieuw.'));
                 return;
             }
 
@@ -1021,12 +1048,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         nexaSuiteAvatarRemoveBtn.classList.remove('hidden');
                     }
                 } else {
-                    alert(data.message || 'Er is een fout opgetreden bij het uploaden van de avatar.');
+                    alert(data.message || t('Er is een fout opgetreden bij het uploaden van de avatar.'));
                 }
             })
             .catch(function(error) {
                 console.error('Error uploading NEXA Suite avatar:', error);
-                alert(error.message || 'Er is een fout opgetreden bij het uploaden van de avatar.');
+                alert(error.message || t('Er is een fout opgetreden bij het uploaden van de avatar.'));
             });
         }
     }
@@ -1064,10 +1091,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function showSuccessImageError(msg) {
         if (successImageErrorEl) {
-            successImageErrorEl.textContent = msg || 'Upload mislukt.';
+            successImageErrorEl.textContent = msg || t('Upload mislukt.');
             successImageErrorEl.classList.remove('hidden');
         }
-        if (typeof alert !== 'undefined') alert(msg || 'Upload mislukt.');
+        if (typeof alert !== 'undefined') alert(msg || t('Upload mislukt.'));
     }
     function clearSuccessImageError() {
         if (successImageErrorEl) {
@@ -1081,13 +1108,13 @@ document.addEventListener('DOMContentLoaded', function() {
         clearSuccessImageError();
         const allowed = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
         if (!allowed.includes(file.type)) {
-            showSuccessImageError('Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.');
+            showSuccessImageError(t('Ongeldig bestandstype. Alleen SVG, PNG, JPG, GIF en WebP zijn toegestaan.'));
             successImageInput.value = '';
             return;
         }
         var maxBytes = 5 * 1024 * 1024;
         if (file.size > maxBytes) {
-            showSuccessImageError('Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is ' + Math.round(file.size / 1024) + ' KB.');
+            showSuccessImageError(t('Het bestand is te groot. Maximaal 5MB toegestaan. Uw bestand is :size KB.').replace(':size', String(Math.round(file.size / 1024))));
             successImageInput.value = '';
             return;
         }
@@ -1105,13 +1132,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return r.text().then(function(text) {
                 var data;
                 try { data = text ? JSON.parse(text) : {}; } catch (e) {
-                    if (status === 413) throw new Error('Het bestand is te groot. Maximaal 5MB toegestaan.');
-                    throw new Error('Upload mislukt. De server gaf een onverwachte reactie (status ' + status + ').');
+                    if (status === 413) throw new Error(t('Het bestand is te groot. Maximaal 5MB toegestaan.'));
+                    throw new Error(t('Upload mislukt. De server gaf een onverwachte reactie (status :status).').replace(':status', String(status)));
                 }
                 if (r.ok) return data;
                 var msg = (data.errors && data.errors.info_request_success_image && data.errors.info_request_success_image[0])
                     ? data.errors.info_request_success_image[0]
-                    : (data.message || 'Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).');
+                    : (data.message || t('Upload mislukt. Controleer het bestand (max. 5MB, JPEG/PNG/GIF/SVG/WebP).'));
                 throw new Error(msg);
             });
         })
@@ -1124,11 +1151,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 clearSuccessImageError();
             } else {
-                showSuccessImageError(data.message || 'Upload mislukt.');
+                showSuccessImageError(data.message || t('Upload mislukt.'));
             }
         })
         .catch(function(err) {
-            showSuccessImageError(err && err.message ? err.message : 'Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.');
+            showSuccessImageError(err && err.message ? err.message : t('Upload mislukt. Controleer het bestand (max. 5MB) of probeer het later opnieuw.'));
         });
         successImageInput.value = '';
     }
@@ -1284,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', function() {
         previewContextRoot.classList.toggle('admin-success-website-preview--standalone', layout === 'standalone');
         previewContextRoot.classList.toggle('admin-success-website-preview--text-block-half', layout !== 'standalone');
         if (previewContextLabel) {
-            previewContextLabel.textContent = 'Voorbeeld op de website · ' + (opt.textContent || '');
+            previewContextLabel.textContent = t('Voorbeeld op de website · :label').replace(':label', function () { return opt.textContent || ''; });
         }
     }
 
@@ -1357,12 +1384,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         img.style.height = data.logo_size + 'px';
                     });
                 } else {
-                    alert(data.message || 'Er is een fout opgetreden bij het bijwerken van de logo grootte.');
+                    alert(data.message || t('Er is een fout opgetreden bij het bijwerken van de logo grootte.'));
                 }
             })
             .catch(error => {
                 console.error('Error updating logo size:', error);
-                alert(error.message || 'Er is een fout opgetreden bij het bijwerken van de logo grootte.');
+                alert(error.message || t('Er is een fout opgetreden bij het bijwerken van de logo grootte.'));
             });
         });
     }

@@ -1,32 +1,54 @@
 ---
-description: Admin create/edit formulieren gebruiken uniforme inline validatie
-globs: backend/resources/views/admin/**/*{create,edit}.blade.php
-alwaysApply: false
+description: Admin formulier-validatie — rode border + rode foutmelding onder het veld
+globs: backend/resources/views/admin/**/*.blade.php,backend/app/Modules/**/Resources/views/admin/**/*.blade.php,backend/public/assets/js/form-validation.js
+alwaysApply: true
 ---
 
-# Admin formulier-validatie (create/edit)
+# Admin formulier-validatie
 
-Voor alle admin create/edit formulieren geldt:
+Geldt voor **alle** admin-formulieren (create, edit, settings, onboarding, modules).
 
-- Gebruik altijd `data-validate="true"` op het hoofdformulier.
-- Gebruik altijd `novalidate` op het hoofdformulier (geen browser-popup validatie).
-- Laad `assets/js/form-validation.js` op de pagina.
-- Toon foutmeldingen inline als rode tekst onder het veld (`@error(...)`).
-- Gebruik bij checkbox-groepen een duidelijke foutmelding onder de hele sectie, niet in smalle tabelcellen.
-- Bij live-validatie verdwijnt de rode foutmelding direct zodra de invoer weer geldig is.
+## Verplicht gedrag bij een fout
 
-## Formulierpatroon
+1. **Rode border** op het inputveld (`border-destructive` **én** `aria-invalid="true"`).
+2. **Rode foutmelding** direct **onder** het inputveld (niet ernaast, niet in een toast, niet als browser-popup).
+3. Zelfde patroon voor live-JS-validatie én Laravel `@error` / server-validatie.
+4. Zodra de invoer weer geldig is: border en foutmelding verdwijnen direct.
 
-```html
-<form action="..." method="POST" data-validate="true" novalidate>
-    ...
-</form>
-```
+Metronic `.kt-input` gebruikt `aria-invalid="true"` voor de rode rand; `form-validation.js` zet beide. CSS in `admin-responsive.css` versterkt `.border-destructive` / `[aria-invalid="true"]`.
 
-## Scriptpatroon
+## Formulier
 
 ```blade
-@push('scripts')
-<script src="{{ asset('assets/js/form-validation.js') }}"></script>
-@endpush
+<form action="..." method="POST" data-validate="true" novalidate>
 ```
+
+- Altijd `data-validate="true"` + `novalidate` (geen browser-popup).
+- Laad `assets/js/form-validation.js` via `@push('scripts')`.
+
+## Input + foutmelding
+
+```blade
+<input type="text"
+       name="iban"
+       id="iban"
+       class="kt-input @error('iban') border-destructive @enderror"
+       required>
+<div class="field-feedback text-sm mt-1" data-field="iban" aria-live="polite"></div>
+@error('iban')
+    <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+       data-laravel-field="iban"
+       data-laravel-message="{{ $message }}">{{ $message }}</p>
+@enderror
+```
+
+- Fouttekst: `text-destructive` / `text-red-*` (nooit muted/grijs voor errors).
+- `@error`: class `border-destructive` op het veld + rode tekst eronder met `data-laravel-field`.
+- Checkbox-groepen: één foutmelding onder de sectie, niet in smalle cellen.
+
+## Niet doen
+
+- Geen fout alleen als toast/alert zonder veld-feedback.
+- Geen groene/neutrale border laten staan bij een fout.
+- Geen foutmelding boven of naast het veld als er ruimte onder is.
+- Geen native browser constraint-popups (`novalidate` verplicht).

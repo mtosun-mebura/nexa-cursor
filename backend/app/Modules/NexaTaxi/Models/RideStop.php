@@ -19,6 +19,7 @@ class RideStop extends Model
         'lng',
         'planned_at',
         'status',
+        'status_source',
         'completed_at',
     ];
 
@@ -42,6 +43,8 @@ class RideStop extends Model
     public const STATUS_COMPLETED = 'completed';
 
     public const STOP_TYPE_PICKUP = 'pickup';
+
+    public const STOP_TYPE_DROPOFF = 'dropoff';
 
     public const STOP_TYPE_DESTINATION = 'destination';
 

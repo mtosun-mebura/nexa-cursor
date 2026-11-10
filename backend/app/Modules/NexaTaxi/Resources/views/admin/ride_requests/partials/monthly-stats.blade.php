@@ -8,7 +8,15 @@
         };
     };
     $money = static fn (float $amount): string => '€ '.number_format($amount, 2, ',', '.');
-    $vsLabel = 'vs '.$stats['previous_month_label'];
+    $statsLocale = app()->getLocale();
+    $statsMonthStart = \Carbon\Carbon::createFromFormat('Y-m', $stats['month'])->startOfMonth();
+    $monthLabel = $statsLocale === 'nl'
+        ? $stats['month_label']
+        : $statsMonthStart->copy()->locale($statsLocale)->translatedFormat('F Y');
+    $previousMonthLabel = $statsLocale === 'nl'
+        ? $stats['previous_month_label']
+        : $statsMonthStart->copy()->subMonthNoOverflow()->locale($statsLocale)->translatedFormat('F');
+    $vsLabel = __('vs :month', ['month' => $previousMonthLabel]);
 @endphp
 
 <div class="flex flex-col gap-5 mb-5" id="ride-stats-collapsible-root">
@@ -18,8 +26,8 @@
                     class="settings-collapsible-toggle min-w-0 flex-1 text-start border-0 bg-transparent p-0 cursor-pointer"
                     aria-expanded="true"
                     aria-controls="ride-stats-resultaten-body">
-                <h3 class="kt-card-title mb-0">Resultaten</h3>
-                <p class="text-xs text-muted-foreground mb-0 mt-1">{{ $stats['month_label'] }} · ritten, omzet en opvolging</p>
+                <h3 class="kt-card-title mb-0">{{ __('Resultaten') }}</h3>
+                <p class="text-xs text-muted-foreground mb-0 mt-1">{{ __(':month · ritten, omzet en opvolging', ['month' => $monthLabel]) }}</p>
             </button>
             <form method="GET"
                   action="{{ route($ridesIndexRoute ?? 'admin.taxi.ride_requests.index') }}"
@@ -55,7 +63,7 @@
         <div class="settings-collapsible-body kt-card-content p-5" id="ride-stats-resultaten-body">
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Voltooide ritten',
+                    'label' => __('Voltooide ritten'),
                     'value' => number_format($stats['completed']),
                     'hint' => $stats['deltas']['completed']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['completed']),
@@ -63,7 +71,7 @@
                     'tone' => 'success',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Omzet',
+                    'label' => __('Omzet'),
                     'value' => $money((float) $stats['revenue_total']),
                     'hint' => $stats['deltas']['revenue']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['revenue']),
@@ -71,7 +79,7 @@
                     'tone' => 'primary',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Cash',
+                    'label' => __('Cash'),
                     'value' => $money((float) $stats['revenue_cash']),
                     'hint' => $stats['deltas']['cash']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['cash']),
@@ -79,7 +87,7 @@
                     'tone' => 'warning',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Mollie',
+                    'label' => __('Mollie'),
                     'value' => $money((float) $stats['revenue_mollie']),
                     'hint' => $stats['deltas']['mollie']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['mollie']),
@@ -87,23 +95,23 @@
                     'tone' => 'info',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Niet geaccepteerd',
+                    'label' => __('Niet geaccepteerd'),
                     'value' => number_format($stats['not_accepted']),
-                    'hint' => 'Chauffeur geweigerd · '.$stats['deltas']['not_accepted']['label'].' '.$vsLabel,
+                    'hint' => __('Chauffeur geweigerd').' · '.$stats['deltas']['not_accepted']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['not_accepted']),
                     'icon' => 'ki-cross-circle',
                     'tone' => 'danger',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Andere tijd aangeboden',
+                    'label' => __('Andere tijd aangeboden'),
                     'value' => number_format($stats['time_reoffered']),
-                    'hint' => $stats['time_reoffered_declined'].' geweigerd · '.$stats['time_reoffered_accepted'].' akkoord',
+                    'hint' => __(':declined geweigerd · :accepted akkoord', ['declined' => $stats['time_reoffered_declined'], 'accepted' => $stats['time_reoffered_accepted']]),
                     'hintClass' => 'text-muted-foreground',
                     'icon' => 'ki-time',
                     'tone' => 'warning',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Geannuleerd',
+                    'label' => __('Geannuleerd'),
                     'value' => number_format($stats['cancelled']),
                     'hint' => $stats['deltas']['cancelled']['label'].' '.$vsLabel,
                     'hintClass' => $deltaClass($stats['deltas']['cancelled']),
@@ -111,9 +119,9 @@
                     'tone' => 'secondary',
                 ])
                 @include('taxi::admin.ride_requests.partials.stat-tile', [
-                    'label' => 'Totaal ritten',
+                    'label' => __('Totaal ritten'),
                     'value' => number_format($stats['total']),
-                    'hint' => $stats['open'].' open · '.$stats['in_progress'].' onderweg',
+                    'hint' => __(':open open · :progress onderweg', ['open' => $stats['open'], 'progress' => $stats['in_progress']]),
                     'hintClass' => 'text-muted-foreground',
                     'icon' => 'ki-calendar',
                     'tone' => 'primary',
@@ -122,12 +130,12 @@
 
             <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
                 @foreach([
-                    ['label' => 'Open / aangeboden', 'value' => $stats['open']],
-                    ['label' => 'Onderweg', 'value' => $stats['in_progress']],
-                    ['label' => 'Wacht op betaling', 'value' => $stats['pending_payment']],
-                    ['label' => 'Offerte', 'value' => $stats['quoted']],
-                    ['label' => 'Verlopen aanbieding', 'value' => $stats['expired_offers']],
-                    ['label' => 'Opnieuw naar chauffeurs', 'value' => $stats['redispatched']],
+                    ['label' => __('Open / aangeboden'), 'value' => $stats['open']],
+                    ['label' => __('Onderweg'), 'value' => $stats['in_progress']],
+                    ['label' => __('Wacht op betaling'), 'value' => $stats['pending_payment']],
+                    ['label' => __('Offerte'), 'value' => $stats['quoted']],
+                    ['label' => __('Verlopen aanbieding'), 'value' => $stats['expired_offers']],
+                    ['label' => __('Opnieuw naar chauffeurs'), 'value' => $stats['redispatched']],
                 ] as $chip)
                     <div class="rounded-lg border border-border px-3 py-2.5 min-w-0">
                         <div class="text-[11px] text-secondary-foreground leading-tight">{{ $chip['label'] }}</div>
@@ -144,8 +152,8 @@
                     class="settings-collapsible-toggle min-w-0 flex-1 text-start border-0 bg-transparent p-0 cursor-pointer"
                     aria-expanded="true"
                     aria-controls="ride-stats-verloop-body">
-                <h3 class="kt-card-title mb-0">Verloop</h3>
-                <p class="text-xs text-muted-foreground mb-0 mt-1">Dagelijkse ritten en omzet, betaalmix en statusverdeling</p>
+                <h3 class="kt-card-title mb-0">{{ __('Verloop') }}</h3>
+                <p class="text-xs text-muted-foreground mb-0 mt-1">{{ __('Dagelijkse ritten en omzet, betaalmix en statusverdeling') }}</p>
             </button>
             <span class="settings-collapsible-chevron shrink-0 flex items-center text-muted-foreground" aria-hidden="true">
                 <i class="ki-filled ki-down settings-collapsible-icon-down text-base"></i>
@@ -155,16 +163,16 @@
         <div class="settings-collapsible-body kt-card-content p-5" id="ride-stats-verloop-body">
             <div class="flex flex-col gap-4 min-w-0">
                 <div class="min-w-0">
-                    <div class="text-xs font-medium text-secondary-foreground mb-1.5">Ritten en omzet per dag</div>
+                    <div class="text-xs font-medium text-secondary-foreground mb-1.5">{{ __('Ritten en omzet per dag') }}</div>
                     <div id="ride-stats-trend-chart" class="min-h-[168px]"></div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
                     <div class="min-w-0">
-                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">Betaalmix</div>
+                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">{{ __('Betaalmix') }}</div>
                         <div id="ride-stats-payment-chart" class="min-h-[140px]"></div>
                     </div>
                     <div class="min-w-0">
-                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">Statusverdeling</div>
+                        <div class="text-xs font-medium text-secondary-foreground mb-1.5">{{ __('Statusverdeling') }}</div>
                         <div id="ride-stats-status-chart" class="min-h-[140px]"></div>
                     </div>
                 </div>

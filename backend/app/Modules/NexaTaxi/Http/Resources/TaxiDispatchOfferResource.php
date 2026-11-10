@@ -7,10 +7,12 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractRideStopService;
+use App\Models\GeneralSetting;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Services\WhatsAppBookingMessageComposer;
 use Carbon\Carbon;
 
 class TaxiDispatchOfferResource
@@ -202,6 +204,21 @@ class TaxiDispatchOfferResource
         }
 
         $canHandOverToNetwork = self::canHandOverToNetwork($ride);
+        $tripMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
+        $tripSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
+        $settingsCompanyId = $offerCompanyId
+            ?: ($ride->company_id ? (int) $ride->company_id : null);
+        // Inline (geen service-call): unit tests mocken TaxiDispatchSettingsService strikt.
+        $enRouteToPickup = data_get($ride->booking_payload, 'customer_status.event')
+            === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+        $requireStored = GeneralSetting::get(
+            TaxiDispatchSettingsService::KEY_REQUIRE_EN_ROUTE_BEFORE_START,
+            null,
+            $settingsCompanyId
+        );
+        $requireEnRouteBeforeStart = ($requireStored !== null && $requireStored !== '')
+            ? $requireStored === '1'
+            : (bool) config('taxi-dispatch.require_en_route_before_start', true);
 
         return [
             'id' => $ride->id,
@@ -256,6 +273,8 @@ class TaxiDispatchOfferResource
             'waiting_since_at' => $ride->created_at?->toIso8601String(),
             'pickup_address' => $ride->driverLegPickupAddress(),
             'dropoff_address' => $ride->driverLegDropoffAddress(),
+            'pickup_place_name' => $ride->driverLegPickupPlaceName(),
+            'dropoff_place_name' => $ride->driverLegDropoffPlaceName(),
             'pickup_lat' => $returnLegCoords['pickup_lat'],
             'pickup_lng' => $returnLegCoords['pickup_lng'],
             'dropoff_lat' => $returnLegCoords['dropoff_lat'],
@@ -264,13 +283,16 @@ class TaxiDispatchOfferResource
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
             'return_trip_leg_amounts' => $ride->returnTripLegAmountsPayload(),
             'passengers' => (int) $ride->passengers,
+            'pickup_confirmation' => app(\App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService::class)->driverPayload($ride),
+            'en_route_to_pickup' => $enRouteToPickup,
+            'require_en_route_before_start' => $requireEnRouteBeforeStart,
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,
             'baggage' => self::baggagePayload($ride),
-            'distance_km' => $ride->distance_meters ? round($ride->distance_meters / 1000, 1) : null,
-            'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
-            'duration_minutes' => $ride->duration_minutes,
+            'distance_km' => $tripMeters > 0 ? round($tripMeters / 1000, 1) : null,
+            'duration_seconds' => $tripSeconds > 0 ? $tripSeconds : null,
+            'duration_minutes' => $tripSeconds > 0 ? (int) round($tripSeconds / 60) : null,
             'stops' => $stopsMeta,
             'schedule' => $schedule,
             'payment' => $includeBilling ? $payments->paymentSummaryForRide($ride) : null,
@@ -280,12 +302,21 @@ class TaxiDispatchOfferResource
             'actions' => [
                 'start' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start"),
                 'release' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release"),
+                'cancel' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/cancel"),
                 'hand_over_network' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/hand-over-network"),
                 'release_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/release-return"),
                 'start_return' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/start-return"),
                 'complete' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/complete"),
                 'stops' => url("/api/taxi/v1/driver/dispatch/rides/{$ride->id}/stops"),
             ],
+            // Marketplace: na acceptatie (vóór start) mag chauffeur annuleren met vaste reden.
+            'can_cancel_with_reason' => $ride->isNexaSuiteBooking()
+                && ! $ride->isContractRide()
+                && $ride->status === RideRequest::STATUS_ACCEPTED
+                && (int) ($ride->driver_id ?? 0) > 0,
+            'rating' => $ride->status === RideRequest::STATUS_COMPLETED
+                ? app(\App\Modules\NexaTaxi\Services\TaxiRideRatingService::class)->payloadForRide($conn, $ride)
+                : null,
         ];
     }
 
@@ -326,6 +357,7 @@ class TaxiDispatchOfferResource
      *   executor_name: string,
      *   nexa_fee: float,
      *   nexa_fee_percent: int,
+     *   driver_share: float,
      *   is_marketplace: bool,
      *   is_network: bool
      * }|null
@@ -352,8 +384,10 @@ class TaxiDispatchOfferResource
         }
 
         $gross = (float) ($ride->final_price ?? $ride->quoted_price ?? 0);
-        $percent = \App\Support\NexaMarketplaceFeeCopy::percent();
-        $fee = round(max(0, $gross) * ($percent / 100), 2);
+        $calc = app(\App\Services\Payout\MarketplaceFeeCalculator::class)
+            ->calculate(max(0, $gross), $ride->paidMollieMethod());
+        $percent = $calc['percent'];
+        $fee = $calc['fee'];
 
         $ownerName = self::companyDisplayName($ownerId);
         if ($ownerName === '—' && $isMarketplace) {
@@ -365,12 +399,15 @@ class TaxiDispatchOfferResource
             $executorName = $ownerName;
         }
 
+        $grossRounded = round(max(0, $gross), 2);
+
         return [
-            'customer_pays' => round(max(0, $gross), 2),
+            'customer_pays' => $grossRounded,
             'owner_name' => $ownerName,
             'executor_name' => $executorName,
             'nexa_fee' => $fee,
             'nexa_fee_percent' => $percent,
+            'driver_share' => round(max(0, $grossRounded - $fee), 2),
             'is_marketplace' => $isMarketplace,
             'is_network' => $isNetwork,
         ];
@@ -399,6 +436,8 @@ class TaxiDispatchOfferResource
         $feeBreakdown = self::feeBreakdownForDriver($ride);
         $isNetwork = $ride->isNetworkFulfilled()
             || ($feeBreakdown !== null && ! empty($feeBreakdown['is_network']));
+        $planMeters = (int) ($ride->actual_distance_meters ?: $ride->distance_meters ?: 0);
+        $planSeconds = (int) ($ride->actual_duration_seconds ?: $ride->duration_seconds ?: 0);
 
         return [
             'id' => $ride->id,
@@ -428,6 +467,9 @@ class TaxiDispatchOfferResource
             'planning_date' => ContractTransportTimezone::asAmsterdamWall($pickupAt)?->toDateString(),
             'customer_name' => $ride->customer_name,
             'passengers' => (int) $ride->passengers,
+            'distance_km' => $planMeters > 0 ? round($planMeters / 1000, 1) : null,
+            'duration_seconds' => $planSeconds > 0 ? $planSeconds : null,
+            'duration_minutes' => $planSeconds > 0 ? (int) round($planSeconds / 60) : null,
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
         ];
     }

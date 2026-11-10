@@ -16,7 +16,7 @@ class PublicSitemapTest extends TestCase
     {
         $this->mock(WebsiteBuilderService::class, function ($mock): void {
             $mock->shouldReceive('loadAllPagesForAdminIndex')->andReturn(collect());
-            $mock->shouldReceive('getAboutPage')->andReturn(null);
+            $mock->shouldReceive('publicAboutUrl')->andReturn(null);
             $mock->shouldReceive('getContactPage')->andReturn(null);
         });
 
@@ -45,7 +45,7 @@ class PublicSitemapTest extends TestCase
 
         $this->mock(WebsiteBuilderService::class, function ($mock) use ($page): void {
             $mock->shouldReceive('loadAllPagesForAdminIndex')->andReturn(new Collection([$page]));
-            $mock->shouldReceive('getAboutPage')->andReturn(null);
+            $mock->shouldReceive('publicAboutUrl')->andReturn(null);
             $mock->shouldReceive('getContactPage')->andReturn(null);
         });
 
@@ -75,7 +75,7 @@ class PublicSitemapTest extends TestCase
 
         $this->mock(WebsiteBuilderService::class, function ($mock): void {
             $mock->shouldReceive('loadAllPagesForAdminIndex')->andReturn(collect());
-            $mock->shouldReceive('getAboutPage')->andReturn(null);
+            $mock->shouldReceive('publicAboutUrl')->andReturn(null);
             $mock->shouldReceive('getContactPage')->andReturn(null);
         });
 

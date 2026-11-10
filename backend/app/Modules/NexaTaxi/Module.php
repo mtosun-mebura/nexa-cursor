@@ -3,6 +3,8 @@
 namespace App\Modules\NexaTaxi;
 
 use App\Modules\Base\Module as BaseModule;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
+use App\Services\MarketplaceCompanyRegistrationService;
 use App\Support\TenantPackageCapability;
 
 class Module extends BaseModule
@@ -58,6 +60,7 @@ class Module extends BaseModule
                 'icon' => 'ki-filled ki-dollar',
                 'permission' => 'rates.view',
                 'permission_any' => ['rates.view', 'vehicles.view'], // toon ook voor company admin met alleen vehicles.view
+                'hide_for_package_keys' => [MarketplaceCompanyRegistrationService::PACKAGE_KEY],
                 'order' => 15,
             ],
             [
@@ -69,11 +72,31 @@ class Module extends BaseModule
                 'order' => 20,
             ],
             [
+                'key' => 'complaints',
+                'title' => 'Klachten',
+                'route' => 'admin.taxi.complaints.index',
+                'icon' => 'ki-filled ki-message-text-2',
+                'permission_any' => ['complaints.view', 'complaints.manage'],
+                'order' => 25,
+                'children' => [
+                    [
+                        'title' => 'Overzicht',
+                        'route' => 'admin.taxi.complaints.index',
+                        'permission_any' => ['complaints.view', 'complaints.manage'],
+                    ],
+                    [
+                        'title' => 'Geblokkeerde chauffeurs',
+                        'route' => 'admin.taxi.complaints.blocked',
+                        'permission_any' => ['complaints.view', 'complaints.manage'],
+                    ],
+                ],
+            ],
+            [
                 'key' => 'dispatch_settings',
                 'title' => 'Chauffeur dispatch',
                 'route' => 'admin.taxi.dispatch_settings.edit',
                 'icon' => 'ki-filled ki-phone',
-                'permission' => 'rides.view',
+                'permission_any' => TaxiDispatchAccess::dispatchMenuPermissions(),
                 'package_capability' => TenantPackageCapability::DISPATCH,
                 'order' => 21,
             ],
@@ -88,22 +111,22 @@ class Module extends BaseModule
             [
                 'key' => 'transport_customers',
                 'title' => 'Contractvervoer',
-                'route' => 'admin.taxi.transport_rides.index',
+                'route' => 'admin.taxi.transport_customers.index',
                 'icon' => 'ki-filled ki-people',
                 'permission' => 'rides.view',
                 'package_capability' => TenantPackageCapability::CONTRACT_TRANSPORT,
                 'order' => 23,
                 'children' => [
                     [
-                        'title' => 'Ritten',
-                        'route' => 'admin.taxi.transport_rides.index',
-                    ],
-                    [
-                        'title' => 'Contractklanten',
+                        'title' => 'Klanten & abonnementen',
                         'route' => 'admin.taxi.transport_customers.index',
                     ],
                     [
-                        'title' => 'Planning',
+                        'title' => 'Uitgevoerde ritten',
+                        'route' => 'admin.taxi.transport_rides.index',
+                    ],
+                    [
+                        'title' => 'Weekplanning',
                         'route' => 'admin.taxi.transport_planning.index',
                     ],
                     [
@@ -117,17 +140,19 @@ class Module extends BaseModule
                 'title' => 'GPS-tracker',
                 'route' => 'admin.taxi.gps_tracking.index',
                 'icon' => 'ki-filled ki-geolocation',
-                'permission_any' => ['vehicles.view', 'rides.view'],
+                'permission_any' => ['gps_tracking.view', 'gps_tracking_settings.view'],
                 'package_capability' => TenantPackageCapability::GPS_TRACKING,
                 'order' => 24,
                 'children' => [
                     [
                         'title' => 'Voertuigen',
                         'route' => 'admin.taxi.gps_tracking.index',
+                        'permission_any' => ['gps_tracking.view'],
                     ],
                     [
                         'title' => 'Configuratie',
                         'route' => 'admin.taxi.gps_tracking.settings',
+                        'permission_any' => ['gps_tracking_settings.view'],
                     ],
                 ],
             ],
@@ -173,6 +198,8 @@ class Module extends BaseModule
             'ai_chatbot.delete',
             'earnings.view',
             'earnings.view_month',
+            'complaints.view',
+            'complaints.manage',
         ];
     }
 }

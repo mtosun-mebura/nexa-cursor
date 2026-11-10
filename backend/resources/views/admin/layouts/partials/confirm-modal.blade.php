@@ -25,15 +25,15 @@
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-admin-confirm-dismiss></div>
     <div class="admin-modal-panel relative z-10 w-full max-w-md rounded-2xl border border-border shadow-2xl">
         <div class="border-b border-border px-5 py-5">
-            <h3 id="admin-confirm-modal-title" class="text-lg font-semibold text-foreground mb-0">Bevestigen</h3>
+            <h3 id="admin-confirm-modal-title" class="text-lg font-semibold text-foreground mb-0">{{ __('Bevestigen') }}</h3>
         </div>
         <div class="px-5 py-5">
             <p id="admin-confirm-modal-message" class="text-sm text-muted-foreground mb-0 whitespace-pre-wrap"></p>
             <div id="admin-confirm-modal-extra" class="mt-4 hidden"></div>
         </div>
         <div class="border-t border-border px-5 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline" data-admin-confirm-dismiss>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-destructive" data-admin-confirm-accept>Verwijderen</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-admin-confirm-dismiss>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-destructive" data-admin-confirm-accept>{{ __('Verwijderen') }}</button>
         </div>
     </div>
 </div>
@@ -96,7 +96,11 @@
 
     function isDestructive(message, el) {
         var label = ((el && el.getAttribute('data-admin-confirm-label')) || '') + ' ' + (message || '');
-        return /verwijder|wissen|annuleer|deactiveer|ontkoppel|afmelden|overschrijf|herstel|leeg/i.test(label);
+        return /verwijder|wissen|annuleer|deactiveer|ontkoppel|afmelden|overschrijf|herstel|leeg|\bdelete|\bremove|\berase|\bcancel|deactivate|disconnect|log out|sign out|overwrite|\brestore|\bclear|\bempty/i.test(label);
+    }
+
+    function tr(text) {
+        return (window.NEXA_I18N && window.NEXA_I18N[text]) || text;
     }
 
     function inferTitle(message, el) {
@@ -105,9 +109,9 @@
             return title;
         }
         if (isDestructive(message, el)) {
-            return 'Verwijderen';
+            return tr('Verwijderen');
         }
-        return 'Bevestigen';
+        return tr('Bevestigen');
     }
 
     function inferConfirmLabel(message, el) {
@@ -116,9 +120,9 @@
             return label;
         }
         if (isDestructive(message, el)) {
-            return 'Verwijderen';
+            return tr('Verwijderen');
         }
-        return 'Bevestigen';
+        return tr('Bevestigen');
     }
 
     function closeModal(didAccept) {
@@ -167,7 +171,7 @@
         pending = opts;
         lastActive = document.activeElement;
         if (titleEl) {
-            titleEl.textContent = opts.title || 'Bevestigen';
+            titleEl.textContent = opts.title || tr('Bevestigen');
         }
         if (messageEl) {
             messageEl.innerHTML = emphasizeVersions(message);
@@ -183,7 +187,7 @@
             }
         }
         if (acceptBtn) {
-            acceptBtn.textContent = opts.confirmLabel || 'Bevestigen';
+            acceptBtn.textContent = opts.confirmLabel || tr('Bevestigen');
             acceptBtn.classList.toggle('kt-btn-destructive', opts.destructive !== false);
             acceptBtn.classList.toggle('kt-btn-primary', opts.destructive === false);
         }

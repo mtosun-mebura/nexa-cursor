@@ -1,17 +1,17 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Gebruiker Bewerken')
+@section('title', __('Gebruiker Bewerken'))
 
 @section('content')
 
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Gebruiker Bewerken
+            {{ __('Gebruiker Bewerken') }}
         </h1>
         <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     </div>
 
@@ -26,7 +26,7 @@
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title mb-0">
-                        Algemene Informatie
+                        {{ __('Algemene Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
@@ -34,7 +34,7 @@
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-40 text-secondary-foreground font-normal">
-                                Voornaam *
+                                {{ __('Voornaam *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -49,7 +49,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Achternaam *
+                                {{ __('Achternaam *') }}
                             </td>
                             <td>
                                 <input type="text" 
@@ -64,7 +64,7 @@
                         </tr>
                         <tr id="user-function-row" @class(['hidden' => ! ($showFunctionField ?? false)])>
                             <td class="text-secondary-foreground font-normal">
-                                Functie
+                                {{ __('Functie') }}
                             </td>
                             <td>
                                 <div class="relative">
@@ -74,11 +74,11 @@
                                            name="function" 
                                            value="{{ old('function', $user->function) }}"
                                            autocomplete="off"
-                                           placeholder="Type om te zoeken..."
+                                           placeholder="{{ __('Type om te zoeken...') }}"
                                            @disabled(! $showFunctionField)>
                                     <div id="function-suggestions" class="hidden absolute left-0 top-full z-[9999] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto w-full mt-1" style="min-width: 100%;"></div>
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Type om te zoeken of voer een eigen functie in</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Type om te zoeken of voer een eigen functie in') }}</div>
                                 @error('function')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -86,7 +86,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                E-mail *
+                                {{ __('E-mail *') }}
                             </td>
                             <td>
                                 <input type="email" 
@@ -102,14 +102,14 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Nieuw Wachtwoord
+                                {{ __('Nieuw Wachtwoord') }}
                             </td>
                             <td>
                                 <input type="password" 
                                        class="kt-input @error('password') border-destructive @enderror" 
                                        name="password" 
-                                       placeholder="Laat leeg om niet te wijzigen">
-                                <div class="text-xs text-muted-foreground mt-1">Minimaal 8 tekens (laat leeg om niet te wijzigen)</div>
+                                       placeholder="{{ __('Laat leeg om niet te wijzigen') }}">
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Minimaal 8 tekens (laat leeg om niet te wijzigen)') }}</div>
                                 @error('password')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -117,7 +117,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Telefoon
+                                {{ __('Telefoon') }}
                             </td>
                             <td>
                                 <input type="tel" 
@@ -125,9 +125,9 @@
                                        name="phone" 
                                        value="{{ old('phone', $user->phone) }}"
                                        pattern="(\+31|0)[1-9][0-9]{8}"
-                                       placeholder="0612345678 of +31612345678"
+                                       placeholder="{{ __('0612345678 of +31612345678') }}"
                                        maxlength="13">
-                                <div class="text-xs text-muted-foreground mt-1">Nederlands nummer (bijv. 0612345678 of +31612345678)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Nederlands nummer (bijv. 0612345678 of +31612345678)') }}</div>
                                 @error('phone')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -135,7 +135,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Agenda kleur
+                                {{ __('Agenda kleur') }}
                             </td>
                             <td>
                                 @php
@@ -146,7 +146,7 @@
                                            class="h-10 w-14 cursor-pointer rounded border border-border p-1"
                                            name="agenda_color"
                                            value="{{ $agendaColorValue }}"
-                                           aria-label="Agenda kleur">
+                                           aria-label="{{ __('Agenda kleur') }}">
                                     <input type="text"
                                            class="kt-input w-32 font-mono text-sm"
                                            id="agenda_color_hex"
@@ -154,9 +154,9 @@
                                            maxlength="7"
                                            pattern="^#[0-9A-Fa-f]{6}$"
                                            placeholder="#3b82f6"
-                                           aria-label="Agenda kleur hex">
+                                           aria-label="{{ __('Agenda kleur hex') }}">
                                 </div>
-                                <div class="text-xs text-muted-foreground mt-1">Kleur van ritten en afspraken van deze gebruiker in de agenda.</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Kleur van ritten en afspraken van deze gebruiker in de agenda.') }}</div>
                                 @error('agenda_color')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -164,7 +164,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Geboortedatum
+                                {{ __('Geboortedatum') }}
                             </td>
                             <td>
                                 <!--begin::Input with Calendar-->
@@ -178,7 +178,7 @@
                                            data-kt-date-picker-input-mode="true" 
                                            data-kt-date-picker-position-to-input="left"
                                            data-kt-date-picker-date-format="DD-MM-YYYY"
-                                           placeholder="Selecteer datum" 
+                                           placeholder="{{ __('Selecteer datum') }}" 
                                            readonly 
                                            type="text"/>
                                 </div>
@@ -197,7 +197,7 @@
             <div class="kt-card w-full min-w-0">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title mb-0">
-                        Account Informatie
+                        {{ __('Account Informatie') }}
                     </h3>
                 </div>
                 <div class="kt-card-content p-0 sm:p-0">
@@ -205,7 +205,7 @@
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-40 text-secondary-foreground font-normal align-top pt-4">
-                                Rollen *
+                                {{ __('Rollen *') }}
                             </td>
                             <td class="pt-4">
                                 @include('admin.users.partials.role-checkboxes', [
@@ -218,12 +218,12 @@
                         @if(auth()->user()->hasRole('super-admin'))
                             <tr>
                                 <td class="text-secondary-foreground font-normal">
-                                    Bedrijf
+                                    {{ __('Bedrijf') }}
                                 </td>
                                 <td>
                                     <select class="kt-input @error('company_id') border-destructive @enderror" 
                                             name="company_id">
-                                        <option value="">-- Geen bedrijf --</option>
+                                        <option value="">{{ __('-- Geen bedrijf --') }}</option>
                                         @foreach($companies as $company)
                                             <option value="{{ $company->id }}" {{ old('company_id', $user->company_id) == $company->id ? 'selected' : '' }} data-skillmatching="{{ in_array((int) $company->id, array_map('intval', $skillmatchingCompanyIds ?? []), true) ? '1' : '0' }}">
                                                 {{ $company->name }}
@@ -247,11 +247,11 @@
             <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
                 <a href="{{ route('admin.users.show', $user) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Wijzigingen Opslaan
+                    {{ __('Wijzigingen Opslaan') }}
                 </button>
             </div>
         </div>
@@ -391,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         suggestionsDiv.innerHTML = '';
                         const item = document.createElement('div');
                         item.className = 'px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-500 italic';
-                        item.innerHTML = `Nieuwe functie: "<strong>${currentQuery}</strong>" (Enter om op te slaan)`;
+                        item.innerHTML = @json(__('Nieuwe functie: "<strong>:query</strong>" (Enter om op te slaan)')).replace(':query', function () { return currentQuery; });
                         item.addEventListener('click', function() {
                             functionInput.value = currentQuery;
                             suggestionsDiv.classList.add('hidden');

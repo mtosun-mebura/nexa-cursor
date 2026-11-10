@@ -41,10 +41,26 @@ class CustomerRideLiveStatusServiceTest extends TestCase
             $table->unsignedSmallInteger('passengers')->default(1);
             $table->dateTime('pickup_at')->nullable();
             $table->decimal('quoted_price', 10, 2)->nullable();
+            $table->string('payment_status', 20)->nullable();
             $table->string('customer_name')->nullable();
             $table->string('customer_email')->nullable();
             $table->string('customer_phone')->nullable();
             $table->string('customer_track_token', 64)->nullable()->unique();
+            $table->timestamps();
+        });
+
+        Schema::connection('module_taxi')->create('ride_payments', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('ride_request_id');
+            $table->unsignedBigInteger('company_id')->nullable();
+            $table->string('channel', 20)->nullable();
+            $table->string('mollie_payment_id', 64)->nullable();
+            $table->decimal('amount', 10, 2)->default(0);
+            $table->char('currency', 3)->default('EUR');
+            $table->string('status', 24)->nullable();
+            $table->string('checkout_url', 500)->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->json('mollie_payload')->nullable();
             $table->timestamps();
         });
     }
@@ -126,5 +142,10 @@ class CustomerRideLiveStatusServiceTest extends TestCase
         $this->assertSame('completed', $payload['phase']);
         $this->assertTrue($payload['can_download_invoice']);
         $this->assertFalse($payload['can_cancel']);
+        $updates = $payload['status_updates'];
+        $this->assertNotEmpty($updates);
+        $latest = $updates[array_key_last($updates)];
+        $this->assertSame('completed', $latest['event']);
+        $this->assertSame('Rit afgerond', $latest['label']);
     }
 }

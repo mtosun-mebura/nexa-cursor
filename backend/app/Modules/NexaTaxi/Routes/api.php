@@ -5,6 +5,7 @@ use App\Modules\NexaTaxi\Controllers\Api\ContractPortalController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverAuthController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverAvailabilityController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchController;
+use App\Modules\NexaTaxi\Controllers\Api\DriverProfileMediaController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverDispatchStreamController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverEarningsController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverPlanningController;
@@ -13,171 +14,266 @@ use App\Modules\NexaTaxi\Controllers\Api\DriverRidePaymentController;
 use App\Modules\NexaTaxi\Controllers\Api\DriverRideStopController;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('v1/app')
+    ->middleware(['auth:sanctum'])
+    ->group(function () {
+        Route::get('capabilities', [\App\Modules\NexaTaxi\Controllers\Api\AppBootstrapController::class, 'capabilities'])
+            ->middleware('throttle:taxi-driver-read');
+        Route::put('demo-mode', [\App\Modules\NexaTaxi\Controllers\Api\TaxiAppDemoModeController::class, 'update'])
+            ->middleware('throttle:taxi-driver-action');
+    });
+
 Route::prefix('v1/customer')
     ->middleware(['taxi.customer'])
     ->group(function () {
         Route::post('logout', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'logout']);
         Route::get('me', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'me']);
         Route::put('profile', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'updateProfile'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-customer-action');
         Route::put('accent', [\App\Modules\NexaTaxi\Controllers\Api\CustomerAuthController::class, 'updateAccent'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-customer-action');
         Route::get('rides', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'index'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-customer-read');
         Route::get('rides/{ride}', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'show'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-customer-read')
             ->whereNumber('ride');
         Route::post('rides/{ride}/cancel', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'cancel'])
-            ->middleware('throttle:20,1')
+            ->middleware('throttle:taxi-customer-action')
             ->whereNumber('ride');
         Route::post('rides/{ride}/wait', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'wait'])
-            ->middleware('throttle:20,1')
+            ->middleware('throttle:taxi-customer-action')
             ->whereNumber('ride');
         Route::post('rides/{ride}/pay', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'pay'])
-            ->middleware('throttle:20,1')
+            ->middleware('throttle:taxi-customer-action')
             ->whereNumber('ride');
         Route::get('rides/{ride}/invoice', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'invoice'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-customer-read')
             ->whereNumber('ride');
         Route::post('book', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'book'])
-            ->middleware('throttle:30,1');
+            ->middleware('throttle:taxi-customer-action');
     });
 
 Route::prefix('v1/contract')
     ->middleware(['taxi.contract'])
     ->group(function () {
         Route::post('logout', [ContractPortalAuthController::class, 'logout']);
-        Route::get('me', [ContractPortalAuthController::class, 'me']);
+        Route::get('me', [ContractPortalAuthController::class, 'me'])
+            ->middleware('throttle:taxi-contract-poll');
         Route::put('accent', [ContractPortalAuthController::class, 'updateAccent'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-read');
         Route::get('passengers', [ContractPortalController::class, 'passengers'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-contract-poll');
+        Route::put('passengers/{passenger}/map-color', [ContractPortalController::class, 'updateMapColor'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('passenger');
         Route::get('today', [ContractPortalController::class, 'today'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-contract-poll');
         Route::get('week', [ContractPortalController::class, 'week'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-contract-poll');
         Route::get('announcements', [ContractPortalController::class, 'announcements'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-read');
         Route::get('absences', [ContractPortalController::class, 'absences'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-contract-poll');
         Route::post('passengers/{passenger}/absences', [ContractPortalController::class, 'storeAbsence'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('passenger');
         Route::delete('absences/{absence}', [ContractPortalController::class, 'destroyAbsence'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('absence');
+        Route::post('stops/{rideStop}/start', [ContractPortalController::class, 'startRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/board', [ContractPortalController::class, 'boardPassenger'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/skip', [ContractPortalController::class, 'skipPassenger'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('stops/{rideStop}/complete', [ContractPortalController::class, 'completeRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('rideStop');
+        Route::post('location', [ContractPortalController::class, 'location'])
+            ->middleware('throttle:taxi-contract-poll');
+        Route::post('destinations/reached', [ContractPortalController::class, 'reachDestinations'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::post('today/reset', [ContractPortalController::class, 'resetToday'])
+            ->middleware('throttle:taxi-driver-action');
     });
 
 Route::prefix('v1/driver')
     ->middleware(['taxi.driver'])
     ->group(function () {
         Route::post('logout', [DriverAuthController::class, 'logout']);
+        Route::put('push-token', [DriverAuthController::class, 'storePushToken'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('push-token', [DriverAuthController::class, 'destroyPushToken'])
+            ->middleware('throttle:taxi-driver-action');
         Route::get('me', [DriverAuthController::class, 'me']);
+        Route::put('payout-iban', [DriverAuthController::class, 'updatePayoutIban'])
+            ->middleware('throttle:taxi-driver-action');
         Route::put('accent', [DriverAuthController::class, 'updateAccent'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-action');
         Route::put('ride-alert-tone', [DriverAuthController::class, 'updateRideAlertTone'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-action');
+
+        Route::get('profile/media', [DriverProfileMediaController::class, 'show'])
+            ->middleware('throttle:taxi-driver-read');
+        Route::get('profile/ratings', [DriverProfileMediaController::class, 'ratings'])
+            ->middleware('throttle:taxi-driver-read');
+
+        Route::get('notifications', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'index'])
+            ->middleware('throttle:taxi-driver-poll');
+        Route::post('notifications/{notification}/read', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'markRead'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
+        Route::post('notifications/{notification}/close', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'close'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
+        Route::post('notifications/{notification}/reopen', [\App\Modules\NexaTaxi\Controllers\Api\DriverNotificationController::class, 'reopen'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('notification');
+        Route::post('profile/photo', [DriverProfileMediaController::class, 'uploadProfilePhoto'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/photo', [DriverProfileMediaController::class, 'deleteProfilePhoto'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::post('profile/company-logo', [DriverProfileMediaController::class, 'uploadCompanyLogo'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/company-logo', [DriverProfileMediaController::class, 'deleteCompanyLogo'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::post('profile/vehicle-photo', [DriverProfileMediaController::class, 'uploadVehiclePhoto'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::delete('profile/vehicle-photo/{vehicleId}', [DriverProfileMediaController::class, 'deleteVehiclePhoto'])
+            ->whereNumber('vehicleId')
+            ->middleware('throttle:taxi-driver-action');
 
         Route::get('earnings', [DriverEarningsController::class, 'show'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-read');
 
         Route::get('planning', [DriverPlanningController::class, 'week'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-read');
 
         Route::put('availability', [DriverAvailabilityController::class, 'update'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-availability');
 
         Route::put('availability/location', [DriverAvailabilityController::class, 'updateLocation'])
-            ->middleware('throttle:120,1');
+            ->middleware('throttle:taxi-driver-location');
 
         Route::get('vehicles', [DriverAvailabilityController::class, 'vehicles'])
-            ->middleware('throttle:60,1');
+            ->middleware('throttle:taxi-driver-read');
+        Route::get('vehicles/fleet', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'index'])
+            ->middleware('throttle:taxi-driver-read');
+        Route::post('vehicles', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'store'])
+            ->middleware('throttle:taxi-driver-action');
+        Route::put('vehicles/{vehicleId}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'update'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('vehicleId');
+        Route::delete('vehicles/{vehicleId}', [\App\Modules\NexaTaxi\Controllers\Api\DriverVehicleController::class, 'destroy'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('vehicleId');
 
         Route::get('dispatch/inbox', [DriverDispatchController::class, 'inbox'])
             ->middleware('throttle:taxi-driver-poll');
 
         Route::get('dispatch/stream', [DriverDispatchStreamController::class, 'stream'])
-            ->middleware('throttle:120,1');
+            ->middleware('throttle:taxi-driver-stream');
 
         Route::post('dispatch/offers/{offer}/accept', [DriverDispatchController::class, 'accept'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-accept')
             ->whereNumber('offer');
 
         Route::post('dispatch/offers/{offer}/decline', [DriverDispatchController::class, 'decline'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('offer');
 
         Route::post('dispatch/offers/{offer}/archive', [DriverDispatchController::class, 'archiveOffer'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('offer');
 
         Route::delete('dispatch/offers/{offer}/archive', [DriverDispatchController::class, 'deleteArchivedOffer'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('offer');
 
         Route::post('dispatch/archived-offers/delete', [DriverDispatchController::class, 'deleteArchivedOffers'])
-            ->middleware('throttle:20,1');
+            ->middleware('throttle:taxi-driver-action');
+
+        Route::post('dispatch/rides/{ride}/archive-completed', [DriverDispatchController::class, 'archiveCompletedRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
+        Route::delete('dispatch/rides/{ride}/archive-completed', [DriverDispatchController::class, 'unarchiveCompletedRide'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/archived-completed/delete', [DriverDispatchController::class, 'deleteArchivedCompletedRides'])
+            ->middleware('throttle:taxi-driver-action');
 
         Route::post('dispatch/rides/{ride}/propose-pickup', [DriverDispatchController::class, 'proposePickup'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+        Route::post('dispatch/rides/{ride}/en-route', [DriverDispatchController::class, 'enRoute'])
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
         Route::post('dispatch/rides/{ride}/start', [DriverDispatchController::class, 'start'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/release', [DriverDispatchController::class, 'release'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
+
+        Route::post('dispatch/rides/{ride}/cancel', [DriverDispatchController::class, 'cancel'])
+            ->middleware('throttle:taxi-driver-cancel')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/hand-over-network', [DriverDispatchController::class, 'handOverToNetwork'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/release-return', [DriverDispatchController::class, 'releaseReturn'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/start-return', [DriverDispatchController::class, 'startReturn'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/complete', [DriverDispatchController::class, 'complete'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::get('dispatch/rides/{ride}/stops', [DriverRideStopController::class, 'index'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-read')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/stops/{stop}/arrive', [DriverRideStopController::class, 'arrive'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber(['ride', 'stop']);
 
         Route::post('dispatch/rides/{ride}/stops/{stop}/pickup', [DriverRideStopController::class, 'pickup'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber(['ride', 'stop']);
 
         Route::post('dispatch/rides/{ride}/stops/{stop}/skip', [DriverRideStopController::class, 'skip'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber(['ride', 'stop']);
 
         Route::get('dispatch/rides/{ride}/payment', [DriverRidePaymentController::class, 'show'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-read')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/payment', [DriverRidePaymentController::class, 'store'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/payment/cash', [DriverRidePaymentController::class, 'cash'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
 
         Route::get('dispatch/rides/{ride}/invoice', [DriverRideInvoiceController::class, 'show'])
-            ->middleware('throttle:60,1')
+            ->middleware('throttle:taxi-driver-read')
             ->whereNumber('ride');
 
         Route::post('dispatch/rides/{ride}/invoice/send', [DriverRideInvoiceController::class, 'send'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
     });

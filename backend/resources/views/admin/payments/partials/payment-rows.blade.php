@@ -44,7 +44,7 @@
         </td>
         <td>
             <span class="kt-badge kt-badge-sm kt-badge-outline rounded-[30px] {{ $payment->status === 'paid' || $payment->status_label === 'Voldaan' ? 'kt-badge-success' : 'kt-badge-warning' }}">
-                {{ $payment->status_label }}
+                {{ __($payment->status_label) }}
             </span>
             @if($payment->status !== 'paid' && $payment->status !== 'pending' && $payment->status !== 'open')
                 <span class="text-xs text-muted-foreground block mt-0.5">{{ $payment->status }}</span>
@@ -52,7 +52,7 @@
         </td>
         <td>
             @if($payment->reference_url)
-                <a href="{{ $paymentDetailUrl($payment->reference_url) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="Details">
+                <a href="{{ $paymentDetailUrl($payment->reference_url) }}" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" title="{{ __('Details') }}">
                     <i class="ki-filled ki-eye"></i>
                 </a>
             @endif
@@ -61,7 +61,7 @@
 @empty
     <tr>
         <td colspan="7" class="text-center py-10 text-sm text-secondary-foreground">
-            {{ $emptyMessage ?? 'Geen betalingen gevonden' }}
+            {{ $emptyMessage ?? __('Geen betalingen gevonden') }}
         </td>
     </tr>
 @endforelse

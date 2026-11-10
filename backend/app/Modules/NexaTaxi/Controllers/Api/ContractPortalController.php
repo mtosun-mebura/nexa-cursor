@@ -7,13 +7,22 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\RideStop;
 use App\Modules\NexaTaxi\Models\TransportAnnouncement;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
+use App\Modules\NexaTaxi\Models\TransportIndividualBooking;
+use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerAbsence;
+use App\Modules\NexaTaxi\Services\ContractDemoDayResetService;
+use App\Modules\NexaTaxi\Services\ContractDestinationArrivalService;
+use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\ContractPortalAutoBoardService;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
+use App\Modules\NexaTaxi\Services\ContractPortalRideLifecycleService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TransportPassengerAbsenceService;
 use App\Modules\NexaTaxi\Services\TransportScheduleExceptionService;
 use App\Modules\NexaTaxi\Support\ContractPortalDayLegs;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Modules\NexaTaxi\Support\ContractPortalLegLabel;
 use App\Modules\NexaTaxi\Support\ContractPortalNavigationRoute;
 use App\Modules\NexaTaxi\Support\ContractPortalRideStatus;
@@ -54,6 +63,7 @@ class ContractPortalController extends Controller
                         'name' => $p->full_name,
                         'phone' => $p->phone,
                         'pickup_address' => $p->pickup_address,
+                        'map_color' => $this->mapColorValue($p->map_color),
                         'absent_today' => $absence !== null,
                         'absence_reason' => $absence?->reason,
                     ];
@@ -62,25 +72,72 @@ class ContractPortalController extends Controller
         ]);
     }
 
+    public function updateMapColor(
+        Request $request,
+        int $passenger,
+        TaxiContractPortalAccessService $access
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        if (! $access->canAccessPassenger($conn, $context, $passenger)) {
+            return response()->json(['message' => 'Geen toegang tot deze passagier.'], 403);
+        }
+
+        $data = $request->validate([
+            'map_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ]);
+
+        $model = TransportPassenger::on($conn)->find($passenger);
+        if (! $model) {
+            return response()->json(['message' => 'Passagier niet gevonden.'], 404);
+        }
+
+        $color = strtoupper($data['map_color']);
+        $model->update(['map_color' => $color]);
+
+        return response()->json([
+            'data' => [
+                'id' => (int) $model->id,
+                'map_color' => $color,
+            ],
+        ]);
+    }
+
     public function today(Request $request, TaxiContractPortalAccessService $access): JsonResponse
     {
         $conn = $request->attributes->get('taxi_contract_conn');
         $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
         $passengers = $access->visiblePassengers($conn, $context);
 
         $tz = ContractTransportTimezone::TIMEZONE;
         $day = now($tz)->startOfDay();
         $customer = TransportCustomer::on($conn)->find($context['transport_customer_id']);
 
-        $items = $this->buildDayItems($conn, $passengers, $day);
+        // Individuele ritten zonder RideStops zichtbaar maken (legacy / net aangemaakt).
+        $this->backfillIndividualRideStops($conn, $passengers, $day, $day->copy()->endOfDay());
+
+        // Auto-ophalen na bestemming + grace (skipped blijft staan).
+        $this->applyAutoBoardForDay($conn, $passengers, $day);
+
+        $items = $this->buildDayItems(
+            $conn,
+            $passengers,
+            $day,
+            null,
+            $access->isContractant($context),
+            (int) ($context['transport_customer_id'] ?? 0)
+        );
 
         return response()->json([
             'data' => [
                 'date' => $day->toDateString(),
                 'customer_name' => $customer?->name,
-                'destination_summary' => $this->destinationSummary($items, $customer),
+                'destination_summary' => $this->destinationSummary($items),
                 'navigation' => ContractPortalNavigationRoute::fromDayItems($items),
                 'items' => $items,
+                'auto_board_grace_minutes' => ContractPortalAutoBoardService::GRACE_MINUTES,
             ],
         ]);
     }
@@ -127,11 +184,20 @@ class ContractPortalController extends Controller
             ->get()
             ->groupBy(fn (TransportPassengerAbsence $a) => $a->absence_date->toDateString());
 
+        // Geen backfill op week-poll: today() dekt ontbrekende stops; week blijft lezen-only.
+
         $days = [];
         for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
             $dateString = $d->toDateString();
             $dayAbsences = ($absenceRows->get($dateString) ?? collect())->keyBy('transport_passenger_id');
-            $dayItems = $this->buildDayItems($conn, $passengers, $d->copy()->startOfDay(), $dayAbsences);
+            $dayItems = $this->buildDayItems(
+                $conn,
+                $passengers,
+                $d->copy()->startOfDay(),
+                $dayAbsences,
+                $access->isContractant($context),
+                (int) ($context['transport_customer_id'] ?? 0)
+            );
 
             $mappedItems = $dayItems->map(function (array $item) use (
                 $conn,
@@ -169,6 +235,7 @@ class ContractPortalController extends Controller
                 return [
                     'passenger_id' => $item['passenger_id'],
                     'name' => $item['name'],
+                    'first_name' => $item['first_name'] ?? null,
                     'day_status' => $dayStatus,
                     'day_status_label' => match ($dayStatus) {
                         'absent' => 'Afgemeld',
@@ -334,6 +401,227 @@ class ContractPortalController extends Controller
         return response()->json(['message' => 'Afmelding ingetrokken.']);
     }
 
+    public function startRide(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $ride = $lifecycle->startFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Rit gestart.',
+            'data' => [
+                'ride_request_id' => (int) $ride->id,
+                'status' => $ride->status,
+            ],
+        ]);
+    }
+
+    public function completeRide(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $ride = $lifecycle->completeFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet afronden.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => $ride->status === RideRequest::STATUS_COMPLETED
+                ? 'Rit afgerond.'
+                : 'Passagier afgehandeld.',
+            'data' => [
+                'ride_request_id' => (int) $ride->id,
+                'status' => $ride->status,
+            ],
+        ]);
+    }
+
+    public function boardPassenger(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $stop = $lifecycle->boardFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan ophalen niet bevestigen.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Passagier opgehaald.',
+            'data' => [
+                'ride_stop_id' => (int) $stop->id,
+                'status' => $stop->status,
+            ],
+        ]);
+    }
+
+    public function skipPassenger(
+        Request $request,
+        int $rideStop,
+        ContractPortalRideLifecycleService $lifecycle
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+
+        try {
+            $stop = $lifecycle->skipFromStop($conn, $request->user(), $context, $rideStop);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan overslaan niet bevestigen.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Passagier niet meegenomen.',
+            'data' => [
+                'ride_stop_id' => (int) $stop->id,
+                'status' => $stop->status,
+            ],
+        ]);
+    }
+
+    public function location(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDestinationArrivalService $arrival
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
+        if (! $access->canOperateRides($request->user(), $context)) {
+            return response()->json(['message' => 'Alleen de contractant kan de locatie doorgeven.'], 403);
+        }
+
+        $data = $request->validate([
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+            'simulating' => 'sometimes|boolean',
+        ]);
+
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $arrival->rememberDriverPosition($conn, (int) $request->user()->id, (float) $data['lat'], (float) $data['lng']);
+        if ($request->boolean('simulating')) {
+            $arrival->rememberCustomerSimPosition(
+                $conn,
+                (int) ($context['transport_customer_id'] ?? 0),
+                (float) $data['lat'],
+                (float) $data['lng']
+            );
+        }
+        $updated = $arrival->observe(
+            $conn,
+            (int) $request->user()->id,
+            $passengerIds,
+            (float) $data['lat'],
+            (float) $data['lng']
+        );
+
+        return response()->json([
+            'data' => [
+                'updated' => $updated,
+                'dwell_minutes' => ContractDestinationArrivalService::DWELL_MINUTES,
+            ],
+        ]);
+    }
+
+    public function reachDestinations(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDestinationArrivalService $arrival
+    ): JsonResponse {
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        app(TaxiContractvervoerSchemaService::class)->ensureRideStopStatusSourceColumn($conn);
+        if (! $access->canOperateRides($request->user(), $context)) {
+            return response()->json(['message' => 'Alleen de contractant kan de bestemming bevestigen.'], 403);
+        }
+
+        $data = $request->validate([
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $lat = isset($data['lat']) ? (float) $data['lat'] : null;
+        $lng = isset($data['lng']) ? (float) $data['lng'] : null;
+        $result = $arrival->markAll($conn, $passengerIds, $lat, $lng);
+
+        $blocked = match ($result['reason']) {
+            'no_location' => 'Je locatie is niet bekend. De bestemming kan niet op bereikt gezet worden.',
+            'too_far' => 'Je staat niet bij de bestemming. De bestemming kan niet op bereikt gezet worden.',
+            'none' => 'Er is geen openstaande bestemming.',
+            'pickups_open' => 'Niet alle passagiers zijn opgehaald. Zet eerst hun status goed voordat je de bestemming op bereikt zet.',
+            default => null,
+        };
+        if ($blocked !== null || $result['updated'] < 1) {
+            return response()->json([
+                'message' => $blocked ?? 'De bestemming kan niet op bereikt gezet worden.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Bestemming bereikt.',
+            'data' => [
+                'updated' => $result['updated'],
+            ],
+        ]);
+    }
+
+    public function resetToday(
+        Request $request,
+        TaxiContractPortalAccessService $access,
+        ContractDemoDayResetService $reset
+    ): JsonResponse {
+        $user = $request->user();
+        if (! $user || ! TaxiDemoRole::userHas($user)) {
+            return response()->json(['message' => 'Alleen een demo-account kan de ritten resetten.'], 403);
+        }
+
+        $conn = $request->attributes->get('taxi_contract_conn');
+        $context = $request->attributes->get('taxi_contract_context');
+        $passengerIds = $access->visiblePassengers($conn, $context)->pluck('id')->all();
+        $rides = $reset->resetToday(
+            $conn,
+            $passengerIds,
+            (int) $user->id,
+            (int) ($context['transport_customer_id'] ?? 0)
+        );
+
+        return response()->json([
+            'message' => 'Ritten van vandaag zijn gereset.',
+            'data' => [
+                'rides' => $rides,
+            ],
+        ]);
+    }
+
     public function absences(Request $request, TaxiContractPortalAccessService $access): JsonResponse
     {
         $conn = $request->attributes->get('taxi_contract_conn');
@@ -370,6 +658,114 @@ class ContractPortalController extends Controller
     }
 
     /**
+     * Zorg dat individuele contractritten pickup+destination RideStops hebben,
+     * anders filtert buildDayItems ze weg.
+     *
+     * @param  Collection<int, TransportPassenger>  $passengers
+     */
+    private function backfillIndividualRideStops(
+        string $conn,
+        Collection $passengers,
+        Carbon $from,
+        Carbon $to
+    ): void {
+        $passengerIds = $passengers->pluck('id')->filter()->values()->all();
+        if ($passengerIds === []) {
+            return;
+        }
+
+        try {
+            $schema = \Illuminate\Support\Facades\Schema::connection($conn);
+            if (! $schema->hasTable('ride_requests') || ! $schema->hasTable('ride_stops')) {
+                return;
+            }
+
+            $tz = $from->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
+            $wallStart = $from->copy()->timezone($tz)->startOfDay();
+            $wallEnd = $to->copy()->timezone($tz)->endOfDay();
+            $start = ContractTransportTimezone::naiveUtcForWallClockQuery($wallStart);
+            $end = ContractTransportTimezone::naiveUtcForWallClockQuery($wallEnd);
+
+            $generator = app(ContractOccurrenceGeneratorService::class);
+
+            // Alleen bookings zonder ride één keer syncen — geen zware sync op elke poll.
+            if ($schema->hasTable('transport_individual_bookings')) {
+                $bookings = TransportIndividualBooking::on($conn)
+                    ->whereIn('transport_passenger_id', $passengerIds)
+                    ->where('status', TransportIndividualBooking::STATUS_PLANNED)
+                    ->whereBetween('pickup_at', [$start, $end])
+                    ->whereDoesntHave('occurrence', fn ($q) => $q->whereNotNull('ride_request_id'))
+                    ->limit(20)
+                    ->get();
+
+                foreach ($bookings as $booking) {
+                    $generator->syncIndividualBookingOccurrenceAndRide($conn, $booking);
+                }
+            }
+
+            // Stops bijzetten voor individuele ritten die die nog missen (lichtgewicht).
+            $rides = RideRequest::on($conn)
+                ->where('ride_type', RideRequest::RIDE_TYPE_CONTRACT_INDIVIDUAL)
+                ->whereIn('transport_passenger_id', $passengerIds)
+                ->whereBetween('pickup_at', [$start, $end])
+                ->whereNotIn('status', [RideRequest::STATUS_CANCELLED])
+                ->whereDoesntHave('rideStops')
+                ->limit(50)
+                ->get();
+
+            foreach ($rides as $ride) {
+                $generator->ensureIndividualRideStops($conn, $ride);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * Auto-ophalen voor ritten van vandaag waarvan de bestemming + grace klaar is.
+     *
+     * @param  Collection<int, TransportPassenger>  $passengers
+     */
+    private function applyAutoBoardForDay(string $conn, Collection $passengers, Carbon $dayStart): void
+    {
+        $passengerIds = $passengers->pluck('id')->all();
+        if ($passengerIds === []) {
+            return;
+        }
+
+        $tz = $dayStart->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
+        $wallStart = $dayStart->copy()->timezone($tz)->startOfDay();
+        $wallEnd = $wallStart->copy()->endOfDay();
+        $start = ContractTransportTimezone::naiveUtcForWallClockQuery($wallStart);
+        $end = ContractTransportTimezone::naiveUtcForWallClockQuery($wallEnd);
+
+        $rideIds = RideStop::on($conn)
+            ->whereIn('transport_passenger_id', $passengerIds)
+            ->where('stop_type', RideStop::STOP_TYPE_PICKUP)
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('planned_at', [$start, $end])
+                    ->orWhere(function ($q2) use ($start, $end) {
+                        $q2->whereNull('planned_at')
+                            ->whereHas('ride', fn ($rq) => $rq->whereBetween('pickup_at', [$start, $end]));
+                    });
+            })
+            ->pluck('ride_request_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($rideIds->isEmpty()) {
+            return;
+        }
+
+        try {
+            app(ContractPortalAutoBoardService::class)->applyForRideIds($conn, $rideIds);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
      * @param  Collection<int, TransportPassenger>  $passengers
      * @param  Collection<int, TransportPassengerAbsence>|null  $absenceMap
      * @return Collection<int, array<string, mixed>>
@@ -378,7 +774,9 @@ class ContractPortalController extends Controller
         string $conn,
         Collection $passengers,
         Carbon $dayStart,
-        ?Collection $absenceMap = null
+        ?Collection $absenceMap = null,
+        bool $canOperateRides = false,
+        int $customerId = 0
     ): Collection {
         $passengerIds = $passengers->pluck('id')->all();
         $tz = $dayStart->getTimezone()->getName() ?: ContractTransportTimezone::TIMEZONE;
@@ -395,6 +793,8 @@ class ContractPortalController extends Controller
                 ->get()
                 ->keyBy('transport_passenger_id');
         }
+
+        $hasStatusSource = RideStopStatusSource::columnExists($conn);
 
         $pickupStops = RideStop::on($conn)
             ->whereIn('transport_passenger_id', $passengerIds)
@@ -419,6 +819,7 @@ class ContractPortalController extends Controller
 
         $rideIds = $pickupStops->pluck('ride_request_id')->filter()->unique()->values()->all();
         $destinationsByRideId = collect();
+        $directionByRideId = collect();
         if ($rideIds !== []) {
             $destinationsByRideId = RideStop::on($conn)
                 ->whereIn('ride_request_id', $rideIds)
@@ -426,11 +827,37 @@ class ContractPortalController extends Controller
                 ->orderBy('sequence')
                 ->get()
                 ->groupBy('ride_request_id');
+
+            $directionByRideId = TransportOccurrence::on($conn)
+                ->whereIn('ride_request_id', $rideIds)
+                ->with('routeTemplate')
+                ->get()
+                ->mapWithKeys(function (TransportOccurrence $occurrence) {
+                    $rideId = (int) ($occurrence->ride_request_id ?? 0);
+                    if ($rideId <= 0) {
+                        return [];
+                    }
+
+                    return [$rideId => $occurrence->routeTemplate?->direction];
+                });
         }
 
         $stopsByPassenger = $pickupStops->groupBy('transport_passenger_id');
 
-        return $passengers->map(function (TransportPassenger $p) use ($stopsByPassenger, $destinationsByRideId, $absenceMap, $tz) {
+        $arrival = app(ContractDestinationArrivalService::class);
+
+        return $passengers->map(function (TransportPassenger $p) use (
+            $conn,
+            $stopsByPassenger,
+            $destinationsByRideId,
+            $directionByRideId,
+            $absenceMap,
+            $tz,
+            $canOperateRides,
+            $arrival,
+            $customerId,
+            $hasStatusSource
+        ) {
             $absence = $absenceMap->get($p->id);
             $stops = ($stopsByPassenger->get($p->id) ?? collect())
                 ->filter(function (RideStop $stop) {
@@ -442,7 +869,18 @@ class ContractPortalController extends Controller
                     return $ride->status !== RideRequest::STATUS_CANCELLED;
                 })
                 ->values();
-            $legs = $stops->map(function (RideStop $stop) use ($destinationsByRideId, $absence, $tz, $p) {
+            $legs = $stops->map(function (RideStop $stop) use (
+                $conn,
+                $destinationsByRideId,
+                $directionByRideId,
+                $absence,
+                $tz,
+                $p,
+                $canOperateRides,
+                $arrival,
+                $customerId,
+                $hasStatusSource
+            ) {
                 $ride = $stop->ride;
                 $destination = null;
                 if ($stop->ride_request_id) {
@@ -456,10 +894,28 @@ class ContractPortalController extends Controller
                     $stop->planned_at ?? $ride?->pickup_at
                 );
                 $destinationAt = ContractTransportTimezone::asAmsterdamWall($destination?->planned_at);
-                [$legKey, $legLabel] = ContractPortalLegLabel::forPlannedAt($plannedAt, $tz);
+                $direction = $stop->ride_request_id
+                    ? $directionByRideId->get((int) $stop->ride_request_id)
+                    : null;
+                [$legKey, $legLabel] = ContractPortalLegLabel::forDirectionOrPlannedAt(
+                    is_string($direction) ? $direction : null,
+                    $plannedAt,
+                    $tz
+                );
+                $absent = $absence !== null;
+                $terminal = in_array($statusKey, ['completed', 'absent'], true);
+                $pickupAuto = $hasStatusSource
+                    && $stop->status === RideStop::STATUS_PICKED_UP
+                    && RideStopStatusSource::isAuto($stop);
+                $destinationAuto = $hasStatusSource
+                    && $destination
+                    && $destination->status === RideStop::STATUS_COMPLETED
+                    && RideStopStatusSource::isAuto($destination);
 
-                return [
+                $leg = [
                     'ride_stop_id' => (int) $stop->id,
+                    'ride_request_id' => $stop->ride_request_id ? (int) $stop->ride_request_id : null,
+                    'ride_status' => $ride?->status,
                     'leg_key' => $legKey,
                     'leg_label' => $legLabel,
                     'pickup_address' => $stop->address ?: $p->pickup_address,
@@ -475,8 +931,75 @@ class ContractPortalController extends Controller
                     'destination_reached' => $statusKey === 'completed',
                     'planned_at' => ContractTransportTimezone::toDriverIso8601($plannedAt),
                     'destination_at' => ContractTransportTimezone::toDriverIso8601($destinationAt),
-                    'can_cancel' => $this->canCancelStop($stop, $absence !== null),
+                    'can_cancel' => $this->canCancelStop($stop, $absent) || $pickupAuto,
+                    // Contractant: starten vóór assigned; afronden vanaf accepted/assigned.
+                    'can_start' => $canOperateRides
+                        && ! $absent
+                        && ! $terminal
+                        && $ride
+                        && in_array($ride->status, [
+                            RideRequest::STATUS_ACCEPTED,
+                            RideRequest::STATUS_OFFERED,
+                            RideRequest::STATUS_PENDING_DISPATCH,
+                        ], true),
+                    'can_complete' => $canOperateRides
+                        && ! $absent
+                        && ! $terminal
+                        && $ride
+                        && in_array($ride->status, [
+                            RideRequest::STATUS_ACCEPTED,
+                            RideRequest::STATUS_ASSIGNED,
+                            RideRequest::STATUS_OFFERED,
+                            RideRequest::STATUS_PENDING_DISPATCH,
+                        ], true),
+                    // Contractant: per passagier bevestigen (opgehaald / niet meegenomen).
+                    'can_board' => $canOperateRides
+                        && ! $absent
+                        && ! $terminal
+                        && $statusKey !== 'not_taken'
+                        && $statusKey !== 'picked_up'
+                        && $statusKey !== 'completed'
+                        && $ride
+                        && in_array($ride->status, [
+                            RideRequest::STATUS_ACCEPTED,
+                            RideRequest::STATUS_ASSIGNED,
+                            RideRequest::STATUS_OFFERED,
+                            RideRequest::STATUS_PENDING_DISPATCH,
+                        ], true),
+                    'can_skip' => $canOperateRides
+                        && ! $absent
+                        && $statusKey !== 'not_taken'
+                        && (
+                            $pickupAuto
+                            || (
+                                ! $terminal
+                                && $statusKey !== 'picked_up'
+                                && $statusKey !== 'completed'
+                                && $ride
+                                && in_array($ride->status, [
+                                    RideRequest::STATUS_ACCEPTED,
+                                    RideRequest::STATUS_ASSIGNED,
+                                    RideRequest::STATUS_OFFERED,
+                                    RideRequest::STATUS_PENDING_DISPATCH,
+                                ], true)
+                            )
+                        ),
+                    'status_banner' => ContractPortalRideStatus::bannerLabel($statusKey),
+                    'vehicle_location' => $this->vehicleLocationForParent(
+                        $conn,
+                        $arrival,
+                        $ride,
+                        $statusKey,
+                        $canOperateRides,
+                        $customerId
+                    ),
                 ];
+                if ($hasStatusSource) {
+                    $leg['pickup_set_automatically'] = $pickupAuto;
+                    $leg['destination_set_automatically'] = $destinationAuto;
+                }
+
+                return $leg;
             })->values()->all();
 
             $legs = ContractPortalDayLegs::uniqueBySlot($legs);
@@ -490,6 +1013,8 @@ class ContractPortalController extends Controller
             return [
                 'passenger_id' => (int) $p->id,
                 'name' => $p->full_name,
+                'first_name' => trim((string) $p->first_name),
+                'map_color' => $this->mapColorValue($p->map_color),
                 'pickup_address' => $p->pickup_address,
                 'pickup_lat' => $this->coordValue($p->pickup_lat),
                 'pickup_lng' => $this->coordValue($p->pickup_lng),
@@ -508,25 +1033,47 @@ class ContractPortalController extends Controller
                 'absence_id' => $absence?->id,
                 'absence_reason' => $absence?->reason,
             ];
-        })->values();
+        })
+            // Dichtbij → ver (vroegste ophaal eerst), daarna bestemming.
+            ->sortBy(fn (array $item) => (string) ($item['planned_at'] ?? ''))
+            ->values();
     }
 
     /**
+     * Bestemming van openstaande/actieve ritten. Geen fallback op klantnaam.
+     *
      * @param  Collection<int, array<string, mixed>>  $items
      */
-    private function destinationSummary(Collection $items, ?TransportCustomer $customer): ?string
+    private function destinationSummary(Collection $items): ?string
     {
-        $addresses = $items
-            ->flatMap(function (array $item) {
+        $closed = ['completed', 'absent', 'skipped', 'not_taken', 'none', 'expired'];
+        $active = ['en_route', 'arrived', 'picked_up'];
+
+        $openLegs = $items
+            ->flatMap(function (array $item) use ($closed) {
                 $legs = $item['legs'] ?? [];
                 if ($legs === []) {
                     return [];
                 }
 
-                return collect($legs)
-                    ->filter(fn (array $leg) => ! in_array($leg['status_key'] ?? '', ['completed', 'absent'], true))
-                    ->pluck('destination_address');
+                return collect($legs)->filter(
+                    fn (array $leg) => ! in_array($leg['status_key'] ?? '', $closed, true)
+                );
             })
+            ->values();
+
+        if ($openLegs->isEmpty()) {
+            return null;
+        }
+
+        $activeLegs = $openLegs->filter(
+            fn (array $leg) => in_array($leg['status_key'] ?? '', $active, true)
+        );
+        // Actieve rit eerst; anders geplande openstaande legs.
+        $use = $activeLegs->isNotEmpty() ? $activeLegs : $openLegs;
+
+        $addresses = $use
+            ->pluck('destination_address')
             ->filter(fn ($address) => is_string($address) && trim($address) !== '')
             ->map(fn ($address) => trim($address))
             ->unique()
@@ -538,11 +1085,48 @@ class ContractPortalController extends Controller
         if ($addresses->count() > 1) {
             return 'Meerdere bestemmingen';
         }
-        if (is_string($customer?->name) && trim($customer->name) !== '') {
-            return trim($customer->name);
-        }
 
         return null;
+    }
+
+    /**
+     * Live taxi-positie voor de contractouder.
+     * De simulator deelt de positie ook vóórdat iemand is opgehaald.
+     *
+     * @return array{lat: float, lng: float, updated_at: string}|null
+     */
+    private function vehicleLocationForParent(
+        string $conn,
+        ContractDestinationArrivalService $arrival,
+        ?RideRequest $ride,
+        string $statusKey,
+        bool $canOperateRides,
+        int $customerId
+    ): ?array {
+        if ($canOperateRides || ! $ride) {
+            return null;
+        }
+        if (in_array($statusKey, ['completed', 'absent', 'not_taken', 'none', 'skipped'], true)) {
+            return null;
+        }
+
+        $simulated = $arrival->freshCustomerSimPosition($conn, $customerId);
+        if ($simulated !== null) {
+            return $simulated;
+        }
+
+        if (! in_array($statusKey, ['en_route', 'arrived', 'picked_up'], true)) {
+            return null;
+        }
+
+        return $arrival->freshDriverPosition($conn, (int) ($ride->driver_id ?? 0));
+    }
+
+    private function mapColorValue(mixed $value): ?string
+    {
+        $color = strtoupper(trim((string) $value));
+
+        return preg_match('/^#[0-9A-F]{6}$/', $color) === 1 ? $color : null;
     }
 
     private function coordValue(mixed $value): ?float
@@ -565,8 +1149,11 @@ class ContractPortalController extends Controller
         ?RideStop $destination,
         bool $absent
     ): string {
-        if ($absent || ($stop && $stop->status === RideStop::STATUS_SKIPPED)) {
+        if ($absent) {
             return 'absent';
+        }
+        if ($stop && $stop->status === RideStop::STATUS_SKIPPED) {
+            return 'not_taken';
         }
         if (! $stop) {
             return 'none';
@@ -609,6 +1196,10 @@ class ContractPortalController extends Controller
             return true;
         }
 
-        return in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true);
+        if (in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+            return true;
+        }
+
+        return $stop->status === RideStop::STATUS_PICKED_UP && RideStopStatusSource::isAuto($stop);
     }
 }

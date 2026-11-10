@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WebsitePage;
+use App\Support\CentralSiteBrand;
 use App\Support\NexaMarketplaceFeeCopy;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -424,10 +425,19 @@ class CentralWelcomePageService
         if (Schema::hasColumn($table, 'company_id')) {
             $keys['company_id'] = null;
         }
+        if (Schema::hasColumn($table, 'site_brand')) {
+            $keys['site_brand'] = CentralSiteBrand::NEXASUITE;
+            $attributes['site_brand'] = CentralSiteBrand::NEXASUITE;
+        }
 
         $page = WebsitePage::query()->firstOrCreate($keys, $attributes);
         $dirty = false;
 
+        if (Schema::hasColumn($table, 'site_brand')
+            && (string) ($page->site_brand ?? '') !== CentralSiteBrand::NEXASUITE) {
+            $page->site_brand = CentralSiteBrand::NEXASUITE;
+            $dirty = true;
+        }
         if (empty($page->home_sections) && ! empty($attributes['home_sections'])) {
             $page->home_sections = $attributes['home_sections'];
             $dirty = true;
@@ -467,6 +477,9 @@ class CentralWelcomePageService
         $table = (new WebsitePage)->getTable();
         if (Schema::hasColumn($table, 'company_id')) {
             $q->whereNull('company_id');
+        }
+        if (Schema::hasColumn($table, 'site_brand')) {
+            $q->where('site_brand', CentralSiteBrand::NEXASUITE);
         }
 
         return $q->first();
@@ -542,10 +555,10 @@ class CentralWelcomePageService
         $themeSlug = $themeSlug ?? ($theme?->slug ?? 'modern');
 
         return [
-            'title' => 'Taxi boeken',
+            'title' => 'Taxi boeken via NEXA Suite',
             'menu_title' => 'Boeken',
             'page_type' => 'custom',
-            'meta_description' => 'Boek een taxi via NEXA Suite. We sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale.',
+            'meta_description' => 'Boek een taxi via NEXA Suite: we sturen je rit naar de dichtstbijzijnde aangesloten taxicentrale. Voor reizigers is nexataxi.nl het hoofdboekingsmerk.',
             'content' => null,
             'home_sections' => $this->defaultBoekSections($themeSlug),
             'is_active' => true,

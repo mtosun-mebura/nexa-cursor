@@ -112,6 +112,32 @@ class TarievenEveningNightTest extends TestCase
             ->assertSee('Alle tenants', false)
             ->assertSee('Avond/nacht toeslag', false)
             ->assertSee('Toeslagfactor', false);
+
+        $html = $this->actingAs($this->superAdmin())
+            ->withSession(['selected_tenant' => null])
+            ->get(route('admin.taxi.tarieven.edit'))
+            ->assertOk()
+            ->getContent();
+
+        // Import is tenant-only: platform editor must not embed Suite rates for import.
+        $this->assertStringNotContainsString("data-platform-rates='", $html);
+    }
+
+    #[Test]
+    public function tenant_tarieven_page_exposes_nexa_suite_import(): void
+    {
+        $html = $this->actingAs($this->superAdmin())
+            ->withSession(['selected_tenant' => $this->company()->id])
+            ->get(route('admin.taxi.tarieven.edit'))
+            ->assertOk()
+            ->assertSee('Importeren', false)
+            ->getContent();
+
+        $this->assertStringContainsString("data-platform-rates='", $html);
+        $this->assertMatchesRegularExpression('/data-platform-rates=\'[^\']*"person_range"\s*:\s*"1-4"/', $html);
+        $this->assertStringContainsString('"base_fare":"3.20"', $html);
+        // One Import control per rate card (1-4 and 5-8).
+        $this->assertGreaterThanOrEqual(2, substr_count($html, 'data-import-platform-rates'));
     }
 
     #[Test]

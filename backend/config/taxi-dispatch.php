@@ -26,12 +26,22 @@ return [
     ),
 
     /**
+     * Dagen na een verlopen ophaalmoment waarna een geaccepteerde rit automatisch
+     * naar het archief van de chauffeur-app gaat. 0 = nooit automatisch.
+     * Standaard voor iedereen; alleen per-tenant overschrijfbaar (geen Nexa Suite-
+     * platformfallback). Admin → NexaTaxi → Chauffeur dispatch
+     * (`taxi_dispatch_overdue_auto_archive_days`).
+     */
+    'overdue_auto_archive_days' => (int) env('TAXI_DISPATCH_OVERDUE_AUTO_ARCHIVE_DAYS', 2),
+
+    /**
      * Minuten na het (actuele) ophaalmoment waarna de klant mag kiezen: wachten of annuleren.
      * 0 = geen keuze-prompt / geen auto-annulering.
      * Per tenant: Admin → NexaTaxi → Chauffeur dispatch
      * (`taxi_dispatch_unaccepted_auto_cancel_minutes`). Fallback: deze env.
      */
-    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 30),
+    /** Minuten na ophaalmoment → keuze “blijven wachten / annuleren” (standaard 20). */
+    'unaccepted_auto_cancel_minutes' => (int) env('TAXI_DISPATCH_UNACCEPTED_AUTO_CANCEL_MINUTES', 20),
 
     /**
      * Minuten zonder klantreactie (wachten/annuleren) waarna de rit alsnog automatisch
@@ -40,6 +50,28 @@ return [
      * (`taxi_dispatch_customer_unaccepted_decision_minutes`). Fallback: deze env.
      */
     'customer_unaccepted_decision_minutes' => (int) env('TAXI_CUSTOMER_UNACCEPTED_DECISION_MINUTES', 30),
+
+    /**
+     * Marktplaats (Nexa Taxi): minuten na “blijven wachten” waarna de rit automatisch
+     * wordt geannuleerd (klant krijgt alleen OK). 0 = nooit.
+     * Admin → NexaTaxi → Chauffeur dispatch (`taxi_dispatch_marketplace_max_wait_minutes`).
+     */
+    'marketplace_max_wait_minutes' => (int) env('TAXI_DISPATCH_MARKETPLACE_MAX_WAIT_MINUTES', 30),
+
+    /**
+     * Blokkeer “Klant opgehaald” tot de chauffeur op Ophalen heeft getikt (en_route).
+     * Per tenant: Admin → Chauffeur dispatch. Standaard aan.
+     */
+    'require_en_route_before_start' => filter_var(
+        env('TAXI_DISPATCH_REQUIRE_EN_ROUTE_BEFORE_START', true),
+        FILTER_VALIDATE_BOOL
+    ),
+
+    /**
+     * Minuten dat een geannuleerde marktplaats-/dispatch-aanbieding nog in de
+     * chauffeur-inbox blijft (grijs, niet klikbaar) vóór die uit de lijst verdwijnt.
+     */
+    'recently_cancelled_offer_minutes' => (int) env('TAXI_DISPATCH_RECENTLY_CANCELLED_OFFER_MINUTES', 5),
 
     /**
      * Werkdagen waarbinnen een terugbetaling na annulering doorgaans zichtbaar is

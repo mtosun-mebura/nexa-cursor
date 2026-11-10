@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Permissies Bulk Aanmaken')
+@section('title', __('Permissies Bulk Aanmaken'))
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
@@ -169,13 +169,13 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Permissies Bulk Aanmaken
+                {{ __('Permissies Bulk Aanmaken') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -194,8 +194,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <x-heroicon-s-information-circle class="w-6 h-6 flex-shrink-0" style="color: rgb(59, 130, 246);" />
                         </div>
                         <p class="text-base text-foreground dark:text-white flex-1 min-w-0">
-                            Maak snel meerdere permissies aan voor een module.
-                            Het systeem zal automatisch permissies aanmaken in het formaat: [actie]-[module].
+                            {{ __('Maak snel meerdere permissies aan voor een module.') }}
+                            {{ __('Het systeem zal automatisch permissies aanmaken in het formaat: [actie]-[module].') }}
                         </p>
                     </div>
                 </div>
@@ -204,26 +204,26 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Basis Informatie -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Basis Informatie</h3>
+                    <h3 class="kt-card-title">{{ __('Basis Informatie') }}</h3>
                 </div>
                 
                 <!-- Validatiemelding voor Modules - Cyan balk -->
                 <div class="field-feedback-modules-wrapper mb-4 hidden" id="modules-validation-wrapper">
                     <div class="flex items-center gap-2 px-4 py-3 rounded-lg mx-5 mt-4" style="background-color: rgba(60, 219, 251, 0.1); border: 1px solid rgba(60, 219, 251, 0.3);">
                         <i class="ki-filled ki-information-5" style="font-size: 20px; color: rgb(234, 88, 12);"></i>
-                        <div class="field-feedback text-sm font-medium" data-field="modules[]" style="display: block; color: white;">Selecteer minimaal één module.</div>
+                        <div class="field-feedback text-sm font-medium" data-field="modules[]" style="display: block; color: white;">{{ __('Selecteer minimaal één module.') }}</div>
                     </div>
                 </div>
                 
                 <div class="kt-card-table pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">Modules *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Modules *') }}</td>
                             <td class="min-w-48 w-full">
                                 @php
                                     $oldModules = old('modules', []);
                                     // Add "Algemeen" option
-                                    $allModules = ['algemeen' => 'Algemeen'] + $moduleNames;
+                                    $allModules = ['algemeen' => __('Algemeen')] + $moduleNames;
                                     // Split modules into two columns
                                     $modulesArray = array_chunk($allModules, ceil(count($allModules) / 2), true);
                                 @endphp
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 
                                 <div class="field-feedback text-xs mt-1 hidden" data-field="modules[]"></div>
-                                <div class="text-xs text-muted-foreground mt-2">Selecteer één of meerdere modules. "Algemeen" geldt voor alle modules.</div>
+                                <div class="text-xs text-muted-foreground mt-2">{!! __('Selecteer één of meerdere modules. "Algemeen" geldt voor alle modules.') !!}</div>
                                 @error('modules')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Acties -->
             <div class="kt-card min-w-full" data-required-checkbox-group="actions[]">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Acties *</h3>
+                    <h3 class="kt-card-title">{{ __('Acties *') }}</h3>
                 </div>
                 <div class="kt-card-content">
                     @error('actions')
@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- Basis CRUD Acties -->
                         <div class="kt-card">
                             <div class="kt-card-header">
-                                <h4 class="kt-card-title text-sm">Basis CRUD Acties</h4>
+                                <h4 class="kt-card-title text-sm">{{ __('Basis CRUD Acties') }}</h4>
                             </div>
                             <div class="kt-card-content">
                                 <div class="flex flex-col gap-3">
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- Specifieke Acties -->
                         <div class="kt-card">
                             <div class="kt-card-header">
-                                <h4 class="kt-card-title text-sm">Specifieke Acties</h4>
+                                <h4 class="kt-card-title text-sm">{{ __('Specifieke Acties') }}</h4>
                             </div>
                             <div class="kt-card-content">
                                 <div class="flex flex-col gap-3">
@@ -349,12 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Voorbeeld Preview -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Voorbeeld Permissies die worden aangemaakt</h3>
+                    <h3 class="kt-card-title">{{ __('Voorbeeld Permissies die worden aangemaakt') }}</h3>
                 </div>
                 <div class="kt-card-content">
                     <div class="kt-alert kt-alert-secondary">
                         <div id="permission-preview" class="text-sm">
-                            <em>Selecteer modules en acties om een voorbeeld te zien...</em>
+                            <em>{{ __('Selecteer modules en acties om een voorbeeld te zien...') }}</em>
                         </div>
                     </div>
                 </div>
@@ -362,11 +362,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" id="submit-permissions-btn" class="kt-btn kt-btn-primary" disabled>
                     <i class="ki-filled ki-check me-2"></i>
-                    Permissies Bulk Aanmaken
+                    {{ __('Permissies Bulk Aanmaken') }}
                 </button>
             </div>
         </div>
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Module display names - dynamically loaded from server
     const moduleNames = @json($moduleNames);
-    moduleNames['algemeen'] = 'Algemeen';
+    moduleNames['algemeen'] = @json(__('Algemeen'));
 
     function updatePreview() {
         const selectedModules = Array.from(moduleCheckboxes)
@@ -407,11 +407,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             preview.innerHTML = permissions.join('<br>');
         } else if (modulesToShow.length > 0 && selectedActions.length === 0) {
-            preview.innerHTML = '<em>Selecteer minimaal één actie...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer minimaal één actie...')) + '</em>';
         } else if (modulesToShow.length === 0 && selectedActions.length > 0) {
-            preview.innerHTML = '<em>Selecteer minimaal één module...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer minimaal één module...')) + '</em>';
         } else {
-            preview.innerHTML = '<em>Selecteer modules en acties om een voorbeeld te zien...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer modules en acties om een voorbeeld te zien...')) + '</em>';
         }
     }
 
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkedCount === 0) {
                 // Geen modules geselecteerd - toon cyan balk
                 if (feedbackElement) {
-                    feedbackElement.textContent = 'Selecteer minimaal één module.';
+                    feedbackElement.textContent = @json(__('Selecteer minimaal één module.'));
                 }
                 validationWrapper.classList.remove('hidden');
                 validationWrapper.style.display = 'block';
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkedCount === 0) {
                 // Geen acties geselecteerd - toon cyan balk
                 if (feedbackElement) {
-                    feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                    feedbackElement.textContent = @json(__('Selecteer minimaal één recht.'));
                 }
                 validationWrapper.classList.remove('hidden');
                 validationWrapper.style.display = 'block';

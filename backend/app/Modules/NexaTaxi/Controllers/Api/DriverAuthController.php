@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\DriverDeviceToken;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Services\DriverScheduleService;
@@ -15,8 +16,10 @@ use App\Modules\NexaTaxi\Support\RideAlertTone;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverAccountStatus;
 use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
+use App\Modules\NexaTaxi\Services\TaxiGpsTrackingSettingsService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\PayoutIdentityService;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use App\Services\PublicRegistrationService;
 use App\Support\TenantPackageCapability;
@@ -79,21 +82,31 @@ class DriverAuthController extends Controller
         $data = $request->validate([
             'email' => 'required|email',
             'code' => 'required|string',
-            'password' => 'required|string|min:8|max:255',
+            'password' => 'nullable|string|min:8|max:255',
+            'skip_password' => 'nullable|boolean',
         ], [
             'email.required' => 'Vul je e-mailadres in.',
             'code.required' => 'Vul de code uit je e-mail in.',
-            'password.required' => 'Kies een wachtwoord.',
             'password.min' => 'Kies een wachtwoord van minimaal 8 tekens.',
         ]);
 
-        $result = $firstLogin->verifyAndSetPassword(
-            $data['email'],
-            $data['code'],
-            $data['password'],
-            TaxiAppFirstLoginService::CHANNEL_DRIVER,
-            (string) $request->ip()
-        );
+        $skipPassword = $request->boolean('skip_password')
+            || trim((string) ($data['password'] ?? '')) === '';
+
+        $result = $skipPassword
+            ? $firstLogin->verifyAndLoginWithCode(
+                $data['email'],
+                $data['code'],
+                TaxiAppFirstLoginService::CHANNEL_DRIVER,
+                (string) $request->ip()
+            )
+            : $firstLogin->verifyAndSetPassword(
+                $data['email'],
+                $data['code'],
+                (string) $data['password'],
+                TaxiAppFirstLoginService::CHANNEL_DRIVER,
+                (string) $request->ip()
+            );
 
         if (! $result['ok'] || ! ($result['user'] ?? null) instanceof User) {
             return $this->firstLoginJson($result);
@@ -109,6 +122,37 @@ class DriverAuthController extends Controller
         return response()->json(['message' => 'Uitgelogd.']);
     }
 
+    public function storePushToken(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:255', 'regex:/^Expo(nent)?PushToken\[.+\]$/'],
+            'platform' => ['nullable', 'string', 'in:ios,android'],
+        ]);
+
+        DriverDeviceToken::query()->updateOrCreate(
+            ['token' => $data['token']],
+            [
+                'user_id' => (int) $request->user()->id,
+                'platform' => $data['platform'] ?? null,
+                'last_seen_at' => now(),
+            ]
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function destroyPushToken(Request $request): JsonResponse
+    {
+        $token = trim((string) $request->input('token', ''));
+        $query = DriverDeviceToken::query()->where('user_id', (int) $request->user()->id);
+        if ($token !== '') {
+            $query->where('token', $token);
+        }
+        $query->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
     public function me(Request $request, ModuleDatabaseService $moduleDb, TaxiDriverEarningsAccessService $earningsAccess): JsonResponse
     {
         $user = $request->user();
@@ -119,6 +163,14 @@ class DriverAuthController extends Controller
         $availability = $this->driverAvailability($moduleDb, (int) $user->id);
         $isOnline = $availability && $availability->is_online;
         $earningsPerms = $earningsAccess->permissionsFor($user, $companyId);
+        $gpsAppearance = app(TaxiGpsTrackingSettingsService::class)->appearance($companyId);
+        $gpsRefreshSeconds = max(
+            TaxiGpsTrackingSettingsService::MIN_REFRESH_SECONDS,
+            min(
+                TaxiGpsTrackingSettingsService::MAX_REFRESH_SECONDS,
+                (int) ($gpsAppearance['refresh_seconds'] ?? 10)
+            )
+        );
 
         return response()->json([
             'user' => $this->driverUserPayload($user, $companyId, $accountActive, $isOnline, $availability),
@@ -128,6 +180,7 @@ class DriverAuthController extends Controller
             ],
             'meta' => [
                 'poll_interval_ms' => (int) config('taxi-dispatch.inbox_poll_interval_ms', 3000),
+                'gps_refresh_seconds' => $gpsRefreshSeconds,
             ],
         ]);
     }
@@ -142,6 +195,24 @@ class DriverAuthController extends Controller
 
         return response()->json([
             'pwa_accent' => $accent,
+        ]);
+    }
+
+    public function updatePayoutIban(Request $request, PayoutIdentityService $payouts): JsonResponse
+    {
+        $data = $request->validate([
+            'iban' => ['required', 'string', 'max:42'],
+        ], [
+            'iban.required' => 'Vul een IBAN in.',
+        ]);
+
+        $identity = $payouts->setDriverIban($request->user(), (string) $data['iban'], $request);
+
+        return response()->json([
+            'message' => 'IBAN opgeslagen.',
+            'data' => [
+                'masked_iban' => $identity->masked_destination,
+            ],
         ]);
     }
 
@@ -191,7 +262,7 @@ class DriverAuthController extends Controller
         }
 
         $companyId = (int) $user->company_id;
-        if ($companyId <= 0 || ! $eligibility->isChauffeurForCompany($user, $companyId)) {
+        if (! $user->isSuperAdmin() && ($companyId <= 0 || ! $eligibility->isChauffeurForCompany($user, $companyId))) {
             return response()->json([
                 'message' => 'Dit account heeft geen chauffeur-toegang.',
             ], 403);
@@ -210,6 +281,16 @@ class DriverAuthController extends Controller
 
         if (! TaxiDriverAccountStatus::isActive($user)) {
             return TaxiDriverAccountStatus::inactiveResponse();
+        }
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $blocks = app(\App\Modules\NexaTaxi\Services\TaxiDriverBlockService::class);
+        if ($blocks->isBlocked($conn, (int) $user->id)) {
+            return response()->json([
+                'message' => 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+                'error' => 'driver_blocked',
+                'blocked' => $blocks->blockedPayload($conn, (int) $user->id),
+            ], 403);
         }
 
         $user->tokens()->where('name', 'taxi-driver')->delete();
@@ -277,8 +358,10 @@ class DriverAuthController extends Controller
             'name' => $fullName !== '' ? $fullName : (string) ($user->email ?? ''),
             'email' => $user->email,
             'phone' => trim((string) ($user->phone ?? '')) ?: null,
+            'is_super_admin' => $user->isSuperAdmin(),
             'company_id' => $companyId,
             'company_name' => $companyName,
+            'payout_iban_masked' => app(PayoutIdentityService::class)->driverIbanMask((int) $user->id),
             'company_logo_url' => $logoUrls['light'],
             'company_logo_dark_url' => $logoUrls['dark'],
             'is_account_active' => $accountActive,
@@ -288,6 +371,8 @@ class DriverAuthController extends Controller
             'pwa_accent' => PwaAccent::fromUser($user),
             'ride_alert_tone' => RideAlertTone::fromUser($user),
             'can_handle_contract_rides' => app(TaxiDriverEligibilityService::class)->canUseContractRideFilter($user),
+            'app_modes' => app(\App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService::class)->forUser($user)['modes'],
+            'media' => app(\App\Modules\NexaTaxi\Services\TaxiDriverProfileMediaService::class)->publicPayload($user),
         ];
     }
 

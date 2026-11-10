@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Genereer website AI')
+@section('title', __('Genereer website AI'))
 
 @section('content')
 @php
@@ -10,11 +10,11 @@
 @endphp
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col items-start gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">Genereer website AI</h1>
-        <p class="text-sm text-muted-foreground mb-0">Zet een professionele tenant-website op met bestaande thema’s, geanimeerde componenten en de boekingsmodule. Pagina’s worden als concept aangemaakt (niet gepubliceerd). Alleen super-admin.</p>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('Genereer website AI') }}</h1>
+        <p class="text-sm text-muted-foreground mb-0">{{ __('Zet een professionele tenant-website op met bestaande thema’s, geanimeerde componenten en de boekingsmodule. Pagina’s worden als concept aangemaakt (niet gepubliceerd). Alleen super-admin.') }}</p>
         <a href="{{ route('admin.website-pages.index') }}" class="kt-btn kt-btn-outline">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Naar pagina’s
+            {{ __('Naar pagina’s') }}
         </a>
     </div>
 
@@ -30,7 +30,7 @@
 
     @if(! $openaiConfigured)
         <div class="kt-alert kt-alert-warning mb-5">
-            Er is geen OpenAI API-sleutel gezet (<code>OPENAI_API_KEY</code>). U kunt nog steeds een basiswebsite genereren; teksten en foto’s worden dan niet door het model geschreven.
+            {{ __('Er is geen OpenAI API-sleutel gezet') }} (<code>OPENAI_API_KEY</code>). {{ __('U kunt nog steeds een basiswebsite genereren; teksten en foto’s worden dan niet door het model geschreven.') }}
         </div>
     @endif
 
@@ -39,75 +39,75 @@
 
         <div class="kt-card w-full min-w-0 mb-6 overflow-hidden">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Tenant en bron</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Tenant en bron') }}</h3>
             </div>
             <div class="kt-card-content p-5">
                 <div class="grid gap-5 lg:grid-cols-2">
                     <div>
-                        <label class="kt-form-label mb-1.5" for="company_id">Bedrijf *</label>
+                        <label class="kt-form-label mb-1.5" for="company_id">{{ __('Bedrijf *') }}</label>
                         <select class="kt-select @error('company_id') border-destructive @enderror" id="company_id" name="company_id" required>
-                            <option value="">Kies een tenant</option>
+                            <option value="">{{ __('Kies een tenant') }}</option>
                             @foreach($companies as $company)
                                 <option value="{{ $company->id }}" @selected((int) $selectedCompanyId === (int) $company->id)>
-                                    {{ $company->name }}{{ $company->is_active ? '' : ' (inactief)' }}
+                                    {{ $company->name }}{{ $company->is_active ? '' : ' '.__('(inactief)') }}
                                 </option>
                             @endforeach
                         </select>
                         <p class="text-xs text-muted-foreground mt-1.5 mb-0">
-                            Pagina’s worden gekoppeld aan deze tenant.
+                            {{ __('Pagina’s worden gekoppeld aan deze tenant.') }}
                             @if($existingPageCount > 0)
-                                Dit bedrijf heeft nu {{ $existingPageCount }} website-pagina{{ $existingPageCount === 1 ? '' : '’s' }}.
+                                {{ $existingPageCount === 1 ? __('Dit bedrijf heeft nu :count website-pagina.', ['count' => $existingPageCount]) : __('Dit bedrijf heeft nu :count website-pagina’s.', ['count' => $existingPageCount]) }}
                             @endif
                         </p>
                     </div>
                     <div>
-                        <span class="kt-form-label mb-2 block">Startpunt</span>
+                        <span class="kt-form-label mb-2 block">{{ __('Startpunt') }}</span>
                         <div class="flex flex-col gap-2">
                             <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                                 <input type="radio" class="kt-radio" name="source_type" value="new" @checked(old('source_type', 'new') === 'new')>
-                                <span>Nieuwe website</span>
+                                <span>{{ __('Nieuwe website') }}</span>
                             </label>
                             <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                                 <input type="radio" class="kt-radio" name="source_type" value="url" @checked(old('source_type') === 'url')>
-                                <span>Bestaande website als bron</span>
+                                <span>{{ __('Bestaande website als bron') }}</span>
                             </label>
                         </div>
                     </div>
                     <div>
-                        <label class="kt-form-label mb-1.5" for="source_url">Huidige / oude website</label>
+                        <label class="kt-form-label mb-1.5" for="source_url">{{ __('Huidige / oude website') }}</label>
                         <input type="url" class="kt-input @error('source_url') border-destructive @enderror" id="source_url" name="source_url" value="{{ old('source_url') }}" placeholder="https://www.bedrijf.nl" maxlength="500">
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Optioneel. We nemen home, over-ons, diensten en contact door en gebruiken die informatie in de nieuwe site.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">{{ __('Optioneel. We nemen home, over-ons, diensten en contact door en gebruiken die informatie in de nieuwe site.') }}</p>
                     </div>
                     <div>
-                        <label class="kt-form-label mb-1.5" for="style">Stijl</label>
+                        <label class="kt-form-label mb-1.5" for="style">{{ __('Stijl') }}</label>
                         <select class="kt-select @error('style') border-destructive @enderror" id="style" name="style">
                             @foreach($styles as $styleKey => $styleLabel)
-                                <option value="{{ $styleKey }}" @selected(old('style', 'professional') === $styleKey)>{{ $styleLabel }}</option>
+                                <option value="{{ $styleKey }}" @selected(old('style', 'professional') === $styleKey)>{{ __($styleLabel) }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
-                        <label class="kt-form-label mb-1.5" for="tone">Toon</label>
+                        <label class="kt-form-label mb-1.5" for="tone">{{ app()->getLocale() === 'nl' ? 'Toon' : 'Tone' }}</label>
                         <select class="kt-select @error('tone') border-destructive @enderror" id="tone" name="tone">
                             @foreach($tones as $toneKey => $toneLabel)
-                                <option value="{{ $toneKey }}" @selected(old('tone', 'zakelijk') === $toneKey)>{{ $toneLabel }}</option>
+                                <option value="{{ $toneKey }}" @selected(old('tone', 'zakelijk') === $toneKey)>{{ __($toneLabel) }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="lg:col-span-2">
-                        <span class="kt-form-label mb-2 block">Doel van de website</span>
+                        <span class="kt-form-label mb-2 block">{{ __('Doel van de website') }}</span>
                         <div class="flex flex-wrap gap-x-5 gap-y-2">
                             @foreach($goals as $goalKey => $goalLabel)
                                 <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                                     <input type="checkbox" class="kt-checkbox" name="goals[]" value="{{ $goalKey }}" @checked(in_array($goalKey, old('goals', ['leads']), true))>
-                                    <span>{{ $goalLabel }}</span>
+                                    <span>{{ __($goalLabel) }}</span>
                                 </label>
                             @endforeach
                         </div>
                     </div>
                     <div class="lg:col-span-2">
-                        <label class="kt-form-label mb-1.5" for="context">Waar moet de website over gaan? *</label>
-                        <textarea class="kt-textarea min-h-32 @error('context') border-destructive @enderror" id="context" name="context" required maxlength="4000" placeholder="Bijv. Taxi in Zwolle: luchthavenvervoer, zakelijke ritten en contractvervoer. Toon, doelgroep, diensten, vestigingen…">{{ old('context') }}</textarea>
+                        <label class="kt-form-label mb-1.5" for="context">{{ __('Waar moet de website over gaan? *') }}</label>
+                        <textarea class="kt-textarea min-h-32 @error('context') border-destructive @enderror" id="context" name="context" required maxlength="4000" placeholder="{{ __('Bijv. Taxi in Zwolle: luchthavenvervoer, zakelijke ritten en contractvervoer. Toon, doelgroep, diensten, vestigingen…') }}">{{ old('context') }}</textarea>
                     </div>
                 </div>
             </div>
@@ -115,17 +115,17 @@
 
         <div class="kt-card w-full min-w-0 mb-6 overflow-hidden">
             <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-                <h3 class="kt-card-title mb-0">Omvang, thema en kleuren</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Omvang, thema en kleuren') }}</h3>
             </div>
             <div class="kt-card-content p-5">
                 <div class="grid gap-5 lg:grid-cols-2">
                     <div>
-                        <label class="kt-form-label mb-1.5" for="max_pages">Maximaal aantal pagina’s *</label>
+                        <label class="kt-form-label mb-1.5" for="max_pages">{{ __('Maximaal aantal pagina’s *') }}</label>
                         <input type="number" class="kt-input @error('max_pages') border-destructive @enderror" id="max_pages" name="max_pages" min="1" max="12" value="{{ old('max_pages', 3) }}" required>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Aantal pagina’s dat we aanmaken (standaard 3: home, over ons, contact). Maximum 12. Pagina’s blijven concept tot u ze publiceert.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">{{ __('Aantal pagina’s dat we aanmaken (standaard 3: home, over ons, contact). Maximum 12. Pagina’s blijven concept tot u ze publiceert.') }}</p>
                     </div>
                     <div>
-                        <label class="kt-form-label mb-1.5" for="frontend_theme_id">Thema *</label>
+                        <label class="kt-form-label mb-1.5" for="frontend_theme_id">{{ __('Thema *') }}</label>
                         <select class="kt-select @error('frontend_theme_id') border-destructive @enderror" id="frontend_theme_id" name="frontend_theme_id" required>
                             @foreach($themes as $theme)
                                 @php
@@ -136,14 +136,14 @@
                                     data-secondary="{{ $palette['secondary'] }}"
                                     data-slug="{{ $theme->slug }}"
                                     @selected((int) $defaultThemeId === (int) $theme->id)>
-                                    {{ $theme->name }}{{ $theme->is_active ? '' : ' (niet gepubliceerd)' }}
+                                    {{ $theme->name }}{{ $theme->is_active ? '' : ' '.__('(niet gepubliceerd)') }}
                                 </option>
                             @endforeach
                         </select>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Bestaande builder-thema’s en hun kleurstelling. Bij wisselen van thema nemen we de themakleuren over; u kunt die daarna nog aanpassen.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">{{ __('Bestaande builder-thema’s en hun kleurstelling. Bij wisselen van thema nemen we de themakleuren over; u kunt die daarna nog aanpassen.') }}</p>
                     </div>
                     <div class="lg:col-span-2">
-                        <span class="kt-form-label mb-2 block">Kleurstelling</span>
+                        <span class="kt-form-label mb-2 block">{{ __('Kleurstelling') }}</span>
                         <div class="flex flex-wrap gap-2" id="website-ai-presets">
                             @foreach($colorPresets as $preset)
                                 <button type="button"
@@ -159,32 +159,32 @@
                         <input type="hidden" name="color_preset" id="color_preset" value="{{ $presetKey }}">
                         <div class="grid gap-4 sm:grid-cols-2 mt-4">
                             <div>
-                                <label class="kt-form-label mb-1.5" for="primary_color">Primaire kleur</label>
+                                <label class="kt-form-label mb-1.5" for="primary_color">{{ __('Primaire kleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" class="h-10 w-14 rounded-md border border-border bg-transparent p-1 cursor-pointer" id="primary_color_picker" value="{{ $primary }}" aria-label="Primaire kleur kiezen">
+                                    <input type="color" class="h-10 w-14 rounded-md border border-border bg-transparent p-1 cursor-pointer" id="primary_color_picker" value="{{ $primary }}" aria-label="{{ __('Primaire kleur kiezen') }}">
                                     <input type="text" class="kt-input font-mono @error('primary_color') border-destructive @enderror" id="primary_color" name="primary_color" value="{{ $primary }}" maxlength="7" required>
                                 </div>
                             </div>
                             <div>
-                                <label class="kt-form-label mb-1.5" for="secondary_color">Secundaire kleur</label>
+                                <label class="kt-form-label mb-1.5" for="secondary_color">{{ __('Secundaire kleur') }}</label>
                                 <div class="flex items-center gap-2">
-                                    <input type="color" class="h-10 w-14 rounded-md border border-border bg-transparent p-1 cursor-pointer" id="secondary_color_picker" value="{{ $secondary }}" aria-label="Secundaire kleur kiezen">
+                                    <input type="color" class="h-10 w-14 rounded-md border border-border bg-transparent p-1 cursor-pointer" id="secondary_color_picker" value="{{ $secondary }}" aria-label="{{ __('Secundaire kleur kiezen') }}">
                                     <input type="text" class="kt-input font-mono @error('secondary_color') border-destructive @enderror" id="secondary_color" name="secondary_color" value="{{ $secondary }}" maxlength="7" required>
                                 </div>
                             </div>
                         </div>
-                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">Gaat in het thema van deze tenant: knoppen, overlays, geanimeerde componenten, boekingsmodule en de CSS-accentkleur. Andere tenants houden hun eigen kleuren.</p>
+                        <p class="text-xs text-muted-foreground mt-1.5 mb-0">{{ __('Gaat in het thema van deze tenant: knoppen, overlays, geanimeerde componenten, boekingsmodule en de CSS-accentkleur. Andere tenants houden hun eigen kleuren.') }}</p>
                     </div>
                     <div>
                         <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                             <input type="checkbox" class="kt-checkbox" name="generate_images" value="1" @checked(old('generate_images', true))>
-                            <span>Hero-afbeelding genereren (mediabibliotheek)</span>
+                            <span>{{ __('Hero-afbeelding genereren (mediabibliotheek)') }}</span>
                         </label>
                     </div>
                     <div>
                         <label class="kt-label flex items-center gap-2.5 mb-0 cursor-pointer w-fit">
                             <input type="checkbox" class="kt-checkbox" name="replace_existing" value="1" @checked(old('replace_existing'))>
-                            <span>Bestaande pagina’s met dezelfde slug overschrijven</span>
+                            <span>{{ __('Bestaande pagina’s met dezelfde slug overschrijven') }}</span>
                         </label>
                     </div>
                 </div>
@@ -194,9 +194,9 @@
         <div class="flex flex-wrap items-center gap-3">
             <button type="submit" class="kt-btn kt-btn-primary" id="website-ai-submit">
                 <i class="ki-filled ki-technology-4 me-2"></i>
-                Homepage als concept genereren
+                {{ __('Homepage als concept genereren') }}
             </button>
-            <p class="text-xs text-muted-foreground mb-0">Dit kan 1–2 minuten duren (bronwebsite + OpenAI + afbeeldingen).</p>
+            <p class="text-xs text-muted-foreground mb-0">{{ __('Dit kan 1–2 minuten duren (bronwebsite + OpenAI + afbeeldingen).') }}</p>
         </div>
     </form>
 </div>
@@ -278,7 +278,7 @@
         var submit = document.getElementById('website-ai-submit');
         submit.disabled = true;
         submit.classList.add('opacity-70');
-        submit.innerHTML = 'Bezig met genereren…';
+        submit.innerHTML = @json(__('Bezig met genereren…'));
     });
 })();
 </script>

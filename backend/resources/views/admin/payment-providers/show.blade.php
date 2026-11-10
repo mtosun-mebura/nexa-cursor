@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Betalingsprovider Details - ' . $paymentProvider->name)
+@section('title', __('Betalingsprovider Details - :name', ['name' => $paymentProvider->name]))
 
 @section('content')
 
@@ -90,30 +90,30 @@
                 </div>
                 <div class="flex gap-1.25 items-center">
                     @if($paymentProvider->getConfigValue('test_mode', false))
-                        <span class="kt-badge kt-badge-sm kt-badge-warning">Testmodus</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Testmodus') }}</span>
                     @else
-                        <span class="kt-badge kt-badge-sm kt-badge-primary">Livemodus</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-primary">{{ __('Livemodus') }}</span>
                     @endif
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <span id="hero-status-badge" class="kt-badge kt-badge-sm {{ $paymentProvider->is_active ? 'kt-badge-success' : 'kt-badge-danger' }}">
-                        {{ $paymentProvider->is_active ? 'Actief' : 'Inactief' }}
+                        {{ $paymentProvider->is_active ? __('Actief') : __('Inactief') }}
                     </span>
                 </div>
                 @if($scopedTenantCompany ?? $storedTenantCompany ?? $paymentProvider->company)
                     @php $badgeCompany = $scopedTenantCompany ?? $storedTenantCompany ?? $paymentProvider->company; @endphp
                     <div class="flex gap-1.25 items-center">
                         <span class="kt-badge kt-badge-sm kt-badge-outline">
-                            {{ $badgeCompany->name }} (tenant #{{ $badgeCompany->id }})
+                            {{ $badgeCompany->name }} ({{ __('tenant #:id', ['id' => $badgeCompany->id]) }})
                         </span>
                     </div>
                 @elseif($paymentProvider->company_id)
                     <div class="flex gap-1.25 items-center">
-                        <span class="kt-badge kt-badge-sm kt-badge-outline">Tenant #{{ $paymentProvider->company_id }}</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-outline">{{ __('Tenant #:id', ['id' => $paymentProvider->company_id]) }}</span>
                     </div>
                 @else
                     <div class="flex gap-1.25 items-center">
-                        <span class="kt-badge kt-badge-sm kt-badge-danger">Geen tenant</span>
+                        <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Geen tenant') }}</span>
                     </div>
                 @endif
             </div>
@@ -128,7 +128,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.payment-providers.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         <div class="flex items-center gap-2.5">
@@ -140,7 +140,7 @@
                            class="kt-switch kt-switch-sm" 
                            id="toggle-status-checkbox"
                            {{ $paymentProvider->is_active ? 'checked' : '' }}/>
-                    <span class="ms-2">Actief</span>
+                    <span class="ms-2">{{ __('Actief') }}</span>
                 </label>
             </form>
             @else
@@ -149,7 +149,7 @@
                        class="kt-switch kt-switch-sm" 
                        {{ $paymentProvider->is_active ? 'checked' : '' }} 
                        disabled/>
-                <span class="ms-2">Actief</span>
+                <span class="ms-2">{{ __('Actief') }}</span>
             </label>
             @endif
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-payment-providers'))
@@ -159,12 +159,12 @@
                     data-provider-id="{{ $paymentProvider->id }}"
                     style="background-color: #f97316; color: white !important; border-color: #f97316;">
                 <x-heroicon-o-bolt class="w-4 h-4 me-1" style="color: white !important;" />
-                Test Verbinding
+                {{ __('Test Verbinding') }}
             </button>
             <span class="text-orange-500">|</span>
             <a href="{{ route('admin.payment-providers.edit', $paymentProvider) }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
             @endif
         </div>
@@ -180,7 +180,7 @@
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Configuratie
+                    {{ __('Configuratie') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
@@ -188,26 +188,26 @@
                     <tbody>
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            API-sleutel
+                            {{ __('API-sleutel') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••</code>
-                            <div class="text-xs text-muted-foreground mt-1">Veilig versleuteld opgeslagen. Wijzigen via Bewerken.</div>
+                            <div class="text-xs text-muted-foreground mt-1">{{ __('Veilig versleuteld opgeslagen. Wijzigen via Bewerken.') }}</div>
                         </td>
                     </tr>
                     @if($paymentProvider->getConfigValue('webhook_url'))
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal pt-2 align-top">
-                            Webhook-URL
+                            {{ __('Webhook-URL') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal pt-2">
                             <a href="{{ $paymentProvider->getConfigValue('webhook_url') }}" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline break-all">
                                 {{ $paymentProvider->getConfigValue('webhook_url') }}
                             </a>
                             <div class="text-xs text-muted-foreground mt-1">
-                                Mollie stuurt betaalstatusupdates naar dit adres.
+                                {{ __('Mollie stuurt betaalstatusupdates naar dit adres.') }}
                                 @if($paymentProvider->provider_type === 'mollie')
-                                    Voor Nexa Taxi: <code class="text-xs break-all">{{ url('/api/taxi/webhooks/mollie') }}</code>
+                                    {{ __('Voor Nexa Taxi:') }} <code class="text-xs break-all">{{ url('/api/taxi/webhooks/mollie') }}</code>
                                 @endif
                             </div>
                         </td>
@@ -216,11 +216,11 @@
                     @if($paymentProvider->getConfigValue('api_secret'))
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal pt-2">
-                            API-secret
+                            {{ __('API-secret') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal pt-2">
                             <code class="text-xs bg-muted px-2 py-1 rounded">••••••••••••</code>
-                            <div class="text-xs text-muted-foreground mt-1">Veilig versleuteld opgeslagen. Wijzigen via Bewerken.</div>
+                            <div class="text-xs text-muted-foreground mt-1">{{ __('Veilig versleuteld opgeslagen. Wijzigen via Bewerken.') }}</div>
                         </td>
                     </tr>
                     @endif
@@ -233,14 +233,14 @@
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Basisinformatie
+                    {{ __('Basisinformatie') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
                 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground payment-provider-show-table">
                     <tr>
                         <td class="min-w-56 text-secondary-foreground font-normal">
-                            Naam
+                            {{ __('Naam') }}
                         </td>
                         <td class="min-w-48 w-full text-foreground font-normal">
                             {{ $paymentProvider->name }}
@@ -248,7 +248,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Providertype
+                            {{ __('Providertype') }}
                         </td>
                         <td class="text-foreground font-normal">
                             <span class="kt-badge kt-badge-sm kt-badge-info">
@@ -258,30 +258,30 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Status
+                            {{ __('Status') }}
                         </td>
                         <td class="text-foreground font-normal">
                             <span id="status-badge" class="kt-badge kt-badge-sm {{ $paymentProvider->is_active ? 'kt-badge-success' : 'kt-badge-danger' }}">
-                                {{ $paymentProvider->is_active ? 'Actief' : 'Inactief' }}
+                                {{ $paymentProvider->is_active ? __('Actief') : __('Inactief') }}
                             </span>
                         </td>
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Modus
+                            {{ __('Modus') }}
                         </td>
                         <td class="text-foreground font-normal">
                             @if($paymentProvider->getConfigValue('test_mode', false))
-                                <span class="kt-badge kt-badge-sm kt-badge-warning">Test</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Test') }}</span>
                             @else
-                                <span class="kt-badge kt-badge-sm kt-badge-primary">Live</span>
+                                <span class="kt-badge kt-badge-sm kt-badge-primary">{{ __('Live') }}</span>
                             @endif
                         </td>
                     </tr>
                     @if($paymentProvider->getConfigValue('description'))
                     <tr>
                         <td class="text-secondary-foreground font-normal align-top">
-                            Beschrijving
+                            {{ __('Beschrijving') }}
                         </td>
                         <td class="text-foreground font-normal break-words" style="word-wrap: break-word; overflow-wrap: break-word;">
                             {{ $paymentProvider->getConfigValue('description') }}
@@ -296,7 +296,7 @@
         <div class="kt-card">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Systeeminformatie
+                    {{ __('Systeeminformatie') }}
                 </h3>
             </div>
             <div class="kt-card-table kt-scrollable-x-auto pb-3 admin-desktop-table-wrap">
@@ -311,7 +311,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Aangemaakt op
+                            {{ __('Aangemaakt op') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $paymentProvider->created_at->format('d-m-Y H:i') }}
@@ -319,7 +319,7 @@
                     </tr>
                     <tr>
                         <td class="text-secondary-foreground font-normal">
-                            Laatst bijgewerkt
+                            {{ __('Laatst bijgewerkt') }}
                         </td>
                         <td class="text-foreground font-normal">
                             {{ $paymentProvider->updated_at->format('d-m-Y H:i') }}
@@ -333,7 +333,7 @@
         <div id="test-result-card" class="kt-card" style="display: none;">
             <div class="kt-card-header">
                 <h3 class="kt-card-title">
-                    Testresultaat Verbinding
+                    {{ __('Testresultaat Verbinding') }}
                 </h3>
             </div>
             <div class="kt-card-content pb-3">
@@ -352,7 +352,7 @@
             <div class="kt-modal-header">
                 <h3 class="kt-modal-title">
                     <x-heroicon-o-bolt class="w-5 h-5 me-2" />
-                    Test Verbinding
+                    {{ __('Test Verbinding') }}
                 </h3>
                 <button type="button" class="kt-btn kt-btn-sm kt-btn-icon" data-kt-dismiss="modal">
                     <i class="ki-filled ki-cross"></i>
@@ -362,7 +362,7 @@
                 <div id="testResult"></div>
             </div>
             <div class="kt-modal-footer">
-                <button type="button" class="kt-btn kt-btn-outline" data-kt-dismiss="modal">Sluiten</button>
+                <button type="button" class="kt-btn kt-btn-outline" data-kt-dismiss="modal">{{ __('Sluiten') }}</button>
             </div>
         </div>
     </div>
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (!data.success) {
-                    throw new Error(data.message || 'Er is een fout opgetreden');
+                    throw new Error(data.message || @json(__('Er is een fout opgetreden')));
                 }
                 // Update icon border and colors
                 if (statusIcon) {
@@ -428,10 +428,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (statusBadge) {
                     if (isActive) {
                         statusBadge.className = 'kt-badge kt-badge-sm kt-badge-success';
-                        statusBadge.textContent = 'Actief';
+                        statusBadge.textContent = @json(__('Actief'));
                     } else {
                         statusBadge.className = 'kt-badge kt-badge-sm kt-badge-danger';
-                        statusBadge.textContent = 'Inactief';
+                        statusBadge.textContent = @json(__('Inactief'));
                     }
                 }
                 
@@ -439,10 +439,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (heroStatusBadge) {
                     if (isActive) {
                         heroStatusBadge.className = 'kt-badge kt-badge-sm kt-badge-success';
-                        heroStatusBadge.textContent = 'Actief';
+                        heroStatusBadge.textContent = @json(__('Actief'));
                     } else {
                         heroStatusBadge.className = 'kt-badge kt-badge-sm kt-badge-danger';
-                        heroStatusBadge.textContent = 'Inactief';
+                        heroStatusBadge.textContent = @json(__('Inactief'));
                     }
                 }
                 
@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = false;
                 
                 // Show error message
-                alert('Er is een fout opgetreden bij het wijzigen van de status. Probeer het opnieuw.');
+                alert(@json(__('Er is een fout opgetreden bij het wijzigen van de status. Probeer het opnieuw.')));
             });
         });
         
@@ -481,15 +481,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Disable button during test
             this.disabled = true;
             const originalText = this.innerHTML;
-            this.innerHTML = '<i class="ki-filled ki-loader-2 animate-spin me-1"></i>Testen...';
+            this.innerHTML = '<i class="ki-filled ki-loader-2 animate-spin me-1"></i>' + @json(__('Testen...'));
             
             // Show loading state in modal
-            resultDiv.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">Verbinding testen met de API...</p></div>';
+            resultDiv.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">' + @json(__('Verbinding testen met de API...')) + '</p></div>';
             
             // Show loading state in card
             if (testResultCard && testResultContent) {
                 testResultCard.style.display = 'flex';
-                testResultContent.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">Verbinding testen met de API...</p></div>';
+                testResultContent.innerHTML = '<div class="text-center py-4"><i class="ki-filled ki-loader-2 animate-spin text-2xl text-primary"></i><p class="mt-2 text-sm text-secondary-foreground">' + @json(__('Verbinding testen met de API...')) + '</p></div>';
             }
             
             // Show modal
@@ -522,7 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     resultDiv.innerHTML = `
                         <div class="kt-alert kt-alert-success" style="display: block;">
                             <i class="ki-filled ki-check-circle me-2" style="font-size: 1.25rem;"></i>
-                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✓ Verbinding geslaagd!</strong>
+                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✓ ${@json(__('Verbinding geslaagd!'))}</strong>
                             <span style="font-size: 0.875rem; display: block;">${data.message}</span>
                         </div>
                     `;
@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     resultDiv.innerHTML = `
                         <div class="kt-alert kt-alert-danger" style="display: block;">
                             <i class="ki-filled ki-cross-circle me-2" style="font-size: 1.25rem;"></i>
-                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ Verbinding gefaald!</strong>
+                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ ${@json(__('Verbinding gefaald!'))}</strong>
                             <span style="font-size: 0.875rem; display: block;">${data.message}</span>
                         </div>
                     `;
@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         testResultContent.innerHTML = `
                             <div class="kt-alert kt-alert-success" style="display: block;">
                                 <i class="ki-filled ki-check-circle me-2" style="font-size: 1.25rem;"></i>
-                                <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✓ Verbinding geslaagd!</strong>
+                                <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✓ ${@json(__('Verbinding geslaagd!'))}</strong>
                                 <span style="font-size: 0.875rem; display: block;">${data.message}</span>
                             </div>
                         `;
@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         testResultContent.innerHTML = `
                             <div class="kt-alert kt-alert-danger" style="display: block;">
                                 <i class="ki-filled ki-cross-circle me-2" style="font-size: 1.25rem;"></i>
-                                <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ Verbinding gefaald!</strong>
+                                <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ ${@json(__('Verbinding gefaald!'))}</strong>
                                 <span style="font-size: 0.875rem; display: block;">${data.message}</span>
                             </div>
                         `;
@@ -564,13 +564,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.innerHTML = originalText;
                 
                 console.error('Error testing connection:', error);
-                const errorMessage = `Er is een fout opgetreden bij het testen van de verbinding: ${error.message}`;
+                const errorMessage = `${@json(__('Er is een fout opgetreden bij het testen van de verbinding:'))} ${error.message}`;
                 
                 // Update modal result
                 resultDiv.innerHTML = `
                     <div class="kt-alert kt-alert-danger" style="display: block;">
                         <i class="ki-filled ki-cross-circle me-2" style="font-size: 1.25rem;"></i>
-                        <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ Verbinding gefaald!</strong>
+                        <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ ${@json(__('Verbinding gefaald!'))}</strong>
                         <span style="font-size: 0.875rem; display: block;">${errorMessage}</span>
                     </div>
                 `;
@@ -581,7 +581,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     testResultContent.innerHTML = `
                         <div class="kt-alert kt-alert-danger" style="display: block;">
                             <i class="ki-filled ki-cross-circle me-2" style="font-size: 1.25rem;"></i>
-                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ Verbinding gefaald!</strong>
+                            <strong style="font-size: 1rem; display: block; margin-bottom: 0.5rem;">✗ ${@json(__('Verbinding gefaald!'))}</strong>
                             <span style="font-size: 0.875rem; display: block;">${errorMessage}</span>
                         </div>
                     `;

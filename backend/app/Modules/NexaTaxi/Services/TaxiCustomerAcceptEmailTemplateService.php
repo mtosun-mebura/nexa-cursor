@@ -254,7 +254,7 @@ HTML;
             $body,
             EmailCardHtml::companyLogoMarkup(),
             EmailCardHtml::questionsAndPoweredByFooter('{{ COMPANY_NAME_HTML }}'),
-            '{{ COMPANY_NAME }}',
+            null,
         );
     }
 

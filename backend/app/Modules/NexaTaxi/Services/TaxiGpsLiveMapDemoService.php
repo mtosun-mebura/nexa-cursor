@@ -132,9 +132,9 @@ class TaxiGpsLiveMapDemoService
         return array_merge([
             'id' => 'demo-live-1',
             'driver_id' => 0,
-            'driver_name' => 'Demo chauffeur',
+            'driver_name' => __('Demo chauffeur'),
             'vehicle_id' => null,
-            'vehicle_name' => 'Demo taxi',
+            'vehicle_name' => __('Demo taxi'),
             'is_online' => true,
         ], $driven);
     }

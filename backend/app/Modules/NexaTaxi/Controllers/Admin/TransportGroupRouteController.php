@@ -12,7 +12,9 @@ use App\Modules\NexaTaxi\Models\TransportRouteStop;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
+use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
+use App\Modules\NexaTaxi\Services\TransportGroupRouteSyncService;
 use App\Modules\NexaTaxi\Services\TransportRoutePlannerService;
 use App\Modules\NexaTaxi\Traits\UsesModuleDatabase;
 use Illuminate\Http\Request;
@@ -28,6 +30,7 @@ class TransportGroupRouteController extends Controller
         private readonly TransportRoutePlannerService $routePlanner,
         private readonly TaxiDriverEligibilityService $driverEligibility,
         private readonly ContractOccurrenceGeneratorService $occurrenceGenerator,
+        private readonly TransportGroupRouteSyncService $routeSync,
     ) {}
 
     public function edit(Request $request, int $customerId, int $contractId, int $groupId)
@@ -37,7 +40,12 @@ class TransportGroupRouteController extends Controller
         $context = $this->resolveRouteContext($customerId, $contractId, $groupId);
         $backUrl = transport_admin_back_url(
             $request,
-            route('admin.taxi.transport_groups.show', [$customerId, $contractId, $groupId])
+            route('admin.taxi.transport_groups.show', [
+                $customerId,
+                $contractId,
+                $groupId,
+                'tab' => 'route',
+            ])
         );
 
         return view('taxi::admin.transport_groups.route', array_merge($context, compact('backUrl')));
@@ -79,7 +87,7 @@ class TransportGroupRouteController extends Controller
             if ($data['driver_start_mode'] === TransportRouteTemplate::DRIVER_START_DEPOT
                 && empty($data['driver_start_address'])) {
                 throw ValidationException::withMessages([
-                    'driver_start_address' => 'Vul een depotadres in of kies start bij eerste stop.',
+                    'driver_start_address' => __('Vul een depotadres in of kies start bij eerste stop.'),
                 ]);
             }
 
@@ -95,10 +103,11 @@ class TransportGroupRouteController extends Controller
         }
 
         $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
+        $this->routeSync->syncReturnRoute($conn, $context['group']->fresh());
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route-instellingen opgeslagen.'.$this->occurrenceSyncSuffix($stats));
+            ->with('success', __('Route-instellingen opgeslagen.').$this->occurrenceSyncSuffix($stats));
     }
 
     public function calculate(Request $request, int $customerId, int $contractId, int $groupId)
@@ -135,10 +144,11 @@ class TransportGroupRouteController extends Controller
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
         $stats = $this->occurrenceGenerator->syncOccurrencesForRouteTemplate($conn, (int) $template->id);
+        $returnResult = $this->routeSync->syncReturnRoute($conn, $group->fresh());
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Route berekend en opgeslagen.'.$this->occurrenceSyncSuffix($stats));
+            ->with('success', trim(__('Route berekend en opgeslagen.').$this->occurrenceSyncSuffix($stats).' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -190,19 +200,20 @@ class TransportGroupRouteController extends Controller
 
         if ($orderedPickups === []) {
             throw ValidationException::withMessages([
-                'stop_order' => 'Geen geldige stops geselecteerd.',
+                'stop_order' => __('Geen geldige stops geselecteerd.'),
             ]);
         }
 
         $result = $this->routePlanner->recalculateTimesForOrder($group, $template, $orderedPickups);
         $this->persistStops($conn, $template, $result['stops']);
         $this->occurrenceGenerator->resyncScheduleTimesForRouteTemplate($conn, (int) $template->id);
+        $returnResult = $this->routeSync->syncReturnRoute($conn, $group->fresh());
 
         $redirect = redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', $template->route_locked
-                ? 'Tijden herberekend.'
-                : 'Volgorde opgeslagen en tijden herberekend.');
+            ->with('success', trim(($template->route_locked
+                ? __('Tijden herberekend.')
+                : __('Volgorde opgeslagen en tijden herberekend.')).' '.($returnResult['message'] ?? '')));
 
         if ($result['departure_time'] !== null) {
             $redirect->with('route_departure_time', substr($result['departure_time'], 0, 5));
@@ -221,7 +232,7 @@ class TransportGroupRouteController extends Controller
 
         if (! $template->route_locked && $template->stops->where('stop_type', TransportRouteStop::STOP_TYPE_PICKUP)->isEmpty()) {
             throw ValidationException::withMessages([
-                'route' => 'Bereken eerst een route voordat u deze vastzet.',
+                'route' => __('Bereken eerst een route voordat u deze vastzet.'),
             ]);
         }
 
@@ -234,8 +245,8 @@ class TransportGroupRouteController extends Controller
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
             ->with('success', $template->route_locked
-                ? 'Route vastgezet. Planning voor de komende 14 dagen is bijgewerkt.'
-                : 'Route ontgrendeld.');
+                ? __('Route vastgezet. Planning voor de komende 14 dagen is bijgewerkt.')
+                : __('Route ontgrendeld.'));
     }
 
     public function updateAssignment(Request $request, int $customerId, int $contractId, int $groupId)
@@ -256,8 +267,8 @@ class TransportGroupRouteController extends Controller
             'driver_id' => ['nullable', 'integer', 'required_without:vehicle_id'],
             'vehicle_id' => ['nullable', 'integer', 'required_without:driver_id'],
         ], [
-            'driver_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
-            'vehicle_id.required_without' => 'Selecteer een chauffeur of een voertuig.',
+            'driver_id.required_without' => __('Selecteer een chauffeur of een voertuig.'),
+            'vehicle_id.required_without' => __('Selecteer een chauffeur of een voertuig.'),
         ]);
 
         $driverId = isset($data['driver_id']) ? (int) $data['driver_id'] : null;
@@ -268,8 +279,9 @@ class TransportGroupRouteController extends Controller
                 ->where('users.id', $driverId)
                 ->exists();
             if (! $isDriver) {
-                throw ValidationException::withMessages(['driver_id' => 'Ongeldige chauffeur voor dit bedrijf.']);
+                throw ValidationException::withMessages(['driver_id' => __('Ongeldige chauffeur voor dit bedrijf.')]);
             }
+            $this->driverEligibility->assertContractantForContractAssignment($driverId);
         }
 
         if ($vehicleId !== null) {
@@ -278,7 +290,7 @@ class TransportGroupRouteController extends Controller
                 ->where('id', $vehicleId)
                 ->exists();
             if (! $vehicleExists) {
-                throw ValidationException::withMessages(['vehicle_id' => 'Ongeldig voertuig voor dit bedrijf.']);
+                throw ValidationException::withMessages(['vehicle_id' => __('Ongeldig voertuig voor dit bedrijf.')]);
             }
         }
 
@@ -304,7 +316,7 @@ class TransportGroupRouteController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_groups.route.edit', [$customerId, $contractId, $groupId])
-            ->with('success', 'Toewijzing opgeslagen.');
+            ->with('success', __('Toewijzing opgeslagen.'));
     }
 
     /**
@@ -353,6 +365,7 @@ class TransportGroupRouteController extends Controller
     private function resolveRouteContext(int $customerId, int $contractId, int $groupId): array
     {
         $conn = $this->moduleConnection();
+        app(TaxiContractvervoerSchemaService::class)->ensureTransportGroupReturnTripColumns($conn);
         $customer = TransportCustomer::on($conn)->findOrFail($customerId);
         $contract = TransportContract::on($conn)
             ->where('transport_customer_id', $customerId)
@@ -364,6 +377,10 @@ class TransportGroupRouteController extends Controller
         $template = TransportRouteTemplate::on($conn)
             ->where('transport_group_id', $group->id)
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
             ->with(['stops.passenger', 'assignment'])
             ->first();
 
@@ -373,6 +390,7 @@ class TransportGroupRouteController extends Controller
                 'company_id' => $group->company_id,
                 'transport_group_id' => $group->id,
                 'label' => $group->name.' route',
+                'direction' => TransportRouteTemplate::DIRECTION_OUTBOUND,
                 'recurrence_days' => TransportRouteTemplate::defaultRecurrenceDays(),
                 'driver_start_mode' => $departureAddress !== ''
                     ? TransportRouteTemplate::DRIVER_START_DEPOT
@@ -403,7 +421,9 @@ class TransportGroupRouteController extends Controller
             ->buildChauffeurQuery((int) $group->company_id)
             ->orderBy('first_name')
             ->orderBy('last_name')
-            ->get(['id', 'first_name', 'last_name']);
+            ->get(['id', 'first_name', 'last_name'])
+            ->filter(fn ($driver) => $driver instanceof \App\Models\User && $this->driverEligibility->hasContractantRole($driver))
+            ->values();
 
         $vehicles = Vehicle::on($conn)
             ->where('company_id', $group->company_id)
@@ -433,10 +453,10 @@ class TransportGroupRouteController extends Controller
         $cancelled = (int) ($stats['cancelled'] ?? 0);
 
         if ($created > 0) {
-            $parts[] = $created.' rit(ten) ingepland in de contract-app.';
+            $parts[] = __(':count rit(ten) ingepland in de contract-app.', ['count' => $created]);
         }
         if ($cancelled > 0) {
-            $parts[] = $cancelled.' rit(ten) ingetrokken voor dagen die niet meer gelden.';
+            $parts[] = __(':count rit(ten) ingetrokken voor dagen die niet meer gelden.', ['count' => $cancelled]);
         }
 
         return $parts === [] ? '' : ' '.implode(' ', $parts);
@@ -448,7 +468,7 @@ class TransportGroupRouteController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 }

@@ -19,6 +19,9 @@ class TransportGroup extends Model
         'destination_lat',
         'destination_lng',
         'destination_arrival_time',
+        'has_return_trip',
+        'return_pickup_time',
+        'return_boarding_delay_minutes',
         'notes',
         'active',
     ];
@@ -29,8 +32,13 @@ class TransportGroup extends Model
         'destination_lat' => 'decimal:7',
         'destination_lng' => 'decimal:7',
         'destination_arrival_time' => 'string',
+        'has_return_trip' => 'boolean',
+        'return_pickup_time' => 'string',
+        'return_boarding_delay_minutes' => 'integer',
         'active' => 'boolean',
     ];
+
+    public const DEFAULT_RETURN_BOARDING_DELAY_MINUTES = 15;
 
     public function members()
     {
@@ -46,6 +54,18 @@ class TransportGroup extends Model
     {
         return $this->hasOne(TransportRouteTemplate::class, 'transport_group_id')
             ->where('active', true)
+            ->where(function ($q) {
+                $q->where('direction', TransportRouteTemplate::DIRECTION_OUTBOUND)
+                    ->orWhereNull('direction');
+            })
+            ->latest('id');
+    }
+
+    public function returnRouteTemplate()
+    {
+        return $this->hasOne(TransportRouteTemplate::class, 'transport_group_id')
+            ->where('active', true)
+            ->where('direction', TransportRouteTemplate::DIRECTION_RETURN)
             ->latest('id');
     }
 }

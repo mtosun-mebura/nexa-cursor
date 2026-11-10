@@ -30,9 +30,11 @@ class TaxiAppFirstLoginService
 
     public const ROLE_CONTRACTOUDER = 'contractouder';
 
+    public const ROLE_DEMO = 'demo';
+
     public const CODE_LENGTH = 6;
 
-    public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om zelf een wachtwoord te kiezen.';
+    public const FIRST_LOGIN_REQUIRED_MESSAGE = 'Er is nog geen wachtwoord ingesteld. Vraag een inlogcode aan om in te loggen.';
 
     public function __construct(
         protected TaxiDriverEligibilityService $drivers,
@@ -60,6 +62,9 @@ class TaxiAppFirstLoginService
         if (in_array(self::ROLE_CONTRACTOUDER, $normalized, true)) {
             return self::ROLE_CONTRACTOUDER;
         }
+        if (in_array(self::ROLE_DEMO, $normalized, true)) {
+            return self::ROLE_DEMO;
+        }
 
         return null;
     }
@@ -68,7 +73,7 @@ class TaxiAppFirstLoginService
     {
         return match ($role) {
             self::ROLE_CHAUFFEUR => self::CHANNEL_DRIVER,
-            self::ROLE_CONTRACTANT, self::ROLE_CONTRACTOUDER => self::CHANNEL_CONTRACT,
+            self::ROLE_CONTRACTANT, self::ROLE_CONTRACTOUDER, self::ROLE_DEMO => self::CHANNEL_CONTRACT,
             default => null,
         };
     }
@@ -79,6 +84,7 @@ class TaxiAppFirstLoginService
             self::ROLE_CHAUFFEUR => TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR,
             self::ROLE_CONTRACTANT => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             self::ROLE_CONTRACTOUDER => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER,
+            self::ROLE_DEMO => TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             default => null,
         };
     }
@@ -126,6 +132,11 @@ class TaxiAppFirstLoginService
 
     public function userMayUseChannel(User $user, string $channel): bool
     {
+        if ($user->isSuperAdmin()
+            && in_array($channel, [self::CHANNEL_DRIVER, self::CHANNEL_CONTRACT], true)) {
+            return true;
+        }
+
         $companyId = (int) ($user->company_id ?? 0);
         if ($companyId <= 0) {
             return false;
@@ -146,7 +157,7 @@ class TaxiAppFirstLoginService
     /**
      * @return array{ok: bool, status: int, message: string, retry_after?: int}
      */
-    public function requestCode(string $email, string $channel, string $ip): array
+    public function requestCode(string $email, string $channel, string $ip, bool $nexaRegistrationBrand = false): array
     {
         $email = strtolower(trim($email));
         $channel = $this->normalizeChannel($channel);
@@ -193,14 +204,6 @@ class TaxiAppFirstLoginService
             ];
         }
 
-        if (! $this->needsFirstLogin($user)) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'message' => 'Dit account is al geactiveerd. Log in met je wachtwoord.',
-            ];
-        }
-
         $purpose = $this->purposeForChannel($channel);
         $cooldown = max(30, (int) config('taxi-dispatch.app_first_login_code_cooldown_seconds', 60));
         $recent = CustomerLoginCode::query()
@@ -235,7 +238,7 @@ class TaxiAppFirstLoginService
             'expires_at' => now()->addMinutes($expiresMinutes),
         ]);
 
-        $mailed = $this->sendCodeMail($user, $channel, $code, $expiresMinutes);
+        $mailed = $this->sendCodeMail($user, $channel, $code, $expiresMinutes, $nexaRegistrationBrand);
         if (! $mailed) {
             return [
                 'ok' => false,
@@ -256,6 +259,104 @@ class TaxiAppFirstLoginService
      */
     public function verifyAndSetPassword(string $email, string $code, string $password, string $channel, string $ip): array
     {
+        $resolved = $this->resolveValidCode($email, $code, $channel, $ip);
+        if (! ($resolved['ok'] ?? false)) {
+            return $resolved;
+        }
+
+        /** @var User $user */
+        $user = $resolved['user'];
+        /** @var CustomerLoginCode $match */
+        $match = $resolved['match'];
+        $purpose = $resolved['purpose'];
+        $attemptKey = $resolved['attempt_key'];
+
+        if (! preg_match(TenantOnboardingService::PASSWORD_REGEX, $password) || strlen($password) < 8) {
+            return [
+                'ok' => false,
+                'status' => 422,
+                'message' => 'Kies een wachtwoord van minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.',
+            ];
+        }
+
+        $match->update(['consumed_at' => now()]);
+        $this->invalidateOpenCodes($user, $purpose);
+
+        $payload = [
+            'password' => Hash::make($password),
+        ];
+        if (Schema::hasColumn('users', 'must_change_password')) {
+            $payload['must_change_password'] = false;
+        }
+        if (Schema::hasColumn('users', 'password_must_be_set')) {
+            $payload['password_must_be_set'] = false;
+        }
+        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
+            $payload['email_verified_at'] = now();
+        }
+
+        $user->forceFill($payload)->save();
+        RateLimiter::clear($attemptKey);
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'Wachtwoord opgeslagen. Je bent ingelogd.',
+            'user' => $user->fresh(),
+        ];
+    }
+
+    /**
+     * Inloggen met alleen e-mailcode (geen wachtwoord verplicht).
+     *
+     * @return array{ok: bool, status: int, message: string, user?: User}
+     */
+    public function verifyAndLoginWithCode(string $email, string $code, string $channel, string $ip): array
+    {
+        $resolved = $this->resolveValidCode($email, $code, $channel, $ip);
+        if (! ($resolved['ok'] ?? false)) {
+            return $resolved;
+        }
+
+        /** @var User $user */
+        $user = $resolved['user'];
+        /** @var CustomerLoginCode $match */
+        $match = $resolved['match'];
+        $purpose = $resolved['purpose'];
+        $attemptKey = $resolved['attempt_key'];
+
+        $match->update(['consumed_at' => now()]);
+        $this->invalidateOpenCodes($user, $purpose);
+
+        $payload = [];
+        if (Schema::hasColumn('users', 'must_change_password')) {
+            $payload['must_change_password'] = false;
+        }
+        if (Schema::hasColumn('users', 'password_must_be_set')) {
+            $payload['password_must_be_set'] = false;
+        }
+        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
+            $payload['email_verified_at'] = now();
+        }
+
+        if ($payload !== []) {
+            $user->forceFill($payload)->save();
+        }
+        RateLimiter::clear($attemptKey);
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'Je bent ingelogd.',
+            'user' => $user->fresh(),
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, status: int, message: string, user?: User, match?: CustomerLoginCode, purpose?: string, attempt_key?: string}
+     */
+    private function resolveValidCode(string $email, string $code, string $channel, string $ip): array
+    {
         $email = strtolower(trim($email));
         $channel = $this->normalizeChannel($channel);
         $code = preg_replace('/\s+/', '', $code) ?? '';
@@ -267,13 +368,21 @@ class TaxiAppFirstLoginService
         RateLimiter::hit($attemptKey, 900);
 
         $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
-        if (! $user || ! $this->userMayUseChannel($user, $channel) || ! $this->needsFirstLogin($user)) {
+        if (! $user || ! $this->userMayUseChannel($user, $channel)) {
             $this->burnDummyHash();
 
             return [
                 'ok' => false,
                 'status' => 422,
                 'message' => 'Code of e-mailadres is onjuist.',
+            ];
+        }
+
+        if (Schema::hasColumn('users', 'is_active') && $user->is_active === false) {
+            return [
+                'ok' => false,
+                'status' => 403,
+                'message' => 'Dit account is uitgeschakeld. Neem contact op met je werkgever.',
             ];
         }
 
@@ -311,38 +420,14 @@ class TaxiAppFirstLoginService
             ];
         }
 
-        if (! preg_match(TenantOnboardingService::PASSWORD_REGEX, $password) || strlen($password) < 8) {
-            return [
-                'ok' => false,
-                'status' => 422,
-                'message' => 'Kies een wachtwoord van minimaal 8 tekens, met een hoofdletter, een kleine letter en een cijfer.',
-            ];
-        }
-
-        $match->update(['consumed_at' => now()]);
-        $this->invalidateOpenCodes($user, $purpose);
-
-        $payload = [
-            'password' => Hash::make($password),
-        ];
-        if (Schema::hasColumn('users', 'must_change_password')) {
-            $payload['must_change_password'] = false;
-        }
-        if (Schema::hasColumn('users', 'password_must_be_set')) {
-            $payload['password_must_be_set'] = false;
-        }
-        if (Schema::hasColumn('users', 'email_verified_at') && ! $user->email_verified_at) {
-            $payload['email_verified_at'] = now();
-        }
-
-        $user->forceFill($payload)->save();
-        RateLimiter::clear($attemptKey);
-
         return [
             'ok' => true,
             'status' => 200,
-            'message' => 'Wachtwoord opgeslagen. Je bent ingelogd.',
-            'user' => $user->fresh(),
+            'message' => '',
+            'user' => $user,
+            'match' => $match,
+            'purpose' => $purpose,
+            'attempt_key' => $attemptKey,
         ];
     }
 
@@ -394,7 +479,7 @@ class TaxiAppFirstLoginService
             ->update(['consumed_at' => now()]);
     }
 
-    private function sendCodeMail(User $user, string $channel, string $code, int $expiresMinutes): bool
+    private function sendCodeMail(User $user, string $channel, string $code, int $expiresMinutes, bool $nexaRegistrationBrand = false): bool
     {
         $companyId = (int) ($user->company_id ?? 0);
         $company = $companyId > 0 ? Company::query()->find($companyId) : null;
@@ -416,18 +501,32 @@ class TaxiAppFirstLoginService
             NexaBranding::emailLogoTemplateVariable()
         );
 
-        $template = $this->codeTemplates->resolveActiveTemplate($companyId > 0 ? $companyId : null);
-        if ($template) {
-            $subject = $this->parser->parseTemplateVariables($template->subject, $variables);
-            $html = $this->parser->parseTemplateVariables($template->html_content, $variables);
-            $text = $template->text_content
-                ? $this->parser->parseTemplateVariables($template->text_content, $variables)
-                : strip_tags($html);
+        if ($nexaRegistrationBrand) {
+            $variables['COMPANY_LOGO'] = $this->codeTemplates->nexaRegistrationLogoHtml();
+        }
+
+        if ($nexaRegistrationBrand) {
+            $subject = $this->parser->parseTemplateVariables($this->codeTemplates->registrationSubject(), $variables);
+            $html = $this->parser->parseTemplateVariables($this->codeTemplates->registrationHtmlContent(), $variables);
+            $text = $this->parser->parseTemplateVariables($this->codeTemplates->registrationTextContent(), $variables);
         } else {
-            $defaults = $this->codeTemplates->defaultPayload(null);
-            $subject = $this->parser->parseTemplateVariables((string) $defaults['subject'], $variables);
-            $html = $this->parser->parseTemplateVariables($this->codeTemplates->defaultHtmlContent(), $variables);
-            $text = $this->parser->parseTemplateVariables($this->codeTemplates->defaultTextContent(), $variables);
+            $template = $this->codeTemplates->resolveActiveTemplate($companyId > 0 ? $companyId : null);
+            if ($template) {
+                $subject = $this->parser->parseTemplateVariables($template->subject, $variables);
+                $html = $this->parser->parseTemplateVariables($template->html_content, $variables);
+                $text = $template->text_content
+                    ? $this->parser->parseTemplateVariables($template->text_content, $variables)
+                    : strip_tags($html);
+            } else {
+                $defaults = $this->codeTemplates->defaultPayload(null);
+                $subject = $this->parser->parseTemplateVariables((string) $defaults['subject'], $variables);
+                $html = $this->parser->parseTemplateVariables($this->codeTemplates->defaultHtmlContent(), $variables);
+                $text = $this->parser->parseTemplateVariables($this->codeTemplates->defaultTextContent(), $variables);
+            }
+        }
+
+        if ($nexaRegistrationBrand) {
+            $html = $this->codeTemplates->withoutHeaderKicker($html);
         }
 
         $payload = [
@@ -440,7 +539,10 @@ class TaxiAppFirstLoginService
             'text' => $text,
             'related_type' => 'user',
             'related_id' => $user->id,
-            'meta' => ['channel' => $channel],
+            'meta' => ['channel' => $channel, 'nexa_registration_brand' => $nexaRegistrationBrand],
+            'from_name' => $nexaRegistrationBrand
+                ? TaxiAppLoginCodeEmailTemplateService::NEXA_REGISTRATION_FROM_NAME
+                : null,
         ];
 
         $deliverable = $this->env->isMailDeliverableToInbox($companyId > 0 ? $companyId : null)

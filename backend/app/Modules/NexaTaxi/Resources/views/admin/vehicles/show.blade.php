@@ -32,7 +32,7 @@
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-car text-muted-foreground text-sm shrink-0"></i>
-                    <span class="text-secondary-foreground font-medium">{{ $vehicle->type_label }}</span>
+                    <span class="text-secondary-foreground font-medium">{{ __($vehicle->type_label) }}</span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-discount text-muted-foreground text-sm shrink-0"></i>
@@ -47,12 +47,12 @@
     <div class="admin-page-actions flex flex-wrap items-center justify-between gap-3 mb-5 lg:mb-10 pt-5 w-full min-w-0">
         <a href="{{ route('admin.taxi.vehicles.index') }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('vehicles.update'))
         <a href="{{ route('admin.taxi.vehicles.edit', $vehicle) }}" class="kt-btn kt-btn-primary shrink-0">
             <i class="ki-filled ki-notepad-edit me-2"></i>
-            Bewerken
+            {{ __('Bewerken') }}
         </a>
         @endif
     </div>
@@ -69,68 +69,68 @@
     <div class="flex flex-col gap-5 lg:gap-7.5">
         <div class="kt-card w-full min-w-0 mb-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title mb-0">Gegevens</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Gegevens') }}</h3>
             </div>
             <div class="kt-card-content p-0">
                 <div class="px-3 sm:px-5 pb-3 min-w-0">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Bedrijf</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Bedrijf') }}</td>
                             <td class="min-w-48 w-full text-foreground font-normal">{{ $vehicle->company->name ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Type</td>
-                            <td class="text-foreground font-normal">{{ $vehicle->type_label }}</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Type') }}</td>
+                            <td class="text-foreground font-normal">{{ __($vehicle->type_label) }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Kenteken</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Kenteken') }}</td>
                             <td class="text-foreground font-normal">{{ $vehicle->license_plate ?? '—' }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Personenbereik</td>
-                            <td class="text-foreground font-normal">{{ $personRangeLabel }}</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Personenbereik') }}</td>
+                            <td class="text-foreground font-normal">{{ __($personRangeLabel) }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Status</td>
-                            <td class="text-foreground font-normal">{{ $vehicle->active ? 'Actief' : 'Inactief' }}</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Status') }}</td>
+                            <td class="text-foreground font-normal">{{ $vehicle->active ? __('Actief') : __('Inactief') }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Foto in frontend</td>
-                            <td class="text-foreground font-normal">{{ $vehicle->show_photo ? 'Ja' : 'Nee' }}</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Foto in frontend') }}</td>
+                            <td class="text-foreground font-normal">{{ $vehicle->show_photo ? __('Ja') : __('Nee') }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Instaptarief</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Instaptarief') }}</td>
                             <td class="text-foreground font-normal">
                                 @if($baseFare !== null)
-                                    € {{ number_format((float) $baseFare, 2, ',', '.') }}@if($vehicle->base_fare === null && $defaultRates) <span class="text-muted-foreground text-xs">(standaard)</span>@endif
+                                    € {{ number_format((float) $baseFare, 2, ',', '.') }}@if($vehicle->base_fare === null && $defaultRates) <span class="text-muted-foreground text-xs">{{ __('(standaard)') }}</span>@endif
                                 @else
                                     —
                                 @endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Wachttarief vooraf p/u</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Wachttarief vooraf p/u') }}</td>
                             <td class="text-foreground font-normal">
-                                € {{ number_format((float) $minFare, 2, ',', '.') }}@if($vehicle->min_fare === null && $defaultRates) <span class="text-muted-foreground text-xs">(standaard)</span>@endif
+                                € {{ number_format((float) $minFare, 2, ',', '.') }}@if($vehicle->min_fare === null && $defaultRates) <span class="text-muted-foreground text-xs">{{ __('(standaard)') }}</span>@endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Prijs per km</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Prijs per km') }}</td>
                             <td class="text-foreground font-normal">
-                                € {{ number_format((float) $pricePerKm, 2, ',', '.') }}@if($vehicle->price_per_km === null && $defaultRates) <span class="text-muted-foreground text-xs">(standaard)</span>@endif
+                                € {{ number_format((float) $pricePerKm, 2, ',', '.') }}@if($vehicle->price_per_km === null && $defaultRates) <span class="text-muted-foreground text-xs">{{ __('(standaard)') }}</span>@endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Prijs per min</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Prijs per min') }}</td>
                             <td class="text-foreground font-normal">
-                                € {{ number_format((float) $pricePerMin, 2, ',', '.') }}@if($vehicle->price_per_min === null && $defaultRates) <span class="text-muted-foreground text-xs">(standaard)</span>@endif
+                                € {{ number_format((float) $pricePerMin, 2, ',', '.') }}@if($vehicle->price_per_min === null && $defaultRates) <span class="text-muted-foreground text-xs">{{ __('(standaard)') }}</span>@endif
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Reinigingskosten</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Reinigingskosten') }}</td>
                             <td class="text-foreground font-normal">
                                 @if($cleaningCosts !== null)
-                                    € {{ number_format((float) $cleaningCosts, 2, ',', '.') }}@if($vehicle->cleaning_costs === null && $defaultRates) <span class="text-muted-foreground text-xs">(standaard)</span>@endif
+                                    € {{ number_format((float) $cleaningCosts, 2, ',', '.') }}@if($vehicle->cleaning_costs === null && $defaultRates) <span class="text-muted-foreground text-xs">{{ __('(standaard)') }}</span>@endif
                                 @else
                                     —
                                 @endif
@@ -138,7 +138,7 @@
                         </tr>
                         @if($vehicle->notes)
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Notities</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Notities') }}</td>
                             <td class="text-foreground font-normal break-words">{{ $vehicle->notes }}</td>
                         </tr>
                         @endif
@@ -149,20 +149,20 @@
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title mb-0">Recente ritten</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Recente ritten') }}</h3>
             </div>
             <div class="kt-card-content min-w-0 p-0 sm:p-0">
                 @if($vehicle->rideRequests->isEmpty())
-                    <p class="px-3 sm:px-5 py-4 text-muted-foreground text-sm mb-0">Nog geen ritten met dit voertuig.</p>
+                    <p class="px-3 sm:px-5 py-4 text-muted-foreground text-sm mb-0">{{ __('Nog geen ritten met dit voertuig.') }}</p>
                 @else
                     <div class="kt-table-responsive kt-scrollable-x-auto admin-table-scroll-wrap px-3 sm:px-5 pb-3">
                         <table class="kt-table kt-table-border-dashed align-middle text-sm w-full min-w-0">
                             <thead>
                                 <tr>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Datum">Datum</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Route">Route</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Prijs">Prijs</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Datum') }}">{{ __('Datum') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Route') }}">{{ __('Route') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Prijs') }}">{{ __('Prijs') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -180,7 +180,7 @@
                                             <span class="rides-route-stack__address">{{ $r->dropoff_address ?: '—' }}</span>
                                         </div>
                                     </td>
-                                    <td>{{ $r->status_label }}</td>
+                                    <td>{{ __($r->status_label) }}</td>
                                     <td>{{ $r->quoted_price !== null ? '€ '.number_format($r->quoted_price, 2, ',', '.') : '—' }}</td>
                                 </tr>
                                 @endforeach

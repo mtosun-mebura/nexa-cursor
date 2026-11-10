@@ -2,7 +2,7 @@
     <div class="mb-5 flex flex-wrap items-center gap-2">
         <span class="text-sm text-secondary-foreground">Filter:</span>
         <span class="kt-badge kt-badge-outline kt-badge-primary">{{ $filterCompany->name }}</span>
-        <a href="{{ request()->url() }}" class="text-sm text-primary hover:underline">Filter wissen</a>
+        <a href="{{ request()->url() }}" class="text-sm text-primary hover:underline">{{ __('Filter wissen') }}</a>
     </div>
 @endif
 

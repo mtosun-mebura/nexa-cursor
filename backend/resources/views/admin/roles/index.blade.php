@@ -1,18 +1,18 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Rollen Beheer')
+@section('title', __('Rollen Beheer'))
 
 @section('content')
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Rollen Beheer
+            {{ __('Rollen Beheer') }}
         </h1>
         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('create-roles'))
         <a href="{{ route('admin.roles.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Nieuwe Rol
+            {{ __('Nieuwe Rol') }}
         </a>
         @endif
     </div>
@@ -26,7 +26,7 @@
                         {{ $stats['total_roles'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal Rollen
+                        {{ __('Totaal Rollen') }}
                     </span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
@@ -35,7 +35,7 @@
                         {{ $stats['system_roles'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Systeem Rollen
+                        {{ __('Systeem Rollen') }}
                     </span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
@@ -44,7 +44,7 @@
                         {{ $stats['custom_roles'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Aangepaste Rollen
+                        {{ __('Aangepaste Rollen') }}
                     </span>
                 </div>
                 <span class="not-last:border-e border-e-input my-1"></span>
@@ -53,7 +53,7 @@
                         {{ $stats['total_users_with_roles'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Gebruikers met Rollen
+                        {{ __('Gebruikers met Rollen') }}
                     </span>
                 </div>
             </div>
@@ -64,7 +64,7 @@
         <div class="kt-card kt-card-grid min-w-full">
             <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
                 <h3 class="kt-card-title text-sm pb-3 w-full mb-0">
-                    Toon 1 tot {{ $roles->count() }} van {{ $roles->count() }} rollen
+                    {{ __('Toon 1 tot :count van :count rollen', ['count' => $roles->count()]) }}
                 </h3>
                 <div class="flex flex-col sm:flex-row flex-wrap gap-2 lg:gap-5 justify-end w-full min-w-0">
                     <!-- Search -->
@@ -93,7 +93,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-64 min-w-0" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek rollen..." 
+                                <input placeholder="{{ __('Zoek rollen...') }}" 
                                        type="text" 
                                        name="search" 
                                        value="{{ request('search') }}"
@@ -112,49 +112,49 @@
                             <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="type" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Type"
+                                    data-kt-select-placeholder="{{ __('Type') }}"
                                     id="type-filter">
-                                <option value="">Alle types</option>
-                                <option value="system" {{ request('type') == 'system' ? 'selected' : '' }}>Systeem</option>
-                                <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>Aangepast</option>
+                                <option value="">{{ __('Alle types') }}</option>
+                                <option value="system" {{ request('type') == 'system' ? 'selected' : '' }}>{{ __('Systeem') }}</option>
+                                <option value="custom" {{ request('type') == 'custom' ? 'selected' : '' }}>{{ __('Aangepast') }}</option>
                             </select>
                             
                             <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="users" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Gebruikers"
+                                    data-kt-select-placeholder="{{ __('Gebruikers') }}"
                                     id="users-filter">
-                                <option value="">Alle rollen</option>
-                                <option value="with_users" {{ request('users') == 'with_users' ? 'selected' : '' }}>Met gebruikers</option>
-                                <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>Zonder gebruikers</option>
+                                <option value="">{{ __('Alle rollen') }}</option>
+                                <option value="with_users" {{ request('users') == 'with_users' ? 'selected' : '' }}>{{ __('Met gebruikers') }}</option>
+                                <option value="without_users" {{ request('users') == 'without_users' ? 'selected' : '' }}>{{ __('Zonder gebruikers') }}</option>
                             </select>
                             
                             <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="status" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter">
-                                <option value="">Alle statussen</option>
-                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Actief</option>
-                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactief</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                             </select>
                             
                             <select class="kt-select w-full sm:w-36 min-w-0" 
                                     name="sort" 
                                     data-kt-select="true" 
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
-                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Naam</option>
-                                <option value="users_count" {{ request('sort') == 'users_count' ? 'selected' : '' }}>Aantal gebruikers</option>
-                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>Status</option>
-                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>{{ __('Geen sortering') }}</option>
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>{{ __('Naam') }}</option>
+                                <option value="users_count" {{ request('sort') == 'users_count' ? 'selected' : '' }}>{{ __('Aantal gebruikers') }}</option>
+                                <option value="is_active" {{ request('sort') == 'is_active' ? 'selected' : '' }}>{{ __('Status') }}</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
                             </select>
                         </form>
                         @if(request('type') || request('users') || (request('status') && request('status') != '') || (request('sort') && request('sort') != 'name') || request('direction') || request('search'))
                         <a href="{{ route('admin.roles.index') }}" 
                            class="kt-btn kt-btn-outline kt-btn-icon" 
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -166,14 +166,14 @@
             
             <div class="kt-card-content">
                 @if($roles->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="roles_table" data-admin-datatable-label="rollen">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="roles_table" data-admin-datatable-label="{{ __('rollen') }}">
                         <div class="kt-scrollable-x-auto">
                             <table class="kt-table table-auto kt-table-border">
                             <thead>
                                 <tr>
                                     <th class="min-w-[200px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Rol</span>
+                                            <span class="kt-table-col-label">{{ __('Rol') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -191,19 +191,19 @@
                                     </th>
                                     <th class="min-w-[120px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Type</span>
+                                            <span class="kt-table-col-label">{{ __('Type') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
                                     <th class="min-w-[120px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Rechten</span>
+                                            <span class="kt-table-col-label">{{ __('Rechten') }}</span>
                                             <span class="kt-table-col-sort"></span>
                                         </span>
                                     </th>
                                     <th class="min-w-[120px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Gebruikers</span>
+                                            <span class="kt-table-col-label">{{ __('Gebruikers') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -221,7 +221,7 @@
                                     </th>
                                     <th class="min-w-[120px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Status</span>
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -239,7 +239,7 @@
                                     </th>
                                     <th class="min-w-[150px]">
                                         <span class="kt-table-col">
-                                            <span class="kt-table-col-label">Aangemaakt</span>
+                                            <span class="kt-table-col-label">{{ __('Aangemaakt') }}</span>
                                             <span class="kt-table-col-sort">
                                                 @php
                                                     $currentSort = request('sort');
@@ -255,7 +255,7 @@
                                             </span>
                                         </span>
                                     </th>
-                                    <th class="w-[60px] text-center">Acties</th>
+                                    <th class="w-[60px] text-center">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -281,9 +281,9 @@
                                         </td>
                                         <td class="text-foreground font-normal">
                                             @if(\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Systeem</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Systeem') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Aangepast</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Aangepast') }}</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
@@ -297,9 +297,9 @@
                                                 $isActive = $role->is_active ?? true;
                                             @endphp
                                             @if($isActive)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Actief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Actief') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-danger">Inactief</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-danger">{{ __('Inactief') }}</span>
                                             @endif
                                         </td>
                                         <td class="text-foreground font-normal">
@@ -318,7 +318,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endif
@@ -328,7 +328,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endif
@@ -338,7 +338,7 @@
                                                         @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('edit-roles'))
                                                         @if(!\App\Support\AdminPanelRoles::isSystemRole((string) $role->name))
                                                         <div class="kt-menu-item">
-                                                            <form action="{{ route('admin.roles.toggle-status', $role) }}" method="POST" class="inline" onsubmit="return confirm('Weet je zeker dat je de status van deze rol wilt wijzigen?')">
+                                                            <form action="{{ route('admin.roles.toggle-status', $role) }}" method="POST" class="inline" onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Weet je zeker dat je de status van deze rol wilt wijzigen?')) }})">
                                                                 @csrf
                                                                 <button type="submit" class="kt-menu-link w-full text-left">
                                                                     <span class="kt-menu-icon">
@@ -348,7 +348,7 @@
                                                                         @php
                                                                             $isActive = $role->is_active ?? true;
                                                                         @endphp
-                                                                        {{ $isActive ? 'Deactiveren' : 'Activeren' }}
+                                                                        {{ $isActive ? __('Deactiveren') : __('Activeren') }}
                                                                     </span>
                                                                 </button>
                                                             </form>
@@ -364,14 +364,14 @@
                                                             <form action="{{ route('admin.roles.destroy', $role) }}" 
                                                                   method="POST" 
                                                                   style="display: inline;"
-                                                                  onsubmit="return confirm('Weet je zeker dat je deze rol wilt verwijderen?')">
+                                                                  onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Weet je zeker dat je deze rol wilt verwijderen?')) }})">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -391,10 +391,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -405,7 +405,7 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen rollen gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen rollen gevonden') }}</h4>
                     </div>
                 @endif
             </div>
@@ -488,7 +488,7 @@
     }
     
     /* Reset button visibility */
-    a[title="Filters resetten"] {
+    #reset-filter-btn {
         display: inline-flex !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -500,11 +500,11 @@
         background-color: var(--background) !important;
         color: var(--secondary-foreground) !important;
     }
-    a[title="Filters resetten"]:hover {
+    #reset-filter-btn:hover {
         background-color: var(--accent) !important;
         color: var(--accent-foreground) !important;
     }
-    a[title="Filters resetten"] i {
+    #reset-filter-btn i {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -533,6 +533,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Replace "of" with "van" in pagination info
         function replaceOfWithVan() {
+            if (@json(app()->getLocale() !== 'nl')) {
+                return;
+            }
             const infoSpan = document.querySelector('[data-admin-datatable-info="true"]');
             if (infoSpan && infoSpan.textContent.includes(' of ')) {
                 infoSpan.textContent = infoSpan.textContent.replace(' of ', ' van ');

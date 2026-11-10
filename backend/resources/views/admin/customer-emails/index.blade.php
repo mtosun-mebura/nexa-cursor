@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Email communicatie')
+@section('title', __('Email communicatie'))
 
 @section('content')
 @php
@@ -10,9 +10,9 @@
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono">Email communicatie</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Email communicatie') }}</h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
-                Alle e-mails naar klanten, van welkomstmail tot ritcommunicatie.
+                {{ __('Alle e-mails naar klanten, van welkomstmail tot ritcommunicatie.') }}
             </div>
         </div>
     </div>
@@ -20,13 +20,13 @@
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">
-                <span data-admin-datatable-info="true">Toon 1 tot {{ $emails->count() }} van {{ $emails->count() }} e-mails</span>
+                <span data-admin-datatable-info="true">{{ __('Toon 1 tot :from van :total e-mails', ['from' => $emails->count(), 'total' => $emails->count()]) }}</span>
             </h3>
             <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center"
                  data-admin-live-filter="off">
                 <label class="kt-input w-full sm:w-64 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input placeholder="Zoek op e-mail, naam, onderwerp…"
+                    <input placeholder="{{ __('Zoek op e-mail, naam, onderwerp…') }}"
                            type="text"
                            name="search"
                            autocomplete="off"
@@ -36,18 +36,18 @@
                         name="type"
                         data-admin-datatable-filter="type"
                         data-kt-select="true">
-                    <option value="">Alle types</option>
+                    <option value="">{{ __('Alle types') }}</option>
                     @foreach($typeLabels as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
+                        <option value="{{ $value }}">{{ __($label) }}</option>
                     @endforeach
                 </select>
                 <select class="kt-select w-full sm:w-44"
                         name="status"
                         data-admin-datatable-filter="status"
                         data-kt-select="true">
-                    <option value="">Alle statussen</option>
+                    <option value="">{{ __('Alle statussen') }}</option>
                     @foreach($statusLabels as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
+                        <option value="{{ $value }}">{{ __($label) }}</option>
                     @endforeach
                 </select>
                 @if(!empty($showCompany))
@@ -55,7 +55,7 @@
                         name="company"
                         data-admin-datatable-filter="company"
                         data-kt-select="true">
-                    <option value="">Alle bedrijven</option>
+                    <option value="">{{ __('Alle bedrijven') }}</option>
                     @foreach($emails->pluck('company')->filter()->unique('id')->sortBy('name') as $company)
                         <option value="{{ $company->id }}">{{ $company->name }}</option>
                     @endforeach
@@ -64,7 +64,7 @@
                 <button type="button"
                         data-admin-datatable-reset
                         class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
-                        title="Filters resetten">
+                        title="{{ __('Filters resetten') }}">
                     <i class="ki-filled ki-arrows-circle text-base"></i>
                 </button>
             </div>
@@ -76,28 +76,28 @@
                  data-admin-datatable="true"
                  data-admin-datatable-page-size="25"
                  id="customer_emails_table"
-                 data-admin-datatable-label="e-mails">
+                 data-admin-datatable-label="{{ __('e-mails') }}">
                 <div class="customer-emails-table-wrap min-w-0">
                     <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                         <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full" id="customer-emails-table">
                             <thead>
                                 <tr>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Datum">Datum</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Datum') }}">{{ __('Datum') }}</th>
                                     @if(!empty($showCompany))
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Bedrijf">Bedrijf</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Bedrijf') }}">{{ __('Bedrijf') }}</th>
                                     @endif
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Type">Type</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Klant">Klant</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Onderwerp">Onderwerp</th>
-                                    <th class="text-secondary-foreground font-normal text-left" data-label="Status">Status</th>
-                                    <th class="customer-emails-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Type') }}">{{ __('Type') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Klant') }}">{{ __('Klant') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Onderwerp') }}">{{ __('Onderwerp') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Status') }}">{{ __('Status') }}</th>
+                                    <th class="customer-emails-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($emails as $row)
                                 @php
-                                    $typeLabel = $row->typeLabel();
-                                    $statusLabel = $row->statusLabel();
+                                    $typeLabel = __($row->typeLabel());
+                                    $statusLabel = __($row->statusLabel());
                                     $companyName = $row->company->name ?? '';
                                     $sentAt = $row->sent_at ?? $row->created_at;
                                     $searchText = mb_strtolower(implode(' ', array_filter([
@@ -132,16 +132,16 @@
                                     <td class="text-secondary-foreground">
                                         {{ $row->subject }}
                                         @if($row->isResend())
-                                            <span class="kt-badge kt-badge-outline kt-badge-sm ms-1">Opnieuw verstuurd</span>
+                                            <span class="kt-badge kt-badge-outline kt-badge-sm ms-1">{{ __('Opnieuw verstuurd') }}</span>
                                         @elseif((int) $row->resent_count > 0)
-                                            <span class="kt-badge kt-badge-outline kt-badge-sm ms-1">{{ $row->resent_count }}× opnieuw</span>
+                                            <span class="kt-badge kt-badge-outline kt-badge-sm ms-1">{{ __(':count× opnieuw', ['count' => $row->resent_count]) }}</span>
                                         @endif
                                     </td>
                                     <td>
                                         @if($row->status === 'sent')
-                                            <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]">Verzonden</span>
+                                            <span class="kt-badge kt-badge-success kt-badge-outline rounded-[30px]">{{ __('Verzonden') }}</span>
                                         @elseif($row->status === 'failed')
-                                            <span class="kt-badge kt-badge-destructive kt-badge-outline rounded-[30px]">Mislukt</span>
+                                            <span class="kt-badge kt-badge-destructive kt-badge-outline rounded-[30px]">{{ __('Mislukt') }}</span>
                                         @else
                                             <span class="kt-badge kt-badge-secondary kt-badge-outline rounded-[30px]">{{ $statusLabel }}</span>
                                         @endif
@@ -150,15 +150,15 @@
                                         <div class="flex items-center justify-center gap-1">
                                             <a href="{{ route('admin.customer-emails.show', $row) }}"
                                                class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-icon"
-                                               title="Bekijken">
+                                               title="{{ __('Bekijken') }}">
                                                 <i class="ki-filled ki-eye"></i>
                                             </a>
                                             <form method="POST"
                                                   action="{{ route('admin.customer-emails.resend', $row) }}"
-                                                  onsubmit="return confirm('E-mail opnieuw versturen naar {{ addslashes($row->recipient_email) }}?');">
+                                                  onsubmit="return confirm('{{ addslashes(__('E-mail opnieuw versturen naar :email?', ['email' => $row->recipient_email])) }}');">
                                                 @csrf
                                                 <button type="submit" class="kt-btn kt-btn-sm kt-btn-outline whitespace-nowrap">
-                                                    Opnieuw versturen
+                                                    {{ __('Opnieuw versturen') }}
                                                 </button>
                                             </form>
                                         </div>
@@ -171,14 +171,14 @@
                 </div>
                 <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
                     <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                        Toon
+                        {{ __('Toon') }}
                         <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             <option value="10">10</option>
                             <option value="25" selected>25</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
-                        per pagina
+                        {{ __('per pagina') }}
                     </div>
                     <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                         <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -188,7 +188,7 @@
             </div>
             @else
             <div class="py-10 px-3 sm:px-5 text-center text-secondary-foreground text-sm">
-                Nog geen e-mails naar klanten vastgelegd.
+                {{ __('Nog geen e-mails naar klanten vastgelegd.') }}
             </div>
             @endif
         </div>

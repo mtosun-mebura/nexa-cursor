@@ -96,7 +96,7 @@ class RideRequestController extends Controller
             'monthlyStats' => $monthlyStats,
             'ridesIndexRoute' => 'admin.taxi.ride_requests.index',
             'ridesBulkDestroyRoute' => 'admin.taxi.ride_requests.bulk-destroy',
-            'ridesPageTitle' => 'Ritten',
+            'ridesPageTitle' => __('Ritten'),
             'ridesIsContractTransport' => false,
         ]);
     }
@@ -147,7 +147,7 @@ class RideRequestController extends Controller
             }
         }
 
-        return redirect()->route('admin.taxi.ride_requests.show', $ride)->with('success', 'Rit is aangemaakt.');
+        return redirect()->route('admin.taxi.ride_requests.show', $ride)->with('success', __('Rit is aangemaakt.'));
     }
 
     public function show(Request $request, RideRequest $ride_request)
@@ -180,6 +180,8 @@ class RideRequestController extends Controller
 
         $maps = app(EnvService::class)->mapsFormSettings();
         $rideTrack = app(RideTrackService::class)->mapPayload($conn, $ride_request);
+        $rideRating = app(\App\Modules\NexaTaxi\Services\TaxiRideRatingService::class)
+            ->payloadForRide($conn, $ride_request);
 
         return view('taxi::admin.ride_requests.show', [
             'ride' => $ride_request,
@@ -195,6 +197,7 @@ class RideRequestController extends Controller
             'googleMapsMapId' => $maps['GOOGLE_MAPS_MAP_ID'],
             'googleMapsZoom' => (int) $maps['GOOGLE_MAPS_ZOOM'],
             'rideTrack' => $rideTrack,
+            'rideRating' => $rideRating,
         ]);
     }
 
@@ -275,12 +278,12 @@ class RideRequestController extends Controller
                             return;
                         }
                         if (! $customerCompanyId || $customerCompanyId <= 0) {
-                            $fail('Selecteer eerst een tenant om een klant te koppelen.');
+                            $fail(__('Selecteer eerst een tenant om een klant te koppelen.'));
 
                             return;
                         }
                         if (! $this->buildKlantQuery((int) $customerCompanyId)->whereKey($value)->exists()) {
-                            $fail('De geselecteerde gebruiker is geen klant van deze tenant.');
+                            $fail(__('De geselecteerde gebruiker is geen klant van deze tenant.'));
                         }
                     },
                 ],
@@ -289,7 +292,7 @@ class RideRequestController extends Controller
         );
         $ride_request->update($validated);
 
-        return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Rit is bijgewerkt.');
+        return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', __('Rit is bijgewerkt.'));
     }
 
     public function destroy(RideRequest $ride_request)
@@ -299,7 +302,7 @@ class RideRequestController extends Controller
 
         $ride_request->delete();
 
-        return redirect()->route('admin.taxi.ride_requests.index')->with('success', 'Rit is verwijderd.');
+        return redirect()->route('admin.taxi.ride_requests.index')->with('success', __('Rit is verwijderd.'));
     }
 
     public function bulkDestroy(Request $request)
@@ -325,12 +328,12 @@ class RideRequestController extends Controller
 
         if ($deleted === 0) {
             return redirect()->route('admin.taxi.ride_requests.index')
-                ->with('error', 'Geen ritten verwijderd.');
+                ->with('error', __('Geen ritten verwijderd.'));
         }
 
         $message = $deleted === 1
-            ? '1 rit succesvol verwijderd.'
-            : $deleted.' ritten succesvol verwijderd.';
+            ? __('1 rit succesvol verwijderd.')
+            : __(':count ritten succesvol verwijderd.', ['count' => $deleted]);
 
         return redirect()->route('admin.taxi.ride_requests.index')->with('success', $message);
     }
@@ -340,6 +343,18 @@ class RideRequestController extends Controller
     {
         $this->authorizeOrPermission('rides.update');
         $this->ensureCanAccessRide($ride_request);
+
+        if ($ride_request->hasBeenDriven()) {
+            $message = __('Voertuig en chauffeur staan vast omdat deze rit al is gereden.');
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+
+            return redirect()
+                ->route('admin.taxi.ride_requests.show', $ride_request)
+                ->with('error', $message);
+        }
+
         $this->assertDispatchAllowedForRide($ride_request);
 
         $conn = $this->moduleConnection();
@@ -359,6 +374,10 @@ class RideRequestController extends Controller
         ]);
         $previousDriverId = (int) ($ride_request->driver_id ?? 0);
         $newDriverId = (int) ($request->input('driver_id') ?: 0);
+        if ($newDriverId > 0 && $ride_request->isContractRide()) {
+            app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)
+                ->assertContractantForContractAssignment($newDriverId);
+        }
 
         $ride_request->update([
             'vehicle_id' => $request->input('vehicle_id') ?: null,
@@ -378,10 +397,10 @@ class RideRequestController extends Controller
         }
 
         if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Toewijzing opgeslagen.']);
+            return response()->json(['success' => true, 'message' => __('Toewijzing opgeslagen.')]);
         }
 
-        return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', 'Voertuig en chauffeur toegewezen.');
+        return redirect()->route('admin.taxi.ride_requests.show', $ride_request)->with('success', __('Voertuig en chauffeur toegewezen.'));
     }
 
     public function releaseSettlement(RideRequest $ride_request)
@@ -395,7 +414,7 @@ class RideRequestController extends Controller
         ], true)) {
             return redirect()
                 ->route('admin.taxi.ride_requests.show', $ride_request)
-                ->with('error', 'Deze rit staat niet in hold of review.');
+                ->with('error', __('Deze rit staat niet in hold of review.'));
         }
 
         $conn = $this->moduleConnection();
@@ -404,7 +423,7 @@ class RideRequestController extends Controller
 
         return redirect()
             ->route('admin.taxi.ride_requests.show', $ride_request)
-            ->with('success', 'Settlement vrijgegeven (settlement-eligible).');
+            ->with('success', __('Settlement vrijgegeven (settlement-eligible).'));
     }
 
     public function reofferDispatch(RideRequest $ride_request)
@@ -418,20 +437,20 @@ class RideRequestController extends Controller
         if (! TaxiDispatchSchema::tablesExist($conn)) {
             return redirect()
                 ->route('admin.taxi.ride_requests.show', $ride_request)
-                ->with('error', 'Chauffeur-dispatch is niet beschikbaar (migraties ontbreken).');
+                ->with('error', __('Chauffeur-dispatch is niet beschikbaar (migraties ontbreken).'));
         }
 
         if (! $ride_request->canRedispatchToDrivers()) {
             return redirect()
                 ->route('admin.taxi.ride_requests.show', $ride_request)
-                ->with('error', 'Deze rit kan nu niet opnieuw worden aangeboden (voltooid, geannuleerd of wacht nog op betaling).');
+                ->with('error', __('Deze rit kan nu niet opnieuw worden aangeboden (voltooid, geannuleerd of wacht nog op betaling).'));
         }
 
         $companyId = (int) ($this->resolveRideCompanyId($ride_request, $conn) ?? 0);
         if ($companyId <= 0) {
             return redirect()
                 ->route('admin.taxi.ride_requests.show', $ride_request)
-                ->with('error', 'Geen bedrijf gekoppeld aan deze rit; dispatch kan niet starten.');
+                ->with('error', __('Geen bedrijf gekoppeld aan deze rit; dispatch kan niet starten.'));
         }
 
         $rideId = (int) $ride_request->id;
@@ -468,8 +487,8 @@ class RideRequestController extends Controller
             ->count();
 
         $message = $activeOffers > 0
-            ? 'Rit is opnieuw aangeboden aan '.$activeOffers.' chauffeur(s). Toewijzing is gewist.'
-            : 'Rit staat klaar voor dispatch, maar er zijn geen online chauffeurs gevonden. Laat chauffeurs in de app op online gaan.';
+            ? __('Rit is opnieuw aangeboden aan :count chauffeur(s). Toewijzing is gewist.', ['count' => $activeOffers])
+            : __('Rit staat klaar voor dispatch, maar er zijn geen online chauffeurs gevonden. Laat chauffeurs in de app op online gaan.');
 
         return redirect()
             ->route('admin.taxi.ride_requests.show', $ride_request)
@@ -539,7 +558,7 @@ class RideRequestController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 
@@ -554,7 +573,7 @@ class RideRequestController extends Controller
         }
         $rideCompanyId = $ride->company_id ?? $ride->vehicle?->company_id;
         if ($rideCompanyId === null || (int) $rideCompanyId !== (int) $companyId) {
-            abort(403, 'Geen toegang tot deze rit.');
+            abort(403, __('Geen toegang tot deze rit.'));
         }
     }
 
@@ -637,7 +656,7 @@ class RideRequestController extends Controller
      */
     private function buildChauffeurQuery(?int $companyId)
     {
-        return $this->buildTenantRoleUserQuery($companyId, ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten']);
+        return $this->buildTenantRoleUserQuery($companyId, app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)->chauffeurRoleNames());
     }
 
     /**
@@ -727,8 +746,8 @@ class RideRequestController extends Controller
     private function rideRequestFormMessages(): array
     {
         return [
-            'status.required' => 'Kies een status voor de rit.',
-            'status.in' => 'De gekozen status is ongeldig. Kies een van de beschikbare statussen in de lijst.',
+            'status.required' => __('Kies een status voor de rit.'),
+            'status.in' => __('De gekozen status is ongeldig. Kies een van de beschikbare statussen in de lijst.'),
         ];
     }
 
@@ -741,7 +760,7 @@ class RideRequestController extends Controller
             User::class,
             (new User)->getMorphClass(),
         ])));
-        $roleNamesLower = ['chauffeur', 'taxi-chauffeur', 'taxi_chauffeur', 'taxichauffeur', 'chauffeur-inkomsten'];
+        $roleNamesLower = app(\App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService::class)->chauffeurRoleNames();
 
         $query->where('company_id', $companyId)
             ->whereExists(function ($sub) use ($companyId, $pivot, $roles, $teamKey, $morphTypes, $roleNamesLower) {

@@ -100,7 +100,7 @@ class TransportCustomerPortalController extends Controller
 
             if (! $user) {
                 return back()->withErrors([
-                    'existing_user_id' => 'Gebruiker niet gevonden voor dit bedrijf.',
+                    'existing_user_id' => __('Gebruiker niet gevonden voor dit bedrijf.'),
                 ])->withInput();
             }
 
@@ -112,7 +112,7 @@ class TransportCustomerPortalController extends Controller
             $email = strtolower(trim((string) ($data['email'] ?? '')));
             if ($email === '') {
                 return back()->withErrors([
-                    'email' => 'E-mailadres is verplicht.',
+                    'email' => __('E-mailadres is verplicht.'),
                 ])->withInput();
             }
 
@@ -122,7 +122,7 @@ class TransportCustomerPortalController extends Controller
             if ($user) {
                 if ((int) $user->company_id > 0 && (int) $user->company_id !== $companyId) {
                     return back()->withErrors([
-                        'email' => 'Dit e-mailadres hoort bij een ander bedrijf.',
+                        'email' => __('Dit e-mailadres hoort bij een ander bedrijf.'),
                     ])->withInput();
                 }
                 if (! $user->company_id) {
@@ -153,7 +153,7 @@ class TransportCustomerPortalController extends Controller
                     if (str_contains(strtolower($e->getMessage()), 'users_email_unique')
                         || str_contains(strtolower($e->getMessage()), 'unique')) {
                         return back()->withErrors([
-                            'email' => 'Dit e-mailadres is al in gebruik.',
+                            'email' => __('Dit e-mailadres is al in gebruik.'),
                         ])->withInput();
                     }
 
@@ -194,8 +194,8 @@ class TransportCustomerPortalController extends Controller
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
             ->with('success', ! empty($createdNewUser)
-                ? 'Portaalgebruiker gekoppeld. Er is een welkomstmail verstuurd; eerste keer inloggen via een code in de app (/taxi/contract).'
-                : 'Portaalgebruiker gekoppeld. App: /taxi/contract');
+                ? __('Portaalgebruiker gekoppeld. Er is een welkomstmail verstuurd; eerste keer inloggen via een code in de app (/taxi/contract).')
+                : __('Portaalgebruiker gekoppeld. App: /taxi/contract'));
     }
 
     public function update(
@@ -244,7 +244,7 @@ class TransportCustomerPortalController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
-            ->with('success', 'Portaalgebruiker bijgewerkt.');
+            ->with('success', __('Portaalgebruiker bijgewerkt.'));
     }
 
     public function destroy(int $customerId, int $portalUserId): RedirectResponse
@@ -270,7 +270,7 @@ class TransportCustomerPortalController extends Controller
 
         return redirect()
             ->route('admin.taxi.transport_customers.show', ['id' => $customer->id, 'section' => 'portaal'])
-            ->with('success', 'Portaalgebruiker ontkoppeld.');
+            ->with('success', __('Portaalgebruiker ontkoppeld.'));
     }
 
     private function findCustomer(string $conn, int $customerId): TransportCustomer

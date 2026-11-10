@@ -1,0 +1,1077 @@
+import { apiRequest, apiUpload } from './client';
+import type { AppModes } from './auth';
+
+export type DriverMedia = {
+  profile_photo_url?: string | null;
+  company_logo_url?: string | null;
+  vehicle_photo_url?: string | null;
+  has_profile_photo?: boolean;
+  rating_avg?: number | null;
+  rating_count?: number;
+};
+
+export type DriverReview = {
+  id: number;
+  stars: number;
+  comment?: string | null;
+  created_at?: string | null;
+  pickup_address?: string | null;
+  dropoff_address?: string | null;
+  customer_name?: string | null;
+};
+
+export type DriverUser = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  company_id: number;
+  company_name?: string | null;
+  payout_iban_masked?: string | null;
+  company_logo_url?: string | null;
+  company_logo_dark_url?: string | null;
+  is_online: boolean;
+  is_account_active: boolean;
+  vehicle_id?: number | null;
+  vehicle_locked?: boolean;
+  pwa_accent?: string | null;
+  ride_alert_tone?: string | null;
+  can_handle_contract_rides?: boolean;
+  app_modes?: AppModes;
+  media?: DriverMedia | null;
+};
+
+export type DriverPermissions = {
+  earnings_view?: boolean;
+  earnings_view_month?: boolean;
+};
+
+export type DriverVehicle = {
+  id: number;
+  name?: string;
+  license_plate?: string | null;
+  type?: string;
+  type_label?: string | null;
+  person_range?: string | null;
+  person_range_label?: string | null;
+  label?: string;
+  photo_url?: string | null;
+};
+
+export type DriverVehiclesResponse = {
+  data?: DriverVehicle[];
+  locked?: boolean;
+  assigned_vehicle?: DriverVehicle | null;
+  assigned_until?: string | null;
+};
+
+export type DispatchOfferRide = {
+  id?: number;
+  status?: string;
+  pickup_address?: string;
+  dropoff_address?: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
+  pickup_at?: string;
+  customer_name?: string;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  customer_note?: string | null;
+  quoted_price?: number | null;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  payment_paid?: boolean;
+  payment?: RidePaymentSummary | null;
+  invoice?: RideInvoiceSummary | null;
+  passengers?: number | null;
+  pickup_confirmation?: {
+    method?: 'pin' | string | null;
+    status?: 'pending' | 'confirmed' | 'denied' | string | null;
+    requires_pin?: boolean;
+    can_reask?: boolean;
+  } | null;
+  /** Chauffeur heeft Ophalen getikt (klantstatus en_route). */
+  en_route_to_pickup?: boolean;
+  /** Dispatch-instelling: start pas na Ophalen. */
+  require_en_route_before_start?: boolean;
+  distance_km?: number | null;
+  duration_seconds?: number | null;
+  duration_minutes?: number | null;
+  is_network_ride?: boolean;
+  is_nexa_suite?: boolean;
+  is_contract?: boolean;
+  nexa_suite_label?: string | null;
+  owner_company_name?: string | null;
+  source?: string | null;
+  ride_type?: string | null;
+  transport_contract_id?: number | null;
+  is_pickup_overdue?: boolean;
+  is_scheduled_overdue?: boolean;
+  can_cancel_with_reason?: boolean;
+  pickup_proposal?: {
+    status?: string | null;
+    proposed_at?: string | null;
+    customer_remark?: string | null;
+  } | null;
+  vehicle_label?: string | null;
+  vehicle_plate?: string | null;
+  vehicle_name?: string | null;
+  baggage?: {
+    summary?: string | null;
+    items?: Array<{ key: string; label: string; qty: number }>;
+  };
+  fee_breakdown?: {
+    is_marketplace?: boolean;
+    is_network?: boolean;
+    owner_name?: string;
+    executor_name?: string;
+    customer_pays?: number;
+    nexa_fee?: number;
+    nexa_fee_percent?: number;
+    driver_share?: number;
+  } | null;
+  /** Klantbeoordeling (alleen bij afgeronde rit). */
+  rating?: {
+    rated?: boolean;
+    stars?: number | null;
+    comment?: string | null;
+    can_rate?: boolean;
+  } | null;
+};
+
+export type DispatchOffer = {
+  id: number;
+  ride_request_id?: number;
+  status?: string;
+  is_waiting?: boolean;
+  is_pickup_overdue?: boolean;
+  urgency?: string;
+  offered_at?: string | null;
+  expires_at?: string | null;
+  /** ISO: wanneer het aanbod sloot (annulering); voor 5‑minuten-weergave. */
+  closed_at?: string | null;
+  /** Server markeert recent geannuleerde inbox-kaarten. */
+  ui_cancelled?: boolean;
+  seconds_remaining?: number;
+  ride?: DispatchOfferRide;
+};
+
+/** Hoe lang een geannuleerde aanvraag nog in Aanvragen blijft (ms). */
+export const CANCELLED_OFFER_VISIBLE_MS = 5 * 60 * 1000;
+
+export function isCancelledOffer(offer: DispatchOffer | null | undefined): boolean {
+  if (!offer) return false;
+  if (offer.ui_cancelled === true) return true;
+  const status = String(offer.status || '');
+  return status === 'superseded' || status === 'cancelled';
+}
+
+export function cancelledOfferStillVisible(
+  offer: DispatchOffer,
+  nowMs: number = Date.now()
+): boolean {
+  if (!isCancelledOffer(offer)) return false;
+  const raw = offer.closed_at || offer.expires_at || offer.offered_at;
+  if (!raw) return true;
+  const at = Date.parse(String(raw));
+  if (!Number.isFinite(at)) return true;
+  return nowMs - at < CANCELLED_OFFER_VISIBLE_MS;
+}
+
+export type DriverCancelReason = {
+  code: string;
+  label: string;
+  message: string;
+};
+
+export type RidePaymentSummary = {
+  method?: string | null;
+  status?: string | null;
+  amount_due?: number | null;
+  quoted_price?: number | null;
+  can_complete?: boolean;
+  requires_payment_before_complete?: boolean;
+  cash_payment_enabled?: boolean;
+  driver_payment_enabled?: boolean;
+  payment_error?: string | null;
+  payment_leg_label?: string | null;
+};
+
+export type RideInvoiceSummary = {
+  can_send?: boolean;
+  customer_email?: string | null;
+  invoice_number?: string | null;
+  invoice_sent?: boolean;
+  invoice_leg_label?: string | null;
+  has_invoice?: boolean;
+};
+
+export type RideOpenPayment = {
+  id?: number;
+  status?: string | null;
+  amount?: number | null;
+  checkout_url?: string | null;
+  qr_url?: string | null;
+};
+
+export type DriverActiveRide = DispatchOfferRide & {
+  id: number;
+};
+
+export type DriverInboxData = {
+  offers: DispatchOffer[];
+  archivedOffers: DispatchOffer[];
+  declinedOffers: DispatchOffer[];
+  cancelledOffers: DispatchOffer[];
+  activeRide: DriverActiveRide | null;
+  parkedAssignedRides: DriverActiveRide[];
+  scheduledRides: DriverActiveRide[];
+  overdueScheduledRides: DriverActiveRide[];
+  archivedOverdueScheduledRides: DriverActiveRide[];
+  completedRides: DriverActiveRide[];
+  /** Afgeronde ritten die de chauffeur naar archief heeft gezet (server-persistent). */
+  archivedCompletedRides: DriverActiveRide[];
+  cancelReasons: DriverCancelReason[];
+  /** Na ophaalmoment: zo lang mag de tenant nog een nieuw tijdstip voorstellen. */
+  pastPickupGraceMinutes: number;
+    pickupDeniedAlert: { ride_id?: number; title?: string; message?: string } | null;
+    payoutNotices: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
+};
+
+function asRideList(raw: unknown): DriverActiveRide[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (ride): ride is DriverActiveRide =>
+      !!ride && typeof ride === 'object' && Number((ride as DriverActiveRide).id) > 0
+  );
+}
+
+function asOfferList(raw: unknown): DispatchOffer[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (offer): offer is DispatchOffer =>
+      !!offer && typeof offer === 'object' && Number((offer as DispatchOffer).id) > 0
+  );
+}
+
+export type DriverInboxNotification = {
+  id: number;
+  type: string;
+  title: string;
+  body: string;
+  related_complaint_id?: number | null;
+  related_ride_id?: number | null;
+  read_at?: string | null;
+  closed_at?: string | null;
+  created_at?: string | null;
+  is_read?: boolean;
+  is_closed?: boolean;
+};
+
+export function fetchDriverNotifications(token: string) {
+  return apiRequest<{
+    notifications?: DriverInboxNotification[];
+    unread_count?: number;
+  }>('/api/taxi/v1/driver/notifications', { token, timeoutMs: 10000 });
+}
+
+export function markDriverNotificationRead(token: string, notificationId: number) {
+  return apiRequest<{
+    success?: boolean;
+    notification?: DriverInboxNotification;
+    unread_count?: number;
+  }>(`/api/taxi/v1/driver/notifications/${notificationId}/read`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function closeDriverNotification(token: string, notificationId: number) {
+  return apiRequest<{
+    success?: boolean;
+    notification?: DriverInboxNotification;
+    unread_count?: number;
+  }>(`/api/taxi/v1/driver/notifications/${notificationId}/close`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function fetchDriverReviews(token: string) {
+  return apiRequest<{ reviews?: DriverReview[] }>('/api/taxi/v1/driver/profile/ratings', { token });
+}
+
+export function fetchDriverMe(token: string) {
+  return apiRequest<{
+    user: DriverUser;
+    permissions?: DriverPermissions;
+    meta?: {
+      poll_interval_ms?: number;
+      gps_refresh_seconds?: number;
+    };
+  }>('/api/taxi/v1/driver/me', { token, timeoutMs: 10000 });
+}
+
+export function updateDriverAccent(token: string, accent: string) {
+  return apiRequest<{ pwa_accent?: string }>('/api/taxi/v1/driver/accent', {
+    method: 'PUT',
+    token,
+    body: { accent },
+  });
+}
+
+export function updateDriverIban(token: string, iban: string) {
+  return apiRequest<{
+    message?: string;
+    data?: { masked_iban?: string | null };
+  }>('/api/taxi/v1/driver/payout-iban', {
+    method: 'PUT',
+    token,
+    body: { iban },
+  });
+}
+
+export function updateDriverRideAlertTone(token: string, tone: string) {
+  return apiRequest<{ ride_alert_tone?: string }>('/api/taxi/v1/driver/ride-alert-tone', {
+    method: 'PUT',
+    token,
+    body: { tone },
+  });
+}
+
+function uploadPhotoFileName(kind: 'profile' | 'logo' | 'vehicle', mimeType?: string | null) {
+  const ext =
+    mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : mimeType === 'image/heic' || mimeType === 'image/heif'
+          ? 'heic'
+          : 'jpg';
+  return `${kind}.${ext}`;
+}
+
+export function uploadDriverProfilePhoto(
+  token: string,
+  uri: string,
+  mimeType?: string | null
+) {
+  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/photo',
+    {
+      token,
+      uri,
+      fileName: uploadPhotoFileName('profile', mimeType),
+      mimeType: mimeType || undefined,
+    }
+  );
+}
+
+export function uploadDriverCompanyLogo(
+  token: string,
+  uri: string,
+  mimeType?: string | null
+) {
+  return apiUpload<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/company-logo',
+    {
+      token,
+      uri,
+      fileName: uploadPhotoFileName('logo', mimeType),
+      mimeType: mimeType || undefined,
+    }
+  );
+}
+
+export function deleteDriverProfilePhoto(token: string) {
+  return apiRequest<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/photo',
+    { method: 'DELETE', token }
+  );
+}
+
+export function deleteDriverCompanyLogo(token: string) {
+  return apiRequest<{ success?: boolean; media?: DriverMedia; message?: string }>(
+    '/api/taxi/v1/driver/profile/company-logo',
+    { method: 'DELETE', token }
+  );
+}
+
+export function deleteDriverVehiclePhoto(token: string, vehicleId: number) {
+  return apiRequest<{
+    success?: boolean;
+    media?: DriverMedia;
+    message?: string;
+    vehicle?: { id?: number; photo_url?: string | null };
+  }>(`/api/taxi/v1/driver/profile/vehicle-photo/${vehicleId}`, { method: 'DELETE', token });
+}
+
+export function uploadDriverVehiclePhoto(
+  token: string,
+  uri: string,
+  mimeType?: string | null,
+  vehicleId?: number | null
+) {
+  return apiUpload<{
+    success?: boolean;
+    media?: DriverMedia;
+    message?: string;
+    vehicle?: { id?: number; photo_url?: string | null };
+  }>('/api/taxi/v1/driver/profile/vehicle-photo', {
+    token,
+    uri,
+    fileName: uploadPhotoFileName('vehicle', mimeType),
+    mimeType: mimeType || undefined,
+    fields: vehicleId ? { vehicle_id: String(vehicleId) } : undefined,
+  });
+}
+
+export function fetchDriverVehicles(token: string) {
+  return apiRequest<DriverVehiclesResponse>('/api/taxi/v1/driver/vehicles', {
+    token,
+    timeoutMs: 10000,
+  });
+}
+
+export type DriverVehicleInput = {
+  name: string;
+  type: string;
+  license_plate: string;
+  person_range: string;
+};
+
+export function fetchDriverFleet(token: string) {
+  return apiRequest<{ data?: DriverVehicle[] }>('/api/taxi/v1/driver/vehicles/fleet', {
+    token,
+    timeoutMs: 10000,
+  });
+}
+
+export function createDriverVehicle(token: string, input: DriverVehicleInput) {
+  return apiRequest<{ data?: DriverVehicle; message?: string }>('/api/taxi/v1/driver/vehicles', {
+    method: 'POST',
+    token,
+    body: input,
+  });
+}
+
+export function updateDriverVehicle(token: string, vehicleId: number, input: DriverVehicleInput) {
+  return apiRequest<{ data?: DriverVehicle; message?: string }>(
+    `/api/taxi/v1/driver/vehicles/${vehicleId}`,
+    { method: 'PUT', token, body: input }
+  );
+}
+
+export function deleteDriverVehicle(token: string, vehicleId: number) {
+  return apiRequest<{ message?: string }>(`/api/taxi/v1/driver/vehicles/${vehicleId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function setDriverOnline(
+  token: string,
+  isOnline: boolean,
+  vehicleId?: number | null,
+  coords?: { lat: number; lng: number; accuracy?: number; heading?: number; speed?: number } | null
+) {
+  return apiRequest('/api/taxi/v1/driver/availability', {
+    method: 'PUT',
+    token,
+    timeoutMs: 12000,
+    body: {
+      is_online: isOnline,
+      ...(vehicleId ? { vehicle_id: vehicleId } : {}),
+      ...(coords
+        ? {
+            lat: coords.lat,
+            lng: coords.lng,
+            ...(coords.accuracy != null ? { accuracy: coords.accuracy } : {}),
+            ...(coords.heading != null ? { heading: coords.heading } : {}),
+            ...(coords.speed != null ? { speed: coords.speed } : {}),
+          }
+        : {}),
+    },
+  });
+}
+
+export function sendDriverLocation(
+  token: string,
+  coords: { lat: number; lng: number; accuracy?: number; heading?: number; speed?: number },
+  vehicleId?: number | null
+) {
+  return apiRequest('/api/taxi/v1/driver/availability/location', {
+    method: 'PUT',
+    token,
+    timeoutMs: 8000,
+    body: {
+      lat: coords.lat,
+      lng: coords.lng,
+      ...(coords.accuracy != null ? { accuracy: coords.accuracy } : {}),
+      ...(coords.heading != null ? { heading: coords.heading } : {}),
+      ...(coords.speed != null ? { speed: coords.speed } : {}),
+      ...(vehicleId ? { vehicle_id: vehicleId } : {}),
+    },
+  });
+}
+
+export function fetchDriverInbox(token: string) {
+  return apiRequest<{
+    data?: {
+      offers?: DispatchOffer[];
+      pending_approval_offers?: DispatchOffer[];
+      declined_offers?: DispatchOffer[];
+      archived_offers?: DispatchOffer[];
+      active_ride?: DriverActiveRide | null;
+      parked_assigned_rides?: DriverActiveRide[];
+      scheduled_rides?: DriverActiveRide[];
+      overdue_scheduled_rides?: DriverActiveRide[];
+      archived_overdue_scheduled_rides?: DriverActiveRide[];
+      completed_rides?: DriverActiveRide[];
+      archived_completed_rides?: DriverActiveRide[];
+    };
+    offers?: DispatchOffer[];
+    meta?: {
+      driver_cancel_reasons?: DriverCancelReason[];
+      overdue_auto_archive_days?: number;
+      past_pickup_grace_minutes?: number;
+      past_pickup_grace_hours?: number;
+    };
+  }>('/api/taxi/v1/driver/dispatch/inbox', { token, timeoutMs: 12000 });
+}
+
+/** Normaliseer inbox-payload (API: data.offers). */
+export function inboxOffersFromResponse(inbox: {
+  data?: { offers?: DispatchOffer[] };
+  offers?: DispatchOffer[];
+}): DispatchOffer[] {
+  const raw = inbox?.data?.offers ?? inbox?.offers ?? [];
+  return Array.isArray(raw) ? raw : [];
+}
+
+export function inboxDataFromResponse(inbox: {
+  data?: {
+    offers?: DispatchOffer[];
+    declined_offers?: DispatchOffer[];
+    cancelled_offers?: DispatchOffer[];
+    archived_offers?: DispatchOffer[];
+    active_ride?: DriverActiveRide | null;
+    parked_assigned_rides?: DriverActiveRide[];
+    scheduled_rides?: DriverActiveRide[];
+    overdue_scheduled_rides?: DriverActiveRide[];
+    archived_overdue_scheduled_rides?: DriverActiveRide[];
+    completed_rides?: DriverActiveRide[];
+    archived_completed_rides?: DriverActiveRide[];
+    pickup_denied_alert?: { ride_id?: number; title?: string; message?: string } | null;
+    payout_notices?: Array<{ ride_request_id?: number; title?: string; message?: string; amount?: number }>;
+  };
+  offers?: DispatchOffer[];
+  meta?: {
+    driver_cancel_reasons?: DriverCancelReason[];
+    past_pickup_grace_minutes?: number;
+    past_pickup_grace_hours?: number;
+  };
+}): DriverInboxData {
+  const active = inbox?.data?.active_ride;
+  const graceRaw = Number(inbox?.meta?.past_pickup_grace_minutes);
+  const graceFromHours = Number(inbox?.meta?.past_pickup_grace_hours);
+  const pastPickupGraceMinutes = Number.isFinite(graceRaw) && graceRaw >= 0
+    ? Math.floor(graceRaw)
+    : Number.isFinite(graceFromHours) && graceFromHours >= 0
+      ? Math.floor(graceFromHours * 60)
+      : 120;
+  return {
+    offers: inboxOffersFromResponse(inbox),
+    archivedOffers: asOfferList(inbox?.data?.archived_offers),
+    declinedOffers: asOfferList(inbox?.data?.declined_offers),
+    cancelledOffers: asOfferList(inbox?.data?.cancelled_offers),
+    activeRide:
+      active && typeof active === 'object' && Number(active.id) > 0 ? active : null,
+    parkedAssignedRides: asRideList(inbox?.data?.parked_assigned_rides),
+    scheduledRides: asRideList(inbox?.data?.scheduled_rides),
+    overdueScheduledRides: asRideList(inbox?.data?.overdue_scheduled_rides),
+    archivedOverdueScheduledRides: asRideList(inbox?.data?.archived_overdue_scheduled_rides),
+    completedRides: asRideList(inbox?.data?.completed_rides),
+    archivedCompletedRides: asRideList(inbox?.data?.archived_completed_rides),
+    cancelReasons: Array.isArray(inbox?.meta?.driver_cancel_reasons)
+      ? inbox.meta.driver_cancel_reasons
+      : [],
+    pastPickupGraceMinutes,
+    pickupDeniedAlert:
+      inbox?.data?.pickup_denied_alert && typeof inbox.data.pickup_denied_alert === 'object'
+        ? inbox.data.pickup_denied_alert
+        : null,
+    payoutNotices: Array.isArray(inbox?.data?.payout_notices) ? inbox.data.payout_notices : [],
+  };
+}
+
+export function inboxActiveRideFromResponse(inbox: {
+  data?: { active_ride?: DriverActiveRide | null };
+}): DriverActiveRide | null {
+  return inboxDataFromResponse(inbox).activeRide;
+}
+
+export function inboxCancelReasonsFromResponse(inbox: {
+  meta?: { driver_cancel_reasons?: DriverCancelReason[] };
+}): DriverCancelReason[] {
+  return inboxDataFromResponse(inbox).cancelReasons;
+}
+
+export function acceptOffer(token: string, offerId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: { id?: number; status?: string | null }; offer_id?: number };
+  }>(`/api/taxi/v1/driver/dispatch/offers/${offerId}/accept`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function declineOffer(token: string, offerId: number) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/offers/${offerId}/decline`, {
+    method: 'POST',
+    token,
+  });
+}
+
+/** Permanent verwijderen uit chauffeur-archief (selecteer + prullenbak). */
+export function deleteArchivedOffers(token: string, offerIds: number[]) {
+  const ids = [...new Set(offerIds.map((id) => Number(id)).filter((id) => id > 0))].slice(0, 100);
+  return apiRequest<{
+    message?: string;
+    data?: { deleted?: number };
+  }>('/api/taxi/v1/driver/dispatch/archived-offers/delete', {
+    method: 'POST',
+    token,
+    body: { offer_ids: ids },
+  });
+}
+
+export function archiveCompletedRide(token: string, rideId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/archive-completed`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function unarchiveCompletedRide(token: string, rideId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/archive-completed`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function deleteArchivedCompletedRides(token: string, rideIds: number[]) {
+  const ids = [...new Set(rideIds.map((id) => Number(id)).filter((id) => id > 0))].slice(0, 100);
+  return apiRequest<{
+    message?: string;
+    data?: { deleted?: number };
+  }>('/api/taxi/v1/driver/dispatch/archived-completed/delete', {
+    method: 'POST',
+    token,
+    body: { ride_ids: ids },
+  });
+}
+
+export function markRideEnRoute(token: string, rideId: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function startRide(token: string, rideId: number, opts?: { pin?: string }) {
+  const pin = String(opts?.pin || '').replace(/\D/g, '');
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/start`, {
+    method: 'POST',
+    token,
+    body: pin.length === 4 ? { pin } : {},
+  });
+}
+
+export function completeRide(token: string, rideId: number) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/complete`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function fetchRidePayment(token: string, rideId: number) {
+  return apiRequest<{
+    data?: {
+      ride?: DriverActiveRide;
+      payment?: RidePaymentSummary | null;
+      open_payment?: RideOpenPayment | null;
+    };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/payment`, { token });
+}
+
+export function createRideQrPayment(token: string, rideId: number, amount: number) {
+  return apiRequest<{
+    message?: string;
+    data?: {
+      ride?: DriverActiveRide;
+      open_payment?: RideOpenPayment | null;
+    };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/payment`, {
+    method: 'POST',
+    token,
+    body: { amount },
+  });
+}
+
+export function markRideCashPaid(token: string, rideId: number, amount?: number) {
+  return apiRequest<{
+    message?: string;
+    data?: { ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/payment/cash`, {
+    method: 'POST',
+    token,
+    body: amount != null ? { amount } : {},
+  });
+}
+
+export function fetchRideInvoice(token: string, rideId: number) {
+  return apiRequest<{ data?: RideInvoiceSummary }>(
+    `/api/taxi/v1/driver/dispatch/rides/${rideId}/invoice`,
+    { token }
+  );
+}
+
+export function sendRideInvoice(
+  token: string,
+  rideId: number,
+  email: string,
+  invoiceNumber?: string
+) {
+  return apiRequest<{
+    message?: string;
+    data?: { invoice?: RideInvoiceSummary; ride?: DriverActiveRide };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/invoice/send`, {
+    method: 'POST',
+    token,
+    body: {
+      email,
+      invoice_number: invoiceNumber || undefined,
+    },
+  });
+}
+
+export function proposePickup(token: string, rideId: number, pickupAt: string) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/propose-pickup`, {
+    method: 'POST',
+    token,
+    body: { pickup_at: pickupAt },
+  });
+}
+
+export function releaseAcceptedRide(token: string, rideId: number) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/release`, {
+    method: 'POST',
+    token,
+  });
+}
+
+export function cancelAcceptedRide(token: string, rideId: number, reasonCode: string) {
+  return apiRequest(`/api/taxi/v1/driver/dispatch/rides/${rideId}/cancel`, {
+    method: 'POST',
+    token,
+    body: { reason_code: reasonCode },
+  });
+}
+
+export function isMarketplaceOffer(offer: DispatchOffer): boolean {
+  const ride = offer.ride;
+  return !!(ride?.fee_breakdown?.is_marketplace || ride?.is_nexa_suite);
+}
+
+export function isMarketplaceRide(ride?: DriverActiveRide | null): boolean {
+  return !!(ride?.fee_breakdown?.is_marketplace || ride?.is_nexa_suite);
+}
+
+export function isRidePaid(ride?: {
+  payment_paid?: boolean;
+  payment_status?: string | null;
+  payment?: { status?: string | null } | null;
+} | null): boolean {
+  if (!ride) return false;
+  if (ride.payment_paid === true) return true;
+  if (ride.payment?.status === 'paid') return true;
+  return ride.payment_status === 'paid';
+}
+
+export function rideRequiresPaymentBeforeComplete(ride?: DispatchOfferRide | null): boolean {
+  if (!ride || isContractRide(ride)) return false;
+  if (isRidePaid(ride)) return false;
+  if (typeof ride.payment?.requires_payment_before_complete === 'boolean') {
+    return ride.payment.requires_payment_before_complete;
+  }
+  if (typeof ride.payment?.can_complete === 'boolean') {
+    return !ride.payment.can_complete;
+  }
+  const due = ride.payment?.amount_due ?? ride.quoted_price;
+  return due != null && Number(due) >= 0.01;
+}
+
+export function isRideInvoiceSent(ride?: DispatchOfferRide | null): boolean {
+  if (!ride) return false;
+  return ride.invoice?.invoice_sent === true;
+}
+
+export function isContractRide(ride?: {
+  is_contract?: boolean;
+  transport_contract_id?: number | null;
+  source?: string | null;
+  ride_type?: string | null;
+} | null): boolean {
+  if (!ride) return false;
+  if (ride.is_contract) return true;
+  if (Number(ride.transport_contract_id) > 0) return true;
+  if (ride.source === 'contract') return true;
+  return ride.ride_type === 'contract_group' || ride.ride_type === 'contract_individual';
+}
+
+export type RideChannelKind = 'contract' | 'network' | 'marketplace' | 'taxi';
+
+export function rideChannelKind(ride?: {
+  is_contract?: boolean;
+  transport_contract_id?: number | null;
+  source?: string | null;
+  ride_type?: string | null;
+  is_network_ride?: boolean;
+  is_nexa_suite?: boolean;
+  fee_breakdown?: { is_network?: boolean; is_marketplace?: boolean } | null;
+} | null): RideChannelKind {
+  if (isContractRide(ride)) return 'contract';
+  if (ride?.is_network_ride || ride?.fee_breakdown?.is_network) return 'network';
+  if (ride?.is_nexa_suite || ride?.fee_breakdown?.is_marketplace) return 'marketplace';
+  return 'taxi';
+}
+
+export function rideChannelLabel(ride?: {
+  is_contract?: boolean;
+  transport_contract_id?: number | null;
+  source?: string | null;
+  ride_type?: string | null;
+  is_network_ride?: boolean;
+  is_nexa_suite?: boolean;
+  owner_company_name?: string | null;
+  fee_breakdown?: { is_network?: boolean; is_marketplace?: boolean; owner_name?: string } | null;
+} | null): string {
+  const kind = rideChannelKind(ride);
+  if (kind === 'contract') return 'Contract';
+  if (kind === 'network') {
+    const owner = String(ride?.owner_company_name || ride?.fee_breakdown?.owner_name || '').trim();
+    if (owner && owner !== '—') return `Netwerk van ${owner}`;
+    return 'Netwerk';
+  }
+  if (kind === 'marketplace') return 'NEXA-marktplaats';
+  return 'Taxi';
+}
+
+export function driverShareFromFee(
+  fee?: {
+    driver_share?: number;
+    customer_pays?: number;
+    nexa_fee?: number;
+  } | null
+): number | null {
+  if (!fee) return null;
+  if (fee.driver_share != null && Number.isFinite(Number(fee.driver_share))) {
+    return Number(fee.driver_share);
+  }
+  if (fee.customer_pays != null && fee.nexa_fee != null) {
+    return Math.max(0, Number(fee.customer_pays) - Number(fee.nexa_fee));
+  }
+  return null;
+}
+
+/** Groot: chauffeur. Grijs: klant, alleen als dat afwijkt (marktplaats/network). */
+export function driverPriceDisplay(opts: {
+  quotedPrice?: number | null;
+  fee?: Parameters<typeof driverShareFromFee>[0];
+}): { primary: number | null; customerPays: number | null } {
+  const quoted =
+    opts.quotedPrice != null && Number.isFinite(Number(opts.quotedPrice))
+      ? Number(opts.quotedPrice)
+      : null;
+  const share = driverShareFromFee(opts.fee);
+  const fromFee =
+    opts.fee?.customer_pays != null && Number.isFinite(Number(opts.fee.customer_pays))
+      ? Number(opts.fee.customer_pays)
+      : null;
+  const customerPays = fromFee ?? quoted;
+  const primary = share != null ? share : quoted;
+  if (primary == null) return { primary: null, customerPays: null };
+  if (customerPays == null || customerPays === primary) {
+    return { primary, customerPays: null };
+  }
+  return { primary, customerPays };
+}
+
+export function vehicleDisplayLabel(v?: DriverVehicle | null): string {
+  if (!v) return '';
+  const plate = String(v.license_plate || v.label || '').trim();
+  if (plate) return plate;
+  const name = String(v.name || '').trim();
+  return name || (v.id ? `Voertuig ${v.id}` : '');
+}
+
+export function vehicleDisplayName(v?: DriverVehicle | null): string {
+  if (!v) return '';
+  return String(v.name || '').trim();
+}
+
+export type PlanningRide = {
+  id: number;
+  status?: string;
+  status_label?: string;
+  is_contract?: boolean;
+  is_nexa_suite?: boolean;
+  nexa_suite_label?: string | null;
+  is_network_ride?: boolean;
+  network_label?: string | null;
+  owner_company_name?: string | null;
+  pickup_address?: string;
+  dropoff_address?: string;
+  pickup_at?: string | null;
+  planning_date?: string | null;
+  customer_name?: string | null;
+  passengers?: number | null;
+  quoted_price?: number | null;
+  fee_breakdown?: {
+    is_marketplace?: boolean;
+    is_network?: boolean;
+    owner_name?: string;
+    executor_name?: string;
+    customer_pays?: number;
+    nexa_fee?: number;
+    nexa_fee_percent?: number;
+    driver_share?: number;
+  } | null;
+};
+
+export type PlanningDay = {
+  date: string;
+  is_today?: boolean;
+  ride_count?: number;
+  rides?: PlanningRide[];
+  shift_count?: number;
+  shifts?: Array<{
+    starts_at?: string;
+    ends_at?: string;
+    vehicle_label?: string | null;
+    notes?: string | null;
+  }>;
+};
+
+export type DriverPlanningWeek = {
+  from: string;
+  to: string;
+  today: string;
+  days: PlanningDay[];
+};
+
+export function fetchDriverPlanningWeek(
+  token: string,
+  from?: string | null,
+  vehicleId?: number | null
+) {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (vehicleId) params.set('vehicle_id', String(vehicleId));
+  const qs = params.toString();
+  return apiRequest<{ data?: DriverPlanningWeek }>(
+    `/api/taxi/v1/driver/planning${qs ? `?${qs}` : ''}`,
+    { token, timeoutMs: 12000 }
+  );
+}
+
+export function mergeCompletedRides(
+  ...lists: Array<Array<PlanningRide | DriverActiveRide | null | undefined>>
+): DriverActiveRide[] {
+  const byId = new Map<number, DriverActiveRide>();
+  for (const list of lists) {
+    for (const item of list) {
+      if (!item || String(item.status || '') !== 'completed') continue;
+      const id = Number(item.id);
+      if (!id) continue;
+      const prev = byId.get(id);
+      const incoming = item as DriverActiveRide;
+      byId.set(id, {
+        ...(prev || {}),
+        ...incoming,
+        id,
+        pickup_at: incoming.pickup_at ?? prev?.pickup_at ?? undefined,
+        distance_km: incoming.distance_km ?? prev?.distance_km ?? null,
+        duration_seconds: incoming.duration_seconds ?? prev?.duration_seconds ?? null,
+        duration_minutes: incoming.duration_minutes ?? prev?.duration_minutes ?? null,
+        passengers: incoming.passengers ?? prev?.passengers ?? null,
+      });
+    }
+  }
+  return [...byId.values()].sort((a, b) => {
+    const ta = Date.parse(String(a.pickup_at || '')) || 0;
+    const tb = Date.parse(String(b.pickup_at || '')) || 0;
+    return tb - ta;
+  });
+}
+
+export type DriverEarningsRide = {
+  id: number;
+  completed_at?: string | null;
+  completed_time?: string | null;
+  pickup_address?: string;
+  dropoff_address?: string;
+  amount?: number;
+  quoted_price?: number | null;
+  currency?: string;
+  customer_name?: string | null;
+};
+
+export type DriverEarningsPayload = {
+  period?: string;
+  date?: string;
+  from?: string;
+  to?: string;
+  label?: string;
+  sub_label?: string;
+  total_label?: string;
+  empty_message?: string;
+  is_today?: boolean;
+  is_current?: boolean;
+  currency?: string;
+  day_total?: number;
+  period_total?: number;
+  ride_count?: number;
+  rides?: DriverEarningsRide[];
+  month?: { label?: string; total?: number; ride_count?: number } | null;
+};
+
+export function fetchDriverEarnings(
+  token: string,
+  date?: string | null,
+  period?: 'day' | 'week' | 'month'
+) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  if (period) params.set('period', period);
+  const qs = params.toString();
+  return apiRequest<{ data?: DriverEarningsPayload }>(
+    `/api/taxi/v1/driver/earnings${qs ? `?${qs}` : ''}`,
+    { token }
+  );
+}

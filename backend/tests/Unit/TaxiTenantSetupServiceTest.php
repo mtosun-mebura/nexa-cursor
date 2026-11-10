@@ -90,8 +90,11 @@ class TaxiTenantSetupServiceTest extends TestCase
         $byKey = collect($status['steps'])->keyBy('key');
         $this->assertFalse($byKey['vehicles']['done']);
         $this->assertFalse($byKey['rates']['done']);
-        $this->assertFalse($byKey['mail']['done']);
-        $this->assertTrue($byKey['mail']['warning']);
+        $this->assertTrue($byKey['mail']['done']);
+        $this->assertFalse($byKey['mail']['warning']);
+        $this->assertStringContainsString('NEXA Suite', (string) $byKey['mail']['description']);
+        $this->assertStringContainsString('eigen emailadres', strtolower((string) $byKey['mail']['description']));
+        $this->assertStringContainsString('bedrijfsnaam', strtolower((string) $byKey['mail']['description']));
     }
 
     #[Test]
@@ -124,8 +127,8 @@ class TaxiTenantSetupServiceTest extends TestCase
         $byKey = collect($status['steps'])->keyBy('key');
         $this->assertTrue($byKey['vehicles']['done']);
         $this->assertTrue($byKey['rates']['done']);
-        $this->assertFalse($byKey['mail']['done']);
-        $this->assertTrue($status['needs_attention']);
+        $this->assertTrue($byKey['mail']['done']);
+        $this->assertFalse($status['needs_attention']);
     }
 
     #[Test]
@@ -152,7 +155,6 @@ class TaxiTenantSetupServiceTest extends TestCase
             'person_range' => '1-4',
             'price_per_km' => 2.5,
         ]);
-        GeneralSetting::set('MAIL_HOST', 'smtp.tenant.test', (int) $company->id);
 
         $service->syncNotification($user, $company->fresh());
 
@@ -241,6 +243,49 @@ class TaxiTenantSetupServiceTest extends TestCase
                 ->where('type', TaxiTenantSetupService::NOTIFICATION_TYPE)
                 ->count()
         );
+    }
+
+    #[Test]
+    public function marketplace_requires_bank_account_step(): void
+    {
+        [$company, $user] = $this->taxiCompanyWithAdmin();
+        $company->package_key = 'marketplace';
+        $company->save();
+
+        $service = app(TaxiTenantSetupService::class);
+        $status = $service->status($company->fresh(), $user);
+
+        $byKey = collect($status['steps'])->keyBy('key');
+        $this->assertArrayHasKey('bank_account', $byKey->all());
+        $this->assertArrayNotHasKey('rates', $byKey->all());
+        $this->assertArrayNotHasKey('mail', $byKey->all());
+        $this->assertTrue($byKey['bank_account']['required']);
+        $this->assertFalse($byKey['bank_account']['done']);
+        $this->assertTrue($status['needs_login_prompt']);
+        $this->assertStringContainsString('Bankrekening', (string) $byKey['bank_account']['title']);
+        $this->assertStringNotContainsString('Tarieven', (string) $status['summary']);
+        $this->assertStringNotContainsString('mailserver', strtolower((string) $status['summary']));
+    }
+
+    #[Test]
+    public function setup_steps_follow_role_permissions(): void
+    {
+        [$company, $user] = $this->taxiCompanyWithAdmin();
+        foreach (['vehicles.view', 'rates.view', 'view-mailserver'] as $name) {
+            \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+        }
+        $role = Role::firstOrCreate(['name' => 'voertuigen-only', 'guard_name' => 'web']);
+        $role->syncPermissions(['vehicles.view']);
+        $user->assignRole($role);
+
+        $status = app(TaxiTenantSetupService::class)->status($company->fresh(), $user->fresh());
+        $keys = collect($status['steps'])->pluck('key')->all();
+
+        $this->assertContains('vehicles', $keys);
+        $this->assertNotContains('rates', $keys);
+        $this->assertNotContains('mail', $keys);
+        $this->assertStringNotContainsString('Tarieven', (string) ($status['summary'] ?? ''));
+        $this->assertStringContainsString('voertuig', strtolower((string) $status['booking_block_message']));
     }
 
     #[Test]

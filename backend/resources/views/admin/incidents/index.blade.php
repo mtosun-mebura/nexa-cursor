@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', $bootstrap['is_super_admin'] ? 'Incidenten' : 'Incident melden')
+@section('title', $bootstrap['is_super_admin'] ? __('Incidenten') : __('Incident melden'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">

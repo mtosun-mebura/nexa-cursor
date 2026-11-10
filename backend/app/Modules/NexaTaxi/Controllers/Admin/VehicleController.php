@@ -24,7 +24,7 @@ class VehicleController extends Controller
 
         $conn = $this->moduleConnection();
         if (! NexaTaxiSchema::coreTablesExist($conn)) {
-            abort(503, 'Taxi-tabellen ontbreken op de module-database. Voer op de server uit: php artisan modules:ensure-databases taxi');
+            abort(503, __('Taxi-tabellen ontbreken op de module-database. Voer op de server uit: php artisan modules:ensure-databases taxi'));
         }
 
         $query = Vehicle::on($conn)->with('company');
@@ -85,14 +85,14 @@ class VehicleController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         if (! auth()->user()->hasRole('super-admin') && ! auth()->user()->can('vehicles.create') && ! auth()->user()->can('vehicles.update')) {
-            return response()->json(['success' => false, 'message' => 'Geen rechten.'], 403);
+            return response()->json(['success' => false, 'message' => __('Geen rechten.')], 403);
         }
         $request->validate([
             'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ], [
-            'image.required' => 'Selecteer een afbeelding.',
-            'image.mimes' => 'Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.',
-            'image.max' => 'Het bestand mag maximaal 5MB groot zijn.',
+            'image.required' => __('Selecteer een afbeelding.'),
+            'image.mimes' => __('Alleen JPEG, PNG, JPG, GIF en WebP zijn toegestaan.'),
+            'image.max' => __('Het bestand mag maximaal 5MB groot zijn.'),
         ]);
 
         $file = $request->file('image');
@@ -117,9 +117,10 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
+        $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
+        $defaultRatesByPersonRange = $this->defaultRatesByPersonRangeForForm($conn, $resolvedCompanyId, $personRangeLabels);
 
-        return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
+        return view('taxi::admin.vehicles.create', compact('resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels', 'defaultRatesByPersonRange'));
     }
 
     public function store(Request $request)
@@ -133,7 +134,7 @@ class VehicleController extends Controller
             $tenantId = session('selected_tenant');
             if (! $tenantId) {
                 return redirect()->back()->withInput()->withErrors([
-                    'company_id' => 'Selecteer eerst een tenant in de tenant-kiezer bovenaan.',
+                    'company_id' => __('Selecteer eerst een tenant in de tenant-kiezer bovenaan.'),
                 ]);
             }
             $companyId = (int) $tenantId;
@@ -145,7 +146,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
+        $personRanges = array_keys($this->personRangeLabelsForForm($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
@@ -162,21 +163,20 @@ class VehicleController extends Controller
             'image_url' => 'nullable|string|max:500',
             'show_photo' => 'boolean',
         ], [
-            'company_id.required' => 'Selecteer een bedrijf.',
-            'company_id.integer' => 'Selecteer een geldig bedrijf.',
-            'name.required' => 'Vul een naam in voor het voertuig.',
-            'license_plate.required' => 'Vul een kenteken in.',
+            'company_id.required' => __('Selecteer een bedrijf.'),
+            'company_id.integer' => __('Selecteer een geldig bedrijf.'),
+            'name.required' => __('Vul een naam in voor het voertuig.'),
+            'license_plate.required' => __('Vul een kenteken in.'),
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
-        [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
-        $validated['seats'] = max(1, $maxPersons);
+        $validated['seats'] = $this->seatsForPersonRange((string) $validated['person_range']);
         $validated = $this->normalizeVehiclePriceFields($validated);
 
         $this->ensureTenantAccess($validated['company_id']);
         Vehicle::on($conn)->create($validated);
 
-        return redirect()->route('admin.taxi.vehicles.index')->with('success', 'Voertuig is aangemaakt.');
+        return redirect()->route('admin.taxi.vehicles.index')->with('success', __('Voertuig is aangemaakt.'));
     }
 
     public function show(Vehicle $vehicle)
@@ -205,9 +205,10 @@ class VehicleController extends Controller
             : $user->company_id;
         $superAdminNeedsTenant = $user->hasRole('super-admin') && ! session('selected_tenant');
         $typeLabels = Vehicle::typeLabels();
-        $personRangeLabels = DefaultRate::getPersonRangeOptions($conn, $resolvedCompanyId);
+        $personRangeLabels = $this->personRangeLabelsForForm($conn, $resolvedCompanyId);
+        $defaultRatesByPersonRange = $this->defaultRatesByPersonRangeForForm($conn, $resolvedCompanyId, $personRangeLabels);
 
-        return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels'));
+        return view('taxi::admin.vehicles.edit', compact('vehicle', 'resolvedCompanyId', 'superAdminNeedsTenant', 'typeLabels', 'personRangeLabels', 'defaultRatesByPersonRange'));
     }
 
     public function update(Request $request, Vehicle $vehicle)
@@ -222,12 +223,12 @@ class VehicleController extends Controller
             $tenantId = session('selected_tenant');
             if (! $tenantId) {
                 return redirect()->back()->withInput()->withErrors([
-                    'company_id' => 'Selecteer eerst een tenant in de tenant-kiezer bovenaan.',
+                    'company_id' => __('Selecteer eerst een tenant in de tenant-kiezer bovenaan.'),
                 ]);
             }
             if ((int) $vehicle->company_id !== (int) $tenantId) {
                 return redirect()->back()->withInput()->withErrors([
-                    'company_id' => 'Dit voertuig hoort bij een andere tenant. Selecteer de juiste tenant in de balk bovenaan.',
+                    'company_id' => __('Dit voertuig hoort bij een andere tenant. Selecteer de juiste tenant in de balk bovenaan.'),
                 ]);
             }
             $companyId = (int) $tenantId;
@@ -239,7 +240,7 @@ class VehicleController extends Controller
             'license_plate' => strtoupper(trim((string) $request->input('license_plate', ''))),
         ]);
 
-        $personRanges = array_keys(DefaultRate::getPersonRangeOptions($conn, $companyId));
+        $personRanges = array_keys($this->personRangeLabelsForForm($conn, $companyId));
         $validated = $request->validate([
             'company_id' => ['required', 'integer'],
             'name' => 'required|string|max:255',
@@ -256,21 +257,20 @@ class VehicleController extends Controller
             'image_url' => 'nullable|string|max:500',
             'show_photo' => 'boolean',
         ], [
-            'company_id.required' => 'Selecteer een bedrijf.',
-            'company_id.integer' => 'Selecteer een geldig bedrijf.',
-            'name.required' => 'Vul een naam in voor het voertuig.',
-            'license_plate.required' => 'Vul een kenteken in.',
+            'company_id.required' => __('Selecteer een bedrijf.'),
+            'company_id.integer' => __('Selecteer een geldig bedrijf.'),
+            'name.required' => __('Vul een naam in voor het voertuig.'),
+            'license_plate.required' => __('Vul een kenteken in.'),
         ]);
         $validated['active'] = $request->boolean('active', true);
         $validated['show_photo'] = $request->boolean('show_photo', false);
-        [, $maxPersons] = DefaultRate::parseRangeBounds((string) $validated['person_range']);
-        $validated['seats'] = max(1, $maxPersons);
+        $validated['seats'] = $this->seatsForPersonRange((string) $validated['person_range']);
         $validated = $this->normalizeVehiclePriceFields($validated);
 
         $this->ensureTenantAccess($validated['company_id']);
         $vehicle->update($validated);
 
-        return redirect()->route('admin.taxi.vehicles.index')->with('success', 'Voertuig is bijgewerkt.');
+        return redirect()->route('admin.taxi.vehicles.index')->with('success', __('Voertuig is bijgewerkt.'));
     }
 
     public function destroy(Vehicle $vehicle)
@@ -280,11 +280,11 @@ class VehicleController extends Controller
 
         if ($vehicle->rideRequests()->exists()) {
             return redirect()->route('admin.taxi.vehicles.index')
-                ->with('error', 'Dit voertuig heeft ritten. Verwijder eerst de ritten of wijzig het voertuig bij die ritten.');
+                ->with('error', __('Dit voertuig heeft ritten. Verwijder eerst de ritten of wijzig het voertuig bij die ritten.'));
         }
         $vehicle->delete();
 
-        return redirect()->route('admin.taxi.vehicles.index')->with('success', 'Voertuig is verwijderd.');
+        return redirect()->route('admin.taxi.vehicles.index')->with('success', __('Voertuig is verwijderd.'));
     }
 
     private function authorizeOrPermission(string $ability): void
@@ -293,7 +293,7 @@ class VehicleController extends Controller
             return;
         }
         if (! auth()->user()->can($ability)) {
-            abort(403, 'Geen rechten voor deze actie.');
+            abort(403, __('Geen rechten voor deze actie.'));
         }
     }
 
@@ -303,7 +303,7 @@ class VehicleController extends Controller
             return;
         }
         if ((int) $companyId !== (int) auth()->user()->company_id) {
-            abort(403, 'Geen toegang tot dit bedrijf.');
+            abort(403, __('Geen toegang tot dit bedrijf.'));
         }
     }
 
@@ -324,7 +324,64 @@ class VehicleController extends Controller
     private function ensureCanAccess(Vehicle $vehicle): void
     {
         if (! $this->canAccessResource($vehicle)) {
-            abort(403, 'Geen toegang tot dit voertuig.');
+            abort(403, __('Geen toegang tot dit voertuig.'));
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function personRangeLabelsForForm(string $conn, mixed $companyId): array
+    {
+        $labels = DefaultRate::getPersonRangeOptions($conn, $companyId);
+        $labels[Vehicle::PERSON_RANGE_OVER_8] = Vehicle::personRangeLabels()[Vehicle::PERSON_RANGE_OVER_8];
+
+        return $labels;
+    }
+
+    /**
+     * Standaardtarieven per personenbereik (zelfde fallback als pricing: range → company default → platform).
+     *
+     * @param  array<string, string>  $personRangeLabels
+     * @return array<string, array{label: string, available: bool, base_fare: string, min_fare: string, price_per_km: string, price_per_min: string, cleaning_costs: string}>
+     */
+    private function defaultRatesByPersonRangeForForm(string $conn, mixed $companyId, array $personRangeLabels): array
+    {
+        $out = [];
+        foreach ($personRangeLabels as $range => $label) {
+            $rate = DefaultRate::getByPersonRange($conn, (string) $range, $companyId)
+                ?? DefaultRate::getDefault($conn, $companyId);
+            $out[(string) $range] = [
+                'label' => __($label),
+                'available' => $rate !== null,
+                'base_fare' => $this->formatDefaultRateAmount($rate?->base_fare),
+                'min_fare' => $this->formatDefaultRateAmount($rate?->min_fare),
+                'price_per_km' => $this->formatDefaultRateAmount($rate?->price_per_km),
+                'price_per_min' => $this->formatDefaultRateAmount($rate?->price_per_min),
+                'cleaning_costs' => $this->formatDefaultRateAmount($rate?->cleaning_costs),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function formatDefaultRateAmount(mixed $amount): string
+    {
+        if ($amount === null || $amount === '') {
+            return '—';
+        }
+
+        return '€ '.number_format((float) $amount, 2, ',', '.');
+    }
+
+    private function seatsForPersonRange(string $range): int
+    {
+        if ($range === Vehicle::PERSON_RANGE_OVER_8) {
+            return 9;
+        }
+
+        [, $max] = DefaultRate::parseRangeBounds($range);
+
+        return max(1, $max);
     }
 }

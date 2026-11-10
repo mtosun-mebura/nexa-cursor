@@ -22,7 +22,7 @@
                 type="button"
                 class="kt-btn kt-btn-outline kt-btn-icon absolute end-0 h-[22px] w-[18px] rounded-e-none border-e-0 p-0"
                 data-kt-toggle="body" data-kt-toggle-class="kt-sidebar-collapse" id="sidebar_toggle"
-                aria-label="Menu in- of uitklappen">
+                aria-label="{{ __('Menu in- of uitklappen') }}">
                 <svg class="sidebar-toggle-caret kt-toggle-active:rotate-180 rtl:rotate-180 rtl:kt-toggle-active:rotate-0 transition-transform duration-300" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="M8.25 1.6 3.4 6l4.85 4.4z"/>
                 </svg>
@@ -37,7 +37,7 @@
             $companies = \Illuminate\Support\Facades\Cache::remember(
                 'admin.tenant_switcher.companies',
                 300,
-                fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name'])
+                fn () => \App\Models\Company::query()->orderBy('name')->get(['id', 'name', 'is_active'])
             );
             $selectedTenant = session('selected_tenant');
             $requestTenant = request()->input('tenant_company', request()->input('wizard_company'));
@@ -53,8 +53,8 @@
                 class="tenant-toggle-icon kt-btn kt-btn-outline kt-btn-icon mx-auto"
                 type="button"
                 data-tenant-toggle-icon="true"
-                title="{{ $selectedCompany ? $selectedCompany->name : 'Alle Tenants' }}"
-                aria-label="Tenant kiezen">
+                title="{{ $selectedCompany ? $selectedCompany->name : __('Alle Tenants') }}"
+                aria-label="{{ __('Tenant kiezen') }}">
                 <i class="ki-filled ki-abstract-26 text-base"></i>
             </button>
             <button class="tenant-toggle-full w-full kt-btn kt-btn-outline justify-between flex-nowrap" type="button" data-kt-dropdown-toggle="true">
@@ -64,7 +64,7 @@
                         @if($selectedCompany)
                             {{ $selectedCompany->name }}
                         @else
-                            Alle Tenants
+                            {{ __('Alle Tenants') }}
                         @endif
                     </span>
                 </span>
@@ -74,14 +74,14 @@
                 <a href="#"
                    onclick="event.preventDefault(); switchTenant('');"
                    class="kt-dropdown-menu-link {{ !$selectedTenant ? 'kt-menu-item-active' : '' }}">
-                    <span class="kt-menu-title">Alle Tenants</span>
+                    <span class="kt-menu-title">{{ __('Alle Tenants') }}</span>
                 </a>
                 <div class="kt-dropdown-menu-separator"></div>
                 @foreach($companies as $company)
                 <a href="#"
                    onclick="event.preventDefault(); switchTenant('{{ $company->id }}');"
                    class="kt-dropdown-menu-link {{ $selectedTenant == $company->id ? 'kt-menu-item-active' : '' }}">
-                    <span class="kt-menu-title">{{ $company->name }}</span>
+                    <span class="kt-menu-title">{{ $company->name }}@if($company->getAttribute('is_active') === false) <span class="text-muted-foreground">({{ __('inactief') }})</span>@endif</span>
                 </a>
                 @endforeach
             </div>
@@ -98,7 +98,7 @@
 
                 <!-- Dashboard -->
                 @if(auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.tenant-setup-checklist') || request()->routeIs('admin.nexa-network.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.tenant-setup-checklist') || request()->routeIs('admin.nexa-network.*') || request()->routeIs('admin.uitleg') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -108,7 +108,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Dashboard
+                            {{ __('Dashboard') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -127,7 +127,7 @@
                                 href="{{ route('admin.dashboard') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Overzicht
+                                    {{ __('Overzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -136,7 +136,7 @@
                                 href="{{ route('admin.tenant-setup-checklist') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Tenant configureren
+                                    {{ __('Tenant configureren') }}
                                 </span>
                             </a>
                         </div>
@@ -145,7 +145,16 @@
                                 href="{{ route('admin.nexa-network.guide') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    NEXA Network
+                                    {{ __('NEXA Network') }}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.uitleg') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.uitleg') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    {{ __('Uitlegoverzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -161,8 +170,25 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Dashboard
+                            {{ __('Dashboard') }}
                         </span>
+                    </a>
+                </div>
+                @endif
+
+                @if(auth()->user()?->isSuperAdmin())
+                <div class="kt-menu-item {{ request()->routeIs('admin.monitoring.*') ? 'active' : '' }}">
+                    <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
+                        href="{{ route('admin.monitoring.index') }}" tabindex="0">
+                        <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
+                            <i class="ki-filled ki-chart-line-up-2 text-lg"></i>
+                        </span>
+                        <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
+                            {{ __('Monitoring') }}
+                        </span>
+                        @if((int) ($adminMonitoringUnresolvedErrors ?? 0) > 0)
+                            <span class="kt-badge kt-badge-sm kt-badge-danger ms-auto">{{ (int) $adminMonitoringUnresolvedErrors > 99 ? '99+' : (int) $adminMonitoringUnresolvedErrors }}</span>
+                        @endif
                     </a>
                 </div>
                 @endif
@@ -181,7 +207,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Handleiding
+                            {{ __('Handleiding') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -200,7 +226,7 @@
                                 href="{{ route('admin.handleiding.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Overzicht
+                                    {{ __('Overzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -210,7 +236,7 @@
                                 href="{{ route('admin.handleiding.show', $handleidingSlug) }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    {{ $handleidingPage['title'] }}
+                                    {{ __($handleidingPage['title']) }}
                                 </span>
                             </a>
                         </div>
@@ -222,7 +248,7 @@
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
-                        Beheer
+                        {{ __('Beheer') }}
                     </span>
                 </div>
 
@@ -236,7 +262,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            {{ auth()->user()?->isSuperAdmin() ? 'Bedrijven' : 'Bedrijf' }}
+                            {{ __(auth()->user()?->isSuperAdmin() ? 'Bedrijven' : 'Bedrijf') }}
                         </span>
                     </a>
                 </div>
@@ -252,7 +278,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Gebruikers
+                            {{ __('Gebruikers') }}
                         </span>
                     </a>
                 </div>
@@ -330,7 +356,7 @@
                                     <i class="{{ $menuItem['icon'] }} text-lg"></i>
                                 </span>
                                 <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                                    {{ $menuItem['title'] }}
+                                    {{ __($menuItem['title']) }}
                                 </span>
                                 <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                                     <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
@@ -347,7 +373,7 @@
                                            href="{{ route($childItem['route']) }}" tabindex="0">
                                             <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                             <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                                {{ $childItem['title'] }}
+                                                {{ __($childItem['title']) }}
                                             </span>
                                         </a>
                                     </div>
@@ -362,7 +388,7 @@
                                     <i class="{{ $menuItem['icon'] }} text-lg"></i>
                                 </span>
                                 <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                                    {{ $menuItem['title'] }}
+                                    {{ __($menuItem['title']) }}
                                 </span>
                             </a>
                         </div>
@@ -380,7 +406,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Agenda
+                            {{ __('Agenda') }}
                         </span>
                     </a>
                 </div>
@@ -396,7 +422,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Notificaties
+                            {{ __('Notificaties') }}
                         </span>
                     </a>
                 </div>
@@ -413,7 +439,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Incidenten
+                            {{ __('Incidenten') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -430,7 +456,7 @@
                                 href="{{ route('admin.incidents.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Overzicht
+                                    {{ __('Overzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -439,7 +465,7 @@
                                 href="{{ route('admin.incidents.settings.edit') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Instellingen
+                                    {{ __('Instellingen') }}
                                 </span>
                             </a>
                         </div>
@@ -454,7 +480,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Incidenten
+                            {{ __('Incidenten') }}
                         </span>
                     </a>
                 </div>
@@ -472,7 +498,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            E-mail Templates
+                            {{ __('E-mail Templates') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -491,7 +517,7 @@
                                 href="{{ route('admin.email-templates.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    E-mail Templates
+                                    {{ __('E-mail Templates') }}
                                 </span>
                             </a>
                         </div>
@@ -501,7 +527,7 @@
                                 href="{{ route('admin.email-templates.form-fields.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Formulier velden
+                                    {{ __('Formulier velden') }}
                                 </span>
                             </a>
                         </div>
@@ -511,7 +537,7 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.newsletters.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.newsletters.*') || request()->routeIs('admin.taxi-partner-finder.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -519,7 +545,7 @@
                             <i class="ki-filled ki-speaker text-lg"></i>
                         </span>
                         <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Nieuwsbrieven
+                            {{ __('Nieuwsbrieven') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -536,7 +562,7 @@
                                 href="{{ route('admin.newsletters.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Overzicht
+                                    {{ __('Overzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -545,7 +571,7 @@
                                 href="{{ route('admin.newsletters.create') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Designer
+                                    {{ __('Designer') }}
                                 </span>
                             </a>
                         </div>
@@ -554,7 +580,16 @@
                                 href="{{ route('admin.newsletters.prospects') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Klantenlijst
+                                    {{ __('Klantenlijst') }}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="kt-menu-item {{ request()->routeIs('admin.taxi-partner-finder.*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.taxi-partner-finder.index') }}" tabindex="0">
+                                <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
+                                <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    {{ __('Partner Finder') }}
                                 </span>
                             </a>
                         </div>
@@ -563,7 +598,7 @@
                                 href="{{ route('admin.newsletters.send') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Versturen
+                                    {{ __('Versturen') }}
                                 </span>
                             </a>
                         </div>
@@ -576,7 +611,7 @@
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
-                        Job Configuraties
+                        {{ __('Job Configuraties') }}
                     </span>
                 </div>
                 <div class="kt-menu-item {{ request()->routeIs('admin.job-configurations.*') || request()->routeIs('admin.job-configuration-types.*') ? 'here show' : '' }}" 
@@ -589,7 +624,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Job Configuraties
+                            {{ __('Job Configuraties') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -609,7 +644,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Job Configuraties
+                                    {{ __('Job Configuraties') }}
                                 </span>
                             </a>
                         </div>
@@ -619,7 +654,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Configuratie Types
+                                    {{ __('Configuratie Types') }}
                                 </span>
                             </a>
                         </div>
@@ -632,7 +667,7 @@
                 <div class="kt-menu-item pt-2.25 pb-px">
                     <span
                         class="kt-menu-heading pe-[10px] ps-[10px] text-xs font-medium uppercase text-muted-foreground">
-                        Systeem
+                        {{ __('Systeem') }}
                     </span>
                 </div>
                 <div class="kt-menu-item {{ request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') || request()->routeIs('admin.modules.*') ? 'here show' : '' }}" 
@@ -645,7 +680,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Toegang
+                            {{ __('Toegang') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -665,7 +700,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Rollen en Permissies
+                                    {{ __('Rollen en Permissies') }}
                                 </span>
                             </a>
                         </div>
@@ -675,7 +710,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Permissies
+                                    {{ __('Permissies') }}
                                 </span>
                             </a>
                         </div>
@@ -685,7 +720,7 @@
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary">
                                 </span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Modules
+                                    {{ __('Modules') }}
                                 </span>
                             </a>
                         </div>
@@ -694,7 +729,7 @@
                 @endif
 
                 @if(auth()->user()?->hasRole('super-admin'))
-                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.payout-identities.*') || request()->routeIs('admin.nexa-suite-bookings.*') || request()->routeIs('admin.payment-flows.*') ? 'here show' : '' }}"
+                <div class="kt-menu-item {{ request()->routeIs('admin.payments.*') || request()->routeIs('admin.invoices.*') || request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payment-providers.*') || request()->routeIs('admin.payout-identities.*') || \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.*', 'admin.nexa-suite-bookings.settings*') || request()->routeIs('admin.payment-flows.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -704,7 +739,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Betalingen
+                            {{ __('Betalingen') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -721,7 +756,7 @@
                                 href="{{ route('admin.payments.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Overzicht
+                                    {{ __('Overzicht') }}
                                 </span>
                             </a>
                         </div>
@@ -730,7 +765,7 @@
                                 href="{{ route('admin.payments.openstaand') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Openstaande betalingen
+                                    {{ __('Openstaande betalingen') }}
                                 </span>
                             </a>
                         </div>
@@ -739,7 +774,7 @@
                                 href="{{ route('admin.payments.voldaan') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Voldane betalingen
+                                    {{ __('Voldane betalingen') }}
                                 </span>
                             </a>
                         </div>
@@ -748,7 +783,7 @@
                                 href="{{ route('admin.payments.overzichten') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Overzichten
+                                    {{ __('Overzichten') }}
                                 </span>
                             </a>
                         </div>
@@ -757,7 +792,7 @@
                                 href="{{ route('admin.invoices.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Ritfacturen
+                                    {{ __('Ritfacturen') }}
                                 </span>
                             </a>
                         </div>
@@ -766,16 +801,16 @@
                                 href="{{ route('admin.tenant-customer-invoices.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Klantfacturen
+                                    {{ __('Klantfacturen') }}
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-suite-bookings.*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.*', 'admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                 href="{{ route('admin.nexa-suite-bookings.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    NEXA Suite ritten
+                                    {{ __('NEXA Suite ritten') }}
                                 </span>
                             </a>
                         </div>
@@ -784,7 +819,7 @@
                                 href="{{ route('admin.payment-flows.guide') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Uitleg betalingen
+                                    {{ __('Uitleg betalingen') }}
                                 </span>
                             </a>
                         </div>
@@ -793,7 +828,7 @@
                                 href="{{ route('admin.payment-providers.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Betalingsproviders
+                                    {{ __('Betalingsproviders') }}
                                 </span>
                             </a>
                         </div>
@@ -802,7 +837,7 @@
                                 href="{{ route('admin.payout-identities.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Payout onboarding
+                                    {{ __('Payout onboarding') }}
                                 </span>
                             </a>
                         </div>
@@ -811,7 +846,7 @@
                                 href="{{ route('admin.invoices.settings') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] rtl:start-0 relative before:absolute before:top-0 before:size-[6px] before:rounded-full rtl:before:translate-x-1/2 before:-translate-y-1/2 kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary"></span>
                                 <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">
-                                    Instellingen
+                                    {{ __('Instellingen') }}
                                 </span>
                             </a>
                         </div>
@@ -827,7 +862,7 @@
                             <i class="ki-filled ki-bill text-lg"></i>
                         </span>
                         <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
-                            NEXA facturatie
+                            {{ __('NEXA facturatie') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
@@ -838,25 +873,25 @@
                         <div class="kt-menu-item {{ request()->routeIs('admin.platform-billing.invoices.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px] rounded-lg" href="{{ route('admin.platform-billing.invoices.index') }}">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground">NEXA-facturen</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground">{{ __('NEXA-facturen') }}</span>
                             </a>
                         </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.platform-billing.tenants.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px] rounded-lg" href="{{ route('admin.platform-billing.tenants.index') }}">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground">Tenant-abonnementen</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground">{{ __('Tenant-abonnementen') }}</span>
                             </a>
                         </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.platform-billing.line-items.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px] rounded-lg" href="{{ route('admin.platform-billing.line-items.index') }}">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground">Factuurregels</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground">{{ __('Factuurregels') }}</span>
                             </a>
                         </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.platform-billing.settings.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px] rounded-lg" href="{{ route('admin.platform-billing.settings.edit') }}">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground">Facturatie-instellingen</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground">{{ __('Facturatie-instellingen') }}</span>
                             </a>
                         </div>
                     </div>
@@ -871,7 +906,7 @@
                             <i class="ki-filled ki-discount text-lg"></i>
                         </span>
                         <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Paketten
+                            {{ __('Paketten') }}
                         </span>
                     </a>
                 </div>
@@ -884,12 +919,12 @@
                             <i class="ki-filled ki-bill text-lg"></i>
                         </span>
                         <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
-                            Abonnementen
+                            {{ __('Abonnementen') }}
                         </span>
                     </a>
                 </div>
                 @endif
-                @if(auth()->user()?->hasRole('company-admin') && ! auth()->user()?->hasRole('super-admin'))
+                @if(auth()->user()?->isTenantAdmin() && ! auth()->user()?->hasRole('super-admin'))
                 <div class="kt-menu-item {{ request()->routeIs('admin.tenant-customer-invoices.*') || request()->routeIs('admin.payments.overzichten*') || request()->routeIs('admin.payout-identities.*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" tabindex="0">
@@ -897,7 +932,7 @@
                             <i class="ki-filled ki-wallet text-lg"></i>
                         </span>
                         <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Betalingen
+                            {{ __('Betalingen') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
@@ -909,35 +944,37 @@
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                href="{{ route('admin.tenant-customer-invoices.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Klantfacturen</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">{{ __('Klantfacturen') }}</span>
                             </a>
                         </div>
                         <div class="kt-menu-item {{ request()->routeIs('admin.payments.overzichten*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                href="{{ route('admin.payments.overzichten') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Overzichten</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">{{ __('Overzichten') }}</span>
                             </a>
                         </div>
+                        @if(! (auth()->user()?->hasRole('marketplace') || strcasecmp((string) (auth()->user()?->company?->package_key ?? ''), 'marketplace') === 0))
                         <div class="kt-menu-item {{ request()->routeIs('admin.payout-identities.*') ? 'active' : '' }}">
                             <a class="kt-menu-link border border-transparent items-center grow kt-menu-item-active:bg-accent/60 hover:bg-accent/60 hover:rounded-lg gap-[14px] ps-[10px] pe-[10px] py-[8px]"
                                href="{{ route('admin.payout-identities.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet flex w-[6px] -start-[3px] relative before:absolute before:top-0 before:size-[6px] before:rounded-full before:-translate-y-1/2 kt-menu-item-active:before:bg-primary"></span>
-                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">Payout onboarding</span>
+                                <span class="kt-menu-title text-2sm font-normal text-foreground kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary">{{ __('Payout onboarding') }}</span>
                             </a>
                         </div>
+                        @endif
                     </div>
                 </div>
                 @endif
 
-                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->hasRole('company-admin'))
+                @if(auth()->user()?->hasRole('super-admin') || auth()->user()?->isTenantAdmin())
                 <div class="kt-menu-item {{ request()->routeIs('admin.customer-emails.*') ? 'active' : '' }}">
                     <a class="kt-menu-link flex grow items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]" href="{{ route('admin.customer-emails.index') }}">
                         <span class="kt-menu-icon w-[20px] items-start text-muted-foreground">
                             <i class="ki-filled ki-sms text-lg"></i>
                         </span>
                         <span class="kt-menu-title text-sm font-medium text-foreground kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary">
-                            Email communicatie
+                            {{ __('Email communicatie') }}
                         </span>
                     </a>
                 </div>
@@ -947,9 +984,12 @@
                 @php
                     $isSuperAdminSettings = auth()->user()?->isSuperAdmin() || auth()->user()?->hasRole('super-admin');
                     $canViewMailSettings = auth()->user()?->canViewMailSettings();
+                    $marketplacePackage = strcasecmp((string) (auth()->user()?->company?->package_key ?? ''), 'marketplace') === 0
+                        || (auth()->user()?->hasRole('marketplace') ?? false);
+                    $canViewBankAccount = $marketplacePackage && (auth()->user()?->isTenantAdmin() || $isSuperAdminSettings);
                 @endphp
-                @if($isSuperAdminSettings || $canViewMailSettings)
-                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
+                @if($isSuperAdminSettings || ($canViewMailSettings && ! $marketplacePackage) || $canViewBankAccount)
+                <div class="kt-menu-item {{ request()->routeIs('admin.settings.general.*') || request()->routeIs('admin.settings.index') || request()->routeIs('admin.settings.bank-account*') || request()->routeIs('admin.settings.upgrade.*') || request()->routeIs('admin.whatsapp-pickup-proposal-mock.*') || \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.settings*') ? 'here show' : '' }}"
                      data-kt-menu-item-toggle="accordion" data-kt-menu-item-trigger="click">
                     <div class="kt-menu-link flex grow cursor-pointer items-center gap-[10px] border border-transparent py-[6px] pe-[10px] ps-[10px]"
                         tabindex="0">
@@ -959,7 +999,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Configuraties
+                            {{ __('Configuraties') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -983,11 +1023,12 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Algemene configuraties
+                                    {{ __('Algemene configuraties') }}
                                 </span>
                             </a>
                         </div>
                         @endif
+                        @if($isSuperAdminSettings || ($canViewMailSettings && ! $marketplacePackage))
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.settings.index') }}" tabindex="0">
@@ -996,10 +1037,25 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    {{ $isSuperAdminSettings ? 'Systeem configuraties' : 'Mailserver' }}
+                                    {{ $isSuperAdminSettings ? __('Systeem configuraties') : __('Mailserver') }}
                                 </span>
                             </a>
                         </div>
+                        @endif
+                        @if($canViewBankAccount)
+                        <div class="kt-menu-item {{ request()->routeIs('admin.settings.bank-account*') ? 'active' : '' }}">
+                            <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
+                                href="{{ route('admin.settings.bank-account') }}" tabindex="0">
+                                <span
+                                    class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2">
+                                </span>
+                                <span
+                                    class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
+                                    {{ __('Bankrekening') }}
+                                </span>
+                            </a>
+                        </div>
+                        @endif
                         @if($isSuperAdminSettings)
                         <div class="kt-menu-item {{ request()->routeIs('admin.settings.upgrade.*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
@@ -1009,7 +1065,7 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Upgrade (platform)
+                                    {{ __('Upgrade (platform)') }}
                                 </span>
                             </a>
                         </div>
@@ -1021,11 +1077,11 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    WhatsApp voorstel-test
+                                    {{ __('WhatsApp voorstel-test') }}
                                 </span>
                             </a>
                         </div>
-                        <div class="kt-menu-item {{ request()->routeIs('admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
+                        <div class="kt-menu-item {{ \App\Services\MenuService::routeIsActive('admin.nexa-suite-bookings.settings*') ? 'active' : '' }}">
                             <a class="kt-menu-link kt-menu-item-active:bg-accent/60 dark:menu-item-active:border-border kt-menu-item-active:rounded-lg hover:bg-accent/60 grow items-center gap-[14px] border border-transparent py-[8px] pe-[10px] ps-[10px] hover:rounded-lg"
                                 href="{{ route('admin.nexa-suite-bookings.settings') }}" tabindex="0">
                                 <span
@@ -1033,7 +1089,7 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Nexa Suite (klant-app)
+                                    {{ __('Nexa Suite (klant-app)') }}
                                 </span>
                             </a>
                         </div>
@@ -1068,7 +1124,7 @@
                         </span>
                         <span
                             class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
-                            Front-end
+                            {{ __('Front-end') }}
                         </span>
                         <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                             <span class="inline-flex kt-menu-item-show:hidden">
@@ -1091,7 +1147,7 @@
                                 </span>
                                 <span
                                     class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Coming Soon
+                                    {{ __('Coming Soon') }}
                                 </span>
                             </a>
                         </div>
@@ -1100,7 +1156,7 @@
                                 href="{{ route('admin.welcome-page.edit') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Welkom
+                                    {{ __('Welkom') }}
                                 </span>
                             </a>
                         </div>
@@ -1109,7 +1165,7 @@
                                 href="{{ route('admin.website-pages.index', ($selectedTenant ?? session('selected_tenant')) ? ['tenant_company' => (int) ($selectedTenant ?? session('selected_tenant'))] : []) }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Pagina's
+                                    {{ __('Pagina\'s') }}
                                 </span>
                             </a>
                         </div>
@@ -1118,7 +1174,7 @@
                                 href="{{ route('admin.website-ai.create') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Genereer website AI
+                                    {{ __('Genereer website AI') }}
                                 </span>
                             </a>
                         </div>
@@ -1127,7 +1183,7 @@
                                 href="{{ route('admin.ai-images.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    AI Afbeeldingen
+                                    {{ __('AI Afbeeldingen') }}
                                 </span>
                             </a>
                         </div>
@@ -1136,7 +1192,7 @@
                                 href="{{ route('admin.frontend-themes.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Thema's
+                                    {{ __('Thema\'s') }}
                                 </span>
                             </a>
                         </div>
@@ -1145,7 +1201,7 @@
                                 href="{{ route('admin.frontend-components.index') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Componenten
+                                    {{ __('Componenten') }}
                                 </span>
                             </a>
                         </div>
@@ -1154,7 +1210,7 @@
                                 href="{{ route('admin.playground.metronic-demo1') }}" tabindex="0">
                                 <span class="kt-menu-bullet kt-menu-item-active:before:bg-primary kt-menu-item-hover:before:bg-primary relative -start-[3px] flex w-[6px] before:absolute before:top-0 before:size-[6px] before:-translate-y-1/2 before:rounded-full rtl:start-0 rtl:before:translate-x-1/2"></span>
                                 <span class="kt-menu-title text-2sm kt-menu-item-active:text-primary kt-menu-item-active:font-semibold kt-menu-link-hover:!text-primary font-normal text-foreground">
-                                    Componenten catalogus
+                                    {{ __('Componenten catalogus') }}
                                 </span>
                             </a>
                         </div>
@@ -1410,7 +1466,7 @@ function switchTenant(tenantId) {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Er is een fout opgetreden bij het wijzigen van de tenant.');
+        alert(@json(__('Er is een fout opgetreden bij het wijzigen van de tenant.')));
     });
 }
 </script>

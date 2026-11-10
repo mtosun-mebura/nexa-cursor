@@ -49,7 +49,8 @@ class TaxiBookingPaymentController extends Controller
         }
 
         $isCustomerApp = (($stored['channel'] ?? '') === 'customer_app')
-            || str_contains($returnUrl, '/taxi/klant');
+            || str_contains($returnUrl, '/taxi/klant')
+            || self::isAppDeepLink($returnUrl);
 
         $latestPayment = null;
         if ($ride) {
@@ -128,6 +129,23 @@ class TaxiBookingPaymentController extends Controller
         ]);
     }
 
+    /** Native Expo-app deep-link schemes (Mollie redirect → Laravel → app). */
+    private const APP_RETURN_SCHEMES = ['nexataxi'];
+
+    /** @var list<string> */
+    private const APP_RETURN_HOSTS = ['customer'];
+
+    public static function isAppDeepLink(?string $url): bool
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return false;
+        }
+        $scheme = strtolower((string) (parse_url($url, PHP_URL_SCHEME) ?: ''));
+
+        return in_array($scheme, self::APP_RETURN_SCHEMES, true);
+    }
+
     public static function safeReturnUrl(?string $candidate, Request $request, ?int $companyId = null): string
     {
         $fallback = TenantFrontendUrl::for(url('/'), ($companyId ?? 0) > 0 ? $companyId : null, $request);
@@ -144,7 +162,29 @@ class TaxiBookingPaymentController extends Controller
         }
 
         $parts = parse_url($candidate);
-        if ($parts === false || empty($parts['host'])) {
+        if ($parts === false) {
+            return $fallback;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        if (in_array($scheme, self::APP_RETURN_SCHEMES, true)) {
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            if ($host === '' || ! in_array($host, self::APP_RETURN_HOSTS, true)) {
+                return $fallback;
+            }
+            $path = (string) ($parts['path'] ?? '');
+            if ($path !== '' && ! str_starts_with($path, '/')) {
+                $path = '/'.$path;
+            }
+            $query = '';
+            if (! empty($parts['query'])) {
+                $query = '?'.$parts['query'];
+            }
+
+            return $scheme.'://'.$host.$path.$query;
+        }
+
+        if (empty($parts['host'])) {
             return $fallback;
         }
 
@@ -152,8 +192,7 @@ class TaxiBookingPaymentController extends Controller
             return $fallback;
         }
 
-        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
-        if (! in_array($scheme, ['http', 'https'], true)) {
+        if (! in_array($scheme === '' ? 'https' : $scheme, ['http', 'https'], true)) {
             return $fallback;
         }
 
@@ -171,10 +210,17 @@ class TaxiBookingPaymentController extends Controller
             $hash = '#'.$hash;
         }
 
-        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '/');
-        if ($hash === '' && ! str_contains($path, '/taxi/klant')) {
-            // Website-boeking: anker; klant-app heeft geen #boek-rit nodig.
+        $isAppLink = self::isAppDeepLink($url);
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '');
+        if ($path === '' && ! $isAppLink) {
+            $path = '/';
+        }
+        if (! $isAppLink && $hash === '' && ! str_contains($path, '/taxi/klant')) {
+            // Website-boeking: anker; klant-app / native deeplink heeft geen #boek-rit nodig.
             $hash = '#boek-rit';
+        }
+        if ($isAppLink) {
+            $hash = '';
         }
 
         $query = [];

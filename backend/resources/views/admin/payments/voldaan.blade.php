@@ -2,7 +2,7 @@
 
 @include('layouts.partials.apexcharts')
 
-@section('title', 'Voldane Betalingen')
+@section('title', __('Voldane Betalingen'))
 
 @section('content')
 @php
@@ -11,15 +11,15 @@
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
-            <h1 class="text-xl font-medium leading-none text-mono">Voldane Betalingen</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Voldane Betalingen') }}</h1>
             <div class="text-sm text-secondary-foreground">
-                Tenants met actieve betaalmodule — voldane betalingen, ritten en facturen (status betaald)
+                {{ __('Tenants met actieve betaalmodule — voldane betalingen, ritten en facturen (status betaald)') }}
             </div>
         </div>
         <div class="admin-page-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0 lg:w-auto">
             <a class="kt-btn kt-btn-outline min-w-0" href="{{ route('admin.payments.index') }}">
                 <i class="ki-filled ki-arrow-left text-base me-2"></i>
-                Terug naar Overzicht
+                {{ __('Terug naar Overzicht') }}
             </a>
         </div>
     </div>
@@ -29,13 +29,13 @@
     <div class="grid lg:grid-cols-2 gap-5 mb-5">
         <div class="kt-card">
             <div class="kt-card-content p-5">
-                <span class="text-sm text-secondary-foreground">Voldaan (filter)</span>
+                <span class="text-sm text-secondary-foreground">{{ __('Voldaan (filter)') }}</span>
                 <div class="text-3xl font-semibold text-mono mt-1">{{ number_format($payments->total()) }}</div>
             </div>
         </div>
         <div class="kt-card">
             <div class="kt-card-content p-5">
-                <span class="text-sm text-secondary-foreground">Omzet op deze pagina</span>
+                <span class="text-sm text-secondary-foreground">{{ __('Omzet op deze pagina') }}</span>
                 <div class="text-3xl font-semibold text-mono mt-1">€{{ number_format($pageTotal, 2, ',', '.') }}</div>
             </div>
         </div>
@@ -43,7 +43,7 @@
 
     <div class="kt-card mb-5">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Inkomsten (laatste 12 maanden)</h3>
+            <h3 class="kt-card-title">{{ __('Inkomsten (laatste 12 maanden)') }}</h3>
         </div>
         <div class="kt-card-content">
             <div id="payments_voldaan_revenue_chart" style="min-height: 300px;"></div>
@@ -52,14 +52,14 @@
 
     <div class="kt-card kt-card-grid min-w-full">
         <div class="kt-card-header">
-            <h3 class="kt-card-title">Voldane betalingen</h3>
+            <h3 class="kt-card-title">{{ __('Voldane betalingen') }}</h3>
             <form method="GET" action="{{ route('admin.payments.voldaan') }}" class="flex flex-wrap items-center gap-2">
                 @if(request('company_id'))
                     <input type="hidden" name="company_id" value="{{ request('company_id') }}">
                 @endif
                 <label class="kt-input max-w-48">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Zoeken…" class="min-w-0" autocomplete="off">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Zoeken…') }}" class="min-w-0" autocomplete="off">
                 </label>
             </form>
         </div>
@@ -70,9 +70,9 @@
                         <tr>
                             <th>Tenant</th>
                             <th>Module</th>
-                            <th>Bedrag</th>
-                            <th>Referentie</th>
-                            <th>Betaald op</th>
+                            <th>{{ __('Bedrag') }}</th>
+                            <th>{{ __('Referentie') }}</th>
+                            <th>{{ __('Betaald op') }}</th>
                             <th>Status</th>
                             <th></th>
                         </tr>
@@ -80,7 +80,7 @@
                     <tbody>
                         @include('admin.payments.partials.payment-rows', [
                             'payments' => $payments,
-                            'emptyMessage' => 'Geen voldane betalingen voor deze tenants.',
+                            'emptyMessage' => __('Geen voldane betalingen voor deze tenants.'),
                             'paymentsReturnUrl' => request()->getRequestUri(),
                         ])
                     </tbody>
@@ -90,7 +90,7 @@
         @if($payments->hasPages())
             <div class="kt-card-footer flex items-center justify-between">
                 <div class="text-sm text-secondary-foreground">
-                    {{ $payments->firstItem() }}–{{ $payments->lastItem() }} van {{ $payments->total() }}
+                    {{ __(':from–:to van :total', ['from' => $payments->firstItem(), 'to' => $payments->lastItem(), 'total' => $payments->total()]) }}
                 </div>
                 {{ $payments->withQueryString()->links() }}
             </div>
@@ -117,7 +117,7 @@
         el.innerHTML = '';
 
         const chart = new ApexCharts(el, {
-            series: [{ name: 'Inkomsten', data: chartData }],
+            series: [{ name: @json(__('Inkomsten')), data: chartData }],
             chart: { type: 'area', height: 300, toolbar: { show: false } },
             dataLabels: { enabled: false },
             stroke: { curve: 'smooth', width: 2 },

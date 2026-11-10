@@ -96,6 +96,7 @@ class TaxiDispatchOfferResourceNetworkTest extends TestCase
         $this->assertSame('Taxi B', $fb['executor_name']);
         $this->assertSame(5.0, $fb['nexa_fee']);
         $this->assertSame(10, $fb['nexa_fee_percent']);
+        $this->assertSame(45.0, $fb['driver_share']);
     }
 
     #[Test]

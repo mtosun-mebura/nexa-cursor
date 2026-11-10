@@ -20,7 +20,7 @@
            data-kt-date-picker-selected-year="{{ $carbon->format('Y') }}"
            @endif
            data-kt-date-picker-selected-time="{{ $carbon ? $carbon->format('H:i') : '09:00' }}"
-           placeholder="{{ $placeholder ?? 'Selecteer datum en tijd' }}"
+           placeholder="{{ $placeholder ?? __('Selecteer datum en tijd') }}"
            readonly
            type="text"
            @if(!empty($required)) required @endif />

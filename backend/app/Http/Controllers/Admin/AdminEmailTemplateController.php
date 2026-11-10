@@ -12,6 +12,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiAppUserWelcomeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService;
+use App\Services\AdminBankAccountChangeCodeEmailTemplateService;
 use App\Services\AdminFirstLoginCodeEmailTemplateService;
 use App\Services\EmailTemplateService;
 use App\Services\InformatieaanvraagEmailHtmlNormalizer;
@@ -81,6 +82,7 @@ class AdminEmailTemplateController extends Controller
             'welcome' => null,
             'tenant_welcome' => null,
             AdminFirstLoginCodeEmailTemplateService::TYPE => null,
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => null,
             TenantConfigAccessGrantedEmailTemplateService::TYPE => null,
             'saas_trial_ending' => null,
             'saas_billing_start' => null,
@@ -109,7 +111,7 @@ class AdminEmailTemplateController extends Controller
     private function ensureSuperAdminEmailTemplates(): void
     {
         if (! auth()->user()?->hasRole('super-admin')) {
-            abort(403, 'Alleen een super-admin mag e-mailtemplates beheren.');
+            abort(403, __('Alleen een super-admin mag e-mailtemplates beheren.'));
         }
     }
 
@@ -119,31 +121,32 @@ class AdminEmailTemplateController extends Controller
     protected static function emailTemplateTypeLabels(): array
     {
         return [
-            'welcome' => 'Welkom',
-            'tenant_welcome' => 'Welkomstmail tenant (company-admin)',
-            AdminFirstLoginCodeEmailTemplateService::TYPE => 'Eenmalige inlogcode admin (eerste login)',
-            TenantConfigAccessGrantedEmailTemplateService::TYPE => 'Configuratie-toegang (bericht in NEXA Suite)',
-            'saas_trial_ending' => 'Proeftijd bijna voorbij (NEXA Suite)',
-            'saas_billing_start' => 'Eerste betaling NEXA-abonnement',
-            'password_reset' => 'Wachtwoord Reset',
-            'email_verification' => 'E-mail Verificatie',
-            'informatieaanvraag' => 'Informatieaanvraag',
-            'interview' => 'Interview',
-            'interview_invitation' => 'Interview Uitnodiging',
-            'interview_update' => 'Interview Update',
-            'interview_confirmed' => 'Interview Bevestigd',
-            'match_notification' => 'Match Notificatie',
-            'application_received' => 'Sollicitatie Ontvangen',
-            'application_status' => 'Sollicitatie Status',
-            'rejection' => 'Afwijzing',
-            'custom' => 'Aangepast',
-            'invoice' => 'Factuur',
-            'taxi_ride_accepted' => 'Taxi: rit geaccepteerd (klant)',
-            'taxi_customer_login_code' => 'Taxi: eenmalige inlogcode (klant)',
-            TaxiAppLoginCodeEmailTemplateService::TYPE => 'Taxi: eenmalige inlogcode (chauffeur / contract)',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => 'Taxi: welkomstmail chauffeur',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => 'Taxi: welkomstmail contractant',
-            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => 'Taxi: welkomstmail contractouder',
+            'welcome' => __('Welkom'),
+            'tenant_welcome' => __('Welkomstmail tenant (company-admin)'),
+            AdminFirstLoginCodeEmailTemplateService::TYPE => __('Eenmalige inlogcode admin (eerste login)'),
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => __('Bevestigingscode bankrekening wijzigen'),
+            TenantConfigAccessGrantedEmailTemplateService::TYPE => __('Configuratie-toegang (bericht in NEXA Suite)'),
+            'saas_trial_ending' => __('Proeftijd bijna voorbij (NEXA Suite)'),
+            'saas_billing_start' => __('Eerste betaling NEXA-abonnement'),
+            'password_reset' => __('Wachtwoord Reset'),
+            'email_verification' => __('E-mail Verificatie'),
+            'informatieaanvraag' => __('Informatieaanvraag'),
+            'interview' => __('Interview'),
+            'interview_invitation' => __('Interview Uitnodiging'),
+            'interview_update' => __('Interview Update'),
+            'interview_confirmed' => __('Interview Bevestigd'),
+            'match_notification' => __('Match Notificatie'),
+            'application_received' => __('Sollicitatie Ontvangen'),
+            'application_status' => __('Sollicitatie Status'),
+            'rejection' => __('Afwijzing'),
+            'custom' => __('Aangepast'),
+            'invoice' => __('Factuur'),
+            'taxi_ride_accepted' => __('Taxi: rit geaccepteerd (klant)'),
+            'taxi_customer_login_code' => __('Taxi: eenmalige inlogcode (klant)'),
+            TaxiAppLoginCodeEmailTemplateService::TYPE => __('Taxi: eenmalige inlogcode (chauffeur / contract)'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CHAUFFEUR => __('Taxi: welkomstmail chauffeur'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT => __('Taxi: welkomstmail contractant'),
+            TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => __('Taxi: welkomstmail contractouder'),
         ];
     }
 
@@ -196,11 +199,12 @@ class AdminEmailTemplateController extends Controller
      */
     protected static function templateVariablesForType(?string $type): array
     {
-        return match ($type) {
+        return array_map(static fn (string $label): string => __($label), match ($type) {
             TaxiCustomerLoginCodeEmailTemplateService::TYPE => TaxiCustomerLoginCodeEmailTemplateService::variableLabels(),
             TaxiCustomerAcceptEmailTemplateService::TYPE => TaxiCustomerAcceptEmailTemplateService::variableLabels(),
             TenantWelcomeEmailTemplateService::TYPE => TenantWelcomeEmailTemplateService::variableLabels(),
             AdminFirstLoginCodeEmailTemplateService::TYPE => AdminFirstLoginCodeEmailTemplateService::variableLabels(),
+            AdminBankAccountChangeCodeEmailTemplateService::TYPE => AdminBankAccountChangeCodeEmailTemplateService::variableLabels(),
             TenantConfigAccessGrantedEmailTemplateService::TYPE => TenantConfigAccessGrantedEmailTemplateService::variableLabels(),
             SaasTrialEndingEmailTemplateService::TYPE => SaasTrialEndingEmailTemplateService::variableLabels(),
             SaasBillingStartEmailTemplateService::TYPE => SaasBillingStartEmailTemplateService::variableLabels(),
@@ -209,7 +213,7 @@ class AdminEmailTemplateController extends Controller
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTANT,
             TaxiAppUserWelcomeEmailTemplateService::TYPE_CONTRACTOUDER => TaxiAppUserWelcomeEmailTemplateService::variableLabels(),
             default => static::genericTemplateVariables(),
-        };
+        });
     }
 
     /**
@@ -324,6 +328,7 @@ class AdminEmailTemplateController extends Controller
         $this->provisionTaxiEmailTemplatesIfNeeded($menuService);
         app(TenantWelcomeEmailTemplateService::class)->ensureExists();
         app(AdminFirstLoginCodeEmailTemplateService::class)->ensureExists();
+        app(AdminBankAccountChangeCodeEmailTemplateService::class)->ensureExists();
         app(TenantConfigAccessGrantedEmailTemplateService::class)->ensureExists();
         app(SaasTrialEndingEmailTemplateService::class)->ensureExists();
         app(SaasBillingStartEmailTemplateService::class)->ensureExists();
@@ -431,7 +436,7 @@ class AdminEmailTemplateController extends Controller
     public function create()
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         $query = Company::query();
@@ -448,16 +453,15 @@ class AdminEmailTemplateController extends Controller
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ NOTIFICATION_TITLE }}</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #e5e7eb; color-scheme: light only;">
+    <table role="presentation" width="100%" bgcolor="#e5e7eb" style="width: 100%; border-collapse: collapse; background-color: #e5e7eb;">
         <tr>
-            <td style="padding: 20px 0; text-align: center;">
-                <table role="presentation" style="width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <td bgcolor="#e5e7eb" style="padding: 24px 12px; background-color: #e5e7eb; text-align: center;">
+                <table role="presentation" width="100%" bgcolor="#ffffff" style="width: 600px; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px;">
                     <tr>
-                        <td style="padding: 30px; background-color: #0f172a; border-radius: 8px 8px 0 0;">
+                        <td bgcolor="#ffffff" style="padding: 28px 32px 20px; background-color: #ffffff; border-radius: 12px 12px 0 0;">
                             {{ COMPANY_LOGO }}
-                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
-                            <h1 style="margin: 0; color: #ffffff; font-size: 24px;">{{ NOTIFICATION_TITLE }}</h1>
+                            <h1 style="margin: 0; color: #0f172a; font-size: 24px;">{{ NOTIFICATION_TITLE }}</h1>
                         </td>
                     </tr>
                     <tr>
@@ -497,16 +501,15 @@ class AdminEmailTemplateController extends Controller
     <meta name="color-scheme" content="light">
     <title>Informatieaanvraag ontvangen</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #e5e7eb; color-scheme: light only;">
+    <table role="presentation" width="100%" bgcolor="#e5e7eb" style="width: 100%; border-collapse: collapse; background-color: #e5e7eb;">
         <tr>
-            <td style="padding: 20px 0; text-align: center;">
-                <table role="presentation" class="info-request-email-card" width="100%" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-collapse: separate; border-spacing: 0; overflow: hidden;">
+            <td bgcolor="#e5e7eb" style="padding: 24px 12px; background-color: #e5e7eb; text-align: center;">
+                <table role="presentation" class="info-request-email-card" width="100%" bgcolor="#ffffff" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden;">
                     <tr>
-                        <td class="info-request-email-header" width="100%" bgcolor="#0f172a" style="padding: 24px 30px; background-color: #0f172a; border-radius: 8px 8px 0 0; width: 100%;">
+                        <td class="info-request-email-header" width="100%" bgcolor="#ffffff" style="padding: 28px 32px 20px; background-color: #ffffff; border-radius: 12px 12px 0 0; width: 100%;">
                             {{ COMPANY_LOGO }}
-                            <p style="margin: 0 0 6px; color: #94a3b8; font-size: 13px; letter-spacing: 0.04em;">{{ COMPANY_NAME }}</p>
-                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.3;">Nieuwe informatieaanvraag</h1>
+                            <h1 style="margin: 0; color: #0f172a; font-size: 24px; line-height: 1.3;">Nieuwe informatieaanvraag</h1>
                         </td>
                     </tr>
                     <tr>
@@ -573,7 +576,7 @@ class AdminEmailTemplateController extends Controller
     public function store(Request $request)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         $menuService = app(MenuService::class);
@@ -635,11 +638,11 @@ class AdminEmailTemplateController extends Controller
                 }
                 app(EmailTemplateService::class)->sendTestEmail($emailTemplate, $toEmail, $toName, $variables, usePlatformMail: true, asTemplateSample: true);
 
-                return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template aangemaakt en testmail verstuurd naar '.$toEmail);
+                return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template aangemaakt en testmail verstuurd naar :email', ['email' => $toEmail]));
             }
         }
 
-        return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol aangemaakt.');
+        return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template succesvol aangemaakt.'));
     }
 
     public function show(EmailTemplate $emailTemplate)
@@ -655,7 +658,7 @@ class AdminEmailTemplateController extends Controller
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $templateVariables = static::templateVariablesForType($emailTemplate->type);
@@ -688,6 +691,12 @@ class AdminEmailTemplateController extends Controller
             $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
             $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
         }
+        if ($emailTemplate->type === AdminBankAccountChangeCodeEmailTemplateService::TYPE) {
+            $previewVars = app(AdminBankAccountChangeCodeEmailTemplateService::class)->previewVariables();
+            $parser = app(EmailTemplateService::class);
+            $previewHtml = $parser->parseTemplateVariables($previewHtml, $previewVars);
+            $previewSubject = $parser->parseTemplateVariables($previewSubject, $previewVars);
+        }
         if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
             $previewCompany = $emailTemplate->company
                 ?? ($tenantId ? Company::find((int) $tenantId) : null);
@@ -715,12 +724,12 @@ class AdminEmailTemplateController extends Controller
     public function edit(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $query = Company::query();
@@ -757,12 +766,12 @@ class AdminEmailTemplateController extends Controller
     public function update(Request $request, EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $menuService = app(MenuService::class);
@@ -824,17 +833,17 @@ class AdminEmailTemplateController extends Controller
 
         $emailTemplate->update($emailTemplateData);
 
-        return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', 'E-mail template succesvol bijgewerkt.');
+        return redirect()->route('admin.email-templates.show', $emailTemplate)->with('success', __('E-mail template succesvol bijgewerkt.'));
     }
 
     public function duplicate(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates aan te maken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates aan te maken.'));
         }
 
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $user = auth()->user();
@@ -858,7 +867,7 @@ class AdminEmailTemplateController extends Controller
 
         return redirect()
             ->route('admin.email-templates.edit', $copy)
-            ->with('success', 'Template gedupliceerd. Pas de naam aan en koppel het template aan een bedrijf indien nodig.');
+            ->with('success', __('Template gedupliceerd. Pas de naam aan en koppel het template aan een bedrijf indien nodig.'));
     }
 
     /**
@@ -933,16 +942,16 @@ class AdminEmailTemplateController extends Controller
     {
         if (! auth()->user()->hasRole('super-admin')) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json(['success' => false, 'message' => 'Je hebt geen rechten om e-mail templates te bewerken.'], 403);
+                return response()->json(['success' => false, 'message' => __('Je hebt geen rechten om e-mail templates te bewerken.')], 403);
             }
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
 
         if (! $this->canAccessResource($emailTemplate)) {
             if (request()->expectsJson() || request()->header('X-Requested-With') === 'XMLHttpRequest') {
-                return response()->json(['success' => false, 'message' => 'Je hebt geen toegang tot deze e-mail template.'], 403);
+                return response()->json(['success' => false, 'message' => __('Je hebt geen toegang tot deze e-mail template.')], 403);
             }
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $emailTemplate->update(['is_active' => ! $emailTemplate->is_active]);
@@ -951,32 +960,32 @@ class AdminEmailTemplateController extends Controller
             return response()->json(['success' => true, 'is_active' => $emailTemplate->fresh()->is_active]);
         }
 
-        return redirect()->back()->with('success', 'Status bijgewerkt.');
+        return redirect()->back()->with('success', __('Status bijgewerkt.'));
     }
 
     public function destroy(EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te verwijderen.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te verwijderen.'));
         }
 
         // Check if user can access this resource
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $emailTemplate->delete();
 
-        return redirect()->route('admin.email-templates.index')->with('success', 'E-mail template succesvol verwijderd.');
+        return redirect()->route('admin.email-templates.index')->with('success', __('E-mail template succesvol verwijderd.'));
     }
 
     public function sendTest(Request $request, EmailTemplate $emailTemplate)
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om e-mail templates te bewerken.');
+            abort(403, __('Je hebt geen rechten om e-mail templates te bewerken.'));
         }
         if (! $this->canAccessResource($emailTemplate)) {
-            abort(403, 'Je hebt geen toegang tot deze e-mail template.');
+            abort(403, __('Je hebt geen toegang tot deze e-mail template.'));
         }
 
         $formFields = $emailTemplate->type === 'informatieaanvraag'
@@ -993,7 +1002,7 @@ class AdminEmailTemplateController extends Controller
 
         $toEmail = $emailTemplate->getRecipientEmailAddress();
         if (! $toEmail) {
-            return $this->sendTestResult($request, false, 'Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).');
+            return $this->sendTestResult($request, false, __('Stel eerst een ontvanger in bij Basis Informatie (en sla de template op).'));
         }
 
         $variables = ['DATUM_AANVRAAG' => now()->format('d-m-Y H:i')];
@@ -1010,6 +1019,9 @@ class AdminEmailTemplateController extends Controller
         }
         if ($emailTemplate->type === AdminFirstLoginCodeEmailTemplateService::TYPE) {
             $variables = array_merge(app(AdminFirstLoginCodeEmailTemplateService::class)->previewVariables(), $variables);
+        }
+        if ($emailTemplate->type === AdminBankAccountChangeCodeEmailTemplateService::TYPE) {
+            $variables = array_merge(app(AdminBankAccountChangeCodeEmailTemplateService::class)->previewVariables(), $variables);
         }
         if ($emailTemplate->type === TenantConfigAccessGrantedEmailTemplateService::TYPE) {
             $previewCompany = $emailTemplate->company
@@ -1037,10 +1049,10 @@ class AdminEmailTemplateController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return $this->sendTestResult($request, false, 'Versturen mislukt. Probeer het opnieuw.', 500);
+            return $this->sendTestResult($request, false, __('Versturen mislukt. Probeer het opnieuw.'), 500);
         }
 
-        return $this->sendTestResult($request, true, 'Testmail verstuurd naar '.$toEmail);
+        return $this->sendTestResult($request, true, __('Testmail verstuurd naar :email', ['email' => $toEmail]));
     }
 
     private function sendTestResult(Request $request, bool $ok, string $message, int $errorStatus = 422)

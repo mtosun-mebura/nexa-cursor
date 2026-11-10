@@ -9,72 +9,72 @@
         <div class="flex flex-col justify-center gap-2 min-w-0">
             <h1 class="text-xl font-medium leading-none text-mono">{{ $email->subject }}</h1>
             <div class="text-sm text-secondary-foreground">
-                {{ $email->typeLabel() }}
+                {{ __($email->typeLabel()) }}
                 · {{ $email->recipient_name ?: $email->recipient_email }}
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{{ route('admin.customer-emails.index') }}" class="kt-btn kt-btn-outline">Terug</a>
+            <a href="{{ route('admin.customer-emails.index') }}" class="kt-btn kt-btn-outline">{{ __('Terug') }}</a>
             <form method="POST"
                   action="{{ route('admin.customer-emails.resend', $email) }}"
                   class="customer-email-resend-form"
-                  data-confirm-message="E-mail opnieuw versturen naar {{ $email->recipient_email }}?">
+                  data-confirm-message="{{ __('E-mail opnieuw versturen naar :email?', ['email' => $email->recipient_email]) }}">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-primary admin-ajax-action-btn customer-email-resend-btn inline-flex items-center justify-center gap-2 min-w-[11.5rem]">
                     @include('admin.partials.ajax-action-spinner')
                     <span class="admin-ajax-action-idle-icon customer-email-resend-icon inline-flex items-center" aria-hidden="true">
                         <i class="ki-filled ki-send"></i>
                     </span>
-                    <span class="customer-email-resend-label">Opnieuw versturen</span>
+                    <span class="customer-email-resend-label">{{ __('Opnieuw versturen') }}</span>
                 </button>
             </form>
         </div>
     </div>
 
     <div class="kt-card p-6 text-sm space-y-2 mb-5">
-        <p><strong>Type:</strong> {{ $email->typeLabel() }}</p>
-        <p><strong>Status:</strong> {{ $email->statusLabel() }}</p>
-        <p><strong>Aan:</strong> {{ $email->recipient_name ? $email->recipient_name.' <'.$email->recipient_email.'>' : $email->recipient_email }}</p>
+        <p><strong>{{ __('Type') }}:</strong> {{ __($email->typeLabel()) }}</p>
+        <p><strong>{{ __('Status') }}:</strong> {{ __($email->statusLabel()) }}</p>
+        <p><strong>{{ __('Aan:') }}</strong> {{ $email->recipient_name ? $email->recipient_name.' <'.$email->recipient_email.'>' : $email->recipient_email }}</p>
         @if($email->company)
-            <p><strong>Bedrijf:</strong> {{ $email->company->name }}</p>
+            <p><strong>{{ __('Bedrijf') }}:</strong> {{ $email->company->name }}</p>
         @endif
-        <p><strong>Verzonden:</strong> {{ ($email->sent_at ?? $email->created_at)?->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i') ?? '—' }}</p>
+        <p><strong>{{ __('Verzonden') }}:</strong> {{ ($email->sent_at ?? $email->created_at)?->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i') ?? '—' }}</p>
         @if($email->isResend())
-            <p><strong>Opnieuw verstuurd vanuit:</strong> bericht #{{ $email->resent_from_id }}</p>
+            <p><strong>{{ __('Opnieuw verstuurd vanuit') }}:</strong> {{ __('bericht #:id', ['id' => $email->resent_from_id]) }}</p>
         @endif
         @if((int) $email->resent_count > 0)
-            <p><strong>Opnieuw verstuurd:</strong> {{ $email->resent_count }}×
+            <p><strong>{{ __('Opnieuw verstuurd') }}:</strong> {{ $email->resent_count }}×
                 @if($email->last_resent_at)
-                    (laatst {{ $email->last_resent_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i') }})
+                    ({{ __('laatst :date', ['date' => $email->last_resent_at->timezone(config('app.timezone', 'Europe/Amsterdam'))->format('d-m-Y H:i')]) }})
                 @endif
             </p>
         @endif
         @if($email->error_message)
-            <p class="text-destructive"><strong>Foutmelding:</strong> {{ $email->error_message }}</p>
+            <p class="text-destructive"><strong>{{ __('Foutmelding') }}:</strong> {{ $email->error_message }}</p>
         @endif
     </div>
 
     <div class="kt-card overflow-hidden">
         <div class="kt-card-header py-4 px-5">
             <div>
-                <h3 class="kt-card-title text-sm mb-0">Inhoud</h3>
-                <p class="text-xs text-muted-foreground mb-0 mt-1">Weergave zoals de ontvanger dit in de mailbox zag.</p>
+                <h3 class="kt-card-title text-sm mb-0">{{ __('Inhoud') }}</h3>
+                <p class="text-xs text-muted-foreground mb-0 mt-1">{{ __('Weergave zoals de ontvanger dit in de mailbox zag.') }}</p>
             </div>
         </div>
         <div class="p-4 sm:p-6" style="background:#d1d5db;">
             <div class="mx-auto max-w-[680px] overflow-hidden rounded-lg border border-black/10 bg-white shadow-md" style="color-scheme:light;">
                 <div class="border-b border-black/10 px-5 py-3 text-[13px] leading-5" style="background:#f8fafc;color:#111827;">
-                    <div><span style="color:#6b7280;">Onderwerp</span> · {{ $email->subject }}</div>
-                    <div class="mt-0.5"><span style="color:#6b7280;">Aan</span> · {{ $email->recipient_name ? $email->recipient_name.' <'.$email->recipient_email.'>' : $email->recipient_email }}</div>
+                    <div><span style="color:#6b7280;">{{ __('Onderwerp') }}</span> · {{ $email->subject }}</div>
+                    <div class="mt-0.5"><span style="color:#6b7280;">{{ rtrim(__('Aan:'), ':') }}</span> · {{ $email->recipient_name ? $email->recipient_name.' <'.$email->recipient_email.'>' : $email->recipient_email }}</div>
                 </div>
                 @if($email->body_html || $email->body_text)
-                    <iframe title="E-mail zoals in de mailbox"
+                    <iframe title="{{ __('E-mail zoals in de mailbox') }}"
                             id="customer-email-body"
                             src="{{ route('admin.customer-emails.preview', $email) }}"
                             class="block w-full border-0"
                             style="color-scheme:light;background:#ffffff;min-height:520px;height:520px;"></iframe>
                 @else
-                    <p class="px-5 py-8 text-sm" style="color:#374151;">Geen inhoud vastgelegd.</p>
+                    <p class="px-5 py-8 text-sm" style="color:#374151;">{{ __('Geen inhoud vastgelegd.') }}</p>
                 @endif
             </div>
         </div>
@@ -83,11 +83,11 @@
 
 <div id="customer-email-resend-dialog" class="fixed inset-0 z-[100000] hidden items-center justify-center bg-zinc-950/70 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="customer-email-resend-title">
     <div class="w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-2xl">
-        <h2 id="customer-email-resend-title" class="text-lg font-semibold text-foreground mb-2">E-mail opnieuw versturen?</h2>
+        <h2 id="customer-email-resend-title" class="text-lg font-semibold text-foreground mb-2">{{ __('E-mail opnieuw versturen?') }}</h2>
         <p class="text-sm text-muted-foreground mb-6" data-resend-dialog-message></p>
         <div class="flex justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline" data-resend-dialog-cancel>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-primary" data-resend-dialog-confirm>Versturen</button>
+            <button type="button" class="kt-btn kt-btn-outline" data-resend-dialog-cancel>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-primary" data-resend-dialog-confirm>{{ __('Versturen') }}</button>
         </div>
     </div>
 </div>
@@ -120,7 +120,7 @@
     var iconEl = btn.querySelector('.customer-email-resend-icon');
     var labelEl = btn.querySelector('.customer-email-resend-label');
     var idleIcon = iconEl ? iconEl.innerHTML : '';
-    var idleLabel = labelEl ? labelEl.textContent : 'Opnieuw versturen';
+    var idleLabel = labelEl ? labelEl.textContent : @json(__('Opnieuw versturen'));
     var messageEl = dialog.querySelector('[data-resend-dialog-message]');
     var cancelBtn = dialog.querySelector('[data-resend-dialog-cancel]');
     var confirmBtn = dialog.querySelector('[data-resend-dialog-confirm]');
@@ -137,7 +137,7 @@
                 iconEl.innerHTML = idleIcon;
             }
             if (labelEl) {
-                labelEl.textContent = 'Versturen…';
+                labelEl.textContent = @json(__('Versturen…'));
             }
             return;
         }
@@ -173,7 +173,7 @@
 
     function openDialog() {
         if (messageEl) {
-            messageEl.textContent = form.getAttribute('data-confirm-message') || 'E-mail opnieuw versturen?';
+            messageEl.textContent = form.getAttribute('data-confirm-message') || @json(__('E-mail opnieuw versturen?'));
         }
         dialog.classList.remove('hidden');
         dialog.classList.add('flex');

@@ -13,9 +13,12 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Start rit-dispatch na de HTTP-response.
- * Geen ShouldQueue: moet via ->afterResponse() in hetzelfde PHP-proces lopen
- * wanneer er geen queue-worker draait (Coolify/PROD).
+ * Start rit-dispatch in hetzelfde PHP-proces.
+ * Geen ShouldQueue: op Coolify/TEST draait vaak geen queue-worker.
+ * Roep dispatchWhenCommitted() aan. Het aanbod wordt meteen weggeschreven,
+ * ook midden in een open transactie. afterCommit() hangt de callback aan de
+ * laatst geopende transactie van élke connectie; een latere transactie op de
+ * standaardconnectie slikt het aanbod dan in. afterResponse() is alleen de vangnet.
  */
 class StartRideDispatchJob
 {
@@ -30,6 +33,36 @@ class StartRideDispatchJob
         public array $companyIds = [],
         public bool $assignCompany = true,
     ) {}
+
+    /**
+     * Aanbod meteen wegschrijven, ook als $connection nog een transactie open heeft.
+     * Faalt de sync-run, dan alsnog afterResponse als vangnet.
+     *
+     * @param  list<int>  $companyIds
+     */
+    public static function dispatchWhenCommitted(
+        string $connection,
+        int $rideId,
+        int $companyId,
+        array $companyIds = [],
+        bool $assignCompany = true,
+    ): void {
+        try {
+            static::dispatchSync($rideId, $companyId, $companyIds, $assignCompany);
+        } catch (\Throwable $e) {
+            Log::warning('StartRideDispatchJob sync mislukt, opnieuw na de response.', [
+                'connection' => $connection,
+                'ride_request_id' => $rideId,
+                'company_id' => $companyId,
+                'error' => $e->getMessage(),
+            ]);
+            try {
+                static::dispatch($rideId, $companyId, $companyIds, $assignCompany)->afterResponse();
+            } catch (\Throwable) {
+                // boeking/betaling mag hier niet op stuklopen
+            }
+        }
+    }
 
     public function handle(ModuleDatabaseService $moduleDb, RideDispatchService $dispatch): void
     {
@@ -53,7 +86,17 @@ class StartRideDispatchJob
         $entitlements = app(CompanyEntitlementService::class);
         $allowedIds = [];
         foreach ($companyIds as $companyId) {
-            if ($entitlements->allows(Company::query()->find($companyId), TenantPackageCapability::DISPATCH)) {
+            $company = Company::query()->find($companyId);
+            // Chauffeur-app is genoeg voor een marktplaats-aanbod. Het admin-recht
+            // "dispatch" (centrale toewijzing) mag een online chauffeur niet uitsluiten.
+            // Zelfde poort als de boeking: website-boeking, dispatch of chauffeur-app.
+            // Een Start-pakket heeft website_booking wel en dispatch/driver_app niet;
+            // die chauffeurs kregen daardoor nooit een aanbod.
+            if ($company instanceof Company && (
+                $entitlements->allows($company, TenantPackageCapability::DISPATCH)
+                || $entitlements->allows($company, TenantPackageCapability::DRIVER_APP)
+                || $entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING)
+            )) {
                 $allowedIds[] = $companyId;
             }
         }

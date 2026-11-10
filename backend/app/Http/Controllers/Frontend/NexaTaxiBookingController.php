@@ -11,7 +11,9 @@ use App\Modules\NexaTaxi\Jobs\NotifyNewTaxiBookingJob;
 use App\Modules\NexaTaxi\Jobs\StartRideDispatchJob;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\TaxiBookingNotificationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeService;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Services\CompanyEntitlementService;
@@ -64,7 +66,8 @@ class NexaTaxiBookingController extends Controller
             isset($data['section_key']) ? (string) $data['section_key'] : 'component:taxi.boekingsmodule',
             isset($data['module']) ? trim((string) $data['module']) : null
         );
-        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data);
+        // Prijsindicatie mag zonder online taxi (HQ-/platformtarief); boeken eist wél chauffeurs.
+        $marketplace = $this->resolveMarketplaceAssignment($resolved, $data, requireOnlineDrivers: false);
         if ($marketplace['error']) {
             return $marketplace['error'];
         }
@@ -75,7 +78,12 @@ class NexaTaxiBookingController extends Controller
         if ($bookingBlock) {
             return $bookingBlock;
         }
-        $quotes = $this->pricing->buildQuotes($resolved['config'], $data, $resolved['tenant_company_id']);
+        // Marktplaats-rit blijft unclaimed (tenant_company_id null); prijsindicatie gebruikt tarieven van de dichtstbijzijnde kandidaat.
+        $quotes = $this->pricing->buildQuotes(
+            $resolved['config'],
+            $data,
+            $this->pricingCompanyIdForQuotes($resolved)
+        );
 
         $entitlements = app(CompanyEntitlementService::class);
         if (! $entitlements->allows($company, TenantPackageCapability::WEBSITE_BOOKING)) {
@@ -123,12 +131,27 @@ class NexaTaxiBookingController extends Controller
             $sectionKey,
             isset($data['module']) ? trim((string) $data['module']) : null
         );
+        $configRadiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $resolved['config']['logic']['marketplace_radius_km'] ?? null
+        );
+        if ($radiusKm === null) {
+            $radiusKm = $configRadiusKm;
+        }
         $company = ! empty($resolved['tenant_company_id'])
             ? Company::query()->find((int) $resolved['tenant_company_id'])
             : null;
         $fleet = app(\App\Services\TenantBookingLiveFleetService::class);
-        if ($fleet->isMarketplaceSection($sectionKey)) {
+        $isMarketplace = $fleet->isMarketplaceSection($sectionKey);
+        $fleetCarColor = $this->normalizeBookingFleetCarColor(
+            $resolved['config']['logic']['live_fleet_car_color'] ?? null
+        );
+        if ($isMarketplace) {
             $vehicles = app(\App\Services\NearbyAvailableTaxiFleetService::class)->vehicles($lat, $lng, $radiusKm);
+            $vehicles = array_map(static function (array $vehicle) use ($fleetCarColor): array {
+                $vehicle['color'] = $fleetCarColor;
+
+                return $vehicle;
+            }, $vehicles);
         } else {
             $vehicles = $fleet->vehiclesForSection(
                 $sectionKey,
@@ -139,11 +162,58 @@ class NexaTaxiBookingController extends Controller
             );
         }
 
-        return response()->json([
+        $appDemo = app(\App\Modules\NexaTaxi\Services\TaxiAppDemoModeService::class);
+        $demoMode = $appDemo->isEnabled();
+        if ($demoMode) {
+            $demoVehicles = $appDemo->vehiclesForNearby($lat, $lng, $radiusKm ?? 80.0);
+            $seen = [];
+            foreach ($vehicles as $vehicle) {
+                $seen[(string) ($vehicle['id'] ?? '')] = true;
+            }
+            foreach ($demoVehicles as $demoVehicle) {
+                $id = (string) ($demoVehicle['id'] ?? '');
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+                $demoVehicle['color'] = $fleetCarColor;
+                $vehicles[] = $demoVehicle;
+                $seen[$id] = true;
+            }
+        }
+
+        $payload = [
             'vehicles' => $vehicles,
             'radius_km' => $radiusKm,
+            'fleet_car_color' => $fleetCarColor,
             'server_now' => now()->toIso8601String(),
-        ]);
+            'demo_mode' => $demoMode,
+        ];
+
+        if ($isMarketplace) {
+            $dispatchReady = false;
+            $candidateCount = 0;
+            if ($lat !== null && $lng !== null) {
+                $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+                    $lat,
+                    $lng,
+                    NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
+                    $configRadiusKm
+                );
+                $candidateCount = count($matches);
+                $dispatchReady = $candidateCount > 0;
+            }
+            $payload['marketplace'] = [
+                'dispatch_ready' => $dispatchReady,
+                'candidate_count' => $candidateCount,
+                'radius_km' => $configRadiusKm,
+                'check_seconds' => max(
+                    1,
+                    min(30, (int) ($resolved['config']['logic']['marketplace_availability_check_seconds'] ?? 3))
+                ),
+            ];
+        }
+
+        return response()->json($payload);
     }
 
     public function submit(Request $request): JsonResponse
@@ -160,6 +230,8 @@ class NexaTaxiBookingController extends Controller
             'return_trip' => 'nullable|boolean',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
+            'pickup_place_name' => 'nullable|string|max:160',
+            'dropoff_place_name' => 'nullable|string|max:160',
             'pickup_at' => 'required|date',
             'pickup_lat' => 'nullable|numeric',
             'pickup_lng' => 'nullable|numeric',
@@ -212,7 +284,11 @@ class NexaTaxiBookingController extends Controller
             return $entitlements->jsonDenied($bookingCompany, TenantPackageCapability::WEBSITE_BOOKING);
         }
         $sectionConfig = $resolved['config'];
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $data, $resolved['tenant_company_id']);
+        $quotes = $this->pricing->buildQuotes(
+            $sectionConfig,
+            $data,
+            $this->pricingCompanyIdForQuotes($resolved)
+        );
         $selected = collect($quotes['offers'] ?? [])->firstWhere('id', (string) $data['selected_offer_id']);
         if (! $selected) {
             return response()->json([
@@ -394,6 +470,14 @@ class NexaTaxiBookingController extends Controller
             ],
             'pricing' => $quotes,
         ];
+        $pickupPlace = RidePlaceName::distinct($data['pickup_place_name'] ?? null, $data['pickup_address'] ?? '');
+        $dropoffPlace = RidePlaceName::distinct($data['dropoff_place_name'] ?? null, $data['dropoff_address'] ?? '');
+        if ($pickupPlace !== null) {
+            $payload['pickup_place_name'] = $pickupPlace;
+        }
+        if ($dropoffPlace !== null) {
+            $payload['dropoff_place_name'] = $dropoffPlace;
+        }
         if (! empty($resolved['marketplace'])) {
             $payload['channel'] = RideRequest::SOURCE_NEXA_SUITE;
             $payload['marketplace'] = $resolved['marketplace'];
@@ -452,9 +536,9 @@ class NexaTaxiBookingController extends Controller
         )));
         if (! $payAtBooking) {
             if ($marketplaceCompanyIds !== []) {
-                StartRideDispatchJob::dispatch((int) $ride->id, 0, $marketplaceCompanyIds, false)->afterResponse();
+                StartRideDispatchJob::dispatchWhenCommitted($conn, (int) $ride->id, 0, $marketplaceCompanyIds, false);
             } elseif ($rideCompanyId && $rideCompanyId > 0) {
-                StartRideDispatchJob::dispatch((int) $ride->id, $rideCompanyId)->afterResponse();
+                StartRideDispatchJob::dispatchWhenCommitted($conn, (int) $ride->id, (int) $rideCompanyId);
             }
         }
 
@@ -482,35 +566,48 @@ class NexaTaxiBookingController extends Controller
 
         $loginCodeEmailSent = false;
         if ($pendingLoginCodeSend !== null) {
-            // Optimistic UI-tekst; verzending gebeurt na de response.
-            $loginCodeEmailSent = true;
-            $pendingLogin = $pendingLoginCodeSend;
-            dispatch(function () use ($pendingLogin) {
-                try {
-                    app(TaxiCustomerLoginCodeService::class)->issueAndSend(
-                        $pendingLogin['user'],
-                        $pendingLogin['company_id'],
-                        $pendingLogin['login_url'],
-                        null,
-                        $pendingLogin['mail_type'] ?? \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
-                    );
-                } catch (\Throwable $e) {
-                    Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt (afterResponse).', [
-                        'user_id' => $pendingLogin['user']->id ?? null,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            })->afterResponse();
+            // Direct versturen: klant moet de code meteen in de inbox hebben.
+            try {
+                app(TaxiCustomerLoginCodeService::class)->issueAndSend(
+                    $pendingLoginCodeSend['user'],
+                    $pendingLoginCodeSend['company_id'],
+                    $pendingLoginCodeSend['login_url'],
+                    null,
+                    $pendingLoginCodeSend['mail_type'] ?? \App\Models\TenantCustomerEmail::TYPE_LOGIN_CODE
+                );
+                $loginCodeEmailSent = true;
+            } catch (\Throwable $e) {
+                Log::warning('Boeking opgeslagen, inlogcode-e-mail mislukt.', [
+                    'user_id' => $pendingLoginCodeSend['user']->id ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
-        // WhatsApp + e-mails na de response (anders wacht de popup op Meta/SMTP).
+        // Klantbevestiging direct; WhatsApp/chauffeurs na de response (Meta mag de popup niet blokkeren).
         if (! $payAtBooking) {
-            NotifyNewTaxiBookingJob::dispatch((int) $ride->id, [
+            $notificationContext = [
                 'stopovers' => $stopovers,
                 'return_at' => $data['return_at'] ?? null,
                 'section_config' => $sectionConfig,
                 'settings_company_id' => $notificationCompanyId,
-            ])->afterResponse();
+            ];
+            try {
+                app(TaxiBookingNotificationService::class)->notifyCustomerBookingEmail(
+                    $conn,
+                    $ride,
+                    $notificationContext
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Klant-boekingsmail direct versturen mislukt.', [
+                    'ride_request_id' => $ride->id ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            NotifyNewTaxiBookingJob::dispatch((int) $ride->id, array_merge($notificationContext, [
+                'skip_customer_email' => true,
+            ]))->afterResponse();
         }
 
         $receivedMessage = $sectionConfig['texts']['success_message'] ?? 'Bedankt! Je boeking is ontvangen.';
@@ -729,8 +826,9 @@ class NexaTaxiBookingController extends Controller
         $dedupe = $request->input('dedupe', '1');
         $acceptLanguage = $request->input('accept-language', 'nl');
 
-        $cacheKey = 'nominatim_search:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails);
-        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage) {
+        $placesKey = $this->placesSearchKey();
+        $cacheKey = 'address_search:v3:'.md5($q.'|'.$countrycodes.'|'.$limit.'|'.$addressdetails.'|'.($placesKey !== '' ? 'biz' : 'geo'));
+        $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($q, $countrycodes, $limit, $format, $addressdetails, $dedupe, $acceptLanguage, $placesKey) {
             $query = [
                 'format' => $format,
                 'addressdetails' => $addressdetails,
@@ -747,19 +845,28 @@ class NexaTaxiBookingController extends Controller
             $response = Http::withHeaders([
                 'User-Agent' => config('app.name', 'NexaTaxiBooking').'/1.0 (address search)',
             ])->timeout(8)->get($url);
-            if (! $response->successful()) {
-                return [];
-            }
-            $body = $response->json();
+            $nominatim = $response->successful() && is_array($response->json()) ? $response->json() : [];
 
-            return is_array($body) ? $body : [];
+            return $this->mergeBusinessPlaces(
+                $this->searchBusinessPlaces($q, $placesKey, $countrycodes),
+                $nominatim
+            );
         });
 
         if (! is_array($data)) {
             $data = [];
         }
 
-        return response()->json($this->rankAddressSearchResults($q, $data));
+        $ranked = $this->rankAddressSearchResults($q, $data);
+        $formatted = [];
+        foreach ($ranked as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $formatted[] = $this->formatReverseGeocodePayload($row);
+        }
+
+        return response()->json($formatted);
     }
 
     private function reverseAddressSearch(float $lat, float $lon): JsonResponse
@@ -767,7 +874,7 @@ class NexaTaxiBookingController extends Controller
         $lat = round($lat, 6);
         $lon = round($lon, 6);
 
-        $cacheKey = 'nominatim_reverse:v2:'.$lat.':'.$lon;
+        $cacheKey = 'nominatim_reverse:v3:'.$lat.':'.$lon;
         $data = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($lat, $lon) {
             $url = 'https://nominatim.openstreetmap.org/reverse?'.http_build_query([
                 'format' => 'jsonv2',
@@ -793,7 +900,333 @@ class NexaTaxiBookingController extends Controller
             return response()->json(['display_name' => null], 404);
         }
 
-        return response()->json($data);
+        return response()->json($this->formatReverseGeocodePayload($data));
+    }
+
+    /**
+     * Nominatim geeft vaak "155, Deurningerstraat, …"; NL-weergave is "Deurningerstraat 155, …".
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function formatReverseGeocodePayload(array $data): array
+    {
+        if (isset($data['address']) && is_array($data['address'])) {
+            unset($data['address']['postcode']);
+            foreach (['city', 'town', 'village', 'municipality', 'suburb', 'neighbourhood', 'hamlet'] as $key) {
+                if (isset($data['address'][$key]) && is_string($data['address'][$key])) {
+                    $data['address'][$key] = $this->stripPostcodeFromPart($data['address'][$key]);
+                }
+            }
+        }
+
+        $label = $this->formatNominatimAddressLabel($data);
+        if ($label !== '') {
+            $data['display_name'] = $label;
+            $road = trim((string) ($data['address']['road'] ?? ''));
+            $number = trim((string) ($data['address']['house_number'] ?? ''));
+            $streetLine = trim($road.' '.$number);
+            $existingName = trim((string) ($data['name'] ?? ''));
+            $nameIsAddress = $existingName === ''
+                || strcasecmp($existingName, $label) === 0
+                || preg_match('/\d{4}\s*[A-Z]{2}/i', $existingName) === 1
+                || ($streetLine !== '' && str_starts_with(mb_strtolower($existingName), mb_strtolower($streetLine)));
+            if ($nameIsAddress) {
+                $data['name'] = $streetLine !== '' ? $streetLine : $label;
+            }
+        }
+
+        return $data;
+    }
+
+    private function stripPostcodeFromPart(string $part): string
+    {
+        $clean = trim((string) preg_replace('/\b\d{4}\s*[A-Z]{2}\b/i', ' ', $part));
+        $clean = trim((string) preg_replace('/\s{2,}/', ' ', $clean));
+
+        return trim($clean, " \t,");
+    }
+
+    private function stripPostcodeFromLabel(string $label): string
+    {
+        $parts = array_values(array_filter(array_map(
+            fn (string $part) => $this->stripPostcodeFromPart($part),
+            explode(',', $label)
+        ), fn (string $part) => $part !== ''));
+
+        $unique = [];
+        foreach ($parts as $part) {
+            $key = mb_strtolower($part);
+            if (isset($unique[$key])) {
+                continue;
+            }
+            $unique[$key] = $part;
+        }
+
+        return implode(', ', array_values($unique));
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function formatNominatimAddressLabel(array $row): string
+    {
+        $displayName = trim((string) ($row['display_name'] ?? ''));
+        $poiName = trim((string) ($row['name'] ?? ''));
+        $address = $row['address'] ?? null;
+        if (! is_array($address)) {
+            return $this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName);
+        }
+
+        $street = (string) (
+            $address['road']
+            ?? $address['pedestrian']
+            ?? $address['footway']
+            ?? $address['cycleway']
+            ?? $address['path']
+            ?? $address['railway']
+            ?? ''
+        );
+        $number = trim((string) ($address['house_number'] ?? ''));
+        $city = (string) (
+            $address['city']
+            ?? $address['town']
+            ?? $address['village']
+            ?? $address['hamlet']
+            ?? $address['city_district']
+            ?? $address['suburb']
+            ?? $address['municipality']
+            ?? ''
+        );
+        $addressType = strtolower((string) ($row['addresstype'] ?? ''));
+        $category = strtolower((string) ($row['category'] ?? $row['class'] ?? ''));
+        $placeType = strtolower((string) ($row['type'] ?? ''));
+        $isStreetAddress = $number !== ''
+            || in_array($addressType, ['road', 'house', 'house_number'], true)
+            || in_array($category, ['highway', 'place'], true);
+        $streetPart = trim(implode(' ', array_filter([$street, $number], fn ($v) => trim((string) $v) !== '')));
+
+        if ($category === 'railway' || in_array($placeType, ['station', 'halt'], true)) {
+            if ($poiName !== '') {
+                $lead = preg_match('/^station\b/i', $poiName) ? $poiName : ('Station '.$poiName);
+            } else {
+                $lead = $streetPart !== '' ? $streetPart : $displayName;
+            }
+        } elseif ($poiName !== '' && ! $isStreetAddress && strcasecmp($poiName, $street) !== 0) {
+            $lead = $streetPart !== '' ? ($poiName.', '.$streetPart) : $poiName;
+        } else {
+            $lead = $streetPart;
+        }
+
+        $second = $this->stripPostcodeFromPart(trim((string) $city));
+        $value = trim(implode(', ', array_filter([$lead, $second], fn ($v) => trim((string) $v) !== '')));
+        $value = $this->stripPostcodeFromLabel($value);
+
+        return $value !== '' ? $value : $this->stripPostcodeFromLabel($this->normalizeNlAddressLabel($poiName !== '' ? $poiName : $displayName));
+    }
+
+    private function normalizeNlAddressLabel(string $raw): string
+    {
+        $text = trim($raw);
+        if ($text === '') {
+            return '';
+        }
+
+        $parts = array_values(array_filter(array_map('trim', explode(',', $text)), fn ($p) => $p !== ''));
+        if ($parts === []) {
+            return $text;
+        }
+
+        $first = $parts[0] ?? '';
+        $second = $parts[1] ?? '';
+        if (preg_match('/^\d+[a-zA-Z\-]*$/', $first) && $second !== '' && ! preg_match('/^\d/', $second)) {
+            $parts[0] = $second.' '.$first;
+            array_splice($parts, 1, 1);
+        } elseif ($second !== '' && preg_match('/^\d+[a-zA-Z\-]*$/', $second) && $first !== '' && ! preg_match('/\d/', $first)) {
+            $parts[0] = $first.' '.$second;
+            array_splice($parts, 1, 1);
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * In tests alleen een expliciete key, zodat een echte Maps-key in .env de suite niet naar Google stuurt.
+     */
+    private function placesSearchKey(): string
+    {
+        if (app()->runningUnitTests()) {
+            return trim((string) config('maps.address_business_search_key', ''));
+        }
+
+        return trim(app(\App\Services\EnvService::class)->getGoogleMapsApiKey());
+    }
+
+    /**
+     * Bedrijven (tandarts, winkel, …) via Google Places. Nominatim kent die vaak niet.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function searchBusinessPlaces(string $query, string $apiKey, string $countrycodes): array
+    {
+        $query = trim($query);
+        if ($apiKey === '' || mb_strlen($query) < 3) {
+            return [];
+        }
+
+        $params = [
+            'query' => $query,
+            'language' => 'nl',
+            'key' => $apiKey,
+        ];
+        if ($countrycodes === '' || $countrycodes === 'nl') {
+            $params['region'] = 'nl';
+        }
+
+        try {
+            $response = Http::timeout(6)->get('https://maps.googleapis.com/maps/api/place/textsearch/json', $params);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $results = $response->json('results');
+        if (! is_array($results)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (array_slice($results, 0, 5) as $place) {
+            if (! is_array($place)) {
+                continue;
+            }
+            $row = $this->mapGooglePlaceRow($place);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $place
+     * @return array<string, mixed>|null
+     */
+    private function mapGooglePlaceRow(array $place): ?array
+    {
+        $name = trim((string) ($place['name'] ?? ''));
+        $lat = $place['geometry']['location']['lat'] ?? null;
+        $lng = $place['geometry']['location']['lng'] ?? null;
+        if ($name === '' || ! is_numeric($lat) || ! is_numeric($lng)) {
+            return null;
+        }
+
+        $formatted = trim((string) ($place['formatted_address'] ?? ''));
+        $formatted = trim((string) (preg_replace('/,?\s*(Netherlands|Nederland)\s*$/iu', '', $formatted) ?? $formatted));
+        $address = $this->addressFromFormattedPlace($formatted, $name);
+
+        return [
+            'lat' => (string) $lat,
+            'lon' => (string) $lng,
+            'name' => $name,
+            'display_name' => $formatted !== '' && ! str_starts_with(mb_strtolower($formatted), mb_strtolower($name))
+                ? $name.', '.$formatted
+                : ($formatted !== '' ? $formatted : $name),
+            'category' => 'amenity',
+            'type' => 'business',
+            'class' => 'amenity',
+            'address' => $address,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function addressFromFormattedPlace(string $formatted, string $name): array
+    {
+        $parts = array_values(array_filter(array_map('trim', explode(',', $formatted)), fn ($part) => $part !== ''));
+        $parts = array_values(array_filter($parts, function (string $part): bool {
+            return ! preg_match('/^(nederland|netherlands|the netherlands)$/i', $part);
+        }));
+
+        $street = '';
+        $city = '';
+        foreach ($parts as $part) {
+            if (preg_match('/^\d{4}\s*[A-Z]{2}\s+(.+)$/i', $part, $postcodeCity)) {
+                $city = trim($postcodeCity[1]);
+                continue;
+            }
+            if (preg_match('/^\d{4}\s*[A-Z]{2}$/i', $part)) {
+                continue;
+            }
+            if ($street === '' && preg_match('/\d/', $part)) {
+                $street = $part;
+                continue;
+            }
+        }
+        if ($city === '') {
+            for ($i = count($parts) - 1; $i >= 0; $i--) {
+                $candidate = $this->stripPostcodeFromPart($parts[$i]);
+                if ($candidate === '' || strcasecmp($candidate, $street) === 0) {
+                    continue;
+                }
+                if (strcasecmp($candidate, $name) === 0 && $street !== '') {
+                    continue;
+                }
+                $city = $candidate;
+                break;
+            }
+        }
+        if ($street === '' && isset($parts[0])) {
+            $fallback = $this->stripPostcodeFromPart($parts[0]);
+            if ($fallback !== '' && strcasecmp($fallback, $city) !== 0) {
+                $street = $fallback;
+            }
+        }
+
+        $road = $street;
+        $house = '';
+        if (preg_match('/^(.*\D)\s+(\d+\s*[a-zA-Z\-]*)$/u', $street, $match)) {
+            $road = trim($match[1]);
+            $house = trim($match[2]);
+        }
+
+        return array_filter([
+            'road' => $road,
+            'house_number' => $house,
+            'city' => $city,
+        ], fn ($value) => $value !== '');
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $businesses
+     * @param  list<mixed>  $nominatim
+     * @return list<mixed>
+     */
+    private function mergeBusinessPlaces(array $businesses, array $nominatim): array
+    {
+        $seen = [];
+        $merged = [];
+        foreach (array_merge($businesses, $nominatim) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $lat = isset($row['lat']) ? round((float) $row['lat'], 4) : null;
+            $lon = isset($row['lon']) ? round((float) $row['lon'], 4) : null;
+            $name = mb_strtolower(trim((string) ($row['name'] ?? '')));
+            $key = ($lat !== null && $lon !== null) ? $lat.','.$lon : $name;
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $merged[] = $row;
+        }
+
+        return $merged;
     }
 
     /**
@@ -890,6 +1323,25 @@ class NexaTaxiBookingController extends Controller
     }
 
     /**
+     * Bedrijf waarvan tarieven/voertuigen voor de prijsindicatie komen.
+     * Marktplaats houdt tenant_company_id null (unclaimed), maar quote gebruikt de dichtstbijzijnde kandidaat.
+     *
+     * @param  array{tenant_company_id?: int|null, marketplace?: array<string, mixed>}  $resolved
+     */
+    protected function pricingCompanyIdForQuotes(array $resolved): ?int
+    {
+        $tenantId = isset($resolved['tenant_company_id']) ? (int) $resolved['tenant_company_id'] : 0;
+        if ($tenantId > 0) {
+            return $tenantId;
+        }
+        $nearestId = isset($resolved['marketplace']['company_id']) && is_numeric($resolved['marketplace']['company_id'])
+            ? (int) $resolved['marketplace']['company_id']
+            : 0;
+
+        return $nearestId > 0 ? $nearestId : null;
+    }
+
+    /**
      * Centrale nexasuite.nl-boeking: koppel de rit aan de dichtstbijzijnde taxi-tenant.
      * Algemene boekingsmodule: altijd marketplace. Boekingsmodule v2: alleen de tenant van de pagina.
      *
@@ -897,7 +1349,7 @@ class NexaTaxiBookingController extends Controller
      * @param  array<string, mixed>  $data
      * @return array{resolved: array, error: ?JsonResponse}
      */
-    protected function resolveMarketplaceAssignment(array $resolved, array $data): array
+    protected function resolveMarketplaceAssignment(array $resolved, array $data, bool $requireOnlineDrivers = true): array
     {
         $sectionKey = isset($data['section_key']) ? (string) $data['section_key'] : '';
 
@@ -942,7 +1394,7 @@ class NexaTaxiBookingController extends Controller
                 'resolved' => $resolved,
                 'error' => response()->json([
                     'success' => false,
-                    'message' => 'Kies een ophaallocatie zodat we de dichtstbijzijnde taxicentrale kunnen bepalen.',
+                    'message' => 'Kies een ophaallocatie, zodat we de dichtstbijzijnde taxi\'s kunnen koppelen.',
                 ], 422),
             ];
         }
@@ -950,20 +1402,42 @@ class NexaTaxiBookingController extends Controller
         $radiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
             $resolved['config']['logic']['marketplace_radius_km'] ?? null
         );
-        $matches = app(NearestTaxiTenantResolver::class)->resolveNearby(
+        $resolver = app(NearestTaxiTenantResolver::class);
+        $matches = $resolver->resolveNearby(
             $lat,
             $lng,
             NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
             $radiusKm
         );
         if ($matches === []) {
-            return [
-                'resolved' => $resolved,
-                'error' => response()->json([
-                    'success' => false,
-                    'message' => 'Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.',
-                ], 422),
+            if ($requireOnlineDrivers) {
+                return [
+                    'resolved' => $resolved,
+                    'error' => response()->json([
+                        'success' => false,
+                        'message' => 'Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.',
+                    ], 422),
+                ];
+            }
+
+            // Quote zonder online taxi: tarief via dichtstbijzijnde vestiging (of platformdefault).
+            $hq = $resolver->nearestByHeadquarters($lat, $lng, $radiusKm)
+                ?? $resolver->nearestByHeadquarters($lat, $lng, null);
+            $resolved['tenant_company_id'] = null;
+            $resolved['config']['logic']['offer_display_mode'] = 'person_range';
+            $resolved['marketplace'] = [
+                'source' => RideRequest::SOURCE_NEXA_SUITE,
+                'label' => 'NEXA Suite',
+                'company_id' => $hq ? (int) $hq['company']->id : null,
+                'company_name' => $hq ? (string) $hq['company']->name : null,
+                'distance_km' => $hq ? $hq['distance_km'] : null,
+                'radius_km' => $radiusKm,
+                'candidate_company_ids' => [],
+                'candidates' => [],
+                'taxi_available' => false,
             ];
+
+            return ['resolved' => $resolved, 'error' => null];
         }
 
         $candidates = [];
@@ -991,6 +1465,7 @@ class NexaTaxiBookingController extends Controller
             'radius_km' => $radiusKm,
             'candidate_company_ids' => $candidateIds,
             'candidates' => $candidates,
+            'taxi_available' => true,
         ];
 
         return ['resolved' => $resolved, 'error' => null];
@@ -1046,6 +1521,20 @@ class NexaTaxiBookingController extends Controller
         }
 
         return ['config' => $default, 'tenant_company_id' => null];
+    }
+
+    private function normalizeBookingFleetCarColor(mixed $value): string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if (preg_match('/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/', $raw)) {
+            if (strlen($raw) === 4) {
+                return '#'.$raw[1].$raw[1].$raw[2].$raw[2].$raw[3].$raw[3];
+            }
+
+            return strtolower($raw);
+        }
+
+        return '#ea580c';
     }
 
     private function isTaxiBookingModuleSectionKey(string $sectionKey): bool

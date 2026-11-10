@@ -38,10 +38,10 @@ class PlatformMollieRequestBuilder
                 $payload['email'] = $customerEmail;
             }
             $requests[] = $this->entry(
-                'Klant aanmaken',
+                __('Klant aanmaken'),
                 'POST',
                 '/v2/customers',
-                'Eerste stap: Mollie-klant voor deze tenant.',
+                __('Eerste stap: Mollie-klant voor deze tenant.'),
                 $payload,
             );
             $customerId = 'cst_…';
@@ -68,10 +68,10 @@ class PlatformMollieRequestBuilder
             }
 
             $requests[] = $this->entry(
-                'Eerste betaling (mandaat + vooruitfacturatie)',
+                __('Eerste betaling (mandaat + vooruitfacturatie)'),
                 'POST',
                 '/v2/payments',
-                'Mandaat via eerste checkout-betaling (iDEAL e.d.; geen method=directdebit). Bedrag = restant startmaand + volledige volgende maand (+ eventuele extra regels).',
+                __('Mandaat via eerste checkout-betaling (iDEAL e.d.; geen method=directdebit). Bedrag = restant startmaand + volledige volgende maand (+ eventuele extra regels).'),
                 $firstPayload,
             );
         } elseif ($profile->auto_collect_enabled && ! $mandate?->isActive()) {
@@ -94,10 +94,10 @@ class PlatformMollieRequestBuilder
             }
 
             $requests[] = $this->entry(
-                'Mandaatverificatie (€0,01)',
+                __('Mandaatverificatie (€0,01)'),
                 'POST',
                 '/v2/payments',
-                'Alternatief pad zonder directe vooruitfacturatie: alleen mandaat vastleggen via checkout (niet via method=directdebit).',
+                __('Alternatief pad zonder directe vooruitfacturatie: alleen mandaat vastleggen via checkout (niet via method=directdebit).'),
                 $verifyPayload,
             );
         }
@@ -134,28 +134,28 @@ class PlatformMollieRequestBuilder
             }
 
             $requests[] = $this->entry(
-                'Maandelijkse subscription (incasso op de 1e)',
+                __('Maandelijkse subscription (incasso op de 1e)'),
                 'POST',
                 '/v2/customers/'.$customerId.'/subscriptions',
-                'Terugkerende incasso via Mollie Subscriptions API. Start na de vooruitbetaalde periode; elke maand op dag 1.',
+                __('Terugkerende incasso via Mollie Subscriptions API. Start na de vooruitbetaalde periode; elke maand op dag 1.'),
                 $subscriptionPayload,
             );
         }
 
         if ($profile->mollie_subscription_id) {
             $requests[] = $this->entry(
-                'Subscription opzeggen bij einddatum',
+                __('Subscription opzeggen bij einddatum'),
                 'DELETE',
                 '/v2/customers/'.$customerId.'/subscriptions/'.$profile->mollie_subscription_id,
-                'Wordt uitgevoerd zodra de einddatum is bereikt (bijv. einddatum 01-09-2026 → laatste incasso 01-08-2026).',
+                __('Wordt uitgevoerd zodra de einddatum is bereikt (bijv. einddatum 01-09-2026 → laatste incasso 01-08-2026).'),
                 [],
             );
         } elseif ($this->calculator->shouldCancelMollieSubscription($profile, $asOf)) {
             $requests[] = $this->entry(
-                'Subscription opzeggen bij einddatum',
+                __('Subscription opzeggen bij einddatum'),
                 'DELETE',
                 '/v2/customers/'.$customerId.'/subscriptions/sub_…',
-                'Einddatum bereikt: subscription annuleren zodat er geen incasso meer volgt.',
+                __('Einddatum bereikt: subscription annuleren zodat er geen incasso meer volgt.'),
                 [],
             );
         }

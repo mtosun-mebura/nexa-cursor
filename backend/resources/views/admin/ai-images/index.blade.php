@@ -1,17 +1,17 @@
 @extends('admin.layouts.app')
 
-@section('title', 'AI Afbeeldingen')
+@section('title', __('AI Afbeeldingen'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-col items-start gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">AI Afbeeldingen</h1>
-        <p class="text-sm text-muted-foreground mb-0">Genereer afbeeldingen met AI en gebruik ze overal in het admin-paneel: kopieer een afbeelding en plak 'm (Ctrl+V), of sleep 'm direct in een upload-veld.</p>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('AI Afbeeldingen') }}</h1>
+        <p class="text-sm text-muted-foreground mb-0">{!! __("Genereer afbeeldingen met AI en gebruik ze overal in het admin-paneel: kopieer een afbeelding en plak 'm (Ctrl+V), of sleep 'm direct in een upload-veld.") !!}</p>
     </div>
 
     @if(! $openAiConfigured)
         <div class="kt-alert kt-alert-warning mb-5">
-            Er is geen OpenAI API-sleutel gezet (<code>OPENAI_API_KEY</code>). Genereren werkt pas zodra deze is ingesteld.
+            {{ __('Er is geen OpenAI API-sleutel gezet') }} (<code>OPENAI_API_KEY</code>). {{ __('Genereren werkt pas zodra deze is ingesteld.') }}
         </div>
     @endif
 
@@ -19,60 +19,60 @@
 
     <div class="kt-card w-full min-w-0 mb-6 overflow-hidden">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-            <h3 class="kt-card-title mb-0">Nieuwe afbeelding genereren</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Nieuwe afbeelding genereren') }}</h3>
         </div>
         <div class="kt-card-content p-5">
             <div class="grid gap-6 lg:grid-cols-2 items-stretch">
                 <div class="ai-image-compose-left min-w-0">
                     <div class="flex items-center justify-between gap-2 mb-1.5">
-                        <label class="kt-form-label mb-0" for="ai-image-prompt">Omschrijving</label>
+                        <label class="kt-form-label mb-0" for="ai-image-prompt">{{ __('Omschrijving') }}</label>
                         <button type="button"
                                 id="ai-image-prompt-clear"
                                 class="ai-image-prompt-clear shrink-0 inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                                data-tooltip="Wist de omschrijving in één keer"
-                                aria-label="Tekst wissen">
+                                data-tooltip="{{ __('Wist de omschrijving in één keer') }}"
+                                aria-label="{{ __('Tekst wissen') }}">
                             <i class="ki-eraser ki-duotone text-xl leading-none" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <textarea id="ai-image-prompt" class="kt-textarea w-full" rows="6" maxlength="3500" placeholder="Bijv. Een luxe zwarte Mercedes taxi bij avond in een Europese binnenstad, cinematische verlichting, realistische foto"></textarea>
+                    <textarea id="ai-image-prompt" class="kt-textarea w-full" rows="6" maxlength="3500" placeholder="{{ __('Bijv. Een luxe zwarte Mercedes taxi bij avond in een Europese binnenstad, cinematische verlichting, realistische foto') }}"></textarea>
                     <div class="mt-3">
-                        <label class="kt-form-label mb-1.5" for="ai-image-source-file">Referentie-afbeelding (optioneel)</label>
+                        <label class="kt-form-label mb-1.5" for="ai-image-source-file">{{ __('Referentie-afbeelding (optioneel)') }}</label>
                         <div id="ai-image-upload-area"
                              class="hero-image-upload-area flex flex-col items-center justify-center p-5 border border-input rounded-xl border-dashed bg-muted/30 min-h-[130px] w-full max-w-full cursor-pointer hover:border-primary transition-colors"
                              role="button"
                              tabindex="0"
-                             aria-label="Referentie-afbeelding uploaden">
-                            <span class="text-xs text-muted-foreground text-center">Klik of sleep afbeelding</span>
-                            <span class="text-xs text-muted-foreground text-center">JPG, PNG, WebP (max. 5MB)</span>
+                             aria-label="{{ __('Referentie-afbeelding uploaden') }}">
+                            <span class="text-xs text-muted-foreground text-center">{{ __('Klik of sleep afbeelding') }}</span>
+                            <span class="text-xs text-muted-foreground text-center">{{ __('JPG, PNG, WebP (max. 5MB)') }}</span>
                         </div>
                         <input type="file" id="ai-image-source-file" class="hero-image-file-input hidden" accept="image/jpeg,image/png,image/jpg,image/webp,image/gif">
                     </div>
                     <div id="ai-image-source" class="ai-image-source hidden mt-3 flex-col gap-3 rounded-xl border border-border p-3">
                         <div class="flex items-start justify-between gap-3 w-full">
                             <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-foreground mb-0">Bron voor aanpassing</p>
-                                <p id="ai-image-source-caption" class="text-xs text-muted-foreground mb-0">Dit plaatje gaat mee als context bij genereren.</p>
+                                <p class="text-sm font-medium text-foreground mb-0">{{ __('Bron voor aanpassing') }}</p>
+                                <p id="ai-image-source-caption" class="text-xs text-muted-foreground mb-0">{{ __('Dit plaatje gaat mee als context bij genereren.') }}</p>
                             </div>
-                            <button type="button" id="ai-image-source-clear" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" aria-label="Bron verwijderen" title="Bron verwijderen">
+                            <button type="button" id="ai-image-source-clear" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0" aria-label="{{ __('Bron verwijderen') }}" title="{{ __('Bron verwijderen') }}">
                                 <i class="ki-filled ki-cross"></i>
                             </button>
                         </div>
                         <div class="ai-image-source-preview w-full rounded-lg border border-border bg-muted/20 overflow-hidden flex items-center justify-center p-2">
-                            <img id="ai-image-source-thumb" src="" alt="Referentie-afbeelding" class="max-w-full max-h-64 w-auto h-auto object-contain">
+                            <img id="ai-image-source-thumb" src="" alt="{{ __('Referentie-afbeelding') }}" class="max-w-full max-h-64 w-auto h-auto object-contain">
                         </div>
                     </div>
                     <div class="flex items-center justify-between gap-3 mt-3">
-                        <p id="ai-image-prompt-hint" class="text-xs text-muted-foreground mb-0">Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.</p>
+                        <p id="ai-image-prompt-hint" class="text-xs text-muted-foreground mb-0">{{ __('Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.') }}</p>
                         <button type="button" id="ai-image-generate-btn" class="kt-btn kt-btn-primary shrink-0">
-                            <span id="ai-image-generate-label">Genereer</span>
+                            <span id="ai-image-generate-label">{{ __('Genereer') }}</span>
                             <span id="ai-image-generate-spinner" class="ki-filled ki-arrows-circle animate-spin ms-1" hidden></span>
                         </button>
                     </div>
                 </div>
                 <div class="ai-image-compose-right min-w-0 flex flex-col h-full">
-                    <label class="kt-form-label mb-1.5 shrink-0">Resultaat</label>
+                    <label class="kt-form-label mb-1.5 shrink-0">{{ __('Resultaat') }}</label>
                     <div id="ai-image-preview" class="ai-image-preview-box rounded-lg border border-dashed border-input flex items-center justify-center overflow-hidden bg-muted/30 flex-1 min-h-[16rem]">
-                        <span class="text-sm text-muted-foreground px-4 text-center">Nog geen afbeelding gegenereerd.</span>
+                        <span class="text-sm text-muted-foreground px-4 text-center">{{ __('Nog geen afbeelding gegenereerd.') }}</span>
                     </div>
                 </div>
             </div>
@@ -81,7 +81,7 @@
 
     <div class="kt-card w-full min-w-0">
         <div class="kt-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
-            <h3 class="kt-card-title mb-0">Galerij</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Galerij') }}</h3>
         </div>
         <div class="kt-card-content p-5">
             <div id="ai-image-gallery" class="ai-image-gallery-grid">
@@ -90,7 +90,7 @@
                 @endforeach
             </div>
             @if($images->isEmpty())
-                <p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">Nog geen afbeeldingen gegenereerd.</p>
+                <p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">{{ __('Nog geen afbeeldingen gegenereerd.') }}</p>
             @endif
             @if($images->hasPages())
                 <div class="mt-5">
@@ -106,7 +106,7 @@
      hidden>
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-ai-image-lightbox-dismiss></div>
     <div class="ai-image-lightbox__content relative z-10">
-        <button type="button" class="ai-image-lightbox__close kt-btn kt-btn-icon kt-btn-outline" aria-label="Sluiten">
+        <button type="button" class="ai-image-lightbox__close kt-btn kt-btn-icon kt-btn-outline" aria-label="{{ __('Sluiten') }}">
             <i class="ki-filled ki-cross"></i>
         </button>
         <img src="" alt="">
@@ -312,11 +312,21 @@
     var uploadedSourceFile = null;
     var uploadedObjectUrl = null;
     var maxSourceBytes = 5 * 1024 * 1024;
-    var defaultHint = 'Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.';
-    var sourceHint = 'Beschrijf de aanpassing. Het gekozen plaatje (logo/stijl) gaat als context mee.';
-    var uploadHint = 'Beschrijf wat er op basis van dit plaatje moet ontstaan. De AI kijkt mee naar je upload.';
-    var gallerySourceCaption = 'Dit plaatje uit de galerij gaat mee als context bij genereren.';
-    var uploadSourceCaption = 'Dit geüploade plaatje gaat mee als context bij genereren.';
+    var defaultHint = @json(__('Pas de tekst aan en genereer opnieuw voor een nieuwe variant — het vorige resultaat blijft in de galerij staan.'));
+    var sourceHint = @json(__('Beschrijf de aanpassing. Het gekozen plaatje (logo/stijl) gaat als context mee.'));
+    var uploadHint = @json(__('Beschrijf wat er op basis van dit plaatje moet ontstaan. De AI kijkt mee naar je upload.'));
+    var gallerySourceCaption = @json(__('Dit plaatje uit de galerij gaat mee als context bij genereren.'));
+    var uploadSourceCaption = @json(__('Dit geüploade plaatje gaat mee als context bij genereren.'));
+    var i18n = {
+        open: @json(__('Bekijken')),
+        reuse: @json(__('Hergebruiken')),
+        reuseAsSource: @json(__('Hergebruiken als bron')),
+        copy: @json(__('Kopiëren')),
+        download: @json(__('Downloaden')),
+        delete: @json(__('Verwijderen')),
+        noImageYet: @json(__('Nog geen afbeelding gegenereerd.')),
+        noImagesYet: @json(__('Nog geen afbeeldingen gegenereerd.'))
+    };
 
     function showError(message) {
         errorBox.textContent = message;
@@ -330,7 +340,7 @@
     function setLoading(loading) {
         btn.disabled = loading;
         spinner.hidden = !loading;
-        label.textContent = loading ? 'Bezig…' : 'Genereer';
+        label.textContent = loading ? @json(__('Bezig…')) : @json(__('Genereer'));
     }
 
     function galleryItemHtml(item) {
@@ -339,11 +349,11 @@
             '<div class="ai-image-card" draggable="true" data-uuid="' + item.uuid + '" data-url="' + item.url + '" data-download-url="' + item.url + '?download=1" data-prompt="' + safePrompt + '" data-delete-id="' + item.id + '">' +
                 '<img src="' + item.url + '" alt="" loading="lazy">' +
                 '<div class="ai-image-card__actions">' +
-                    '<button type="button" data-action="open" data-label="Bekijken" aria-label="Bekijken"><i class="ki-outline ki-eye"><\/i></button>' +
-                    '<button type="button" data-action="reuse" data-label="Hergebruiken" aria-label="Hergebruiken als bron"><i class="ki-outline ki-arrow-up"><\/i></button>' +
-                    '<button type="button" data-action="copy" data-label="Kopiëren" aria-label="Kopiëren"><i class="ki-outline ki-copy"><\/i></button>' +
-                    '<button type="button" data-action="download" data-label="Downloaden" aria-label="Downloaden"><i class="ki-outline ki-file-down"><\/i></button>' +
-                    '<button type="button" data-action="delete" data-label="Verwijderen" aria-label="Verwijderen"><i class="ki-outline ki-trash"><\/i></button>' +
+                    '<button type="button" data-action="open" data-label="' + i18n.open + '" aria-label="' + i18n.open + '"><i class="ki-outline ki-eye"><\/i></button>' +
+                    '<button type="button" data-action="reuse" data-label="' + i18n.reuse + '" aria-label="' + i18n.reuseAsSource + '"><i class="ki-outline ki-arrow-up"><\/i></button>' +
+                    '<button type="button" data-action="copy" data-label="' + i18n.copy + '" aria-label="' + i18n.copy + '"><i class="ki-outline ki-copy"><\/i></button>' +
+                    '<button type="button" data-action="download" data-label="' + i18n.download + '" aria-label="' + i18n.download + '"><i class="ki-outline ki-file-down"><\/i></button>' +
+                    '<button type="button" data-action="delete" data-label="' + i18n.delete + '" aria-label="' + i18n.delete + '"><i class="ki-outline ki-trash"><\/i></button>' +
                 '<\/div>' +
             '<\/div>';
     }
@@ -437,11 +447,11 @@
             return;
         }
         if (!file.type || file.type.indexOf('image/') !== 0) {
-            showError('Kies een afbeeldingsbestand (JPG, PNG, WebP of GIF).');
+            showError(@json(__('Kies een afbeeldingsbestand (JPG, PNG, WebP of GIF).')));
             return;
         }
         if (file.size > maxSourceBytes) {
-            showError('De afbeelding mag maximaal 5MB zijn.');
+            showError(@json(__('De afbeelding mag maximaal 5MB zijn.')));
             return;
         }
         clearError();
@@ -524,11 +534,11 @@
         var prompt = (promptEl.value || '').trim();
         clearError();
         if (!prompt) {
-            showError('Vul eerst een omschrijving in.');
+            showError(@json(__('Vul eerst een omschrijving in.')));
             return;
         }
         setLoading(true);
-        preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">Bezig met genereren…</span>';
+        preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">' + @json(__('Bezig met genereren…')) + '</span>';
 
         var headers = {
             'Accept': 'application/json',
@@ -561,8 +571,8 @@
         .then(function (result) {
             setLoading(false);
             if (!result.ok) {
-                preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">Nog geen afbeelding gegenereerd.</span>';
-                showError(result.data.message || 'Genereren is mislukt.');
+                preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">' + i18n.noImageYet + '</span>';
+                showError(result.data.message || @json(__('Genereren is mislukt.')));
                 return;
             }
             preview.innerHTML = '<img src="' + result.data.url + '" alt="">';
@@ -570,8 +580,8 @@
         })
         .catch(function () {
             setLoading(false);
-            preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">Nog geen afbeelding gegenereerd.</span>';
-            showError('Genereren is mislukt door een netwerkfout.');
+            preview.innerHTML = '<span class="text-sm text-muted-foreground px-4 text-center">' + i18n.noImageYet + '</span>';
+            showError(@json(__('Genereren is mislukt door een netwerkfout.')));
         });
     });
 
@@ -632,19 +642,19 @@
             }
             card.remove();
             if (!gallery.querySelector('.ai-image-card')) {
-                gallery.insertAdjacentHTML('afterend', '<p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">Nog geen afbeeldingen gegenereerd.</p>');
+                gallery.insertAdjacentHTML('afterend', '<p id="ai-image-gallery-empty" class="text-sm text-muted-foreground mb-0">' + i18n.noImagesYet + '</p>');
             }
         })
         .catch(function () {});
     }
 
     function openConfirm(card) {
-        var message = 'Deze afbeelding definitief verwijderen?';
+        var message = @json(__('Deze afbeelding definitief verwijderen?'));
         if (typeof window.showAdminConfirm === 'function') {
             window.showAdminConfirm({
-                title: 'Afbeelding verwijderen',
+                title: @json(__('Afbeelding verwijderen')),
                 message: message,
-                confirmLabel: 'Verwijderen'
+                confirmLabel: i18n.delete
             }).then(function (ok) {
                 if (ok) {
                     deleteGalleryCard(card);

@@ -6,6 +6,9 @@ let notificationsPollingInterval = null;
 let lastNotificationCount = 0;
 const DEFAULT_SYSTEM_AVATAR = '/assets/media/avatars/300-2.png';
 
+// Vertaling via window.NEXA_I18N (gevuld door admin layout); valt terug op de Nederlandse tekst.
+const trNotif = (text) => (window.NEXA_I18N && window.NEXA_I18N[text]) || text;
+
 function confirmWithAdminModal(message, options) {
     options = options || {};
     if (typeof window.showAdminConfirm === 'function') {
@@ -55,8 +58,8 @@ function typedActionButtonsHtml(notification, spacingClass) {
     const href = String(notification.action_url).replace(/"/g, '&quot;');
     if (notification.type === 'incident' || notification.category === 'incident') {
         const label = notification.data && notification.data.event === 'incident_handled'
-            ? 'Bekijk je incident'
-            : 'Open incident';
+            ? trNotif('Bekijk je incident')
+            : trNotif('Open incident');
         return `
         <div class="flex flex-wrap gap-2.5 ${spacingClass}">
             <a href="${href}" class="kt-btn kt-btn-mono kt-btn-sm">
@@ -75,7 +78,7 @@ function typedActionButtonsHtml(notification, spacingClass) {
             }
         }
         const buttons = [
-            `<a href="${href}" class="kt-btn kt-btn-primary kt-btn-sm">Open stappenplan</a>`
+            `<a href="${href}" class="kt-btn kt-btn-primary kt-btn-sm">${trNotif('Open stappenplan')}</a>`
         ];
         const steps = Array.isArray(data?.steps) ? data.steps : [];
         steps
@@ -233,7 +236,7 @@ async function loadNotifications() {
                 <div class="flex items-center justify-center py-10 px-5">
                     <div class="text-center">
                         <i class="ki-filled ki-information text-4xl text-destructive mb-3"></i>
-                        <p class="text-sm text-destructive">Fout bij laden van notificaties</p>
+                        <p class="text-sm text-destructive">${trNotif('Fout bij laden van notificaties')}</p>
                         <p class="text-xs text-muted-foreground mt-2">${error.message}</p>
                     </div>
                 </div>
@@ -255,7 +258,7 @@ function renderNotifications() {
             <div class="flex items-center justify-center py-10 px-5">
                 <div class="text-center">
                     <i class="ki-filled ki-notification text-4xl text-muted-foreground mb-3"></i>
-                    <p class="text-sm text-muted-foreground">Geen notificaties</p>
+                    <p class="text-sm text-muted-foreground">${trNotif('Geen notificaties')}</p>
                 </div>
             </div>
         `;
@@ -839,7 +842,7 @@ function showNotificationDetail(notification) {
     let senderEmail = '';
     
     if (hasSender && notification.sender) {
-        senderName = notification.sender.name || notification.sender.email || 'Onbekende gebruiker';
+        senderName = notification.sender.name || notification.sender.email || trNotif('Onbekende gebruiker');
         senderEmail = notification.sender.email || '';
     }
     
@@ -1267,7 +1270,7 @@ function showNotificationDetail(notification) {
     
     // Update title
     if (detailTitle) {
-        detailTitle.textContent = notification.title || 'Notificatie Details';
+        detailTitle.textContent = notification.title || trNotif('Notificatie Details');
     }
 }
 
@@ -2001,7 +2004,7 @@ function updateBulkActions() {
             };
         } else {
             // Restore original text and functionality
-            archiveAllBtn.textContent = 'Alles archiveren';
+            archiveAllBtn.textContent = trNotif('Alles archiveren');
             currentArchiveHandler = originalArchiveHandler;
         }
         
@@ -2020,14 +2023,14 @@ function updateBulkActions() {
         
         if (hasSelection) {
             // Change text and functionality for selected items
-            markAllReadBtn.textContent = 'Selectie als gelezen markeren';
+            markAllReadBtn.textContent = trNotif('Selectie als gelezen markeren');
             currentMarkReadHandler = async function() {
                 if (selectedNotifications.size === 0) return;
                 await markSelectedAsRead();
             };
         } else {
             // Restore original text and functionality
-            markAllReadBtn.textContent = 'Alles als gelezen markeren';
+            markAllReadBtn.textContent = trNotif('Alles als gelezen markeren');
             currentMarkReadHandler = originalMarkReadHandler;
         }
         

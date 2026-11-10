@@ -1,0 +1,165 @@
+{
+  "expo": {
+    "name": "Nexa Taxi",
+    "slug": "nexa-taxi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "owner": "mebura-bv",
+    "scheme": "nexataxi",
+    "newArchEnabled": true,
+    "backgroundColor": "#0B1220",
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#0B1220",
+      "translucent": true
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B1220"
+    },
+    "ios": {
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png"
+      },
+      "supportsTablet": false,
+      "bundleIdentifier": "nl.nexasuite.taxi",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Nexa Taxi gebruikt je locatie voor ritten in de buurt en ophaaladressen.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Nexa Taxi heeft doorlopende locatie nodig zodat marktplaats-klanten de dichtstbijzijnde taxi kunnen vinden.",
+        "NSLocationAlwaysUsageDescription": "Doorlopende locatie is nodig voor marktplaats-matching en chauffeur-tracking.",
+        "NSPhotoLibraryUsageDescription": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
+        "NSPhotoLibraryAddUsageDescription": "Nexa Taxi bewaart gekozen foto’s alleen voor je chauffeurprofiel.",
+        "NSCameraUsageDescription": "Nexa Taxi gebruikt de camera optioneel voor profiel-, logo- en autouploads.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "processing",
+          "audio",
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "EXExpoAppSceneDelegate"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "android": {
+      "package": "nl.nexasuite.taxi",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nexa Taxi heeft toegang tot je foto’s nodig voor profiel-, logo- en autouploads.",
+          "microphonePermission": false
+        }
+      ],
+      "react-native-maps",
+      [
+        "expo-notifications",
+        {
+          "color": "#EF4444",
+          "defaultChannel": "driver-offers-alert-v10-chime",
+          "sounds": [
+            "./assets/sounds/classic.wav",
+            "./assets/sounds/chime.wav",
+            "./assets/sounds/alert.wav",
+            "./assets/sounds/soft.wav",
+            "./assets/sounds/siren.wav",
+            "./assets/sounds/classic.caf",
+            "./assets/sounds/chime.caf",
+            "./assets/sounds/alert.caf",
+            "./assets/sounds/soft.caf",
+            "./assets/sounds/siren.caf"
+          ]
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Nexa Taxi heeft doorlopende locatie nodig zodat marktplaats-klanten de dichtstbijzijnde taxi kunnen vinden.",
+          "locationAlwaysPermission": "Nexa Taxi heeft doorlopende locatie nodig voor marktplaats-matching op de achtergrond.",
+          "locationWhenInUsePermission": "Nexa Taxi gebruikt je locatie voor ritten en ophaaladressen.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "style": "light"
+        }
+      ],
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Light",
+            "ios": "./assets/icon.png",
+            "android": {
+              "foregroundImage": "./assets/android-icon-foreground.png",
+              "monochromeImage": "./assets/android-icon-monochrome.png",
+              "backgroundColor": "#FFFFFF"
+            }
+          },
+          {
+            "name": "Dark",
+            "ios": "./assets/icon-dark.png",
+            "android": {
+              "foregroundImage": "./assets/android-icon-foreground.png",
+              "monochromeImage": "./assets/android-icon-monochrome.png",
+              "backgroundColor": "#0B1220"
+            }
+          }
+        ]
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://nexasuite.online",
+      "eas": {
+        "projectId": "71887be1-537b-4f8c-9a83-8e219840f42f"
+      }
+    }
+  }
+}

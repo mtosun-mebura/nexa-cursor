@@ -1,20 +1,23 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nieuw E-mail Template')
+@section('title', __('Nieuw E-mail Template'))
 
 @section('content')
+@php
+    $tv = static fn (string $name, bool $spaced = true): string => '{'.'{'.($spaced ? ' ' : '').$name.($spaced ? ' ' : '').'}'.'}';
+@endphp
 
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Nieuw E-mail Template
+                {{ __('Nieuw E-mail Template') }}
             </h1>
         </div>
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -37,17 +40,17 @@
             <!-- Bedrijf Selectie (alleen voor Super Admin) -->
             <div class="kt-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Bedrijf</h5>
+                    <h5 class="kt-card-title">{{ __('Bedrijf') }}</h5>
                 </div>
                 <div class="kt-card-content">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Bedrijf</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Bedrijf') }}</td>
                             <td class="min-w-48 w-full">
                                 <select class="kt-select @error('company_id') border-destructive @enderror" 
                                         id="company_id" 
                                         name="company_id">
-                                    <option value="">Algemeen (geen specifiek bedrijf)</option>
+                                    <option value="">{{ __('Algemeen (geen specifiek bedrijf)') }}</option>
                                     @foreach($companies as $company)
                                         <option value="{{ $company->id }}" {{ old('company_id', session('selected_tenant')) == $company->id ? 'selected' : '' }}>
                                             {{ $company->name }}
@@ -58,7 +61,7 @@
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Selecteer een bedrijf om deze template alleen voor dat bedrijf beschikbaar te maken, of laat leeg voor algemeen gebruik.
+                                    {{ __('Selecteer een bedrijf om deze template alleen voor dat bedrijf beschikbaar te maken, of laat leeg voor algemeen gebruik.') }}
                                 </div>
                             </td>
                         </tr>
@@ -70,12 +73,12 @@
             <!-- Basic Information Card -->
             <div class="kt-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Basis Informatie</h5>
+                    <h5 class="kt-card-title">{{ __('Basis Informatie') }}</h5>
                 </div>
                 <div class="kt-card-content">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Naam *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Naam *') }}</td>
                             <td class="min-w-48 w-full">
                                 <input type="text" 
                                        class="kt-input @error('name') border-destructive @enderror" 
@@ -89,7 +92,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Onderwerp *</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Onderwerp *') }}</td>
                             <td>
                                 <input type="text" 
                                        class="kt-input @error('subject') border-destructive @enderror" 
@@ -103,13 +106,13 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Type *</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Type *') }}</td>
                             <td>
                                 <select class="kt-select @error('type') border-destructive @enderror" 
                                         id="type" 
                                         name="type" 
                                         required>
-                                    <option value="">Selecteer type</option>
+                                    <option value="">{{ __('Selecteer type') }}</option>
                                     @foreach($allowedTypes as $typeKey)
                                         <option value="{{ $typeKey }}" {{ old('type') == $typeKey ? 'selected' : '' }}>{{ $typeLabels[$typeKey] ?? $typeKey }}</option>
                                     @endforeach
@@ -120,13 +123,13 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Status</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Status') }}</td>
                             <td>
                                 <select class="kt-select @error('is_active') border-destructive @enderror" 
                                         id="is_active" 
                                         name="is_active">
-                                    <option value="1" {{ old('is_active', '1') == '1' ? 'selected' : '' }}>Actief</option>
-                                    <option value="0" {{ old('is_active') == '0' ? 'selected' : '' }}>Inactief</option>
+                                    <option value="1" {{ old('is_active', '1') == '1' ? 'selected' : '' }}>{{ __('Actief') }}</option>
+                                    <option value="0" {{ old('is_active') == '0' ? 'selected' : '' }}>{{ __('Inactief') }}</option>
                                 </select>
                                 @error('is_active')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -134,7 +137,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal">Beschrijving</td>
+                            <td class="text-secondary-foreground font-normal">{{ __('Beschrijving') }}</td>
                             <td>
                                 <textarea class="kt-input @error('description') border-destructive @enderror" 
                                           id="description" 
@@ -153,15 +156,15 @@
             <!-- HTML Content Card (bij type Informatieaanvraag:zelfde opmaak als formulier op de website) -->
             <div class="kt-card" id="html-content-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">HTML Inhoud *</h5>
+                    <h5 class="kt-card-title">{{ __('HTML Inhoud *') }}</h5>
                 </div>
                 <div class="kt-card-content">
                     <div class="rounded-xl border border-border bg-muted/30 p-5 mb-5" id="formulier-preview-wrap">
-                        <p class="text-sm font-medium text-foreground mb-3">Bij type <strong>Informatieaanvraag</strong> ziet het formulier op de website er zo uit (zelfde opmaak als frontend):</p>
+                        <p class="text-sm font-medium text-foreground mb-3">{!! __('Bij type <strong>Informatieaanvraag</strong> ziet het formulier op de website er zo uit (zelfde opmaak als frontend):') !!}</p>
                         @include('admin.email-templates.partials.formulier-preview', ['formFields' => $formFields ?? collect()])
                     </div>
                     <div class="mb-3">
-                        <label for="html_content" class="kt-form-label mb-2">HTML Inhoud</label>
+                        <label for="html_content" class="kt-form-label mb-2">{{ __('HTML Inhoud') }}</label>
                         <textarea class="kt-input @error('html_content') border-destructive @enderror"
                                   id="html_content"
                                   name="html_content"
@@ -173,10 +176,10 @@
                         @enderror
                     </div>
                     <div class="text-xs text-muted-foreground mb-2">
-                        <strong>Tip:</strong> Gebruik de knoppen voor opmaak of wissel naar "Bewerk code" (knop &lt;/&gt;) om HTML en variabelen te bewerken.
+                        <strong>{{ __('Tip:') }}</strong> {!! __('Gebruik de knoppen voor opmaak of wissel naar "Bewerk code" (knop &lt;/&gt;) om HTML en variabelen te bewerken.') !!}
                     </div>
                     <div class="text-xs text-muted-foreground">
-                        <p class="mb-2"><strong>Beschikbare variabelen (algemeen):</strong></p>
+                        <p class="mb-2"><strong>{{ __('Beschikbare variabelen (algemeen):') }}</strong></p>
                         <div class="space-y-1.5">
                             @if(isset($templateVariables) && is_array($templateVariables))
                                 @foreach($templateVariables as $variable => $description)
@@ -186,11 +189,11 @@
                                     </div>
                                 @endforeach
                             @else
-                                <span class="text-muted-foreground">Geen variabelen beschikbaar</span>
+                                <span class="text-muted-foreground">{{ __('Geen variabelen beschikbaar') }}</span>
                             @endif
                         </div>
                         @if(isset($infoRequestVariables) && is_array($infoRequestVariables))
-                            <p class="mb-2 mt-4 font-semibold text-foreground">Bij type Informatieaanvraag (formulier op de website):</p>
+                            <p class="mb-2 mt-4 font-semibold text-foreground">{{ __('Bij type Informatieaanvraag (formulier op de website):') }}</p>
                             <div class="space-y-1.5 mb-2">
                                 @foreach($infoRequestVariables as $variable => $description)
                                     <div class="flex items-center gap-2">
@@ -201,12 +204,12 @@
                             </div>
                         @endif
                         <p class="text-xs text-muted-foreground mt-3">
-                            <strong>Tip:</strong> Gebruik variabelen met dubbele accolades, bijvoorbeeld: <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ '{' }}{{ '{' }}VOORNAAM{{ '}' }}{{ '}' }}</code>
+                            <strong>{{ __('Tip:') }}</strong> {{ __('Gebruik variabelen met dubbele accolades, bijvoorbeeld:') }} <code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-white font-mono text-xs">{{ $tv('VOORNAAM', false) }}</code>
                         </p>
                         @if(old('type') === 'taxi_customer_login_code')
                         <div class="mt-4 p-3 rounded-lg border border-border bg-muted/30 text-xs text-muted-foreground">
-                            <p class="mb-0 text-foreground font-medium">Taxi eenmalige inlogcode</p>
-                            <p class="mb-0 mt-1">Kies type <strong>Taxi: eenmalige inlogcode (klant)</strong> en pas onderwerp/HTML aan. Bij verzenden worden {{ '{' }}{{ '{' }} LOGIN_CODE {{ '}' }}{{ '}' }} en {{ '{' }}{{ '{' }} LOGIN_URL {{ '}' }}{{ '}' }} automatisch ingevuld.</p>
+                            <p class="mb-0 text-foreground font-medium">{{ __('Taxi eenmalige inlogcode') }}</p>
+                            <p class="mb-0 mt-1">{!! __('Kies type <strong>Taxi: eenmalige inlogcode (klant)</strong> en pas onderwerp/HTML aan. Bij verzenden worden :login_code en :login_url automatisch ingevuld.', ['login_code' => e($tv('LOGIN_CODE')), 'login_url' => e($tv('LOGIN_URL'))]) !!}</p>
                         </div>
                         @endif
                     </div>
@@ -216,11 +219,11 @@
             <!-- Test e-mail versturen (optioneel) -->
             <div class="kt-card">
                 <div class="kt-card-header">
-                    <h5 class="kt-card-title">Optioneel: testmail versturen na opslaan</h5>
+                    <h5 class="kt-card-title">{{ __('Optioneel: testmail versturen na opslaan') }}</h5>
                 </div>
                 <div class="kt-card-content">
                     <p class="text-sm text-muted-foreground mb-4">
-                        De testmail wordt verstuurd naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld. De velden komen uit <a href="{{ route('admin.email-templates.form-fields.index') }}" class="text-primary underline">Formulier velden</a> (bij type Informatieaanvraag). Vul eventueel in en vink aan om direct na het opslaan een testmail te versturen.
+                        {!! __('De testmail wordt verstuurd naar het ontvangeradres dat bij <strong>Basis Informatie</strong> is ingesteld. De velden komen uit <a href=":fields_url" class="text-primary underline">Formulier velden</a> (bij type Informatieaanvraag). Vul eventueel in en vink aan om direct na het opslaan een testmail te versturen.', ['fields_url' => e(route('admin.email-templates.form-fields.index'))]) !!}
                     </p>
                     @php
                         $testDummy = [
@@ -258,7 +261,7 @@
                             <td>
                                 <label class="kt-label flex items-center gap-2">
                                     <input type="checkbox" name="test_send" value="1" {{ old('test_send') ? 'checked' : '' }}>
-                                    Verstuur testmail na opslaan
+                                    {{ __('Verstuur testmail na opslaan') }}
                                 </label>
                             </td>
                         </tr>
@@ -270,11 +273,11 @@
         <!-- Form Actions -->
         <div class="flex items-center justify-end gap-2.5 mt-5">
             <a href="{{ route('admin.email-templates.index') }}" class="kt-btn kt-btn-outline">
-                Annuleren
+                {{ __('Annuleren') }}
             </a>
             <button type="submit" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-check me-2"></i>
-                Template Opslaan
+                {{ __('Template Opslaan') }}
             </button>
         </div>
     </form>

@@ -1,19 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'WhatsApp ophaalvoorstel test')
+@section('title', __('WhatsApp ophaalvoorstel test'))
 
 @section('content')
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <div>
-            <h1 class="text-xl font-medium leading-none text-mono">WhatsApp ophaalvoorstel test</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('WhatsApp ophaalvoorstel test') }}</h1>
             <p class="text-sm text-muted-foreground mt-2 mb-0 max-w-3xl">
-                Simuleer een klantantwoord op een ophaalvoorstel, alsof WhatsApp de webhook heeft aangeroepen.
-                Voorstellen uit de chauffeur-app verschijnen hier automatisch. Op productie doet de echte Meta-webhook dit.
+                {{ __('Simuleer een klantantwoord op een ophaalvoorstel, alsof WhatsApp de webhook heeft aangeroepen.') }}
+                {{ __('Voorstellen uit de chauffeur-app verschijnen hier automatisch. Op productie doet de echte Meta-webhook dit.') }}
             </p>
         </div>
         <span class="inline-flex items-center rounded-full border border-border px-3 py-1 text-xs font-medium {{ $mockAllowed ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground' }}">
-            Omgeving: {{ $environmentLabel }}
+            {{ __('Omgeving: :env', ['env' => __($environmentLabel)]) }}
         </span>
     </div>
 
@@ -35,32 +35,26 @@
 
     <div class="kt-card mb-6">
         <div class="kt-card-header">
-            <h3 class="kt-card-title text-base">Hoe deze test werkt</h3>
+            <h3 class="kt-card-title text-base">{{ __('Hoe deze test werkt') }}</h3>
         </div>
         <div class="kt-card-content text-sm text-muted-foreground space-y-2">
             <p class="mb-0">
-                Een voorstel vanuit de chauffeur-app komt hier in de lijst, met een mock-<code>wamid</code>
-                als WhatsApp lokaal niet verstuurt. Testdata maakt daarnaast <strong>twee</strong> openstaande
-                voorstellen op hetzelfde nummer
-                (<code>{{ \App\Modules\NexaTaxi\Services\WhatsAppPickupProposalMockService::MOCK_PHONE }}</code>).
-                Accepteren/weigeren stuurt hetzelfde JSON-bericht als Meta, inclusief <code>context.id</code>.
-                Alleen de rit van die <code>wamid</code> mag van status veranderen.
+                {!! __('Een voorstel vanuit de chauffeur-app komt hier in de lijst, met een mock-<code>wamid</code> als WhatsApp lokaal niet verstuurt. Testdata maakt daarnaast <strong>twee</strong> openstaande voorstellen op hetzelfde nummer (<code>:phone</code>). Accepteren/weigeren stuurt hetzelfde JSON-bericht als Meta, inclusief <code>context.id</code>. Alleen de rit van die <code>wamid</code> mag van status veranderen.', ['phone' => e(\App\Modules\NexaTaxi\Services\WhatsAppPickupProposalMockService::MOCK_PHONE)]) !!}
             </p>
             @if($mockAllowed)
-                <p class="mb-0">Mocken staat <strong>aan</strong> op deze omgeving (lokaal/test). Er gaat niets naar WhatsApp.</p>
+                <p class="mb-0">{!! __('Mocken staat <strong>aan</strong> op deze omgeving (lokaal/test). Er gaat niets naar WhatsApp.') !!}</p>
             @else
                 <p class="mb-0">
-                    Mocken staat <strong>uit</strong>: dit is productie. Antwoorden komen binnen via
-                    <code>https://nexasuite.nl/api/whatsapp/webhook</code>.
+                    {!! __('Mocken staat <strong>uit</strong>: dit is productie. Antwoorden komen binnen via <code>https://nexasuite.nl/api/whatsapp/webhook</code>.') !!}
                 </p>
             @endif
             @if(! $companyId)
-                <p class="mb-0 text-amber-700 dark:text-amber-300">Kies links in de zijbalk een tenant voordat je testdata aanmaakt.</p>
+                <p class="mb-0 text-amber-700 dark:text-amber-300">{{ __('Kies links in de zijbalk een tenant voordat je testdata aanmaakt.') }}</p>
             @endif
             @if($schemaError)
-                <p class="mb-0 text-destructive">Taxi-schema niet beschikbaar: {{ $schemaError }}</p>
+                <p class="mb-0 text-destructive">{{ __('Taxi-schema niet beschikbaar: :error', ['error' => $schemaError]) }}</p>
             @elseif(! $schemaReady)
-                <p class="mb-0 text-destructive">Taxi-tabellen ontbreken. Voer <code>php artisan modules:migrate taxi</code> uit.</p>
+                <p class="mb-0 text-destructive">{!! __('Taxi-tabellen ontbreken. Voer <code>php artisan modules:migrate taxi</code> uit.') !!}</p>
             @endif
         </div>
     </div>
@@ -70,14 +64,14 @@
             <form method="POST" action="{{ route('admin.whatsapp-pickup-proposal-mock.seed') }}">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-primary" @disabled(! $companyId)>
-                    Testdata aanmaken
+                    {{ __('Testdata aanmaken') }}
                 </button>
             </form>
             @if($hasSeededRides)
                 <form method="POST" action="{{ route('admin.whatsapp-pickup-proposal-mock.clear') }}"
-                      onsubmit="return confirm('Gegenereerde WhatsApp-testritten wissen? Voorstellen uit de chauffeur-app blijven staan.');">
+                      onsubmit="return confirm({{ \Illuminate\Support\Js::from(__('Gegenereerde WhatsApp-testritten wissen? Voorstellen uit de chauffeur-app blijven staan.')) }});">
                     @csrf
-                    <button type="submit" class="kt-btn kt-btn-outline">Testdata wissen</button>
+                    <button type="submit" class="kt-btn kt-btn-outline">{{ __('Testdata wissen') }}</button>
                 </form>
             @endif
         </div>
@@ -100,14 +94,14 @@
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete admin-bulk-delete--inline hidden"
                         hidden
                         disabled
-                        aria-label="Geselecteerde voorstellen verwijderen"
-                        title="Verwijderen">
+                        aria-label="{{ __('Geselecteerde voorstellen verwijderen') }}"
+                        title="{{ __('Verwijderen') }}">
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count">(<span id="whatsapp-mock-bulk-count">0</span>)</span>
                 </button>
-                <h3 class="kt-card-title text-base mb-0">Voorstellen</h3>
+                <h3 class="kt-card-title text-base mb-0">{{ __('Voorstellen') }}</h3>
             </div>
-            <span class="text-xs text-muted-foreground" id="whatsapp-mock-live-label">Live · nieuwste bovenaan</span>
+            <span class="text-xs text-muted-foreground" id="whatsapp-mock-live-label">{{ __('Live · nieuwste bovenaan') }}</span>
         </div>
         <div class="kt-card-content p-0" id="whatsapp-mock-list-body">
             @include('admin.whatsapp-pickup-proposal-mock.partials.table', [
@@ -125,10 +119,10 @@
     <div class="whatsapp-mock-message-modal__panel" role="dialog" aria-modal="true" aria-labelledby="whatsapp-mock-message-title">
         <div class="flex items-start justify-between gap-3 mb-3">
             <div>
-                <h3 id="whatsapp-mock-message-title" class="text-base font-medium mb-0">WhatsApp-bericht</h3>
+                <h3 id="whatsapp-mock-message-title" class="text-base font-medium mb-0">{{ __('WhatsApp-bericht') }}</h3>
                 <p class="text-xs text-muted-foreground mb-0 mt-1" id="whatsapp-mock-message-meta"></p>
             </div>
-            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-close-message-modal aria-label="Sluiten">
+            <button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" data-close-message-modal aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
@@ -246,6 +240,35 @@ html.dark .whatsapp-mock-message-modal__backdrop {
         return;
     }
 
+    const i18n = {!! json_encode([
+        'Accepteren' => __('Accepteren'),
+        'Weigeren' => __('Weigeren'),
+        'Opmerking' => __('Opmerking'),
+        'Bericht bekijken' => __('Bericht bekijken'),
+        'Nog geen voorstellen' => __('Nog geen voorstellen. Stuur een ophaalvoorstel vanuit de chauffeur-app, of kies een tenant en klik op <strong>Testdata aanmaken</strong>.'),
+        'Selecteer rit #:id' => __('Selecteer rit #:id'),
+        'Testdata' => __('Testdata'),
+        'Chauffeur-app' => __('Chauffeur-app'),
+        'Alles selecteren' => __('Alles selecteren'),
+        'Rit' => __('Rit'),
+        'Bron' => __('Bron'),
+        'Klant / nummer' => __('Klant / nummer'),
+        'Voorstelstatus' => __('Voorstelstatus'),
+        'Acties' => __('Acties'),
+        'Live · nieuwste bovenaan' => __('Live · nieuwste bovenaan'),
+        'Live · bijgewerkt' => __('Live · bijgewerkt'),
+        'Voorstellen verwijderen' => __('Voorstellen verwijderen'),
+        'Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.' => __('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.'),
+        'Verwijderen' => __('Verwijderen'),
+        'Verwijderen mislukt.' => __('Verwijderen mislukt.'),
+        'Voorstellen verwijderd.' => __('Voorstellen verwijderd.'),
+        'Geen berichtinhoud beschikbaar.' => __('Geen berichtinhoud beschikbaar.'),
+        'Rit #:id' => __('Rit #:id'),
+    ], JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) !!};
+    function t(key) {
+        return Object.prototype.hasOwnProperty.call(i18n, key) ? i18n[key] : key;
+    }
+
     const body = document.getElementById('whatsapp-mock-list-body');
     const bulkBtn = document.getElementById('whatsapp-mock-bulk-delete');
     const liveLabel = document.getElementById('whatsapp-mock-live-label');
@@ -284,11 +307,11 @@ html.dark .whatsapp-mock-message-modal__backdrop {
         let html = '<div class="flex items-center justify-center gap-0.5">';
         html += viewMessageButton(ride);
         if (mockAllowed && ride.pending) {
-            html += simulateForm(ride.id, 'accept', 'Accepteren', '<i class="ki-filled ki-check text-emerald-600 dark:text-emerald-400"></i>');
-            html += simulateForm(ride.id, 'decline', 'Weigeren', '<i class="ki-filled ki-cross text-destructive"></i>');
+            html += simulateForm(ride.id, 'accept', t('Accepteren'), '<i class="ki-filled ki-check text-emerald-600 dark:text-emerald-400"></i>');
+            html += simulateForm(ride.id, 'decline', t('Weigeren'), '<i class="ki-filled ki-cross text-destructive"></i>');
         }
         if (mockAllowed && (ride.pending || ride.declined)) {
-            html += simulateForm(ride.id, 'remark', 'Opmerking', '<i class="ki-filled ki-message-text text-muted-foreground"></i>');
+            html += simulateForm(ride.id, 'remark', t('Opmerking'), '<i class="ki-filled ki-message-text text-muted-foreground"></i>');
         }
         html += '</div>';
         return html;
@@ -296,7 +319,7 @@ html.dark .whatsapp-mock-message-modal__backdrop {
 
     function viewMessageButton(ride) {
         return (
-            '<button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost whatsapp-mock-view-message" data-tooltip="Bericht bekijken" aria-label="Bericht bekijken" data-ride-id="' +
+            '<button type="button" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost whatsapp-mock-view-message" data-tooltip="' + escapeHtml(t('Bericht bekijken')) + '" aria-label="' + escapeHtml(t('Bericht bekijken')) + '" data-ride-id="' +
             escapeHtml(ride.id) +
             '" data-message="' +
             escapeHtml(ride.message_preview || '') +
@@ -321,7 +344,7 @@ html.dark .whatsapp-mock-message-modal__backdrop {
         if (!rides.length) {
             body.innerHTML =
                 '<p class="text-sm text-muted-foreground px-5 py-6 mb-0">' +
-                'Nog geen voorstellen. Stuur een ophaalvoorstel vanuit de chauffeur-app, of kies een tenant en klik op <strong>Testdata aanmaken</strong>.' +
+                t('Nog geen voorstellen') +
                 '</p>';
             syncBulkButton();
             return;
@@ -333,13 +356,13 @@ html.dark .whatsapp-mock-message-modal__backdrop {
                 '<tr data-ride-id="' + escapeHtml(ride.id) + '">' +
                 '<td class="text-center whatsapp-mock-table__check-col" data-no-row-link>' +
                 '<label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">' +
-                '<input type="checkbox" class="kt-checkbox whatsapp-mock-row-check" value="' + escapeHtml(ride.id) + '"' + checked + ' aria-label="Selecteer rit #' + escapeHtml(ride.id) + '">' +
+                '<input type="checkbox" class="kt-checkbox whatsapp-mock-row-check" value="' + escapeHtml(ride.id) + '"' + checked + ' aria-label="' + escapeHtml(t('Selecteer rit #:id').replace(':id', ride.id)) + '">' +
                 '</label></td>' +
                 '<td class="whitespace-nowrap">' +
                 '<div class="font-medium text-foreground">#' + escapeHtml(ride.id) + '</div>' +
                 '<div class="text-xs text-muted-foreground">' + escapeHtml(ride.status_label) + '</div></td>' +
                 '<td class="whitespace-nowrap"><span class="text-xs text-muted-foreground">' +
-                escapeHtml(ride.source === 'testdata' ? 'Testdata' : 'Chauffeur-app') +
+                escapeHtml(ride.source === 'testdata' ? t('Testdata') : t('Chauffeur-app')) +
                 '</span></td>' +
                 '<td><div>' + escapeHtml(ride.customer_name) + '</div>' +
                 '<div class="text-xs text-muted-foreground">' + escapeHtml(ride.customer_phone) + '</div></td>' +
@@ -362,16 +385,16 @@ html.dark .whatsapp-mock-message-modal__backdrop {
             '<thead><tr>' +
             '<th class="text-center whatsapp-mock-table__check-col" data-label="">' +
             '<label class="kt-label mb-0 inline-flex items-center justify-center cursor-pointer">' +
-            '<input type="checkbox" class="kt-checkbox" id="whatsapp-mock-select-all" aria-label="Alles selecteren"' +
+            '<input type="checkbox" class="kt-checkbox" id="whatsapp-mock-select-all" aria-label="' + escapeHtml(t('Alles selecteren')) + '"' +
             (allChecked ? ' checked' : '') + '>' +
             '</label></th>' +
-            '<th data-label="Rit">Rit</th>' +
-            '<th data-label="Bron">Bron</th>' +
-            '<th data-label="Klant / nummer">Klant / nummer</th>' +
-            '<th data-label="Voorstelstatus">Voorstelstatus</th>' +
+            '<th data-label="' + escapeHtml(t('Rit')) + '">' + escapeHtml(t('Rit')) + '</th>' +
+            '<th data-label="' + escapeHtml(t('Bron')) + '">' + escapeHtml(t('Bron')) + '</th>' +
+            '<th data-label="' + escapeHtml(t('Klant / nummer')) + '">' + escapeHtml(t('Klant / nummer')) + '</th>' +
+            '<th data-label="' + escapeHtml(t('Voorstelstatus')) + '">' + escapeHtml(t('Voorstelstatus')) + '</th>' +
             '<th data-label="wamid">wamid</th>' +
-            '<th data-label="Opmerking">Opmerking</th>' +
-            '<th class="text-center whatsapp-mock-table__actions-col" data-label="Acties">Acties</th>' +
+            '<th data-label="' + escapeHtml(t('Opmerking')) + '">' + escapeHtml(t('Opmerking')) + '</th>' +
+            '<th class="text-center whatsapp-mock-table__actions-col" data-label="' + escapeHtml(t('Acties')) + '">' + escapeHtml(t('Acties')) + '</th>' +
             '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 
         bindChecks();
@@ -451,7 +474,7 @@ html.dark .whatsapp-mock-message-modal__backdrop {
             const next = data.fingerprint || '';
             if (next === fingerprint) {
                 if (liveLabel) {
-                    liveLabel.textContent = 'Live · nieuwste bovenaan';
+                    liveLabel.textContent = t('Live · nieuwste bovenaan');
                 }
                 return;
             }
@@ -465,7 +488,7 @@ html.dark .whatsapp-mock-message-modal__backdrop {
             });
             render(data.rides || []);
             if (liveLabel) {
-                liveLabel.textContent = 'Live · bijgewerkt';
+                liveLabel.textContent = t('Live · bijgewerkt');
             }
         } catch (e) {
             /* stil blijven pollen */
@@ -480,14 +503,14 @@ html.dark .whatsapp-mock-message-modal__backdrop {
             }
             if (typeof window.showAdminConfirm === 'function') {
                 const ok = await window.showAdminConfirm({
-                    title: 'Voorstellen verwijderen',
-                    message: 'Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.',
-                    confirmLabel: 'Verwijderen'
+                    title: t('Voorstellen verwijderen'),
+                    message: t('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.'),
+                    confirmLabel: t('Verwijderen')
                 });
                 if (!ok) {
                     return;
                 }
-            } else if (!confirm('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.')) {
+            } else if (!confirm(t('Geselecteerde voorstellen uit deze lijst verwijderen? Testdata wordt gewist; chauffeur-ritten blijven bestaan.'))) {
                 return;
             }
             bulkBtn.disabled = true;
@@ -505,15 +528,15 @@ html.dark .whatsapp-mock-message-modal__backdrop {
                 });
                 const data = await res.json().catch(function () { return {}; });
                 if (!res.ok) {
-                    showFlash(data.message || 'Verwijderen mislukt.');
+                    showFlash(data.message || t('Verwijderen mislukt.'));
                     return;
                 }
                 selectedIds = new Set();
                 fingerprint = '';
-                showFlash(data.message || 'Voorstellen verwijderd.');
+                showFlash(data.message || t('Voorstellen verwijderd.'));
                 await poll();
             } catch (e) {
-                showFlash('Verwijderen mislukt.');
+                showFlash(t('Verwijderen mislukt.'));
             } finally {
                 syncBulkButton();
             }
@@ -569,9 +592,9 @@ html.dark .whatsapp-mock-message-modal__backdrop {
         }
         const rideId = btn.getAttribute('data-ride-id') || '';
         const message = btn.getAttribute('data-message') || '';
-        bodyEl.textContent = message !== '' ? message : 'Geen berichtinhoud beschikbaar.';
+        bodyEl.textContent = message !== '' ? message : t('Geen berichtinhoud beschikbaar.');
         if (metaEl) {
-            metaEl.textContent = rideId ? ('Rit #' + rideId) : '';
+            metaEl.textContent = rideId ? t('Rit #:id').replace(':id', rideId) : '';
         }
         hideIconTooltip();
         modal.hidden = false;

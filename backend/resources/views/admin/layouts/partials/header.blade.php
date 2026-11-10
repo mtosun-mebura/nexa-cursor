@@ -26,6 +26,7 @@
         </div>
         <!-- Topbar -->
         <div class="admin-header-actions flex items-center gap-2.5 shrink-0 ms-auto">
+            @include('admin.layouts.partials.locale-switch')
             @include('admin.layouts.partials.ai-chatbot-trigger')
             @include('partials.topbar-notification-dropdown')
             @include('partials.topbar-chat')

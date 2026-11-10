@@ -17,6 +17,7 @@ class TaxiAppPresenceService
     public const CONTRACT_ROLE_NAMES = [
         TaxiContractPortalAccessService::SPATIE_CONTRACTANT,
         TaxiContractPortalAccessService::SPATIE_CONTRACTOUDER,
+        TaxiContractPortalAccessService::SPATIE_DEMO,
     ];
 
     public function __construct(

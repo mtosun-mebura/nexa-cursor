@@ -22,7 +22,7 @@ class PlatformMollieService
 
         if ($key === '' || ! PaymentProviderService::isValidMollieApiKeyFormat($key)) {
             throw new RuntimeException(
-                'Mollie API-sleutel voor NEXA-facturatie ontbreekt. Stel deze in via Admin → NEXA-facturatie → Instellingen.'
+                __('Mollie API-sleutel voor NEXA-facturatie ontbreekt. Stel deze in via Admin → NEXA-facturatie → Instellingen.')
             );
         }
 
@@ -303,7 +303,7 @@ class PlatformMollieService
             $response = $client->request($method, 'https://api.mollie.com/v2/'.$path, $options);
         } catch (RequestException $e) {
             $message = $e->getResponse()?->getBody()?->getContents() ?: $e->getMessage();
-            throw new RuntimeException('Mollie-fout: '.$message, 0, $e);
+            throw new RuntimeException(__('Mollie-fout: :message', ['message' => $message]), 0, $e);
         }
 
         if ($method === 'DELETE' && $response->getStatusCode() === 204) {

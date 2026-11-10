@@ -35,8 +35,10 @@ class CustomerAppController extends Controller
             'logoDarkUrl' => SameOriginPath::fromUrl($logoUrls['dark']),
             'googleMapsApiKey' => $env->getGoogleMapsApiKey(),
             'googleMapsMapId' => (string) $env->get('GOOGLE_MAPS_MAP_ID', ''),
-            'googleMapsCenterLat' => (string) $env->get('GOOGLE_MAPS_CENTER_LAT', '52.3676'),
-            'googleMapsCenterLng' => (string) $env->get('GOOGLE_MAPS_CENTER_LNG', '4.9041'),
+            // PWA-fallback zonder GPS: Enschede, gelijk aan native DEFAULT_MAP_CENTER.
+            // Platformkaart (GOOGLE_MAPS_CENTER_*) blijft voor admin en chauffeur.
+            'googleMapsCenterLat' => '52.2215',
+            'googleMapsCenterLng' => '6.8936',
         ]);
     }
 

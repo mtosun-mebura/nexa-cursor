@@ -8,6 +8,7 @@ use App\Models\TenantCustomerEmail;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\TransportCustomer;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
+use App\Modules\NexaTaxi\Services\TaxiAppLoginCodeEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Services\UserRoleAssignmentService;
 use Illuminate\Support\Facades\Hash;
@@ -78,7 +79,7 @@ class TaxiAppFirstLoginTest extends TestCase
     }
 
     #[Test]
-    public function activated_account_must_use_password(): void
+    public function activated_account_can_request_code_login(): void
     {
         $company = Company::query()->create(['name' => 'Taxi Login', 'is_active' => true]);
         $user = User::factory()->create([
@@ -93,9 +94,43 @@ class TaxiAppFirstLoginTest extends TestCase
 
         $this->postJson('/api/taxi/v1/driver/login-code/request', [
             'email' => $user->email,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('customer_login_codes', [
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_DRIVER,
+        ]);
+    }
+
+    #[Test]
+    public function activated_account_can_login_with_code_without_password(): void
+    {
+        $company = Company::query()->create(['name' => 'Taxi Code Login', 'is_active' => true]);
+        $user = User::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'code.login@example.com',
+            'password' => app(TaxiAppFirstLoginService::class)->unusablePasswordHash(),
+            'must_change_password' => false,
+            'password_must_be_set' => false,
+            'email_verified_at' => now(),
+            'is_active' => true,
+        ]);
+        app(UserRoleAssignmentService::class)->syncWebRoles($user, ['chauffeur']);
+
+        CustomerLoginCode::query()->create([
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_DRIVER,
+            'code_hash' => Hash::make('654321'),
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $this->postJson('/api/taxi/v1/driver/login-code/verify', [
+            'email' => $user->email,
+            'code' => '654321',
+            'skip_password' => true,
         ])
-            ->assertStatus(422)
-            ->assertJsonFragment(['message' => 'Dit account is al geactiveerd. Log in met je wachtwoord.']);
+            ->assertOk()
+            ->assertJsonStructure(['token', 'user']);
     }
 
     #[Test]
@@ -263,6 +298,81 @@ class TaxiAppFirstLoginTest extends TestCase
             'recipient_email' => 'nieuwe.ouder@example.com',
             'type' => TenantCustomerEmail::TYPE_WELCOME,
         ]);
+    }
+
+    #[Test]
+    public function registration_login_code_uses_nexa_taxi_logo_without_second_title(): void
+    {
+        $user = $this->makePendingAppUser('chauffeur', 'registratie@example.com');
+        $companyName = (string) $user->company->name;
+
+        $result = app(TaxiAppFirstLoginService::class)->requestCode(
+            $user->email,
+            TaxiAppFirstLoginService::CHANNEL_DRIVER,
+            '127.0.0.1',
+            true,
+        );
+
+        $this->assertTrue($result['ok'] ?? false, $result['message'] ?? '');
+
+        $mail = TenantCustomerEmail::query()
+            ->where('recipient_email', $user->email)
+            ->where('type', TenantCustomerEmail::TYPE_LOGIN_CODE)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($mail);
+        $html = (string) $mail->body_html;
+        $this->assertSame('Activeer uw NEXA Taxi-account', $mail->subject);
+        $this->assertStringContainsString(TaxiAppLoginCodeEmailTemplateService::NEXA_TAXI_EMAIL_LOGO, $html);
+        $this->assertStringContainsString('alt="NEXA Taxi"', $html);
+        $this->assertStringContainsString('http://', $html);
+        $this->assertStringContainsString('Activeer uw account', $html);
+        $this->assertStringContainsString('U heeft zich geregistreerd bij', $html);
+        $this->assertStringContainsString('Deze e-mail is verstuurd om uw account te activeren.', $html);
+        $this->assertStringContainsString('Open de chauffeur-app', $html);
+        $this->assertStringContainsString('Heeft u zich niet geregistreerd?', $html);
+        $this->assertStringNotContainsString('Iemand heeft een inlogcode aangevraagd', $html);
+        $this->assertStringNotContainsString('Uw eenmalige inlogcode', $html);
+        $this->assertStringNotContainsString('font-size:13px;letter-spacing:0.04em', $html);
+        $this->assertStringNotContainsString($companyName, $html);
+        $this->assertStringNotContainsString('<strong>'.e($companyName).'</strong>', $html);
+        $this->assertTrue((bool) data_get($mail->meta, 'nexa_registration_brand'));
+
+        $customerHtml = app(\App\Modules\NexaTaxi\Services\TaxiCustomerLoginCodeEmailTemplateService::class)->defaultHtmlContent();
+        $this->assertStringContainsString('Uw eenmalige inlogcode', $customerHtml);
+        $this->assertStringNotContainsString('om uw account te activeren', $customerHtml);
+    }
+
+    #[Test]
+    public function later_chauffeur_login_code_keeps_the_tenant_name(): void
+    {
+        $user = $this->makePendingAppUser('chauffeur', 'later@example.com');
+        $companyName = (string) $user->company->name;
+
+        $result = app(TaxiAppFirstLoginService::class)->requestCode(
+            $user->email,
+            TaxiAppFirstLoginService::CHANNEL_DRIVER,
+            '127.0.0.1',
+        );
+
+        $this->assertTrue($result['ok'] ?? false, $result['message'] ?? '');
+
+        $mail = TenantCustomerEmail::query()
+            ->where('recipient_email', $user->email)
+            ->where('type', TenantCustomerEmail::TYPE_LOGIN_CODE)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($mail);
+        $html = (string) $mail->body_html;
+        $this->assertStringContainsString($companyName, $html);
+        $this->assertStringContainsString('Iemand heeft een inlogcode aangevraagd', $html);
+        $this->assertStringContainsString('Uw eenmalige inlogcode', $html);
+        $this->assertStringNotContainsString('om uw account te activeren', $html);
+        $this->assertStringContainsString('letter-spacing:0.04em', $html);
+        $this->assertStringNotContainsString(TaxiAppLoginCodeEmailTemplateService::NEXA_TAXI_EMAIL_LOGO, $html);
+        $this->assertFalse((bool) data_get($mail->meta, 'nexa_registration_brand'));
     }
 
     private function makePendingAppUser(string $role, string $email): User

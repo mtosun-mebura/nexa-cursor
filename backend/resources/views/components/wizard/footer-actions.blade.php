@@ -16,7 +16,7 @@
     @if($showBack)
         <a href="{{ route('admin.companies.wizard.step', [$company, $backStep]) }}" class="kt-btn kt-btn-outline shrink-0">
             <i class="ki-filled ki-arrow-left me-2"></i>
-            Terug
+            {{ __('Terug') }}
         </a>
     @endif
     <div class="flex flex-wrap items-center gap-3 {{ $showBack ? '' : 'ml-auto' }}">

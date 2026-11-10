@@ -3,9 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Services\DurableUserCredentials;
 use App\Services\ModuleDatabaseService;
 use App\Services\ModuleManager;
 use App\Services\ModuleSchemaService;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Hash;
@@ -92,6 +94,8 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);
+        $marketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'web']);
 
         // Create roles for api guard (if they don't exist)
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'api']);
@@ -104,6 +108,8 @@ class RoleSeeder extends Seeder
         Role::firstOrCreate(['name' => 'chauffeur-inkomsten', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractant', 'guard_name' => 'api']);
         Role::firstOrCreate(['name' => 'contractouder', 'guard_name' => 'api']);
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'api']);
+        $apiMarketplace = Role::firstOrCreate(['name' => 'marketplace', 'guard_name' => 'api']);
 
         // Create permissions
         $permissions = [
@@ -212,6 +218,8 @@ class RoleSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'api']);
         }
 
+        TaxiDispatchAccess::ensurePermissions();
+
         // Get API roles
         $apiSuperAdmin = Role::where(['name' => 'super-admin', 'guard_name' => 'api'])->first();
         $apiCompanyAdmin = Role::where(['name' => 'company-admin', 'guard_name' => 'api'])->first();
@@ -228,7 +236,7 @@ class RoleSeeder extends Seeder
         $apiSuperAdmin->givePermissionTo($apiPermissions);
 
         // Company admin: alle tenant-/Beheer-rechten, geen Systeem (rollen/permissies) en geen nieuwe tenants aanmaken/verwijderen
-        $excludeForCompanyAdmin = [
+        $excludeForCompanyAdmin = array_merge([
             'view-roles',
             'create-roles',
             'edit-roles',
@@ -239,7 +247,7 @@ class RoleSeeder extends Seeder
             'delete-permissions',
             'create-companies',
             'delete-companies',
-        ];
+        ], TaxiDispatchAccess::permissionNames());
 
         $companyAdminWebPerms = Permission::where('guard_name', 'web')
             ->whereNotIn('name', $excludeForCompanyAdmin)
@@ -250,6 +258,12 @@ class RoleSeeder extends Seeder
             ->whereNotIn('name', $excludeForCompanyAdmin)
             ->get();
         $apiCompanyAdmin->syncPermissions($companyAdminApiPerms);
+
+        // Marketplace:zelfde tenant-rechten als company-admin, daarna alleen NEXA Network.
+        $marketplace->syncPermissions($companyAdminWebPerms);
+        $apiMarketplace->syncPermissions($companyAdminApiPerms);
+
+        TaxiDispatchAccess::syncKnownRolePresets();
 
         // Assign limited permissions to staff (web)
         $staff->givePermissionTo([
@@ -306,16 +320,15 @@ class RoleSeeder extends Seeder
      */
     protected function ensureSuperAdminUser(?string $connection = null): User
     {
-        $query = $connection ? User::on($connection) : User::query();
-
-        return $query->firstOrCreate(
-            ['email' => ModuleSchemaService::SUPERADMIN_EMAIL],
+        return app(DurableUserCredentials::class)->ensureByEmail(
+            ModuleSchemaService::SUPERADMIN_EMAIL,
             [
                 'password' => Hash::make(ModuleSchemaService::SUPERADMIN_PASSWORD),
                 'first_name' => 'Mehmet',
                 'last_name' => 'Tosun',
                 'email_verified_at' => now(),
-            ]
+            ],
+            $connection
         );
     }
 }

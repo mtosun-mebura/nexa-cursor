@@ -16,13 +16,14 @@
         taxiCarUrl: app.dataset.taxiCarUrl || '/images/gps/car-sedan.png',
         taxiVanUrl: app.dataset.taxiVanUrl || '/images/gps/car-van.png',
         taxiBusUrl: app.dataset.taxiBusUrl || '/images/gps/car-bus.png',
+        dropPinUrl: app.dataset.dropPinUrl || '/assets/img/marker-drop-green.png',
         launcherUrl: app.dataset.launcherUrl || '/taxi/app',
         googleMapsApiKey: (app.dataset.mapsKey || '').trim(),
         googleMapsMapId: (app.dataset.mapsMapId || '').trim(),
-        centerLat: parseFloat(app.dataset.centerLat || '52.3676'),
-        centerLng: parseFloat(app.dataset.centerLng || '4.9041'),
+        centerLat: parseFloat(app.dataset.centerLat || '52.2215'),
+        centerLng: parseFloat(app.dataset.centerLng || '6.8936'),
         marketplaceSectionKey: 'component:taxi.algemene_boekingsmodule',
-        fleetRadiusKm: 10,
+        fleetRadiusKm: 50,
     };
 
     const TOKEN_KEY = 'nexa_taxi_customer_token';
@@ -68,6 +69,8 @@
         taxiOverlays: {},
         fleetRadiusCircle: null,
         fleetDidFit: false,
+        fleetCount: null,
+        nearestTaxi: null,
         acceptedNotified: false,
         liveRide: null,
         livePhase: null,
@@ -80,6 +83,10 @@
         audioCtx: null,
         showArchivedRides: false,
         ridesCache: [],
+        expandedRideToken: '',
+        bookVehicleMarker: null,
+        followDidCenter: false,
+        screen: '',
     };
 
     let googleMapsLoadPromise = null;
@@ -120,6 +127,7 @@
     }
 
     function showScreen(name) {
+        state.screen = name;
         Object.keys(screens).forEach((key) => {
             if (screens[key]) screens[key].hidden = key !== name;
         });
@@ -132,6 +140,12 @@
         try {
             window.dispatchEvent(new CustomEvent('nexa-customer-screen', { detail: { screen: name } }));
         } catch (e) {}
+        if (name === 'rides' || name === 'live') {
+            startOpenRidesPoll();
+        } else if (state.openRidesTimer) {
+            window.clearTimeout(state.openRidesTimer);
+            state.openRidesTimer = null;
+        }
     }
 
     function updateTabBar(screenName) {
@@ -145,6 +159,47 @@
             tab.classList.toggle('active', tab.dataset.tab === activeTab);
         });
         refreshActiveRideUi();
+        syncTabbarKeyboardVisibility();
+    }
+
+    function isEditableFocusTarget(node) {
+        if (!node || node.nodeType !== 1) return false;
+        if (node.isContentEditable) return true;
+        const tag = String(node.tagName || '').toUpperCase();
+        if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (tag !== 'INPUT') return false;
+        const type = String(node.type || 'text').toLowerCase();
+        return !(['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'hidden', 'range', 'color'].indexOf(type) >= 0);
+    }
+
+    /** Verberg vaste footer terwijl het mobiele toetsenbord open is (voorkomt half meescrollen). */
+    function syncTabbarKeyboardVisibility() {
+        const bar = el('app-tabbar');
+        if (!bar) return;
+        const vv = window.visualViewport;
+        const layoutH = window.innerHeight || 0;
+        const viewportH = vv && isFinite(vv.height) ? vv.height : layoutH;
+        const shrink = Math.max(0, layoutH - viewportH);
+        const typing = isEditableFocusTarget(document.activeElement);
+        const narrow = !(window.matchMedia) || window.matchMedia('(max-width: 48rem)').matches;
+        // Mobiel + tekstveld in focus ≈ toetsenbord open. visualViewport-shrink als extra signaal.
+        const keyboardOpen = (narrow && typing) || shrink > 120;
+        bar.classList.toggle('is-keyboard-hidden', !!keyboardOpen && !bar.hidden);
+    }
+
+    function bindKeyboardTabbarVisibility() {
+        const sync = function () { syncTabbarKeyboardVisibility(); };
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', sync);
+            window.visualViewport.addEventListener('scroll', sync);
+        }
+        window.addEventListener('resize', sync);
+        document.addEventListener('focusin', sync);
+        document.addEventListener('focusout', function () {
+            // iOS sluit het toetsenbord met een korte delay na blur.
+            setTimeout(sync, 150);
+        });
+        sync();
     }
 
     function toast(msg) {
@@ -311,6 +366,18 @@
             phase: (meta && meta.phase) || prev.phase || 'searching',
             status_label: (meta && meta.status_label) || prev.status_label || 'Zoeken…',
             payment_failure_status: (meta && meta.payment_failure_status) || prev.payment_failure_status || null,
+            rating: (meta && meta.rating !== undefined) ? meta.rating : (prev.rating || null),
+            pickup_at: (meta && meta.pickup_at) || prev.pickup_at || '',
+            passengers: (meta && meta.passengers != null) ? meta.passengers : (prev.passengers != null ? prev.passengers : null),
+            baggage_summary: (meta && meta.baggage_summary != null) ? meta.baggage_summary : (prev.baggage_summary || ''),
+            baggage: (meta && meta.baggage !== undefined) ? meta.baggage : (prev.baggage || null),
+            distance_km: (meta && meta.distance_km != null) ? meta.distance_km : (prev.distance_km != null ? prev.distance_km : null),
+            duration_seconds: (meta && meta.duration_seconds != null) ? meta.duration_seconds : (prev.duration_seconds != null ? prev.duration_seconds : null),
+            quoted_price: (meta && meta.quoted_price !== undefined) ? meta.quoted_price : (prev.quoted_price != null ? prev.quoted_price : null),
+            amount: (meta && meta.amount) || prev.amount || '',
+            pickup_confirmation: (meta && meta.pickup_confirmation !== undefined)
+                ? meta.pickup_confirmation
+                : (prev.pickup_confirmation || null),
         });
         writeGuestRides(list);
         refreshActiveRideUi();
@@ -321,7 +388,12 @@
         if (!token) return;
         const clean = {};
         Object.keys(patch || {}).forEach(function (key) {
-            if (patch[key] !== undefined && patch[key] !== null && patch[key] !== '') {
+            if (patch[key] === undefined) return;
+            if (key === 'rating' || key === 'pickup_confirmation') {
+                clean[key] = patch[key];
+                return;
+            }
+            if (patch[key] !== null && patch[key] !== '') {
                 clean[key] = patch[key];
             }
         });
@@ -333,9 +405,149 @@
         refreshActiveRideUi();
     }
 
+    let liveRateStars = 0;
+
+    function hideLiveRating() {
+        const box = el('live-rating');
+        if (box) box.hidden = true;
+        liveRateStars = 0;
+        syncLiveRatingStars(0);
+        const comment = el('live-rating-comment');
+        const btn = el('btn-live-rate');
+        const done = el('live-rating-done');
+        const stars = el('live-rating-stars');
+        if (comment) {
+            comment.hidden = true;
+            comment.value = '';
+        }
+        if (btn) btn.hidden = true;
+        if (done) {
+            done.hidden = true;
+            done.textContent = '';
+        }
+        if (stars) stars.hidden = true;
+    }
+
+    function syncLiveRatingStars(n) {
+        const wrap = el('live-rating-stars');
+        if (!wrap) return;
+        wrap.querySelectorAll('.live-rating__star').forEach(function (btn) {
+            const v = Number(btn.getAttribute('data-stars') || 0);
+            btn.classList.toggle('is-on', v > 0 && v <= n);
+        });
+    }
+
+    function renderLiveRating(ride) {
+        const box = el('live-rating');
+        if (!box) return;
+        const rating = ride && ride.rating ? ride.rating : null;
+        if (!rating || (!rating.can_rate && !rating.rated)) {
+            hideLiveRating();
+            return;
+        }
+        box.hidden = false;
+        const label = el('live-rating-label');
+        const stars = el('live-rating-stars');
+        const comment = el('live-rating-comment');
+        const btn = el('btn-live-rate');
+        const done = el('live-rating-done');
+        if (rating.rated && rating.stars) {
+            if (label) label.textContent = 'Jouw beoordeling';
+            if (stars) stars.hidden = true;
+            if (comment) comment.hidden = true;
+            if (btn) btn.hidden = true;
+            if (done) {
+                done.hidden = false;
+                done.textContent = '★'.repeat(Number(rating.stars))
+                    + '☆'.repeat(Math.max(0, 5 - Number(rating.stars)))
+                    + (rating.comment ? (' — ' + rating.comment) : '');
+            }
+            return;
+        }
+        if (label) label.textContent = 'Beoordeel je rit';
+        if (stars) stars.hidden = false;
+        if (comment) comment.hidden = false;
+        if (btn) {
+            btn.hidden = false;
+            btn.disabled = false;
+            btn.textContent = 'Beoordeling versturen';
+        }
+        if (done) {
+            done.hidden = true;
+            done.textContent = '';
+        }
+        syncLiveRatingStars(liveRateStars);
+    }
+
+    async function submitLiveRating() {
+        const token = state.trackToken;
+        if (!token) return;
+        if (liveRateStars < 1) {
+            alert('Kies 1 tot 5 sterren.');
+            return;
+        }
+        const btn = el('btn-live-rate');
+        const comment = el('live-rating-comment');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Bezig…';
+        }
+        try {
+            const data = await api(cfg.apiBase + '/live/rate', {
+                method: 'POST',
+                body: {
+                    token: token,
+                    stars: liveRateStars,
+                    comment: comment && comment.value ? comment.value.trim() : null,
+                },
+            });
+            if (data && data.ride) {
+                renderLive(data.ride);
+            } else if (data && data.rating) {
+                renderLiveRating({ rating: data.rating, phase: 'completed' });
+            }
+            liveRateStars = 0;
+        } catch (e) {
+            alert((e && e.message) || 'Beoordeling opslaan mislukt.');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Beoordeling versturen';
+            }
+        }
+    }
+
     function isActiveRidePhase(phase) {
         return phase === 'searching' || phase === 'accepted'
             || phase === 'awaiting_payment' || phase === 'other';
+    }
+
+    /** Tab-badge: alleen actieve rit of wachten op chauffeur-acceptatie. */
+    function isRidesTabBadgePhase(phase) {
+        return phase === 'searching' || phase === 'accepted';
+    }
+
+    function countRidesTabBadge() {
+        const seen = Object.create(null);
+        let count = 0;
+
+        function add(key, phase) {
+            if (!isRidesTabBadgePhase(phase)) return;
+            const k = String(key || '');
+            if (!k || seen[k]) return;
+            seen[k] = true;
+            count += 1;
+        }
+
+        (state.ridesCache || []).forEach(function (ride) {
+            if (!ride) return;
+            add(ride.token ? ('t:' + ride.token) : ('i:' + String(ride.id || '')), ride.phase);
+        });
+        guestRides().forEach(function (ride) {
+            if (!ride || !ride.token) return;
+            add('t:' + ride.token, ride.phase || 'searching');
+        });
+
+        return count;
     }
 
     function selectedPaymentMethod() {
@@ -371,8 +583,10 @@
         const active = activeGuestRide();
         const badge = el('tab-rides-badge');
         if (badge) {
-            badge.classList.toggle('is-on', !!active && isActiveRidePhase(active.phase));
-            badge.textContent = '1';
+            const badgeCount = countRidesTabBadge();
+            badge.classList.toggle('is-on', badgeCount > 0);
+            badge.textContent = badgeCount > 0 ? String(badgeCount) : '';
+            badge.setAttribute('aria-hidden', badgeCount > 0 ? 'false' : 'true');
         }
         const banner = el('active-ride-banner');
         if (!banner) return;
@@ -386,7 +600,7 @@
         const meta = el('active-ride-meta');
         if (title) {
             title.textContent = active.phase === 'accepted'
-                ? 'Taxi onderweg'
+                ? (active.status_label || 'Taxi onderweg')
                 : 'Openstaande rit';
         }
         if (meta) {
@@ -459,12 +673,62 @@
         }
     }
 
-    function defaultPickupAt() {
-        const d = new Date(Date.now() + 10 * 60 * 1000);
+    const QUICK_PRESETS = [
+        { minutes: 10, label: 'Over 10 min' },
+        { minutes: 30, label: 'Over een half uur' },
+        { minutes: 60, label: 'Over 1 uur' },
+    ];
+
+    /**
+     * Zelfde als native defaultPickupDate: huidige klok omhoog naar 5-minutenraster,
+     * daarna exact minutesFromNow erbij (bijv. 09:55 + 10 → 10:05).
+     */
+    function presetDate(minutesFromNow) {
+        const d = new Date();
         d.setSeconds(0, 0);
-        // Rond af naar dichtstbijzijnde 5 minuten.
-        d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5);
-        return toLocalInputValue(d);
+        const rem = d.getMinutes() % 5;
+        if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
+        d.setMinutes(d.getMinutes() + minutesFromNow);
+        return d;
+    }
+
+    function snapMinutes(m) {
+        return Math.min(55, Math.round(m / 5) * 5);
+    }
+
+    function sameMinute(a, b) {
+        return a.getFullYear() === b.getFullYear()
+            && a.getMonth() === b.getMonth()
+            && a.getDate() === b.getDate()
+            && a.getHours() === b.getHours()
+            && snapMinutes(a.getMinutes()) === snapMinutes(b.getMinutes());
+    }
+
+    function clampToFuture(d) {
+        const min = presetDate(5);
+        return d.getTime() < min.getTime() ? min : d;
+    }
+
+    function defaultPickupAt() {
+        return toLocalInputValue(presetDate(10));
+    }
+
+    /** Houdt dichtstbijzijnde boekbare ophaaltijd bij; latere handmatige keuzes blijven staan. */
+    function followNearestPickupAt(currentValue) {
+        const next = presetDate(10);
+        const current = parseLocalInputValue(currentValue || '');
+        if (!(current instanceof Date) || Number.isNaN(current.getTime()) || current.getTime() <= next.getTime()) {
+            return toLocalInputValue(next);
+        }
+        return toLocalInputValue(current);
+    }
+
+    function bumpPickupAtToNearest() {
+        const input = el('pickup-at');
+        if (!input) return;
+        const next = followNearestPickupAt(input.value);
+        if (input.value === next) return;
+        setPickupAtValue(next, { silent: true });
     }
 
     function toLocalInputValue(date) {
@@ -530,11 +794,18 @@
         const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startSelected = new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const dayDiff = Math.round((startSelected - startToday) / 86400000);
-        const time = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-        if (dayDiff === 0) return 'Vandaag ' + time;
-        if (dayDiff === 1) return 'Morgen ' + time;
-        const day = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
-        return day + ' ' + time;
+        const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        let absolute;
+        if (dayDiff === 0) absolute = 'Vandaag ' + time;
+        else if (dayDiff === 1) absolute = 'Morgen ' + time;
+        else {
+            absolute = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }) + ' ' + time;
+        }
+        const mins = Math.round((d.getTime() - now.getTime()) / 60000);
+        if (mins >= 0 && mins <= 120) {
+            return 'Over ' + mins + ' min · ' + absolute;
+        }
+        return absolute;
     }
 
     function setPickupAtValue(value, options) {
@@ -667,17 +938,13 @@
     }
 
     function dropoffMarkerIcon() {
-        // Klassieke Maps-druppel (bestemming), groen.
+        // Scherpe druppel (204×267, getoond op 24×31).
+        const w = 24;
+        const h = 31;
         return {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">' +
-                '<path fill="#22c55e" stroke="#ffffff" stroke-width="1.5" ' +
-                'd="M14 1C7.4 1 2 6.4 2 13c0 9.1 12 25 12 25s12-15.9 12-25C26 6.4 20.6 1 14 1z"/>' +
-                '<circle cx="14" cy="13" r="4.5" fill="#ffffff"/>' +
-                '</svg>'
-            ),
-            scaledSize: new google.maps.Size(28, 40),
-            anchor: new google.maps.Point(14, 40),
+            url: cfg.dropPinUrl,
+            scaledSize: new google.maps.Size(w, h),
+            anchor: new google.maps.Point(w / 2, h),
         };
     }
 
@@ -1120,10 +1387,14 @@
 
     function maybeFitFleetViewport(vehicles) {
         if (state.fleetDidFit || !state.map || !window.google || !google.maps) return;
-        // Niet herpositioneren als er al een route/bestemming op de kaart staat.
-        if (state.dropoff) return;
         const list = Array.isArray(vehicles) ? vehicles : [];
         if (!list.length) return;
+        if (state.dropoff) {
+            // Route staat al op de kaart: alleen opnieuw kaderen zodat de dichtstbijzijnde taxi zichtbaar is.
+            state.fleetDidFit = true;
+            refitBookRouteBounds();
+            return;
+        }
         const bounds = new google.maps.LatLngBounds();
         const origin = fleetOrigin();
         bounds.extend(origin);
@@ -1161,6 +1432,7 @@
     }
 
     function upsertFleet(vehicles) {
+        if (isFollowingAssignedTaxi()) return;
         if (!state.map || !window.google || !google.maps) return;
         const Overlay = ensureCustomerTaxiOverlayClass();
         const next = {};
@@ -1235,17 +1507,32 @@
             }
         });
         const count = Object.keys(next).length;
+        state.nearestTaxi = null;
+        for (let i = 0; i < list.length; i++) {
+            const lat = Number(list[i] && list[i].lat);
+            const lng = Number(list[i] && list[i].lng);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                state.nearestTaxi = { lat: lat, lng: lng };
+                break;
+            }
+        }
         const status = el('map-fleet-status');
         if (status) {
             status.textContent = count === 0
-                ? 'Geen taxi’s online in de straal'
-                : (count === 1 ? '1 taxi live in de straal' : count + ' taxi’s live in de straal');
+                ? 'Geen taxi’s online'
+                : (count === 1 ? '1 taxi online' : count + ' taxi’s online');
         }
         updateFleetRadiusCircle();
         maybeFitFleetViewport(list);
+        const countChanged = state.fleetCount !== null && state.fleetCount !== count;
+        state.fleetCount = count;
+        if (countChanged && state.pickup && state.dropoff) {
+            maybeQuote();
+        }
     }
 
     async function fetchNearbyTaxis() {
+        if (isFollowingAssignedTaxi()) return;
         if (!cfg.nearbyTaxisUrl) return;
         const origin = fleetOrigin();
         const params = new URLSearchParams({
@@ -1268,6 +1555,10 @@
     }
 
     function startFleetPolling() {
+        if (isFollowingAssignedTaxi()) {
+            syncBookFollow(state.liveRide);
+            return;
+        }
         stopFleetPolling();
         const status = el('map-fleet-status');
         if (status) status.textContent = 'Taxi’s zoeken…';
@@ -1350,7 +1641,9 @@
         path.forEach(function (p) { bounds.extend(p); });
         if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
         if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
+        if (state.nearestTaxi) bounds.extend(state.nearestTaxi);
         state.map.fitBounds(bounds, 56);
+        syncMapFitButton();
         return true;
     }
 
@@ -1426,6 +1719,7 @@
             ];
             drawRoutePath(fallbackPath);
             state.routeMetricsCache = null;
+            pulseMapRouteReveal();
             return null;
         }
         drawRoutePath(route.path);
@@ -1433,7 +1727,89 @@
             distance_meters: route.distance_meters,
             duration_seconds: route.duration_seconds,
         };
+        pulseMapRouteReveal();
         return state.routeMetricsCache;
+    }
+
+    /** Direct naar de kaart scrollen (bij adresklik), keyboard dicht. */
+    function scrollBookToMap() {
+        const screen = el('screen-book');
+        if (!screen || screen.hidden) return;
+        const content = screen.querySelector('.content');
+        const mapWrap = screen.querySelector('.map-wrap');
+
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === 'function' && screen.contains(ae)) {
+            ae.blur();
+        }
+        syncTabbarKeyboardVisibility();
+
+        function jumpToMap() {
+            // Kaart staat bovenaan in .content — dat is de scrollcontainer.
+            if (!content) return;
+            try {
+                content.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (e) {
+                content.scrollTop = 0;
+            }
+        }
+
+        jumpToMap();
+        clearTimeout(scrollBookToMap._t1);
+        clearTimeout(scrollBookToMap._t2);
+        // Na keyboard-dicht / layout-shift: opnieuw, forceer als smooth niet greep.
+        scrollBookToMap._t1 = setTimeout(function () {
+            jumpToMap();
+            if (content && content.scrollTop > 16) content.scrollTop = 0;
+        }, 100);
+        scrollBookToMap._t2 = setTimeout(function () {
+            if (content && content.scrollTop > 16) content.scrollTop = 0;
+            if (state.map && window.google && google.maps) {
+                try { google.maps.event.trigger(state.map, 'resize'); } catch (e) {}
+            }
+        }, 350);
+    }
+
+    /** Korte highlight + map refit nadat de route is getekend. */
+    function pulseMapRouteReveal() {
+        const screen = el('screen-book');
+        if (!screen || screen.hidden) return;
+        const mapWrap = screen.querySelector('.map-wrap');
+        if (!mapWrap) return;
+
+        mapWrap.classList.remove('map-wrap--route-reveal');
+        void mapWrap.offsetWidth;
+        mapWrap.classList.add('map-wrap--route-reveal');
+        clearTimeout(pulseMapRouteReveal._timer);
+        pulseMapRouteReveal._timer = setTimeout(function () {
+            mapWrap.classList.remove('map-wrap--route-reveal');
+        }, 1400);
+
+        clearTimeout(pulseMapRouteReveal._refitTimer);
+        pulseMapRouteReveal._refitTimer = setTimeout(function () {
+            if (!state.map || !window.google || !google.maps) return;
+            try {
+                google.maps.event.trigger(state.map, 'resize');
+            } catch (e) {}
+            refitBookRouteBounds();
+        }, 380);
+    }
+
+    function revealBookRouteOnMap() {
+        scrollBookToMap();
+        pulseMapRouteReveal();
+    }
+
+    function refitBookRouteBounds() {
+        if (!state.map || !state.routeLine || !window.google || !google.maps) return;
+        const path = state.routeLine.getPath();
+        if (!path || typeof path.getLength !== 'function' || path.getLength() < 2) return;
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach(function (ll) { bounds.extend(ll); });
+        if (state.pickup) bounds.extend({ lat: state.pickup.lat, lng: state.pickup.lng });
+        if (state.dropoff) bounds.extend({ lat: state.dropoff.lat, lng: state.dropoff.lng });
+        if (state.nearestTaxi) bounds.extend(state.nearestTaxi);
+        state.map.fitBounds(bounds, 56);
     }
 
     function updateMapMarkers() {
@@ -1452,6 +1828,8 @@
             }
             state.pickupMarker.setPosition(p);
             state.pickupMarker.setMap(state.map);
+        } else if (state.pickupMarker) {
+            state.pickupMarker.setMap(null);
         }
         if (state.dropoff) {
             const d = { lat: state.dropoff.lat, lng: state.dropoff.lng };
@@ -1484,12 +1862,19 @@
     }
 
     async function detectLocation() {
+        hidePickupLocationNotice();
         el('pickup').value = 'Locatie bepalen…';
         el('pickup-hint').textContent = 'Even geduld…';
+        syncAddressClearButton('pickup');
         if (!navigator.geolocation) {
             el('pickup').value = '';
-            el('pickup-hint').textContent = 'Locatie niet beschikbaar. Vul handmatig in.';
             el('pickup').readOnly = false;
+            syncAddressClearButton('pickup');
+            showPickupLocationNotice({
+                code: 0,
+                message: 'Je browser ondersteunt geen locatiebepaling. Vul je ophaaladres handmatig in.',
+                canRetry: false,
+            });
             return;
         }
         try {
@@ -1504,6 +1889,7 @@
             const lng = pos.coords.longitude;
             state.pickup = { lat: lat, lng: lng, address: '' };
             state.fleetDidFit = false;
+            state.nearestTaxi = null;
             updateMapMarkers();
             updateFleetRadiusCircle();
             fetchNearbyTaxis();
@@ -1515,7 +1901,7 @@
                 );
                 if (res.ok) {
                     const data = await res.json();
-                    address = (data && (data.display_name || data.name)) || '';
+                    address = formatNominatimRowAddress(data);
                 }
             } catch (e) {}
             if (!address) {
@@ -1528,14 +1914,108 @@
             el('pickup').value = address;
             el('pickup-hint').textContent = 'Automatisch gedetecteerd · tik om te wijzigen';
             el('pickup').readOnly = false;
+            syncAddressClearButton('pickup');
+            hidePickupLocationNotice();
             maybeQuote();
         } catch (e) {
             el('pickup').value = '';
             el('pickup').readOnly = false;
-            el('pickup-hint').textContent = 'Kon locatie niet bepalen. Vul je ophaaladres in.';
-            toast('Locatie toegang nodig om automatisch te detecteren.');
+            syncAddressClearButton('pickup');
+            const code = Number(e && e.code) || 0;
+            showPickupLocationNotice({
+                code: code,
+                message: e && e.message ? String(e.message) : '',
+                canRetry: true,
+            });
             fetchNearbyTaxis();
         }
+    }
+
+    function browserLocationHelp() {
+        return 'Zet de locatievoorzieningen aan voor je browser, zodat we je ophaallocatie automatisch kunnen uitlezen. '
+            + 'Daarna kun je opnieuw proberen, of vul je ophaaladres handmatig in.';
+    }
+
+    async function queryGeolocationPermissionState() {
+        try {
+            if (!navigator.permissions || !navigator.permissions.query) return null;
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            return status && status.state ? String(status.state) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function hidePickupLocationNotice() {
+        const notice = el('pickup-location-notice');
+        const help = el('pickup-location-notice-help');
+        const hint = el('pickup-hint');
+        if (notice) notice.hidden = true;
+        if (help) {
+            help.hidden = true;
+            help.textContent = '';
+            help.innerHTML = '';
+        }
+        if (hint && hint.hidden) hint.hidden = false;
+    }
+
+    async function showPickupLocationNotice(options) {
+        const opts = options || {};
+        const code = Number(opts.code) || 0;
+        const notice = el('pickup-location-notice');
+        const textEl = el('pickup-location-notice-text');
+        const helpEl = el('pickup-location-notice-help');
+        const retryBtn = el('pickup-location-retry');
+        const hint = el('pickup-hint');
+        if (!notice || !textEl) return;
+
+        const perm = await queryGeolocationPermissionState();
+        const denied = code === 1 || perm === 'denied';
+        const unavailable = code === 2;
+        const timeout = code === 3;
+
+        let title = 'Kon je locatie niet bepalen. Vul je ophaaladres handmatig in, of zet locatievoorzieningen aan voor je browser.';
+        if (!navigator.geolocation || code === 0 && !opts.canRetry) {
+            title = 'Locatiebepaling is niet beschikbaar in deze browser. Vul je ophaaladres handmatig in.';
+        } else if (denied) {
+            title = 'Locatievoorzieningen staan uit of zijn geblokkeerd voor deze browser. Zet ze aan om je ophaallocatie automatisch uit te lezen.';
+        } else if (timeout) {
+            title = 'Locatie bepalen duurde te lang. Probeer opnieuw, of vul je ophaaladres handmatig in.';
+        } else if (unavailable) {
+            title = 'Je locatie kon niet worden uitgelezen. Zet locatievoorzieningen aan voor je browser.';
+        }
+
+        textEl.textContent = title;
+        if (hint) {
+            hint.textContent = denied
+                ? 'Locatievoorzieningen uit · vul handmatig in of zet aan voor je browser'
+                : 'Kon locatie niet bepalen. Vul je ophaaladres in.';
+            hint.hidden = true;
+        }
+
+        if (retryBtn) {
+            retryBtn.hidden = opts.canRetry === false;
+            retryBtn.textContent = denied ? 'Opnieuw toestaan' : 'Opnieuw proberen';
+        }
+
+        if (helpEl) {
+            helpEl.textContent = browserLocationHelp();
+            helpEl.hidden = false;
+        }
+
+        notice.hidden = false;
+        toast(denied
+            ? 'Zet locatievoorzieningen aan voor je browser.'
+            : 'Kon locatie niet bepalen. Vul je ophaaladres in.');
+    }
+
+    function bindPickupLocationNotice() {
+        const retryBtn = el('pickup-location-retry');
+        if (!retryBtn || retryBtn.dataset.bound === '1') return;
+        retryBtn.dataset.bound = '1';
+        retryBtn.addEventListener('click', function () {
+            detectLocation();
+        });
     }
 
     function normalizeAddressQuery(query) {
@@ -1584,6 +2064,7 @@
             label: label,
             address: label,
             place_id: (item && item.place_id) || '',
+            place_name: main || '',
             types: types,
             is_station: station,
             lat: null,
@@ -1591,28 +2072,75 @@
         };
     }
 
+    function isNlPostcodeToken(value) {
+        return /^\d{4}\s*[A-Z]{2}$/i.test(String(value || '').trim());
+    }
+
+    function cityFromNominatimRow(row) {
+        const a = row && row.address && typeof row.address === 'object' ? row.address : null;
+        const fromAddress = a
+            ? String(a.city || a.town || a.village || a.municipality || '').trim()
+            : '';
+        if (fromAddress) return fromAddress;
+        const parts = String((row && row.display_name) || '')
+            .split(',')
+            .map(function (p) { return p.trim(); })
+            .filter(function (p) {
+                return p && !isNlPostcodeToken(p)
+                    && !/^(nederland|netherlands|overijssel|gelderland|noord-holland|zuid-holland|utrecht|limburg|noord-brabant|friesland|groningen|drenthe|zeeland|flevoland)$/i.test(p);
+            });
+        return parts.length >= 2 ? parts[parts.length - 1] : '';
+    }
+
+    function streetPartsFromNominatimRow(row) {
+        const displayName = String((row && row.display_name) || '').trim();
+        const poi = String((row && row.name) || '').trim().toLowerCase();
+        const a = row && row.address && typeof row.address === 'object' ? row.address : null;
+        let street = a
+            ? String(a.road || a.pedestrian || a.residential || a.footway || a.cycleway || a.path || a.railway || '').trim()
+            : '';
+        let number = a ? String(a.house_number || '').trim() : '';
+        if (street) return { street: street, number: number };
+
+        const parts = displayName.split(',').map(function (p) { return p.trim(); }).filter(Boolean)
+            .filter(function (p) { return !poi || p.toLowerCase() !== poi; });
+        if (!parts.length) return { street: '', number: number };
+        if (/^\d+[a-zA-Z\-]*$/.test(parts[0]) && parts[1] && !isNlPostcodeToken(parts[1])) {
+            return { street: parts[1], number: parts[0] };
+        }
+        const head = parts[0] || '';
+        if (head && !isNlPostcodeToken(head) && !/^\d+[a-zA-Z\-]*$/.test(head)) {
+            const withNr = head.match(/^(.*\D)\s+(\d+[a-zA-Z\-]*)$/);
+            if (withNr && withNr[1] && withNr[1].trim()) {
+                return { street: withNr[1].trim(), number: number || withNr[2] };
+            }
+            if (!number && parts[1] && /^\d+[a-zA-Z\-]*$/.test(parts[1])) {
+                return { street: head, number: parts[1] };
+            }
+            return { street: head, number: number };
+        }
+        const streetPart = parts.find(function (p) {
+            return p && !isNlPostcodeToken(p) && !/^\d+[a-zA-Z\-]*$/.test(p)
+                && !/^(nederland|netherlands|overijssel|gelderland)$/i.test(p);
+        });
+        if (!number) {
+            const nrPart = parts.find(function (p) { return /^\d+[a-zA-Z\-]*$/.test(p); });
+            if (nrPart) number = nrPart;
+        }
+        return { street: streetPart || '', number: number };
+    }
+
     function formatNominatimPredictionItem(row) {
         if (!row) return null;
-        const displayName = String(row.display_name || '').trim();
-        const poiName = String(row.name || '').trim();
+        const placeType = String(row.type || row.addresstype || '').toLowerCase();
         const category = String(row.category || row.class || '').toLowerCase();
-        const placeType = String(row.type || '').toLowerCase();
+        if (placeType === 'postcode') return null;
+        const parts = streetPartsFromNominatimRow(row);
+        const poiName = String(row.name || '').trim();
+        if (!parts.street && (!poiName || isNlPostcodeToken(poiName))) return null;
+        const label = formatNominatimRowAddress(row);
+        if (!label || isNlPostcodeToken(label.split(',')[0])) return null;
         const isStation = category === 'railway' || placeType === 'station' || placeType === 'halt';
-        const a = row.address && typeof row.address === 'object' ? row.address : null;
-        const city = a
-            ? (a.city || a.town || a.village || a.municipality || a.suburb || '')
-            : '';
-        const postcode = a ? (a.postcode || '') : '';
-        let lead;
-        if (isStation) {
-            lead = ensureStationLabel(poiName || (displayName.split(',')[0] || displayName));
-        } else {
-            lead = poiName || displayName;
-        }
-        const second = [postcode, city].filter(Boolean).join(' ').trim();
-        let label = second ? (lead + ', ' + second) : lead;
-        if (!label) label = displayName;
-        if (!label) return null;
         const lat = row.lat != null ? parseFloat(row.lat) : NaN;
         const lng = row.lon != null ? parseFloat(row.lon) : NaN;
         return {
@@ -1626,7 +2154,85 @@
         };
     }
 
-    function mergeAddressSuggestions(googleItems, nominatimItems, query) {
+    /**
+     * Nominatim zet huisnummer vaak vooraan ("155, Deurningerstraat, …").
+     * NL-weergave: straat + huisnummer ("Deurningerstraat 155, …").
+     */
+    function formatNominatimRowAddress(row) {
+        if (!row || typeof row !== 'object') return '';
+        const displayName = String(row.display_name || '').trim();
+        const poiName = String(row.name || '').trim();
+        const a = row.address && typeof row.address === 'object' ? row.address : null;
+        const parts = streetPartsFromNominatimRow(row);
+        const street = parts.street;
+        const number = parts.number;
+        const city = cityFromNominatimRow(row);
+        const postcode = a ? (a.postcode || '') : '';
+        const addressType = String(row.addresstype || '').toLowerCase();
+        const category = String(row.category || row.class || '').toLowerCase();
+        const placeType = String(row.type || '').toLowerCase();
+        const isStreetAddress = !!number || addressType === 'road' || addressType === 'house'
+            || addressType === 'house_number' || category === 'highway';
+        const streetPart = [street, number].filter(Boolean).join(' ').trim();
+        let lead;
+        if (category === 'railway' || placeType === 'station' || placeType === 'halt') {
+            lead = poiName
+                ? (/^station\b/i.test(poiName) ? poiName : ('Station ' + poiName))
+                : (streetPart || displayName);
+        } else if (poiName && !isNlPostcodeToken(poiName) && !isStreetAddress
+            && poiName.toLowerCase() !== String(street).toLowerCase()) {
+            lead = streetPart ? (poiName + ', ' + streetPart) : poiName;
+        } else {
+            lead = streetPart || (!isNlPostcodeToken(poiName) ? poiName : '');
+        }
+        if (!lead || isNlPostcodeToken(lead)) return '';
+        if (city && lead.toLowerCase().indexOf(String(city).toLowerCase()) < 0) {
+            return lead + ', ' + city;
+        }
+        if (postcode && !city) {
+            return lead + ', ' + postcode;
+        }
+        return lead;
+    }
+
+    /** Zet "155, Straatnaam, …" om naar "Straatnaam 155, …". */
+    function normalizeNlAddressLabel(raw) {
+        const text = String(raw || '').trim();
+        if (!text) return '';
+        const parts = text.split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+        if (!parts.length) return text;
+        let first = parts[0] || '';
+        const second = parts[1] || '';
+        if (/^\d+[a-zA-Z\-]*$/.test(first) && second && !/^\d/.test(second)) {
+            first = second + ' ' + first;
+            parts[0] = first;
+            parts.splice(1, 1);
+        } else if (second && /^\d+[a-zA-Z\-]*$/.test(second) && first && !/\d/.test(first)) {
+            first = first + ' ' + second;
+            parts[0] = first;
+            parts.splice(1, 1);
+        }
+        return parts.join(', ');
+    }
+
+    function formatGoogleGeocodeAddress(result) {
+        if (!result) return '';
+        const components = result.address_components || [];
+        const byType = {};
+        components.forEach(function (c) {
+            (c.types || []).forEach(function (t) {
+                if (!byType[t]) byType[t] = c.long_name;
+            });
+        });
+        const street = byType.route || byType.pedestrian || '';
+        const number = byType.street_number || '';
+        const streetPart = [street, number].filter(Boolean).join(' ').trim();
+        const city = byType.locality || byType.postal_town || byType.administrative_area_level_2 || '';
+        const value = [streetPart, city].filter(Boolean).join(', ').trim();
+        return value || bookingAddressLine(result.formatted_address || '');
+    }
+
+    function mergeAddressSuggestions(googleItems, nominatimItems, query, businessItems) {
         const wantsStation = queryWantsStation(query);
         const out = [];
         const seen = {};
@@ -1644,6 +2250,8 @@
         const google = Array.isArray(googleItems) ? googleItems : [];
         const nomi = Array.isArray(nominatimItems) ? nominatimItems : [];
 
+        const businesses = Array.isArray(businessItems) ? businessItems : [];
+        businesses.forEach(push);
         if (wantsStation) {
             google.filter(function (i) { return i.is_station; }).forEach(push);
             nomi.filter(function (i) { return i.is_station; }).forEach(push);
@@ -1651,7 +2259,7 @@
             nomi.forEach(push);
         } else {
             google.forEach(push);
-            if (!out.length) nomi.forEach(push);
+            nomi.forEach(push);
         }
         return out.slice(0, 8);
     }
@@ -1669,7 +2277,7 @@
                         resolve('');
                         return;
                     }
-                    resolve(String(results[0].formatted_address || '').trim());
+                    resolve(formatGoogleGeocodeAddress(results[0]));
                 });
             });
         }).catch(function () { return ''; });
@@ -1683,7 +2291,8 @@
         state.addressCache[key] = items;
     }
 
-    function fetchGoogleAddressPredictions(query) {
+    function fetchGoogleAddressPredictions(query, options) {
+        const opts = options || {};
         if (!cfg.googleMapsApiKey) return Promise.resolve([]);
         return loadGoogleMapsSdk().then(function () {
             if (!window.google || !google.maps || !google.maps.places || !google.maps.places.AutocompleteService) {
@@ -1695,7 +2304,7 @@
             // Bij stationszoekopdracht expliciet "Station …" meegeven zodat Google
             // het treinstation teruggeeft i.p.v. alleen de plaatsnaam.
             let input = String(query || '').trim();
-            if (queryWantsStation(input) && !/^station\b/i.test(input)) {
+            if (!opts.types && queryWantsStation(input) && !/^station\b/i.test(input)) {
                 input = 'Station ' + input.replace(/\bstation\b/gi, ' ').replace(/\s+/g, ' ').trim();
             }
             const request = {
@@ -1703,6 +2312,9 @@
                 language: 'nl',
                 componentRestrictions: { country: 'nl' },
             };
+            if (opts.types) {
+                request.types = opts.types;
+            }
             const biasLat = state.pickup && isFinite(state.pickup.lat) ? state.pickup.lat : cfg.centerLat;
             const biasLng = state.pickup && isFinite(state.pickup.lng) ? state.pickup.lng : cfg.centerLng;
             if (isFinite(biasLat) && isFinite(biasLng) && google.maps.LatLng) {
@@ -1769,6 +2381,7 @@
                     resolve({
                         lat: typeof loc.lat === 'function' ? loc.lat() : parseFloat(loc.lat),
                         lng: typeof loc.lng === 'function' ? loc.lng() : parseFloat(loc.lng),
+                        address: formatGoogleGeocodeAddress(results[0]),
                     });
                 });
             });
@@ -1785,6 +2398,79 @@
                     return { lat: first.lat, lng: first.lng };
                 }
                 return null;
+            });
+        });
+    }
+
+    function syncAddressClearButton(inputId) {
+        const input = el(inputId);
+        if (!input) return;
+        const wrap = input.closest('.field-suggest-input-wrap');
+        if (!wrap) return;
+        const hasValue = String(input.value || '').trim() !== '';
+        wrap.classList.toggle('has-value', hasValue);
+    }
+
+    function clearAddressField(inputId) {
+        const input = el(inputId);
+        const list = el(inputId + '-suggestions');
+        if (!input) return;
+
+        input.value = '';
+        input.readOnly = false;
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
+
+        if (inputId === 'pickup') {
+            state.pickup = null;
+            state.fleetDidFit = false;
+            state.nearestTaxi = null;
+            const hint = el('pickup-hint');
+            if (hint) {
+                hint.hidden = false;
+                hint.textContent = 'Vul je ophaaladres in';
+            }
+            hidePickupLocationNotice();
+        } else if (inputId === 'dropoff') {
+            state.dropoff = null;
+        }
+
+        syncAddressClearButton(inputId);
+        clearRouteLine();
+        Promise.resolve(updateMapMarkers()).then(function () {
+            if (inputId === 'pickup') {
+                updateFleetRadiusCircle();
+                fetchNearbyTaxis();
+            }
+            maybeQuote();
+        });
+        input.focus();
+    }
+
+    function bindAddressClearButtons() {
+        ['pickup', 'dropoff'].forEach(function (inputId) {
+            const input = el(inputId);
+            const clearBtn = el(inputId + '-clear');
+            if (!input || !clearBtn) return;
+
+            syncAddressClearButton(inputId);
+
+            clearBtn.addEventListener('mousedown', function (event) {
+                event.preventDefault();
+            });
+            clearBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                clearAddressField(inputId);
+            });
+
+            input.addEventListener('input', function () {
+                syncAddressClearButton(inputId);
+            });
+            input.addEventListener('change', function () {
+                syncAddressClearButton(inputId);
             });
         });
     }
@@ -1825,15 +2511,34 @@
 
         async function selectSuggestion(item) {
             hideList();
-            const address = String((item && (item.address || item.label)) || '').trim();
+            const rawAddress = String((item && (item.address || item.label)) || '').trim();
+            let address = bookingAddressLine(rawAddress) || rawAddress;
             if (!address) return;
             input.value = address;
+            syncAddressClearButton(inputId);
+
+            // Direct omhoog bij klik — niet wachten op geocode/route.
+            const willShowRoute = (inputId === 'dropoff' && state.pickup)
+                || (inputId === 'pickup' && state.dropoff)
+                || inputId === 'dropoff';
+            if (willShowRoute) {
+                scrollBookToMap();
+            }
+
             const coords = await resolveSuggestionCoordinates(item);
             if (!coords || !isFinite(coords.lat) || !isFinite(coords.lng)) {
                 toast('Adres gevonden, maar locatie kon niet worden bepaald. Probeer een ander adres.');
                 return;
             }
-            onPicked({ lat: coords.lat, lng: coords.lng, address: address });
+            const precise = bookingAddressLine(coords.address || '');
+            const preciseStreet = precise.split(',')[0] || '';
+            if (precise && /\d/.test(preciseStreet)) {
+                address = precise;
+                input.value = address;
+                syncAddressClearButton(inputId);
+            }
+            const placeName = String((item && (item.place_name || item.placeName || item.name)) || '').trim() || null;
+            onPicked({ lat: coords.lat, lng: coords.lng, address: address, placeName: placeName });
         }
 
         async function runSearch() {
@@ -1850,17 +2555,20 @@
             }
             const seq = ++requestSeq;
 
-            const googleItems = await fetchGoogleAddressPredictions(q);
+            const predictions = await Promise.all([
+                fetchGoogleAddressPredictions(q),
+                fetchGoogleAddressPredictions(q, { types: ['establishment'] }),
+            ]);
             if (seq !== requestSeq) return;
+            const googleItems = predictions[0];
+            const businessItems = predictions[1];
 
             let nominatimItems = [];
-            // Bij stations altijd Nominatim meenemen: Google toont vaak alleen de plaatsnaam.
-            if (queryWantsStation(q) || !googleItems.length) {
-                nominatimItems = await fetchNominatimAddressPredictions(q);
-                if (seq !== requestSeq) return;
-            }
+            // Altijd meenemen: bedrijven uit de serverzoekopdracht en stations die Google mist.
+            nominatimItems = await fetchNominatimAddressPredictions(q);
+            if (seq !== requestSeq) return;
 
-            const merged = mergeAddressSuggestions(googleItems, nominatimItems, q);
+            const merged = mergeAddressSuggestions(googleItems, nominatimItems, q, businessItems);
             rememberAddressCache(cacheKey, merged);
             renderSuggestions(merged);
         }
@@ -1909,7 +2617,14 @@
         bindAddressField('pickup', 'pickup-suggestions', function (point) {
             state.pickup = point;
             state.fleetDidFit = false;
-            el('pickup-hint').textContent = 'Handmatig gekozen · tik om te wijzigen';
+            state.nearestTaxi = null;
+            hidePickupLocationNotice();
+            const hint = el('pickup-hint');
+            if (hint) {
+                hint.hidden = false;
+                hint.textContent = 'Handmatig gekozen · tik om te wijzigen';
+            }
+            syncAddressClearButton('pickup');
             Promise.resolve(updateMapMarkers()).then(function () {
                 updateFleetRadiusCircle();
                 fetchNearbyTaxis();
@@ -1918,6 +2633,7 @@
         });
         bindAddressField('dropoff', 'dropoff-suggestions', function (point) {
             state.dropoff = point;
+            syncAddressClearButton('dropoff');
             Promise.resolve(updateMapMarkers()).then(function () {
                 maybeQuote();
             });
@@ -1955,12 +2671,17 @@
                 btn.type = 'button';
                 btn.className = 'dt-day';
                 btn.dataset.ymd = day.getFullYear() + '-' + pad(day.getMonth() + 1) + '-' + pad(day.getDate());
-                const wd = i === 0 ? 'Vandaag' : (i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' }));
+                const wd = i === 0 ? 'Vandaag' : (i === 1 ? 'Morgen' : day.toLocaleDateString('nl-NL', { weekday: 'short' }).replace(/\./g, ''));
+                const month = day.toLocaleDateString('nl-NL', { month: 'short' }).replace(/\./g, '').toLowerCase();
                 btn.innerHTML = '<span class="dt-day__wd">' + wd + '</span>'
-                    + '<span class="dt-day__nr">' + day.getDate() + '</span>';
+                    + '<span class="dt-day__nr">' + day.getDate() + '</span>'
+                    + '<span class="dt-day__month">' + month + '</span>';
                 btn.addEventListener('click', function () {
-                    draft = new Date(day.getFullYear(), day.getMonth(), day.getDate(), draft.getHours(), draft.getMinutes(), 0, 0);
-                    syncUi();
+                    draft = clampToFuture(new Date(
+                        day.getFullYear(), day.getMonth(), day.getDate(),
+                        draft.getHours(), draft.getMinutes(), 0, 0
+                    ));
+                    syncUi({ scroll: true });
                 });
                 daysEl.appendChild(btn);
                 dayButtons.push(btn);
@@ -1972,42 +2693,37 @@
             minutesEl.innerHTML = '';
             hourItems = [];
             minuteItems = [];
-            const makeSpacer = function () {
-                const node = document.createElement('div');
-                node.className = 'dt-item';
-                node.style.visibility = 'hidden';
-                node.textContent = '00';
-                return node;
-            };
-            hoursEl.appendChild(makeSpacer());
             for (let h = 0; h < 24; h++) {
                 const item = document.createElement('div');
                 item.className = 'dt-item';
                 item.dataset.value = String(h);
                 item.textContent = pad(h);
                 item.addEventListener('click', function () {
-                    draft.setHours(h);
+                    draft = clampToFuture(new Date(
+                        draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                        h, draft.getMinutes(), 0, 0
+                    ));
                     syncUi({ scroll: true });
                 });
                 hoursEl.appendChild(item);
                 hourItems.push(item);
             }
-            hoursEl.appendChild(makeSpacer());
 
-            minutesEl.appendChild(makeSpacer());
             for (let m = 0; m < 60; m += 5) {
                 const item = document.createElement('div');
                 item.className = 'dt-item';
                 item.dataset.value = String(m);
                 item.textContent = pad(m);
                 item.addEventListener('click', function () {
-                    draft.setMinutes(m);
+                    draft = clampToFuture(new Date(
+                        draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                        draft.getHours(), m, 0, 0
+                    ));
                     syncUi({ scroll: true });
                 });
                 minutesEl.appendChild(item);
                 minuteItems.push(item);
             }
-            minutesEl.appendChild(makeSpacer());
         }
 
         function nearestMinuteIndex(mins) {
@@ -2047,13 +2763,25 @@
                 item.classList.toggle('is-active', idx === minIdx);
             });
             document.querySelectorAll('#dt-quick .dt-chip').forEach(function (chip) {
-                chip.classList.remove('is-active');
+                const mins = parseInt(chip.dataset.quick, 10) || 0;
+                const active = sameMinute(draft, presetDate(mins));
+                chip.classList.toggle('is-active', active);
+                chip.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
+            const preview = el('dt-preview');
+            if (preview) preview.textContent = formatPickupLabel(toLocalInputValue(draft));
             if (opts.scroll !== false) {
                 syncingScroll = true;
                 scrollToActive(hoursEl, hourItems, draft.getHours());
                 scrollToActive(minutesEl, minuteItems, minIdx);
-                setTimeout(function () { syncingScroll = false; }, 50);
+                const activeDay = daysEl.querySelector('.dt-day.is-active');
+                if (activeDay && daysEl.clientWidth) {
+                    const rowBox = daysEl.getBoundingClientRect();
+                    const dayBox = activeDay.getBoundingClientRect();
+                    const delta = (dayBox.left + dayBox.width / 2) - (rowBox.left + rowBox.width / 2);
+                    daysEl.scrollLeft += delta;
+                }
+                setTimeout(function () { syncingScroll = false; }, 160);
             }
         }
 
@@ -2087,13 +2815,13 @@
 
         function openPicker() {
             draft = parseLocalInputValue(el('pickup-at').value || defaultPickupAt());
-            if (Number.isNaN(draft.getTime())) draft = parseLocalInputValue(defaultPickupAt());
+            if (Number.isNaN(draft.getTime())) draft = presetDate(10);
+            draft = clampToFuture(draft);
             overlay.hidden = false;
-            syncUi({ scroll: true });
-            const activeDay = daysEl.querySelector('.dt-day.is-active');
-            if (activeDay) {
-                activeDay.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            }
+            const paint = function () { syncUi({ scroll: true }); };
+            paint();
+            requestAnimationFrame(paint);
+            setTimeout(paint, 80);
         }
 
         function closePicker() {
@@ -2103,37 +2831,37 @@
         buildDays();
         buildTimeColumns();
         onScrollSnap(hoursEl, hourItems, function (idx) {
-            draft.setHours(idx);
+            const h = hourItems[idx] ? parseInt(hourItems[idx].dataset.value, 10) : idx;
+            draft = clampToFuture(new Date(
+                draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                h, draft.getMinutes(), 0, 0
+            ));
         });
         onScrollSnap(minutesEl, minuteItems, function (idx) {
             const item = minuteItems[idx];
-            if (item) draft.setMinutes(parseInt(item.dataset.value, 10));
+            const m = item ? parseInt(item.dataset.value, 10) : draft.getMinutes();
+            draft = clampToFuture(new Date(
+                draft.getFullYear(), draft.getMonth(), draft.getDate(),
+                draft.getHours(), m, 0, 0
+            ));
         });
 
         openBtn.addEventListener('click', openPicker);
-        el('dt-close').addEventListener('click', closePicker);
-        el('dt-cancel').addEventListener('click', closePicker);
         overlay.addEventListener('click', function (event) {
             if (event.target === overlay) closePicker();
         });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !overlay.hidden) closePicker();
+        });
         el('dt-confirm').addEventListener('click', function () {
-            const now = new Date();
-            if (draft.getTime() < now.getTime() - 60000) {
-                toast('Kies een ophaaltijd in de toekomst.');
-                return;
-            }
+            draft = clampToFuture(draft);
             setPickupAtValue(toLocalInputValue(draft));
             closePicker();
         });
         document.querySelectorAll('#dt-quick .dt-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 const mins = parseInt(chip.dataset.quick, 10) || 10;
-                draft = new Date(Date.now() + mins * 60 * 1000);
-                draft.setSeconds(0, 0);
-                draft.setMinutes(Math.ceil(draft.getMinutes() / 5) * 5);
-                document.querySelectorAll('#dt-quick .dt-chip').forEach(function (c) {
-                    c.classList.toggle('is-active', c === chip);
-                });
+                draft = presetDate(mins);
                 syncUi({ scroll: true });
             });
         });
@@ -2193,12 +2921,31 @@
             state.quote = data;
             const offer = (data.offers && data.offers[0]) || null;
             if (offer) {
+                const km = (metrics.distance_meters / 1000).toFixed(1).replace('.', ',');
+                const mins = Math.max(1, Math.round(metrics.duration_seconds / 60));
+                const routeEl = el('quote-route');
+                if (routeEl) routeEl.textContent = km + ' km · ca. ' + mins + ' min';
                 el('quote-price').textContent = offer.price_label
                     || ('€ ' + Number(offer.price || 0).toFixed(2).replace('.', ','));
                 const cand = (data.marketplace && data.marketplace.candidate_count) || 0;
-                el('quote-meta').textContent = cand + ' taxi' + (cand === 1 ? '' : 's') + ' in straal';
+                el('quote-meta').textContent = cand > 0
+                    ? (cand + ' taxi' + (cand === 1 ? '' : '’s') + ' in de buurt')
+                    : 'Geen vrije taxi in de buurt';
+                const warn = el('quote-warn');
+                const unavailable = data.marketplace && data.marketplace.unavailable_message;
+                if (warn) {
+                    if (cand === 0) {
+                        warn.hidden = false;
+                        warn.textContent = unavailable
+                            || 'Geen taxi’s beschikbaar. We sturen geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.';
+                    } else {
+                        warn.hidden = true;
+                        warn.textContent = '';
+                    }
+                }
                 el('quote-card').hidden = false;
                 updatePaymentUi(data.payment || null);
+                syncMapFitButton();
             }
         } catch (e) {
             el('quote-card').hidden = true;
@@ -2248,6 +2995,8 @@
             passengers: parseInt(el('passengers').value, 10) || 1,
             pickup_address: state.pickup.address,
             dropoff_address: state.dropoff.address,
+            pickup_place_name: state.pickup.placeName || null,
+            dropoff_place_name: state.dropoff.placeName || null,
             pickup_lat: state.pickup.lat,
             pickup_lng: state.pickup.lng,
             dropoff_lat: state.dropoff.lat,
@@ -2275,6 +3024,17 @@
                 to: state.dropoff && state.dropoff.address ? state.dropoff.address : '',
                 phase: (data.live && data.live.phase) || (data.payment_required ? 'awaiting_payment' : 'searching'),
                 status_label: (data.live && data.live.status_label) || (data.payment_required ? 'Wacht op betaling' : 'Zoeken…'),
+                pickup_at: (data.live && (data.live.pickup_at_label || data.live.pickup_at)) || payload.pickup_at,
+                passengers: payload.passengers,
+                baggage_summary: baggageSummaryFromRide(data.live) || '',
+                baggage: (data.live && data.live.baggage) || null,
+                distance_km: (data.live && data.live.distance_km != null)
+                    ? data.live.distance_km
+                    : (payload.distance_meters ? Math.round(payload.distance_meters / 100) / 10 : null),
+                duration_seconds: (data.live && data.live.duration_seconds != null)
+                    ? data.live.duration_seconds
+                    : payload.duration_seconds,
+                quoted_price: data.live && data.live.quoted_price != null ? data.live.quoted_price : null,
             });
             if (data.payment_required && data.checkout_url) {
                 toast('Je wordt doorgestuurd naar de betaling…');
@@ -2294,18 +3054,21 @@
 
     function openLive(initial) {
         unlockAudio();
+        if (state.trackToken) state.expandedRideToken = state.trackToken;
         stopFleetPolling();
-        showScreen('live');
+        showScreen('rides');
         state.liveRouteKey = '';
         state.liveRouteFetchSeq += 1;
         if (initial && initial.phase && initial.phase !== 'searching') {
             state.acceptedNotified = true;
             state.livePhase = initial.phase;
         }
-        ensureLiveMap().then(function () {
-            if (initial) renderLive(initial);
-            startLivePoll();
-        });
+        if (initial) {
+            renderLive(initial);
+            syncBookFollow(initial);
+        }
+        startLivePoll();
+        loadRides();
     }
 
     function startLivePoll() {
@@ -2335,7 +3098,61 @@
         state.liveTimer = null;
     }
 
+    function formatStatusUpdateAt(value) {
+        const d = value ? new Date(value) : null;
+        if (!d || !Number.isFinite(d.getTime())) return '';
+        try {
+            return d.toLocaleString('nl-NL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function renderLiveStatusUpdates(ride) {
+        const box = el('live-status-updates');
+        if (!box) return;
+        const phase = ride && ride.phase;
+        const raw = ride && Array.isArray(ride.status_updates) ? ride.status_updates.slice() : [];
+        if (!raw.length || (phase !== 'accepted' && phase !== 'cancelled' && phase !== 'completed')) {
+            box.hidden = true;
+            box.innerHTML = '';
+            return;
+        }
+        const ranked = raw.map(function (update, index) {
+            return { update: update, index: index };
+        }).sort(function (a, b) {
+            const aMs = Date.parse(a.update && a.update.at) || 0;
+            const bMs = Date.parse(b.update && b.update.at) || 0;
+            if (bMs !== aMs) return bMs - aMs;
+            return b.index - a.index;
+        });
+        box.innerHTML = '<p class="ride-card__stop-label">Statusupdates</p>'
+            + '<div class="live-status-updates__list">'
+            + ranked.map(function (row, idx) {
+                const u = row.update || {};
+                const event = String(u.event || '');
+                const isCurrent = idx === 0 && event !== 'cancelled' && event !== 'declined';
+                const at = formatStatusUpdateAt(u.at);
+                return '<div class="live-status-updates__row">'
+                    + '<span class="live-status-updates__dot' + (isCurrent ? ' is-current' : '') + '" aria-hidden="true"></span>'
+                    + '<div>'
+                    + '<p class="live-status-updates__label' + (isCurrent ? ' is-current' : '') + '">'
+                    + escapeHtml(String(u.label || event || 'Update'))
+                    + '</p>'
+                    + (at ? ('<p class="live-status-updates__at">' + escapeHtml(at) + '</p>') : '')
+                    + '</div></div>';
+            }).join('')
+            + '</div>';
+        box.hidden = false;
+    }
+
     function renderLive(ride) {
+        const banner = el('live-banner');
         const pill = el('live-pill');
         const title = el('live-title');
         const text = el('live-text');
@@ -2347,30 +3164,68 @@
         const btnPay = el('btn-live-pay');
         const btnInvoice = el('btn-live-invoice');
         const routeBox = el('live-route');
-        const routeFrom = el('live-route-from');
-        const routeTo = el('live-route-to');
-        const pickupWrap = el('live-pickup-wrap');
+        const statsBox = el('live-stats');
+        const metaWrap = el('live-meta-wrap');
         const pickupAtEl = el('live-pickup-at');
+        const priceWrap = el('live-price-wrap');
+        const priceEl = el('live-price');
+        const priceAfter = el('live-price-after');
+        const priceAfterValue = el('live-price-after-value');
 
         state.liveRide = ride || null;
+        if (banner) {
+            banner.classList.toggle('is-accepted', !!(ride && ride.phase === 'accepted'));
+            banner.classList.toggle('is-cancelled', !!(ride && ride.phase === 'cancelled'));
+            banner.classList.toggle('is-searching', !!(ride && ride.phase === 'searching'));
+        }
 
         const fromRaw = ride && (ride.pickup_address || ride.from);
         const toRaw = ride && (ride.dropoff_address || ride.to);
-        const fromAddr = shortAddress(fromRaw);
-        const toAddr = shortAddress(toRaw);
-        if (routeBox && routeFrom && routeTo) {
+        if (routeBox) {
             const hasRoute = !!(String(fromRaw || '').trim() && String(toRaw || '').trim());
-            routeFrom.textContent = hasRoute ? fromAddr : '—';
-            routeTo.textContent = hasRoute ? toAddr : '—';
+            routeBox.innerHTML = hasRoute ? rideStopsHtml(fromRaw, toRaw) : '';
             routeBox.hidden = !hasRoute;
-            const routeActive = !!(ride && isActiveRidePhase(ride.phase));
-            routeBox.classList.toggle('is-live-active', routeActive);
         }
-        if (pickupWrap && pickupAtEl) {
-            const when = formatRideWhen(ride && (ride.pickup_at_label || ride.pickup_at || ride.at || ride.at_ts));
-            pickupAtEl.textContent = when || '—';
-            pickupWrap.hidden = !when;
-            pickupWrap.classList.toggle('is-live-active', !!(ride && isActiveRidePhase(ride.phase)));
+        const when = formatRideWhen(ride && (ride.pickup_at_label || ride.pickup_at || ride.at || ride.at_ts));
+        const priceLabel = ride && ride.quoted_price != null
+            ? formatEuroNl(ride.quoted_price)
+            : (ride && ride.amount ? String(ride.amount) : '');
+        const guestForStats = state.trackToken
+            ? (guestRides().find(function (r) { return r && r.token === state.trackToken; })
+                || (state.ridesCache || []).find(function (r) { return r && r.token === state.trackToken; }))
+            : null;
+        const statsRide = ride ? Object.assign({}, guestForStats || {}, ride, {
+            distance_km: ride.distance_km != null
+                ? ride.distance_km
+                : (guestForStats && guestForStats.distance_km != null ? guestForStats.distance_km : null),
+            duration_seconds: ride.duration_seconds != null
+                ? ride.duration_seconds
+                : (guestForStats && guestForStats.duration_seconds != null ? guestForStats.duration_seconds : null),
+            passengers: ride.passengers != null
+                ? ride.passengers
+                : (guestForStats && guestForStats.passengers != null ? guestForStats.passengers : null),
+            baggage: ride.baggage || (guestForStats && guestForStats.baggage) || null,
+            baggage_summary: baggageSummaryFromRide(ride)
+                || (guestForStats && guestForStats.baggage_summary)
+                || '',
+        }) : ride;
+        const passengers = statsRide && statsRide.passengers != null ? Number(statsRide.passengers) : 0;
+        const baggageSummary = baggageSummaryFromRide(statsRide);
+        const statsHtml = rideStatsHtml(statsRide);
+        if (statsBox) {
+            statsBox.innerHTML = statsHtml;
+            statsBox.hidden = !statsHtml;
+        }
+        if (pickupAtEl) pickupAtEl.textContent = when || '—';
+        if (priceEl) priceEl.textContent = priceLabel || '—';
+        if (priceWrap) priceWrap.hidden = !priceLabel;
+        if (metaWrap) {
+            metaWrap.hidden = !(when || priceLabel);
+        }
+        if (priceAfter && priceAfterValue) {
+            const showPriceAfter = !!(ride && ride.phase === 'accepted' && priceLabel);
+            priceAfterValue.textContent = priceLabel || '—';
+            priceAfter.hidden = !showPriceAfter;
         }
 
         if (state.trackToken && ride) {
@@ -2381,15 +3236,57 @@
                 phase: ride.phase || 'other',
                 status_label: ride.status_label || ride.status || '',
                 payment_failure_status: ride.payment_failure_status || null,
+                rating: ride.rating || null,
+                pickup_at: ride.pickup_at_label || ride.pickup_at || undefined,
+                amount: priceLabel || undefined,
+                passengers: passengers > 0 ? passengers : undefined,
+                baggage_summary: baggageSummary || undefined,
+                baggage: ride.baggage || undefined,
+                distance_km: ride.distance_km != null ? Number(ride.distance_km) : undefined,
+                duration_seconds: ride.duration_seconds != null ? Number(ride.duration_seconds) : undefined,
+                pickup_confirmation: ride.pickup_confirmation || null,
             });
+            syncRideCardFromLive(state.trackToken, ride);
+        }
+
+        if (ride && ride.phase !== 'completed') {
+            hideLiveRating();
         }
 
         if (note) {
             note.hidden = true;
+            note.classList.remove('is-refund');
             note.textContent = '';
+        }
+        const pickupBox = el('live-pickup-confirm');
+        if (pickupBox) {
+            const html = pickupConfirmHtml(ride, state.trackToken);
+            pickupBox.innerHTML = html;
+            pickupBox.hidden = !html;
+        }
+        if (text && ride && ride.phase !== 'accepted') {
+            text.hidden = false;
+        }
+        if (ride && ride.phase !== 'accepted' && ride.phase !== 'cancelled' && ride.phase !== 'completed') {
+            renderLiveStatusUpdates(null);
+        }
+        const liveDriverCard = el('live-driver-card');
+        if (liveDriverCard && ride.phase !== 'accepted') {
+            liveDriverCard.hidden = true;
+            liveDriverCard.innerHTML = '';
+        }
+        const liveEtaWrap = el('live-eta-wrap');
+        const liveEtaValue = el('live-eta-value');
+        if (liveEtaWrap && ride.phase !== 'accepted') {
+            liveEtaWrap.hidden = true;
+            if (liveEtaValue) liveEtaValue.textContent = '—';
+        }
+        if (priceAfter && (!ride || ride.phase !== 'accepted')) {
+            priceAfter.hidden = true;
         }
 
         if (ride.phase === 'awaiting_payment') {
+            setLiveSearchingTitleVisible(false);
             const paymentFailed = !!ride.payment_failure_status;
             pill.className = 'status-pill warn';
             pill.textContent = paymentFailed ? 'Betaling mislukt' : 'Betaling';
@@ -2408,10 +3305,11 @@
                     : 'Even geduld — zodra de betaling binnen is starten we met zoeken.';
             }
         } else if (ride.phase === 'searching') {
-            pill.className = 'status-pill';
-            pill.innerHTML = '<span class="pulse"></span> Zoeken…';
+            pill.className = 'status-pill is-searching';
+            pill.textContent = 'Zoeken…';
             details.hidden = true;
             if (ride.needs_unaccepted_decision) {
+                setLiveSearchingTitleVisible(false);
                 title.textContent = 'Nog geen taxi gevonden';
                 text.textContent = 'Wil je blijven wachten tot er een taxi beschikbaar is, of deze rit annuleren?';
                 if (note) {
@@ -2424,18 +3322,16 @@
                             + ' (doorgaans binnen ' + (ride.refund_business_days || 10) + ' werkdagen).');
                 }
             } else if (ride.waiting_for_taxi) {
+                setLiveSearchingTitleVisible(false);
                 title.textContent = 'We zoeken verder';
                 text.textContent = 'Je rit blijft op de marktplaats tot een taxi accepteert. Je kunt alsnog annuleren.';
             } else {
+                setLiveSearchingTitleVisible(true);
                 title.textContent = 'We zoeken een taxi';
-                text.textContent = 'Je rit staat op de marktplaats voor aangesloten taxibedrijven in de buurt.';
-                if (note && ride.auto_cancel_label) {
-                    note.hidden = false;
-                    note.textContent = 'Geen taxi gevonden vóór ' + ride.auto_cancel_label
-                        + '? Dan vragen we of je wilt wachten of annuleren.';
-                }
+                text.textContent = 'Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.';
             }
         } else if (ride.phase === 'accepted') {
+            setLiveSearchingTitleVisible(false);
             if (!state.acceptedNotified && state.livePhase === 'searching') {
                 state.acceptedNotified = true;
                 playAcceptedSignal();
@@ -2452,35 +3348,124 @@
             }
             pill.className = 'status-pill ok';
             pill.textContent = 'Geaccepteerd';
-            title.textContent = ride.eta_label ? ('Arriveert ' + ride.eta_label) : 'Taxi onderweg';
-            text.textContent = 'Details van je toegewezen taxi:';
+            title.textContent = ride.status_label || 'Chauffeur toegewezen';
+            if (text) {
+                const fromShort = shortAddress(ride.pickup_address || ride.from);
+                const toShort = shortAddress(ride.dropoff_address || ride.to);
+                text.hidden = false;
+                text.textContent = (fromShort && toShort
+                    && fromShort !== 'Onbekend' && toShort !== 'Onbekend')
+                    ? (fromShort + ' → ' + toShort)
+                    : '';
+            }
+            if (liveEtaWrap && liveEtaValue) {
+                if (ride.eta_label) {
+                    liveEtaValue.textContent = ride.eta_label;
+                    liveEtaWrap.hidden = false;
+                } else {
+                    liveEtaValue.textContent = '—';
+                    liveEtaWrap.hidden = true;
+                }
+            }
+            const driverCard = el('live-driver-card');
+            const hasDriverMedia = !!(ride.driver || ride.vehicle);
+            if (driverCard) {
+                if (hasDriverMedia) {
+                    let html = '';
+                    if (ride.driver && ride.driver.company_logo_url) {
+                        html += '<img class="live-driver-card__logo" src="'
+                            + escapeHtml(ride.driver.company_logo_url)
+                            + '" alt="" decoding="async">';
+                    }
+                    html += '<div class="live-driver-card__row">';
+                    if (ride.driver && ride.driver.photo_url) {
+                        html += '<button type="button" class="live-driver-card__photo-btn" data-photo-preview="'
+                            + escapeHtml(ride.driver.photo_url)
+                            + '" aria-label="Profielfoto vergroten">'
+                            + '<img class="live-driver-card__avatar" src="'
+                            + escapeHtml(ride.driver.photo_url)
+                            + '" alt="" decoding="async"></button>';
+                    }
+                    html += '<div class="live-driver-card__meta">';
+                    if (ride.driver && ride.driver.name) {
+                        html += '<p class="live-driver-card__name">' + escapeHtml(ride.driver.name) + '</p>';
+                    }
+                    if (ride.driver && ride.driver.rating_avg != null) {
+                        html += '<p class="live-driver-card__sub"><span class="live-driver-card__star">★</span> '
+                            + Number(ride.driver.rating_avg).toFixed(1)
+                            + (ride.driver.rating_count ? ' (' + ride.driver.rating_count + ')' : '')
+                            + '</p>';
+                    }
+                    if (ride.vehicle && ride.vehicle.license_plate) {
+                        html += '<p class="live-driver-card__sub">'
+                            + escapeHtml(ride.vehicle.license_plate) + '</p>';
+                    }
+                    if (ride.vehicle && ride.vehicle.name) {
+                        html += '<p class="live-driver-card__sub">'
+                            + escapeHtml(ride.vehicle.name) + '</p>';
+                    }
+                    html += '</div>';
+                    if (ride.vehicle && ride.vehicle.photo_url) {
+                        html += '<button type="button" class="live-driver-card__photo-btn" data-photo-preview="'
+                            + escapeHtml(ride.vehicle.photo_url)
+                            + '" aria-label="Autofoto vergroten">'
+                            + '<img class="live-driver-card__vehicle" src="'
+                            + escapeHtml(ride.vehicle.photo_url)
+                            + '" alt="" decoding="async"></button>';
+                    }
+                    html += '</div>';
+                    driverCard.innerHTML = html;
+                    driverCard.hidden = false;
+                } else {
+                    driverCard.innerHTML = '';
+                    driverCard.hidden = true;
+                }
+            }
             const rows = [];
-            if (ride.company && ride.company.name) rows.push(['Bedrijf', ride.company.name]);
-            if (ride.vehicle && ride.vehicle.license_plate) rows.push(['Kenteken', ride.vehicle.license_plate]);
-            if (ride.vehicle && ride.vehicle.name) rows.push(['Auto', ride.vehicle.name]);
-            if (ride.driver && ride.driver.name) rows.push(['Chauffeur', ride.driver.name]);
-            if (ride.eta_label) rows.push(['ETA', ride.eta_label]);
-            details.innerHTML = rows.map(([k, v]) => '<dt>' + k + '</dt><dd>' + escapeHtml(v) + '</dd>').join('');
+            if (ride.company && ride.company.name) rows.push(['Centrale', ride.company.name]);
+            if (!hasDriverMedia) {
+                if (ride.vehicle && ride.vehicle.license_plate) rows.push(['Kenteken', ride.vehicle.license_plate]);
+                if (ride.vehicle && ride.vehicle.name) rows.push(['Auto', ride.vehicle.name]);
+                if (ride.driver && ride.driver.name) rows.push(['Chauffeur', ride.driver.name]);
+            }
+            details.innerHTML = rows.map(function (row) {
+                return '<div class="kv__row">'
+                    + '<p class="ride-card__stop-label">' + escapeHtml(row[0]) + '</p>'
+                    + '<p class="ride-card__stop-value">' + escapeHtml(row[1]) + '</p>'
+                    + '</div>';
+            }).join('');
             details.hidden = rows.length === 0;
+            renderLiveStatusUpdates(ride);
         } else if (ride.phase === 'completed') {
+            setLiveSearchingTitleVisible(false);
             pill.className = 'status-pill ok';
             pill.textContent = 'Voltooid';
-            title.textContent = 'Rit afgerond';
-            text.textContent = 'Bedankt voor je rit met Nexa Taxi. Je kunt hieronder je factuur downloaden.';
+            title.textContent = ride.status_label || 'Rit afgerond';
+            text.textContent = 'Bedankt voor je rit met Nexa Taxi. Beoordeel je rit hieronder of download je factuur.';
             details.hidden = true;
+            renderLiveRating(ride);
+            renderLiveStatusUpdates(ride);
             stopLivePoll();
         } else if (ride.phase === 'cancelled') {
+            setLiveSearchingTitleVisible(false);
             pill.className = 'status-pill warn';
             pill.textContent = 'Geannuleerd';
             title.textContent = 'Rit geannuleerd';
-            text.textContent = 'Deze rit is geannuleerd.'
-                + (ride.refund_business_days
-                    ? ' Indien vooraf betaald wordt het bedrag teruggestort (doorgaans binnen '
-                        + ride.refund_business_days + ' werkdagen).'
-                    : '');
+            if (text) {
+                text.hidden = false;
+                text.textContent = 'Deze rit is geannuleerd.';
+            }
+            if (note && ride.refund_message) {
+                note.hidden = false;
+                note.classList.add('is-refund');
+                note.innerHTML = '<span class="live-note__label">Terugbetaling</span>'
+                    + escapeHtml(ride.refund_message);
+            }
             details.hidden = true;
+            renderLiveStatusUpdates(ride);
             stopLivePoll();
         } else {
+            setLiveSearchingTitleVisible(false);
             pill.className = 'status-pill';
             pill.textContent = ride.status_label || ride.status;
             title.textContent = 'Statusupdate';
@@ -2525,6 +3510,8 @@
                 updateVehicleOnMap(ride);
             }
         });
+        syncBookFollow(ride);
+        mountExpandedFollow();
     }
 
     async function waitLiveRide() {
@@ -2605,12 +3592,11 @@
         }
     }
 
-    async function cancelLiveRide() {
-        const ride = state.liveRide;
-        if (!ride || !ride.can_cancel) return;
+    async function cancelRideByToken(token, btn) {
+        const track = String(token || state.trackToken || '').trim();
+        if (!track && !(state.liveRide && state.liveRide.id && state.token)) return;
         if (!window.confirm('Weet je zeker dat je deze rit wilt annuleren?')) return;
 
-        const btn = el('btn-live-cancel');
         if (btn) {
             btn.disabled = true;
             btn.textContent = 'Annuleren…';
@@ -2618,13 +3604,13 @@
 
         try {
             let data;
-            if (state.trackToken) {
+            if (track) {
                 data = await api(cfg.apiBase + '/live/cancel', {
                     method: 'POST',
-                    body: JSON.stringify({ token: state.trackToken }),
+                    body: JSON.stringify({ token: track }),
                 });
-            } else if (ride.id && state.token) {
-                data = await api(cfg.apiBase + '/rides/' + ride.id + '/cancel', { method: 'POST' });
+            } else if (state.liveRide && state.liveRide.id && state.token) {
+                data = await api(cfg.apiBase + '/rides/' + state.liveRide.id + '/cancel', { method: 'POST' });
             } else {
                 throw new Error('Geen geldige rit om te annuleren.');
             }
@@ -2638,6 +3624,48 @@
                 btn.textContent = 'Rit annuleren';
             }
         }
+    }
+
+    async function cancelLiveRide() {
+        const ride = state.liveRide;
+        if (!ride || !ride.can_cancel) return;
+        const btn = el('btn-live-cancel');
+        await cancelRideByToken(state.trackToken, btn);
+    }
+
+    function ensureSearchingLiveHost(rides) {
+        const list = rides || [];
+        const searching = list.filter(function (r) {
+            return r && r.phase === 'searching' && r.token;
+        });
+        if (!searching.length) return;
+
+        // Niet overschrijven als de gebruiker een andere (bijv. geaccepteerde) rit heeft opengeklapt
+        if (state.expandedRideToken) {
+            const expanded = list.find(function (r) {
+                return r && r.token === state.expandedRideToken;
+            });
+            if (expanded && expanded.phase !== 'searching') return;
+        }
+
+        const preferred = searching.find(function (r) { return r.token === state.trackToken; })
+            || searching.find(function (r) { return r.token === state.expandedRideToken; })
+            || searching[0];
+        if (!preferred || !preferred.token) return;
+        const changed = state.expandedRideToken !== preferred.token || state.trackToken !== preferred.token;
+        state.expandedRideToken = preferred.token;
+        if (state.trackToken !== preferred.token) {
+            setTrackToken(preferred.token);
+        }
+        if (changed) startLivePoll();
+    }
+
+    function rideChevronSvg(expanded) {
+        return '<svg class="ride-card__chevron-icon" viewBox="0 0 24 24" aria-hidden="true">'
+            + (expanded
+                ? '<path d="M6 14.5L12 8.5l6 6"/>'
+                : '<path d="M6 9.5l6 6 6-6"/>')
+            + '</svg>';
     }
 
     async function downloadRideInvoice(opts) {
@@ -2725,34 +3753,387 @@
         }[c]));
     }
 
+    function bookingAddressParts(value) {
+        const text = String(value || '').trim();
+        if (!text) return { street: '', city: '' };
+
+        let parts = text.split(',').map(function (part) { return part.trim(); }).filter(Boolean);
+        if (parts.length >= 2 && /^\d+[a-zA-Z\-]*$/.test(parts[0]) && !/^\d/.test(parts[1])) {
+            parts = [parts[1] + ' ' + parts[0]].concat(parts.slice(2));
+        } else if (parts.length >= 2 && /^\d+[a-zA-Z\-]*$/.test(parts[1]) && !/\d/.test(parts[0])) {
+            parts = [parts[0] + ' ' + parts[1]].concat(parts.slice(2));
+        }
+
+        const skipPlace = /^(nederland|netherlands|the netherlands|belgië|belgie|belgium|duitsland|germany|overijssel|gelderland|noord-holland|zuid-holland|utrecht|limburg|noord-brabant|friesland|fryslân|fryslan|groningen|drenthe|zeeland|flevoland)$/i;
+        let cityFromPostcode = '';
+        const kept = [];
+        parts.forEach(function (part) {
+            if (skipPlace.test(part)) return;
+            if (/^\d{4}\s*[A-Za-z]{2}$/.test(part)) return;
+            const withCity = part.match(/^(\d{4}\s*[A-Za-z]{2})\s+(.+)$/);
+            if (withCity) {
+                cityFromPostcode = withCity[2].trim();
+                return;
+            }
+            kept.push(part);
+        });
+
+        function hasHouseNumber(part) {
+            return /\b\d{1,5}[a-zA-Z]?(?:[-\/]\d{1,5}[a-zA-Z]?)?\b/.test(part)
+                && !/^\d{4}\s*[A-Za-z]{2}\b/.test(part);
+        }
+
+        const street = kept.find(hasHouseNumber) || '';
+        let city = cityFromPostcode;
+        if (!city) {
+            const last = kept[kept.length - 1] || '';
+            if (last && last !== street) city = last;
+        }
+        const streetLine = street || kept.find(function (part) {
+            return part.toLowerCase() !== String(city).toLowerCase();
+        }) || '';
+        const cityLine = streetLine && city && streetLine.toLowerCase() === city.toLowerCase() ? '' : city;
+        return { street: streetLine, city: cityLine };
+    }
+
+    function bookingAddressLine(value) {
+        const parts = bookingAddressParts(value);
+        if (parts.street && parts.city) return parts.street + ', ' + parts.city;
+        return parts.street || parts.city || '';
+    }
+
     function shortAddress(value) {
-        const raw = String(value || '').trim();
-        if (!raw) return 'Onbekend';
-        return raw.split(',')[0].trim() || raw;
+        return bookingAddressLine(value) || 'Onbekend';
     }
 
     function formatRideWhen(at) {
         if (at == null || at === '') return '';
-        let date = null;
-        if (typeof at === 'number' && Number.isFinite(at)) {
-            date = new Date(at);
-        } else {
+        const weekdays = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
+        const months = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+        if (typeof at !== 'number') {
             const raw = String(at).trim();
             if (!raw) return '';
-            // Al geformatteerd (lijst): laat staan.
-            if (/^\d{2}-\d{2}-\d{4}/.test(raw) || /^\d{1,2}\s+\w{3}/i.test(raw)) return raw;
+            const labeled = raw.match(/^(\d{2})-(\d{2})-(\d{4})[,\s]+(\d{2}):(\d{2})/);
+            if (labeled) {
+                const day = Number(labeled[1]);
+                const month = Number(labeled[2]);
+                const year = Number(labeled[3]);
+                const date = new Date(year, month - 1, day);
+                return weekdays[date.getDay()] + ' ' + day + ' ' + months[month - 1] + ' ' + year
+                    + ', ' + labeled[4] + ':' + labeled[5];
+            }
+            if (/^[a-z]{2} \d{1,2} [a-z]{3} \d{4}, \d{2}:\d{2}$/i.test(raw)) return raw;
             const parsed = new Date(raw);
-            if (!Number.isNaN(parsed.getTime())) date = parsed;
-            else return raw;
+            if (Number.isNaN(parsed.getTime())) return raw;
+            at = parsed.getTime();
         }
         try {
-            return date.toLocaleString('nl-NL', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-            });
+            const parts = new Intl.DateTimeFormat('nl-NL', {
+                timeZone: 'Europe/Amsterdam',
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23',
+            }).formatToParts(new Date(at));
+            const get = function (type) {
+                const part = parts.find(function (row) { return row.type === type; });
+                return part ? part.value : '';
+            };
+            const weekday = get('weekday').replace(/\./g, '').slice(0, 2).toLowerCase();
+            const day = Number(get('day'));
+            const month = get('month').replace(/\./g, '').toLowerCase();
+            const hour = get('hour').padStart(2, '0');
+            const minute = get('minute').padStart(2, '0');
+            if (!day || !get('year')) return '';
+            return weekday + ' ' + day + ' ' + month + ' ' + get('year') + ', ' + hour + ':' + minute;
         } catch (e) {
             return '';
         }
+    }
+
+    function splitRideAddress(address) {
+        const parts = bookingAddressParts(address);
+        if (!parts.street && !parts.city) return { main: '—', sub: '' };
+        if (!parts.street) return { main: parts.city, sub: '' };
+        return { main: parts.street, sub: parts.city };
+    }
+
+    function formatTripDistance(km) {
+        const n = Number(km);
+        if (!Number.isFinite(n) || n <= 0) return '';
+        return n.toFixed(1).replace('.', ',') + ' km';
+    }
+
+    function formatTripDuration(seconds) {
+        const total = Number(seconds);
+        if (!Number.isFinite(total) || total < 0) return '';
+        const mins = Math.max(0, Math.round(total / 60));
+        const hours = Math.floor(mins / 60);
+        const rest = mins % 60;
+        if (hours <= 0) return rest + ' min';
+        if (rest <= 0) return hours + ' u';
+        return hours + ' u ' + rest + ' min';
+    }
+
+    function baggageChipRows(ride) {
+        const items = ride && ride.baggage && ride.baggage.items;
+        if (Array.isArray(items) && items.length) {
+            return items.map(function (item) {
+                const key = String(item && item.key || '').trim();
+                const label = String(item && item.label || '').trim();
+                const qty = Number(item && item.qty || 0);
+                if (!label || qty <= 0) return null;
+                return { key: key, label: label, qty: qty };
+            }).filter(Boolean);
+        }
+        const summary = baggageSummaryFromRide(ride);
+        if (!summary || /^geen$/i.test(summary)) return [];
+        return summary.split(',').map(function (part) {
+            const text = String(part || '').trim();
+            if (!text) return null;
+            const match = text.match(/^(.*?)(?:\s*[×x]\s*(\d+))?$/i);
+            const label = String(match && match[1] || text).trim();
+            const qty = match && match[2] ? Number(match[2]) : 1;
+            return label ? { key: '', label: label, qty: qty > 0 ? qty : 1 } : null;
+        }).filter(Boolean);
+    }
+
+    function baggageChipLines(ride) {
+        return baggageChipRows(ride).map(function (row) {
+            return row.label + ' × ' + row.qty;
+        });
+    }
+
+    function baggageKeyFromLabel(label) {
+        const t = String(label || '').toLowerCase();
+        if (/rolstoel|wheelchair/.test(t)) return 'wheelchair';
+        if (/huisdier|pet/.test(t)) return 'pets';
+        if (/winter/.test(t)) return 'winter';
+        if (/golf/.test(t)) return 'golf';
+        if (/hand/.test(t)) return 'hand';
+        if (/klein/.test(t)) return 'small';
+        if (/groot|ruim/.test(t)) return 'large';
+        return '';
+    }
+
+    function baggageIconSvg(key) {
+        const k = String(key || '');
+        if (k === 'wheelchair') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="5" r="2"/><path d="M10 8v5l4 5"/><path d="M7 13h6"/><circle cx="8" cy="18" r="2.5"/><circle cx="16.5" cy="18" r="2.5"/><path d="M10.5 15.5l3 3h4"/></svg>';
+        }
+        if (k === 'pets') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="9" r="1.6"/><circle cx="11" cy="7.5" r="1.6"/><circle cx="15.5" cy="7.5" r="1.6"/><circle cx="19" cy="9" r="1.6"/><path d="M8.5 14c0-2 2-3.5 4-3.5s4 1.5 4 3.5-2.2 4-4 4-4-2-4-4z"/></svg>';
+        }
+        if (k === 'hand') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10V8a4 4 0 0 1 8 0v2"/><rect x="6" y="10" width="12" height="10" rx="2"/><path d="M10 14h4"/></svg>';
+        }
+        if (k === 'small') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8V6.5A2.5 2.5 0 0 1 10.5 4h3A2.5 2.5 0 0 1 16 6.5V8"/><rect x="5" y="8" width="14" height="12" rx="2"/><path d="M5 13h14"/></svg>';
+        }
+        if (k === 'winter' || k === 'golf') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><rect x="6" y="7" width="12" height="13" rx="2"/><path d="M6 12h12"/><path d="M12 7v13"/></svg>';
+        }
+        // large / default suitcase
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M4 12h16"/><path d="M9 12v4"/><path d="M15 12v4"/></svg>';
+    }
+
+    function rideStopsHtml(from, to) {
+        const pickup = splitRideAddress(from);
+        const dropoff = splitRideAddress(to);
+        function stop(kind, label, parts) {
+            return '<div class="ride-stop">'
+                + '<div class="ride-stop__head">'
+                + '<span class="ride-stop__dot is-' + kind + '"></span>'
+                + '<span class="ride-stop__label">' + escapeHtml(label) + '</span>'
+                + '</div>'
+                + '<p class="ride-stop__main">' + escapeHtml(parts.main) + '</p>'
+                + (parts.sub ? ('<p class="ride-stop__sub">' + escapeHtml(parts.sub) + '</p>') : '')
+                + '</div>';
+        }
+        return '<div class="ride-stops">'
+            + stop('pickup', 'Ophalen', pickup)
+            + stop('dropoff', 'Afzetten', dropoff)
+            + '</div>';
+    }
+
+    function rideStatsHtml(ride) {
+        const distance = formatTripDistance(ride && ride.distance_km);
+        const duration = formatTripDuration(ride && ride.duration_seconds);
+        const passengers = ride && ride.passengers != null ? Number(ride.passengers) : 0;
+        const chipRows = baggageChipRows(ride);
+        if (!distance && !duration && !(passengers > 0) && !chipRows.length) return '';
+        function metric(icon, value, label) {
+            if (!value) return '';
+            return '<div class="ride-stats__metric">'
+                + icon
+                + '<strong>' + escapeHtml(value) + '</strong>'
+                + '<span>' + escapeHtml(label) + '</span>'
+                + '</div>';
+        }
+        const metrics = [
+            metric(statsIcon('navigate'), distance, 'afstand'),
+            metric(statsIcon('time'), duration, 'rijtijd'),
+            metric(statsIcon('people'), passengers > 0 ? String(passengers) : '', passengers === 1 ? 'persoon' : 'personen'),
+        ].filter(Boolean).join('<span class="ride-stats__divider"></span>');
+        const bags = chipRows.length
+            ? ('<div class="ride-stats__bags' + (metrics ? ' is-spaced' : '') + '">'
+                + '<p class="ride-stats__bags-title">Bagage</p>'
+                + '<div class="ride-stats__chips">'
+                + chipRows.map(function (row) {
+                    const iconKey = row.key || baggageKeyFromLabel(row.label);
+                    return '<span class="ride-stats__chip">'
+                        + baggageIconSvg(iconKey)
+                        + '<span>' + escapeHtml(row.label + ' × ' + row.qty) + '</span>'
+                        + '</span>';
+                }).join('')
+                + '</div></div>')
+            : '';
+        return '<div class="ride-stats">'
+            + (metrics ? ('<div class="ride-stats__metrics">' + metrics + '</div>') : '')
+            + bags
+            + '</div>';
+    }
+
+    function statsIcon(name) {
+        if (name === 'time') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>';
+        }
+        if (name === 'people') {
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.2"/><path d="M16 19a4.2 4.2 0 0 1 5-4"/></svg>';
+        }
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 14-6-3-6 3z"/></svg>';
+    }
+
+    const SEARCHING_MESSAGES = ['We zoeken een taxi', 'Wacht op bevestiging'];
+    let searchingTypeState = {
+        active: false,
+        messageIndex: 0,
+        typed: '',
+        dots: 0,
+        holding: false,
+        typeTimer: null,
+        dotsTimer: null,
+        holdTimer: null,
+    };
+
+    function clearSearchingTypeTimers() {
+        if (searchingTypeState.typeTimer) clearInterval(searchingTypeState.typeTimer);
+        if (searchingTypeState.dotsTimer) clearInterval(searchingTypeState.dotsTimer);
+        if (searchingTypeState.holdTimer) clearTimeout(searchingTypeState.holdTimer);
+        searchingTypeState.typeTimer = null;
+        searchingTypeState.dotsTimer = null;
+        searchingTypeState.holdTimer = null;
+    }
+
+    function searchingTypedNodes() {
+        return Array.prototype.slice.call(document.querySelectorAll('.js-searching-typed')).filter(function (node) {
+            const liveWrap = node.closest('#live-searching-title');
+            if (liveWrap && liveWrap.hidden) return false;
+            return true;
+        });
+    }
+
+    function paintSearchingTyped() {
+        const text = searchingTypeState.typed
+            + (searchingTypeState.holding ? '.'.repeat(Math.max(1, searchingTypeState.dots)) : '');
+        // Non-breaking space houdt de regelhoogte vast bij leeg / wissel
+        const paint = text || '\u00A0';
+        searchingTypedNodes().forEach(function (node) {
+            node.textContent = paint;
+        });
+    }
+
+    function formatEuroNl(amount) {
+        const n = Number(amount);
+        if (!Number.isFinite(n)) return '';
+        try {
+            return new Intl.NumberFormat('nl-NL', {
+                style: 'currency',
+                currency: 'EUR',
+            }).format(n);
+        } catch (e) {
+            return '€ ' + n.toFixed(2).replace('.', ',');
+        }
+    }
+
+    function baggageSummaryFromRide(ride) {
+        if (!ride) return '';
+        if (ride.baggage && ride.baggage.summary) return String(ride.baggage.summary);
+        return String(ride.baggage_summary || '').trim();
+    }
+
+    function stopSearchingTypewriter() {
+        searchingTypeState.active = false;
+        clearSearchingTypeTimers();
+        searchingTypeState.typed = '';
+        searchingTypeState.dots = 0;
+        searchingTypeState.holding = false;
+        searchingTypeState.messageIndex = 0;
+    }
+
+    function runSearchingTypeCycle() {
+        clearSearchingTypeTimers();
+        const full = SEARCHING_MESSAGES[searchingTypeState.messageIndex % SEARCHING_MESSAGES.length];
+        searchingTypeState.typed = '';
+        searchingTypeState.dots = 0;
+        searchingTypeState.holding = false;
+        paintSearchingTyped();
+        let i = 0;
+        searchingTypeState.typeTimer = setInterval(function () {
+            if (!searchingTypeState.active) {
+                clearSearchingTypeTimers();
+                return;
+            }
+            i += 1;
+            searchingTypeState.typed = full.slice(0, i);
+            paintSearchingTyped();
+            if (i >= full.length) {
+                clearInterval(searchingTypeState.typeTimer);
+                searchingTypeState.typeTimer = null;
+                searchingTypeState.holding = true;
+                searchingTypeState.dots = 1;
+                paintSearchingTyped();
+                searchingTypeState.dotsTimer = setInterval(function () {
+                    if (!searchingTypeState.active) {
+                        clearSearchingTypeTimers();
+                        return;
+                    }
+                    searchingTypeState.dots = searchingTypeState.dots >= 3 ? 1 : searchingTypeState.dots + 1;
+                    paintSearchingTyped();
+                }, 420);
+                searchingTypeState.holdTimer = setTimeout(function () {
+                    if (!searchingTypeState.active) return;
+                    searchingTypeState.messageIndex = (searchingTypeState.messageIndex + 1) % SEARCHING_MESSAGES.length;
+                    runSearchingTypeCycle();
+                }, 3000);
+            }
+        }, 38);
+    }
+
+    function syncSearchingTypewriter() {
+        const nodes = searchingTypedNodes();
+        if (!nodes.length) {
+            stopSearchingTypewriter();
+            return;
+        }
+        if (!searchingTypeState.active) {
+            searchingTypeState.active = true;
+            searchingTypeState.messageIndex = 0;
+            runSearchingTypeCycle();
+            return;
+        }
+        paintSearchingTyped();
+    }
+
+    function setLiveSearchingTitleVisible(visible) {
+        const wrap = el('live-searching-title');
+        const title = el('live-title');
+        if (wrap) wrap.hidden = !visible;
+        if (title) title.hidden = !!visible;
+        syncSearchingTypewriter();
     }
 
     function ridePhaseFromStatus(status, fallback) {
@@ -2769,6 +4150,10 @@
 
     function normalizeRideCard(raw) {
         const phase = ridePhaseFromStatus(raw.phase || raw.status, raw.phase);
+        const amount = raw.amount
+            || (raw.quoted_price != null ? formatEuroNl(raw.quoted_price) : '');
+        const distanceKm = raw.distance_km != null ? Number(raw.distance_km) : null;
+        const durationSeconds = raw.duration_seconds != null ? Number(raw.duration_seconds) : null;
         return {
             id: raw.id || 0,
             token: raw.token || '',
@@ -2776,13 +4161,21 @@
             to: raw.to || raw.dropoff_address || '',
             at: raw.at || formatRideWhen(raw.at_ts || raw.pickup_at_iso) || '',
             at_ts: raw.at_ts || null,
+            pickup_at: raw.pickup_at || raw.pickup_at_label || raw.pickup_at_iso || '',
             phase: phase,
             status: raw.status || '',
             status_label: raw.status_label || '',
-            amount: raw.amount || '',
+            amount: amount,
+            quoted_price: raw.quoted_price != null ? Number(raw.quoted_price) : null,
+            passengers: raw.passengers != null ? Number(raw.passengers) : null,
+            baggage_summary: baggageSummaryFromRide(raw) || '',
+            baggage: raw.baggage || null,
+            distance_km: Number.isFinite(distanceKm) ? distanceKm : null,
+            duration_seconds: Number.isFinite(durationSeconds) ? durationSeconds : null,
             payment_failure_status: raw.payment_failure_status || null,
             can_download_invoice: !!(raw.can_download_invoice || phase === 'completed'),
             can_cancel: !!raw.can_cancel,
+            pickup_confirmation: raw.pickup_confirmation || null,
             active: isActiveRidePhase(phase),
         };
     }
@@ -2802,11 +4195,11 @@
             }
             return 'Wacht op betaling';
         }
-        if (ride.status_label) return ride.status_label;
-        if (ride.phase === 'searching') return 'Zoeken…';
-        if (ride.phase === 'accepted') return 'Onderweg';
+        if (ride.phase === 'searching') return 'Zoeken';
+        if (ride.phase === 'accepted') return 'Geaccepteerd';
         if (ride.phase === 'cancelled') return 'Geannuleerd';
-        if (ride.phase === 'completed') return 'Voltooid';
+        if (ride.phase === 'completed') return 'Afgerond';
+        if (ride.status_label) return ride.status_label;
         return 'Rit';
     }
 
@@ -2838,21 +4231,253 @@
 
     function updateRidesScreenTitle() {
         const title = document.querySelector('#screen-rides .app-nav-title');
-        if (title) title.textContent = state.showArchivedRides ? 'Archief' : 'Mijn ritten';
+        if (title) title.textContent = state.showArchivedRides ? 'Archief' : 'Ritten';
+        const archiveBack = el('btn-rides-book');
+        if (archiveBack) archiveBack.hidden = !state.showArchivedRides;
+    }
+
+    function isFollowingAssignedTaxi(ride) {
+        const current = ride || state.liveRide;
+        return !!(
+            state.trackToken
+            && current
+            && current.accepted
+            && isActiveRidePhase(current.phase)
+        );
+    }
+
+    function parkFollowBanner() {
+        const banner = el('live-banner');
+        const park = el('live-banner-park');
+        if (banner && park && banner.parentNode !== park) {
+            park.appendChild(banner);
+        }
+    }
+
+    function mountExpandedFollow() {
+        const banner = el('live-banner');
+        const token = state.expandedRideToken;
+        if (!banner) return;
+        if (!token) {
+            parkFollowBanner();
+            return;
+        }
+        const host = document.querySelector('.ride-follow-host[data-token="' + token.replace(/"/g, '') + '"]');
+        if (host && banner.parentNode !== host) {
+            host.appendChild(banner);
+        }
+    }
+
+    function syncMapFitButton() {
+        const fit = el('map-zoom-fit');
+        if (!fit) return;
+        const following = isFollowingAssignedTaxi();
+        const loc = state.liveRide && state.liveRide.vehicle_location;
+        const showFollow = !!(following && loc && isFinite(Number(loc.lat)) && isFinite(Number(loc.lng)));
+        const showRoute = !!(state.pickup && state.dropoff && !following);
+        fit.hidden = !(showRoute || showFollow);
+        fit.setAttribute('aria-label', showFollow ? 'Volg taxi' : 'Toon route');
+    }
+
+    function placeBookTaxiMarker(lat, lng) {
+        if (!state.map || !window.google || !google.maps) return;
+        const pos = { lat: lat, lng: lng };
+        if (!state.bookVehicleMarker) {
+            state.bookVehicleMarker = new google.maps.Marker({
+                map: state.map,
+                title: 'Jouw taxi',
+                zIndex: 20,
+                icon: {
+                    url: taxiIconUrl('sedan'),
+                    scaledSize: new google.maps.Size(28, 38),
+                    anchor: new google.maps.Point(14, 19),
+                },
+            });
+            tintedTaxiIconUrl('sedan', function (url) {
+                if (!state.bookVehicleMarker) return;
+                state.bookVehicleMarker.setIcon({
+                    url: url,
+                    scaledSize: new google.maps.Size(28, 38),
+                    anchor: new google.maps.Point(14, 19),
+                });
+            });
+        }
+        state.bookVehicleMarker.setPosition(pos);
+        state.bookVehicleMarker.setMap(state.map);
+    }
+
+    function syncBookFollow(ride) {
+        const following = isFollowingAssignedTaxi(ride);
+        const status = el('map-fleet-status');
+        if (!following) {
+            state.followDidCenter = false;
+            if (state.bookVehicleMarker) state.bookVehicleMarker.setMap(null);
+            if (state.routeLine && state.map && state.pickup && state.dropoff) {
+                state.routeLine.setMap(state.map);
+            }
+            if (state.screen === 'book' && !state.fleetTimer) startFleetPolling();
+            syncMapFitButton();
+            return;
+        }
+        stopFleetPolling();
+        clearFleetOverlays();
+        if (state.fleetRadiusCircle) state.fleetRadiusCircle.setMap(null);
+        if (state.routeLine) state.routeLine.setMap(null);
+        const loc = ride && ride.vehicle_location;
+        const lat = loc ? Number(loc.lat) : NaN;
+        const lng = loc ? Number(loc.lng) : NaN;
+        const hasLoc = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+        if (status) {
+            status.textContent = hasLoc ? 'Jouw taxi · live volgen' : 'Chauffeur gekoppeld…';
+        }
+        if (hasLoc) {
+            placeBookTaxiMarker(lat, lng);
+            if (state.map && !state.followDidCenter) {
+                state.followDidCenter = true;
+                state.map.panTo({ lat: lat, lng: lng });
+                state.map.setZoom(15);
+            }
+        }
+        syncMapFitButton();
+    }
+
+    function zoomBookMap(delta) {
+        if (!state.map || typeof state.map.getZoom !== 'function') return;
+        const next = Math.max(3, Math.min(20, (state.map.getZoom() || 14) + delta));
+        state.map.setZoom(next);
+    }
+
+    function setPassengerCount(count) {
+        const next = Math.max(1, Math.min(20, count));
+        const input = el('passengers');
+        if (input) input.value = String(next);
+        const label = el('passenger-qty');
+        if (label) label.textContent = String(next);
+        const minus = el('passenger-minus');
+        const plus = el('passenger-plus');
+        if (minus) minus.disabled = next <= 1;
+        if (plus) plus.disabled = next >= 20;
+    }
+
+    function pickupConfirmHtml(ride, token) {
+        const confirm = ride && ride.pickup_confirmation;
+        const pin = String((confirm && confirm.pin) || '').replace(/\D/g, '');
+        if (!confirm || pin.length !== 4) return '';
+        const prompt = confirm.prompt || 'Geef deze ophaalcode aan de chauffeur om de rit te starten.';
+        return '<div class="pickup-confirm pickup-confirm--pin">'
+            + '<p class="pickup-confirm__label">Ophaalcode voor de chauffeur</p>'
+            + '<p class="pickup-confirm__pin" aria-label="Ophaalcode ' + escapeHtml(pin) + '">'
+            + escapeHtml(pin) + '</p>'
+            + '<p class="pickup-confirm__text">' + escapeHtml(prompt) + '</p>'
+            + '</div>';
+    }
+
+    async function submitPickupAnswer(token, answer) {
+        const track = String(token || '').trim();
+        if (!track || (answer !== 'yes' && answer !== 'no')) return;
+        try {
+            const data = await api(cfg.apiBase + '/live/pickup-confirm', {
+                method: 'POST',
+                body: JSON.stringify({ token: track, answer: answer }),
+            });
+            if (data && data.ride) {
+                if (state.trackToken === track) renderLive(data.ride);
+                updateGuestRideByToken(track, {
+                    pickup_confirmation: data.ride.pickup_confirmation || null,
+                    phase: data.ride.phase || undefined,
+                    status_label: data.ride.status_label || undefined,
+                });
+                syncRideCardFromLive(track, data.ride);
+            }
+            if (data && data.message) toast(data.message);
+        } catch (e) {
+            toast((e && e.message) || 'Bevestigen mislukt.');
+        }
+    }
+
+    function renderSearchingRideBlockHtml(ride) {
+        const token = String(ride.token || '');
+        const when = formatRideWhen(ride.pickup_at || (typeof ride.at === 'string' ? ride.at : ''));
+        const priceLabel = ride.quoted_price != null
+            ? formatEuroNl(ride.quoted_price)
+            : (ride.amount ? String(ride.amount) : '');
+        const isLiveHost = !!(token && (state.expandedRideToken === token || state.trackToken === token));
+        const attrs = token
+            ? (' data-token="' + escapeHtml(token) + '"')
+            : (' data-id="' + escapeHtml(String(ride.id || '')) + '"');
+
+        // Actuele rit: alleen de live-bannerbox (geen buitenste kaart eromheen)
+        if (isLiveHost && token) {
+            return '<article class="ride-card ride-card--live-only is-expanded"'
+                + attrs + ' data-live-host="1" aria-expanded="true">'
+                + '<div class="ride-follow-host" data-token="' + escapeHtml(token) + '"></div>'
+                + '</article>';
+        }
+
+        const metaHtml = (when || priceLabel)
+            ? ('<div class="live-meta"><div class="live-meta__row">'
+                + '<div><p class="ride-card__stop-label">Datum</p>'
+                + '<p class="ride-card__when">' + escapeHtml(when || '—') + '</p></div>'
+                + (priceLabel
+                    ? ('<div><p class="ride-card__stop-label">Prijs</p>'
+                        + '<p class="ride-card__stop-value">' + escapeHtml(priceLabel) + '</p></div>')
+                    : '')
+                + '</div></div>')
+            : '';
+
+        return '<article class="ride-card ride-card--searching-full"' + attrs + '>'
+            + '<div class="status-pill is-searching">Zoeken…</div>'
+            + '<p class="ride-card__title ride-card__title--searching">'
+            + '<span class="searching-title__dot" aria-hidden="true"></span>'
+            + '<span class="js-searching-typed" aria-label="'
+            + escapeHtml(SEARCHING_MESSAGES.join('. ') + '.')
+            + '">\u00A0</span></p>'
+            + '<p class="live-search-desc">Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.</p>'
+            + metaHtml
+            + rideStopsHtml(ride.from, ride.to)
+            + rideStatsHtml(ride)
+            + (token
+                ? ('<button type="button" class="btn btn-danger ride-card__cancel" data-ride-cancel-token="'
+                    + escapeHtml(token) + '">Rit annuleren</button>')
+                : '')
+            + '</article>';
     }
 
     function renderRideCardHtml(ride, options) {
         const opts = options || {};
-        const asHero = !!opts.hero;
         const showArchiveAction = !!opts.archiveAction;
+        const token = String(ride.token || '');
+        const expanded = !!(token && state.expandedRideToken === token);
         const from = shortAddress(ride.from);
         const to = shortAddress(ride.to);
-        const when = formatRideWhen(ride.at || ride.at_ts);
+        const when = formatRideWhen(ride.pickup_at || (typeof ride.at === 'string' ? ride.at : ''));
         const pill = ridePillLabel(ride);
         const amount = ride.amount ? String(ride.amount) : '';
-        const attrs = ride.token
-            ? (' data-token="' + escapeHtml(ride.token) + '"')
+        const searching = ride.phase === 'searching';
+
+        if (searching) {
+            return renderSearchingRideBlockHtml(ride);
+        }
+
+        const title = ride.phase === 'awaiting_payment'
+            ? 'Wacht op betaling'
+            : (ride.status_label || pill);
+        const attrs = token
+            ? (' data-token="' + escapeHtml(token) + '"')
             : (' data-id="' + escapeHtml(String(ride.id || '')) + '"');
+
+        // Geaccepteerde rit open: één live-banner (native-layout), geen dubbele kaart
+        if (ride.phase === 'accepted' && expanded && token) {
+            return '<article class="ride-card ride-card--live-only is-expanded is-accepted"'
+                + attrs + ' data-live-host="1" aria-expanded="true">'
+                + '<button type="button" class="ride-card__collapse" data-ride-collapse="'
+                + escapeHtml(token) + '" aria-label="Inklappen">'
+                + rideChevronSvg(true)
+                + '</button>'
+                + '<div class="ride-follow-host" data-token="' + escapeHtml(token) + '"></div>'
+                + '</article>';
+        }
+
         const invoiceBtn = ride.can_download_invoice
             ? ('<button type="button" class="ride-card__invoice-icon" aria-label="Factuur downloaden"'
                 + ' data-invoice="1" data-ride-id="' + escapeHtml(String(ride.id || '')) + '"'
@@ -2870,70 +4495,66 @@
                 + '</button>')
             : '';
 
-        if (asHero) {
-            return '<button type="button" class="rides-hero'
-                + (ride.phase === 'accepted' ? ' is-accepted' : '')
-                + '"' + attrs + '>'
-                + '<div class="rides-hero__eyebrow">'
-                + (ride.phase === 'searching' ? '<span class="pulse"></span>' : '')
-                + escapeHtml(ride.phase === 'accepted' ? 'Taxi onderweg' : 'Openstaande rit')
-                + '</div>'
-                + '<h3 class="rides-hero__title">' + escapeHtml(pill) + '</h3>'
-                + '<div class="live-route ride-card__route" style="margin-top:10px;padding-top:0;border:0">'
-                + '<div class="ride-card__spine" aria-hidden="true">'
-                + '<span class="ride-card__dot is-from"></span>'
-                + '<span class="ride-card__dot is-to"></span>'
-                + '</div>'
-                + '<div class="ride-card__stops">'
-                + '<div><p class="ride-card__stop-label">Van</p>'
-                + '<p class="ride-card__stop-value">' + escapeHtml(from) + '</p></div>'
-                + '<div><p class="ride-card__stop-label">Naar</p>'
-                + '<p class="ride-card__stop-value">' + escapeHtml(to) + '</p></div>'
-                + '</div></div>'
-                + '<div class="rides-hero__foot">'
-                + '<span class="ride-card__when">' + escapeHtml(when || 'Nu') + '</span>'
-                + '<span class="rides-hero__cta">Volgen →</span>'
-                + '</div></button>';
-        }
+        const expandedBlock = expanded
+            ? ('<div class="ride-card__expanded">'
+                + rideStopsHtml(ride.from, ride.to)
+                + rideStatsHtml(ride)
+                + (amount
+                    ? ('<p class="ride-card__stop-label" style="margin-top:10px">Prijs</p>'
+                        + '<p class="ride-card__stop-value">' + escapeHtml(amount) + '</p>')
+                    : '')
+                + (ride.phase === 'completed'
+                    ? '<button type="button" class="btn btn-primary" data-new-ride="1" style="margin-top:12px;width:100%">Nieuwe rit</button>'
+                    : '')
+                + (token
+                    ? ('<div class="ride-follow-host" data-token="' + escapeHtml(token) + '"></div>')
+                    : '')
+                + '</div>')
+            : '';
 
-        return '<div class="ride-card-wrap">'
-            + '<article class="ride-card'
-            + (ride.active ? (ride.phase === 'accepted' ? ' is-accepted' : ' is-active') : '')
-            + '"' + attrs + ' role="button" tabindex="0">'
+        const footMeta = '<div class="ride-card__foot ride-card__foot--meta">'
+            + '<div><p class="ride-card__stop-label">Datum</p>'
+            + '<p class="ride-card__when">' + escapeHtml(when || '—') + '</p></div>'
+            + (amount
+                ? ('<div><p class="ride-card__stop-label">Prijs</p>'
+                    + '<p class="ride-card__stop-value">' + escapeHtml(amount) + '</p></div>')
+                : '')
+            + '</div>';
+
+        return '<article class="ride-card'
+            + (ride.phase === 'accepted' ? ' is-accepted' : '')
+            + (ride.phase === 'cancelled' ? ' is-cancelled' : '')
+            + (expanded ? ' is-expanded' : '')
+            + '"' + attrs + ' role="button" tabindex="0" aria-expanded="' + (expanded ? 'true' : 'false') + '">'
             + '<div class="ride-card__top">'
             + '<span class="ride-card__status">'
             + '<span class="ride-card__pill ' + ridePillClass(ride.phase) + '">'
-            + (ride.phase === 'searching' ? '<span class="pulse"></span>' : '')
             + escapeHtml(pill)
-            + '</span>'
+            + '</span></span>'
+            + '<span class="ride-card__status">'
             + invoiceBtn
             + archiveBtn
-            + '</span>'
-            + (amount ? ('<span class="ride-card__amount">' + escapeHtml(amount) + '</span>') : '')
-            + '</div>'
-            + '<div class="ride-card__route">'
-            + '<div class="ride-card__spine" aria-hidden="true">'
-            + '<span class="ride-card__dot is-from"></span>'
-            + '<span class="ride-card__dot is-to"></span>'
-            + '</div>'
-            + '<div class="ride-card__stops">'
-            + '<div><p class="ride-card__stop-label">Van</p>'
-            + '<p class="ride-card__stop-value">' + escapeHtml(from) + '</p></div>'
-            + '<div><p class="ride-card__stop-label">Naar</p>'
-            + '<p class="ride-card__stop-value">' + escapeHtml(to) + '</p></div>'
-            + '</div></div>'
-            + '<div class="ride-card__foot">'
-            + '<span class="ride-card__when">' + escapeHtml(when || '—') + '</span>'
-            + '<span class="ride-card__action">'
-            + (ride.active ? 'Volgen' : 'Details') + ' →'
-            + '</span></div></article>'
-            + '</div>';
+            + '<span class="ride-card__chevron" aria-hidden="true">' + rideChevronSvg(expanded) + '</span>'
+            + '</span></div>'
+            + (ride.phase === 'cancelled' ? '' : ('<p class="ride-card__title">' + escapeHtml(title) + '</p>'))
+            + pickupConfirmHtml(ride, token)
+            + '<p class="ride-card__line">' + escapeHtml(from) + ' → ' + escapeHtml(to) + '</p>'
+            + (ride.rating && ride.rating.rated && ride.rating.stars
+                ? ('<p class="ride-card__rating" style="margin:8px 0 0;font-size:.85rem;color:var(--muted)">'
+                    + 'Jouw beoordeling: ' + '★'.repeat(Number(ride.rating.stars))
+                    + '☆'.repeat(Math.max(0, 5 - Number(ride.rating.stars)))
+                    + (ride.rating.comment ? (' — ' + escapeHtml(String(ride.rating.comment))) : '')
+                    + '</p>')
+                : '')
+            + footMeta
+            + expandedBlock
+            + '</article>';
     }
 
     function renderRidesEmptyHtml(message) {
         const opts = message || {};
         const title = opts.title || 'Nog geen ritten';
-        const text = opts.text || 'Boek een taxi en volg hier je openstaande en eerdere ritten.';
+        const text = opts.text || 'Nog geen ritten. Boek een taxi via Boeken; openstaande en eerdere ritten zie je hier.';
         const showBook = opts.showBook !== false;
         return '<div class="rides-empty">'
             + '<div class="rides-empty__icon" aria-hidden="true">'
@@ -2943,7 +4564,7 @@
             + '<h3 class="rides-empty__title">' + escapeHtml(title) + '</h3>'
             + '<p class="rides-empty__text">' + escapeHtml(text) + '</p>'
             + (showBook
-                ? '<button type="button" class="btn btn-primary" id="rides-empty-book">Nieuwe rit boeken</button>'
+                ? '<button type="button" class="btn btn-primary" id="rides-empty-book">Taxi boeken</button>'
                 : '')
             + '</div>';
     }
@@ -2989,15 +4610,55 @@
                 renderRidesOverview(state.ridesCache);
             });
         });
-        box.querySelectorAll('.ride-card[data-id], .rides-hero[data-id], .ride-card[data-token], .rides-hero[data-token]')
+        box.querySelectorAll('[data-new-ride]').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                enterBook();
+            });
+        });
+        box.querySelectorAll('[data-ride-cancel-token]').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                cancelRideByToken(btn.getAttribute('data-ride-cancel-token'), btn);
+            });
+        });
+        box.querySelectorAll('[data-ride-collapse]').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                state.expandedRideToken = '';
+                renderRidesOverview(state.ridesCache);
+            });
+        });
+        box.querySelectorAll('.ride-card[data-id], .ride-card[data-token]')
             .forEach(function (btn) {
                 async function openRideCard() {
+                    if (btn.classList.contains('ride-card--live-only')) return;
                     if (btn.dataset.token) {
+                        if (btn.classList.contains('ride-card--searching-full')) {
+                            setTrackToken(btn.dataset.token);
+                            state.expandedRideToken = btn.dataset.token;
+                            const guest = guestRides().find(function (r) { return r && r.token === btn.dataset.token; });
+                            state.acceptedNotified = !!(guest && guest.phase && guest.phase !== 'searching');
+                            state.livePhase = (guest && guest.phase) || null;
+                            startLivePoll();
+                            renderRidesOverview(state.ridesCache);
+                            return;
+                        }
+                        if (state.expandedRideToken === btn.dataset.token) {
+                            state.expandedRideToken = '';
+                            renderRidesOverview(state.ridesCache);
+                            return;
+                        }
                         setTrackToken(btn.dataset.token);
+                        state.expandedRideToken = btn.dataset.token;
                         const guest = guestRides().find(function (r) { return r && r.token === btn.dataset.token; });
                         state.acceptedNotified = !!(guest && guest.phase && guest.phase !== 'searching');
                         state.livePhase = (guest && guest.phase) || null;
-                        openLive(null);
+                        startLivePoll();
+                        renderRidesOverview(state.ridesCache);
                         return;
                     }
                     if (!btn.dataset.id) return;
@@ -3023,7 +4684,14 @@
                         toast(e.message || 'Kon rit niet laden.');
                     }
                 }
-                btn.addEventListener('click', openRideCard);
+                btn.addEventListener('click', function (ev) {
+                    if (ev.target && ev.target.closest && ev.target.closest(
+                        '.ride-card__expanded, .ride-card__archive-icon, .ride-card__invoice-icon, .ride-card__collapse, [data-ride-cancel-token], [data-ride-collapse], .live-banner, .ride-follow-host, .pickup-confirm, [data-pickup-answer]'
+                    )) {
+                        return;
+                    }
+                    openRideCard();
+                });
                 btn.addEventListener('keydown', function (ev) {
                     if (ev.key === 'Enter' || ev.key === ' ') {
                         ev.preventDefault();
@@ -3033,9 +4701,107 @@
             });
     }
 
+    function syncRideCardFromLive(token, ride) {
+        const key = String(token || '').trim();
+        if (!key || !ride || !Array.isArray(state.ridesCache) || !state.ridesCache.length) return;
+        if (state.screen !== 'rides' && state.screen !== 'live') return;
+        let changed = false;
+        const next = state.ridesCache.map(function (card) {
+            if (!card || String(card.token || '') !== key) return card;
+            const phase = ride.phase || card.phase;
+            const label = ride.status_label || ride.status || card.status_label || '';
+            const pickup = ride.pickup_at_label || ride.pickup_at || card.pickup_at || '';
+            const distanceKm = ride.distance_km != null ? Number(ride.distance_km) : card.distance_km;
+            const durationSeconds = ride.duration_seconds != null
+                ? Number(ride.duration_seconds)
+                : card.duration_seconds;
+            const passengers = ride.passengers != null ? Number(ride.passengers) : card.passengers;
+            const baggage = ride.baggage != null ? ride.baggage : card.baggage;
+            const baggageSummary = baggageSummaryFromRide(ride) || card.baggage_summary || '';
+            const amount = ride.quoted_price != null
+                ? formatEuroNl(ride.quoted_price)
+                : card.amount;
+            const pickupConfirm = ride.pickup_confirmation || null;
+            const prevConfirm = card.pickup_confirmation && card.pickup_confirmation.status;
+            const nextConfirm = pickupConfirm && pickupConfirm.status;
+            if (
+                phase === card.phase
+                && label === (card.status_label || '')
+                && pickup === (card.pickup_at || '')
+                && distanceKm === card.distance_km
+                && durationSeconds === card.duration_seconds
+                && passengers === card.passengers
+                && baggageSummary === (card.baggage_summary || '')
+                && prevConfirm === nextConfirm
+                && !!(card.pickup_confirmation && card.pickup_confirmation.can_answer)
+                    === !!(pickupConfirm && pickupConfirm.can_answer)
+            ) {
+                return card;
+            }
+            changed = true;
+            return Object.assign({}, card, {
+                phase: phase,
+                status: ride.status || card.status,
+                status_label: label,
+                pickup_at: pickup,
+                distance_km: distanceKm,
+                duration_seconds: durationSeconds,
+                passengers: passengers,
+                baggage: baggage,
+                baggage_summary: baggageSummary,
+                quoted_price: ride.quoted_price != null ? Number(ride.quoted_price) : card.quoted_price,
+                amount: amount,
+                pickup_confirmation: pickupConfirm,
+                active: isActiveRidePhase(phase),
+            });
+        });
+        if (changed) renderRidesOverview(next);
+    }
+
+    function startOpenRidesPoll() {
+        if (state.openRidesTimer) return;
+        const tick = async () => {
+            state.openRidesTimer = null;
+            if (state.screen !== 'rides' && state.screen !== 'live') return;
+            const rides = guestRides().filter(function (ride) {
+                return ride && ride.token && (
+                    isActiveRidePhase(ride.phase)
+                    || (ride.pickup_confirmation && ride.pickup_confirmation.can_answer)
+                );
+            });
+            for (let i = 0; i < rides.length; i += 1) {
+                const ride = rides[i];
+                if (state.trackToken && ride.token === state.trackToken && state.liveTimer) continue;
+                try {
+                    const data = await api(cfg.liveUrl + '?token=' + encodeURIComponent(ride.token));
+                    if (data && data.ride) {
+                        updateGuestRideByToken(ride.token, {
+                            id: data.ride.id || undefined,
+                            from: data.ride.pickup_address || undefined,
+                            to: data.ride.dropoff_address || undefined,
+                            phase: data.ride.phase || ride.phase,
+                            status_label: data.ride.status_label || data.ride.status || '',
+                            pickup_at: data.ride.pickup_at_label || data.ride.pickup_at || undefined,
+                            rating: data.ride.rating || null,
+                            pickup_confirmation: data.ride.pickup_confirmation || null,
+                        });
+                        syncRideCardFromLive(ride.token, data.ride);
+                    }
+                } catch (e) {
+                    /* volgende rit */
+                }
+            }
+            if (state.screen === 'rides' || state.screen === 'live') {
+                state.openRidesTimer = setTimeout(tick, 2500);
+            }
+        };
+        state.openRidesTimer = setTimeout(tick, 400);
+    }
+
     function renderRidesOverview(rawRides) {
         const box = el('rides-list');
         if (!box) return;
+        parkFollowBanner();
         const rides = (rawRides || []).map(normalizeRideCard);
         state.ridesCache = rides;
         updateRidesScreenTitle();
@@ -3050,6 +4816,7 @@
                 });
                 bindRideListClicks(box);
                 refreshActiveRideUi();
+                syncSearchingTypewriter();
                 return;
             }
             let archiveHtml = '<div class="rides-section">Gearchiveerde ritten</div>';
@@ -3058,7 +4825,9 @@
             }).join('');
             box.innerHTML = archiveHtml;
             bindRideListClicks(box);
+            mountExpandedFollow();
             refreshActiveRideUi();
+            syncSearchingTypewriter();
             return;
         }
 
@@ -3066,19 +4835,18 @@
             box.innerHTML = renderRidesEmptyHtml();
             bindRideListClicks(box);
             refreshActiveRideUi();
+            syncSearchingTypewriter();
             return;
         }
         const active = rides.filter(function (r) { return r.active; });
         const past = rides.filter(function (r) { return !r.active; });
         const visiblePast = past.filter(function (r) { return !isRideArchived(r); });
         const archivedPast = past.filter(function (r) { return isRideArchived(r); });
+        ensureSearchingLiveHost(active);
         let html = '';
         if (active.length) {
-            html += renderRideCardHtml(active[0], { hero: true });
-            if (active.length > 1) {
-                html += '<div class="rides-section">Nog actief</div>';
-                html += active.slice(1).map(function (r) { return renderRideCardHtml(r); }).join('');
-            }
+            html += '<div class="rides-section">Openstaand</div>';
+            html += active.map(function (r) { return renderRideCardHtml(r); }).join('');
         }
         if (visiblePast.length) {
             html += '<div class="rides-section">' + (active.length ? 'Eerdere ritten' : 'Alle ritten') + '</div>';
@@ -3098,10 +4866,13 @@
         }
         box.innerHTML = html;
         bindRideListClicks(box);
+        mountExpandedFollow();
         refreshActiveRideUi();
+        syncSearchingTypewriter();
     }
 
     async function loadRides() {
+        parkFollowBanner();
         const box = el('rides-list');
         if (state.token) {
             try {
@@ -3143,6 +4914,9 @@
                 const data = await api(cfg.liveUrl + '?token=' + encodeURIComponent(r.token));
                 const ride = data && data.ride;
                 if (!ride) return r;
+                const amount = ride.quoted_price != null
+                    ? formatEuroNl(ride.quoted_price)
+                    : (r.amount || '');
                 const next = {
                     id: ride.id || r.id,
                     token: r.token,
@@ -3152,7 +4926,15 @@
                     phase: ride.phase || r.phase || 'other',
                     status_label: ride.status_label || r.status_label || '',
                     payment_failure_status: ride.payment_failure_status || r.payment_failure_status || null,
-                    amount: r.amount || '',
+                    amount: amount,
+                    quoted_price: ride.quoted_price != null ? Number(ride.quoted_price) : r.quoted_price,
+                    passengers: ride.passengers != null ? Number(ride.passengers) : r.passengers,
+                    baggage_summary: baggageSummaryFromRide(ride) || r.baggage_summary || '',
+                    baggage: ride.baggage || r.baggage || null,
+                    distance_km: ride.distance_km != null ? Number(ride.distance_km) : (r.distance_km != null ? r.distance_km : null),
+                    duration_seconds: ride.duration_seconds != null ? Number(ride.duration_seconds) : (r.duration_seconds != null ? r.duration_seconds : null),
+                    rating: ride.rating || r.rating || null,
+                    pickup_at: ride.pickup_at_label || ride.pickup_at || r.pickup_at || '',
                 };
                 updateGuestRideByToken(r.token, next);
                 return next;
@@ -3174,24 +4956,55 @@
                 phase: r.phase,
                 payment_failure_status: r.payment_failure_status || null,
                 amount: r.amount || '',
+                quoted_price: r.quoted_price,
+                passengers: r.passengers,
+                baggage_summary: r.baggage_summary || '',
+                baggage: r.baggage || null,
+                distance_km: r.distance_km,
+                duration_seconds: r.duration_seconds,
+                rating: r.rating || null,
+                pickup_at: r.pickup_at || '',
                 can_download_invoice: r.phase === 'completed',
             };
         }));
+    }
+
+    function syncThemeRows() {
+        const pref = (typeof window.nexaPwaThemePref === 'function' && window.nexaPwaThemePref())
+            || document.documentElement.getAttribute('data-theme-pref')
+            || 'dark';
+        document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+            btn.classList.toggle('is-on', btn.getAttribute('data-theme-choice') === pref);
+        });
     }
 
     function showProfile() {
         stopFleetPolling();
         showScreen('profile');
         const guest = !state.token;
-        el('profile-guest').hidden = !guest;
-        if (el('profile-account-actions')) el('profile-account-actions').hidden = guest;
         if (guest) {
-            if (el('profile-view')) el('profile-view').hidden = true;
-            if (el('profile-form')) el('profile-form').hidden = true;
-            return;
+            try {
+                const d = JSON.parse(localStorage.getItem(PROFILE_DRAFT_KEY) || '{}');
+                if (el('prof-first')) el('prof-first').value = d.first_name || (el('first-name') && el('first-name').value) || '';
+                if (el('prof-last')) el('prof-last').value = d.last_name || (el('last-name') && el('last-name').value) || '';
+                if (el('prof-phone')) el('prof-phone').value = d.phone || (el('phone') && el('phone').value) || '';
+                if (el('prof-email')) {
+                    el('prof-email').readOnly = false;
+                    el('prof-email').value = d.email || (el('email') && el('email').value) || '';
+                }
+            } catch (e) {}
+        } else if (state.user) {
+            applyUserToForm(state.user);
+            if (el('prof-email')) el('prof-email').readOnly = true;
         }
-        if (state.user) applyUserToForm(state.user);
-        setProfileEditMode(false);
+        const emailHint = el('prof-email-hint');
+        if (emailHint) emailHint.hidden = guest;
+        setProfileEditMode(true);
+        if (el('profile-guest')) el('profile-guest').hidden = !guest;
+        if (el('profile-account-actions')) el('profile-account-actions').hidden = guest;
+        const cancel = el('btn-cancel-profile');
+        if (cancel) cancel.hidden = guest;
+        syncThemeRows();
     }
 
     async function bootAuth() {
@@ -3214,9 +5027,11 @@
         if (state.user) applyUserToForm(state.user);
         else fillProfileDraft();
         await ensureBookMap();
-        startFleetPolling();
+        if (isFollowingAssignedTaxi()) syncBookFollow(state.liveRide);
+        else startFleetPolling();
         refreshActiveRideUi();
-        detectLocation();
+        syncMapFitButton();
+        if (!state.pickup && !isFollowingAssignedTaxi()) detectLocation();
         if (window.Notification && Notification.permission === 'default') {
             try { Notification.requestPermission(); } catch (e) {}
         }
@@ -3242,7 +5057,15 @@
     }
     const profileBack = el('btn-profile-back');
     if (profileBack) {
-        profileBack.addEventListener('click', () => enterBook());
+        profileBack.addEventListener('click', () => {
+            window.location.href = cfg.launcherUrl + '?switch=1';
+        });
+    }
+    const ridesHome = el('btn-rides-home');
+    if (ridesHome) {
+        ridesHome.addEventListener('click', () => {
+            window.location.href = cfg.launcherUrl + '?switch=1';
+        });
     }
     el('btn-show-register').addEventListener('click', () => {
         el('auth-title').textContent = 'Registreren';
@@ -3301,6 +5124,53 @@
     });
     el('btn-book').addEventListener('click', bookRide);
     el('passengers').addEventListener('change', maybeQuote);
+    const passengerMinus = el('passenger-minus');
+    const passengerPlus = el('passenger-plus');
+    if (passengerMinus) {
+        passengerMinus.addEventListener('click', function () {
+            setPassengerCount((parseInt(el('passengers').value, 10) || 1) - 1);
+            maybeQuote();
+        });
+    }
+    if (passengerPlus) {
+        passengerPlus.addEventListener('click', function () {
+            setPassengerCount((parseInt(el('passengers').value, 10) || 1) + 1);
+            maybeQuote();
+        });
+    }
+    setPassengerCount(parseInt(el('passengers').value, 10) || 1);
+    const zoomIn = el('map-zoom-in');
+    const zoomOut = el('map-zoom-out');
+    const zoomFit = el('map-zoom-fit');
+    if (zoomIn) zoomIn.addEventListener('click', function () { zoomBookMap(1); });
+    if (zoomOut) zoomOut.addEventListener('click', function () { zoomBookMap(-1); });
+    if (zoomFit) {
+        zoomFit.addEventListener('click', function () {
+            if (isFollowingAssignedTaxi() && state.bookVehicleMarker && state.map) {
+                const pos = state.bookVehicleMarker.getPosition();
+                if (pos) {
+                    state.map.panTo(pos);
+                    state.map.setZoom(15);
+                }
+                return;
+            }
+            refitBookRouteBounds();
+        });
+    }
+    const locateBtn = el('btn-pickup-locate');
+    if (locateBtn) {
+        locateBtn.addEventListener('click', function () {
+            detectLocation();
+        });
+    }
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const choice = btn.getAttribute('data-theme-choice');
+            if (typeof window.nexaPwaSetTheme === 'function') window.nexaPwaSetTheme(choice);
+            syncThemeRows();
+        });
+    });
+    syncThemeRows();
     el('btn-live-back').addEventListener('click', () => {
         stopLivePoll();
         state.showArchivedRides = false;
@@ -3313,12 +5183,30 @@
     if (btnLivePay) btnLivePay.addEventListener('click', payLiveRide);
     const btnLiveCancel = el('btn-live-cancel');
     if (btnLiveCancel) btnLiveCancel.addEventListener('click', cancelLiveRide);
+    document.addEventListener('click', function (ev) {
+        const btn = ev.target && ev.target.closest ? ev.target.closest('[data-pickup-answer]') : null;
+        if (!btn) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        submitPickupAnswer(btn.getAttribute('data-pickup-token'), btn.getAttribute('data-pickup-answer'));
+    });
     const btnLiveInvoice = el('btn-live-invoice');
     if (btnLiveInvoice) {
         btnLiveInvoice.addEventListener('click', function () {
             downloadRideInvoice({ fromList: false });
         });
     }
+    const liveRatingStars = el('live-rating-stars');
+    if (liveRatingStars) {
+        liveRatingStars.addEventListener('click', function (ev) {
+            const btn = ev.target && ev.target.closest ? ev.target.closest('[data-stars]') : null;
+            if (!btn) return;
+            liveRateStars = Number(btn.getAttribute('data-stars') || 0);
+            syncLiveRatingStars(liveRateStars);
+        });
+    }
+    const btnLiveRate = el('btn-live-rate');
+    if (btnLiveRate) btnLiveRate.addEventListener('click', submitLiveRating);
     el('btn-rides-book').addEventListener('click', () => {
         if (state.showArchivedRides) {
             state.showArchivedRides = false;
@@ -3360,6 +5248,19 @@
         setProfileEditMode(false);
     });
     el('btn-save-profile').addEventListener('click', async () => {
+        if (!state.token) {
+            if (el('first-name')) el('first-name').value = (el('prof-first').value || '').trim();
+            if (el('last-name')) el('last-name').value = (el('prof-last').value || '').trim();
+            if (el('phone')) el('phone').value = (el('prof-phone').value || '').trim();
+            if (el('email')) el('email').value = (el('prof-email').value || '').trim();
+            persistProfileDraft();
+            const saved = el('profile-saved');
+            if (saved) {
+                saved.hidden = false;
+                setTimeout(function () { saved.hidden = true; }, 2000);
+            }
+            return;
+        }
         try {
             const data = await api(cfg.apiBase + '/profile', {
                 method: 'PUT',
@@ -3384,12 +5285,16 @@
             if (name === 'book') enterBook();
             else if (name === 'rides') {
                 stopFleetPolling();
-                stopLivePoll();
                 state.showArchivedRides = false;
+                const active = activeGuestRide();
+                if (active && active.token && isActiveRidePhase(active.phase)) {
+                    state.expandedRideToken = active.token;
+                    setTrackToken(active.token);
+                    if (!state.liveTimer) startLivePoll();
+                }
                 showScreen('rides');
                 loadRides();
             } else if (name === 'profile') {
-                stopLivePoll();
                 showProfile();
             }
         });
@@ -3404,10 +5309,54 @@
         }
     });
 
+    function openPhotoPreview(url) {
+        const overlay = el('photo-preview-overlay');
+        const img = el('photo-preview-image');
+        if (!overlay || !img || !url) return;
+        img.src = url;
+        overlay.hidden = false;
+    }
+
+    function closePhotoPreview() {
+        const overlay = el('photo-preview-overlay');
+        const img = el('photo-preview-image');
+        if (img) img.removeAttribute('src');
+        if (overlay) overlay.hidden = true;
+    }
+
+    function bindPhotoPreview() {
+        document.addEventListener('click', function (ev) {
+            const btn = ev.target && ev.target.closest
+                ? ev.target.closest('[data-photo-preview]')
+                : null;
+            if (btn) {
+                ev.preventDefault();
+                openPhotoPreview(btn.getAttribute('data-photo-preview'));
+                return;
+            }
+            const overlay = el('photo-preview-overlay');
+            if (!overlay || overlay.hidden) return;
+            if (ev.target === overlay || (ev.target && ev.target.id === 'photo-preview-image')) {
+                closePhotoPreview();
+            }
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape') closePhotoPreview();
+        });
+    }
+
+    bindPickupLocationNotice();
+    bindAddressClearButtons();
     bindAddressSearch();
     bindPickupDateTimePicker();
     bindBaggageSteppers();
+    bindKeyboardTabbarVisibility();
+    bindPhotoPreview();
     setPickupAtValue(defaultPickupAt(), { silent: true });
+    setInterval(bumpPickupAtToNearest, 30000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') bumpPickupAtToNearest();
+    });
     // Prefetch Maps SDK early.
     loadGoogleMapsSdk().catch(function () {});
 
@@ -3429,8 +5378,10 @@
                     status_label: data.ride.status_label,
                 });
                 if (isActiveRidePhase(data.ride.phase)) {
-                    // Blijf op boeken met banner; gebruiker kiest Volgen.
+                    state.liveRide = data.ride;
                     refreshActiveRideUi();
+                    syncBookFollow(data.ride);
+                    startLivePoll();
                     return;
                 }
             }

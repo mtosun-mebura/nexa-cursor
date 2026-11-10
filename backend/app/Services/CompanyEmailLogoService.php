@@ -62,28 +62,42 @@ class CompanyEmailLogoService
             \App\Support\NexaBranding::embedInMessage($html, $message)
         );
 
+        $html = EmailCardHtml::ensureLightEmailChrome($html);
+
         if (! str_contains($html, self::HTML_PLACEHOLDER)) {
-            return $html;
+            // Already-rendered logo (or none): still drop leftover company-name kickers.
+            return EmailCardHtml::htmlHasLogoBrandMark($html)
+                ? EmailCardHtml::stripCompanyNameKickers($html)
+                : $html;
         }
 
-        $payload = $this->resolveLogoPayload($companyId);
+        // Witte mailheader → light-mode logo (donkere tekst); dark alleen als light ontbreekt.
+        $payload = $this->resolveEmailLogoPayload($companyId);
         if ($payload === null) {
+            // ensureLightEmailChrome already dropped leftover kickers while the logo
+            // placeholder still counted as the brand mark. Do not strip again after the
+            // name fallback is inserted — that fallback uses the same 22px slate style.
             return str_replace(self::HTML_PLACEHOLDER, $this->fallbackNameHtml($fallbackName), $html);
         }
 
         $cid = $message->embedData($payload['data'], 'company-logo', $payload['mime']);
 
-        return str_replace(
+        $html = str_replace(
             self::HTML_PLACEHOLDER,
             $this->imgHtmlWithSrc($cid, 'Logo'),
             $html
         );
+
+        // Strip AFTER logo embed: stored body_html may still contain the old grey kicker
+        // (stripRedundantBrandKickerHtml runs before the placeholder becomes an <img>).
+        return EmailCardHtml::stripCompanyNameKickers($html);
     }
 
     /**
      * Publieke HTTPS-URL voor e-mailclients (tenant-domein indien bekend).
+     * Standaard light-variant (witte mailheader); dark alleen op verzoek (PWA).
      */
-    public function publicLogoUrl(?int $companyId): ?string
+    public function publicLogoUrl(?int $companyId, bool $preferDarkHeader = false): ?string
     {
         if ($companyId === null || $companyId <= 0) {
             return null;
@@ -94,20 +108,24 @@ class CompanyEmailLogoService
 
         $base = $this->resolvePublicBaseUrl($companyId);
         $path = route('email.company-logo', ['company' => $companyId], false);
+        $url = rtrim($base, '/').$path;
 
-        return rtrim($base, '/').$path;
+        return $this->withDarkVariantQuery($url, $companyId, $preferDarkHeader);
     }
 
     /**
      * Logo-URL op het huidige host (admin-preview op localhost of admin-domein).
+     * Standaard light-variant voor e-mailheaders; PWA dark via pwaLogoUrls.
      */
-    public function adminPreviewLogoUrl(?int $companyId): ?string
+    public function adminPreviewLogoUrl(?int $companyId, bool $preferDarkHeader = false): ?string
     {
         if ($companyId === null || $companyId <= 0 || ! $this->hasLogoSource($companyId)) {
             return null;
         }
 
-        return url(route('email.company-logo', ['company' => $companyId], false));
+        $url = url(route('email.company-logo', ['company' => $companyId], false));
+
+        return $this->withDarkVariantQuery($url, $companyId, $preferDarkHeader);
     }
 
     /**
@@ -117,16 +135,27 @@ class CompanyEmailLogoService
      */
     public function pwaLogoUrls(?int $companyId): array
     {
-        $light = $this->adminPreviewLogoUrl($companyId);
+        $light = $this->adminPreviewLogoUrl($companyId, false);
         if ($light === null) {
             return ['light' => null, 'dark' => null];
         }
 
         $dark = $this->resolveDarkLogoPayload($companyId) !== null
-            ? $light.(str_contains($light, '?') ? '&' : '?').'variant=dark'
+            ? $this->withDarkVariantQuery($light, $companyId, true)
             : $light;
 
         return ['light' => $light, 'dark' => $dark];
+    }
+
+    /**
+     * Logo voor e-mail (witte header): light-blob/pad, anders dark als enige optie.
+     *
+     * @return array{data: string, mime: string}|null
+     */
+    public function resolveEmailLogoPayload(?int $companyId): ?array
+    {
+        return $this->resolveLogoPayload($companyId)
+            ?? $this->resolveDarkLogoPayload($companyId);
     }
 
     /**
@@ -191,8 +220,10 @@ class CompanyEmailLogoService
             return $html;
         }
 
-        $html = EmailCardHtml::stripRedundantBrandKickerHtml(
-            \App\Support\NexaBranding::injectPreviewLogo($html)
+        $html = EmailCardHtml::ensureLightEmailChrome(
+            EmailCardHtml::stripRedundantBrandKickerHtml(
+                \App\Support\NexaBranding::injectPreviewLogo($html)
+            )
         );
 
         $hasPlaceholder = str_contains($html, 'COMPANY_LOGO')
@@ -224,12 +255,28 @@ class CompanyEmailLogoService
             }
         }
 
+        // Only strip text kickers when an image logo is present. The name fallback uses the
+        // same 22px slate style and must remain when there is no logo file.
+        if (str_contains($logoHtml, '<img')) {
+            $html = EmailCardHtml::stripCompanyNameKickers($html);
+        }
+
         return $html;
     }
 
     public function hasLogoSource(?int $companyId): bool
     {
-        return $this->resolveLogoPayload($companyId) !== null;
+        return $this->resolveLogoPayload($companyId) !== null
+            || $this->resolveDarkLogoPayload($companyId) !== null;
+    }
+
+    private function withDarkVariantQuery(string $url, int $companyId, bool $preferDarkHeader): string
+    {
+        if (! $preferDarkHeader || $this->resolveDarkLogoPayload($companyId) === null) {
+            return $url;
+        }
+
+        return $url.(str_contains($url, '?') ? '&' : '?').'variant=dark';
     }
 
     /**
@@ -272,7 +319,10 @@ class CompanyEmailLogoService
             return '';
         }
 
-        return '<strong>'.e($name).'</strong>';
+        // Brand stand-in when no logo: larger and clearer in the white email header.
+        return '<p style="margin:0 0 10px;color:#0f172a;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:0.01em;">'
+            .e($name)
+            .'</p>';
     }
 
     public function imgHtmlWithSrc(string $src, ?string $alt = null, ?int $maxHeightPx = null): string
@@ -281,7 +331,7 @@ class CompanyEmailLogoService
         $maxH = max(24, min(100, $maxHeightPx ?? 56));
         $maxW = (int) round($maxH * 4.5);
 
-        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;">';
+        return '<img src="'.e($src).'" alt="'.e($altText).'" style="max-height:'.$maxH.'px;max-width:'.$maxW.'px;width:auto;height:auto;display:block;object-fit:contain;margin:0;">';
     }
 
     /**

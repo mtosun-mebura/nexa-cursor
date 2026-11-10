@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\CustomerMarketplaceBookingService;
 use App\Modules\NexaTaxi\Services\CustomerRideLiveStatusService;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideCancelledMailer;
 use App\Modules\NexaTaxi\Services\TaxiPortalDataService;
 use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
+use App\Modules\NexaTaxi\Services\TaxiRideRatingService;
 use App\Services\InvoicePdfService;
 use App\Services\ModuleDatabaseService;
 use Illuminate\Http\JsonResponse;
@@ -61,6 +63,8 @@ class CustomerRideController extends Controller
             'passengers' => 'required|integer|min:1|max:20',
             'pickup_address' => 'required|string|max:500',
             'dropoff_address' => 'required|string|max:500',
+            'pickup_place_name' => 'nullable|string|max:160',
+            'dropoff_place_name' => 'nullable|string|max:160',
             'pickup_at' => 'required|date',
             'pickup_lat' => 'required|numeric',
             'pickup_lng' => 'required|numeric',
@@ -80,6 +84,7 @@ class CustomerRideController extends Controller
             'return_trip' => 'nullable|boolean',
             'marketplace_radius_km' => 'nullable|numeric|min:1|max:100',
             'return_url' => 'nullable|string|max:2000',
+            'locale' => 'nullable|string|in:nl,en',
         ]);
 
         $user = $request->user();
@@ -96,6 +101,10 @@ class CustomerRideController extends Controller
             if (trim((string) ($data['last_name'] ?? '')) === '' && $user->last_name) {
                 $data['last_name'] = $user->last_name;
             }
+        }
+
+        if (empty($data['locale'])) {
+            $data['locale'] = \App\Modules\NexaTaxi\Support\CustomerMailLocale::fromRequest($request);
         }
 
         try {
@@ -160,6 +169,44 @@ class CustomerRideController extends Controller
         ]);
     }
 
+    public function confirmPickupByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        MarketplacePickupConfirmationService $pickup,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'answer' => 'required|string|in:yes,no',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        try {
+            $ride = $pickup->answer(
+                $moduleDb->getModuleConnectionName('taxi'),
+                $ride,
+                $data['answer']
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Bevestigen mislukt.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $data['answer'] === 'yes'
+                ? 'Bedankt. We hebben genoteerd dat je bent opgehaald.'
+                : 'De chauffeur krijgt bericht dat je niet bent opgehaald.',
+            'ride' => $live->livePayload($ride),
+        ]);
+    }
+
     public function cancelByToken(
         Request $request,
         CustomerRideLiveStatusService $live,
@@ -211,6 +258,90 @@ class CustomerRideController extends Controller
         }
 
         return $this->waitRideResponse($conn, $model, $cancellation, $live);
+    }
+
+    public function rateByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        TaxiRideRatingService $ratings,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'stars' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $rating = $ratings->rate(
+                $conn,
+                $ride,
+                (int) $data['stars'],
+                isset($data['comment']) ? (string) $data['comment'] : null
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'rating' => $rating,
+            'ride' => $live->livePayload($ride->fresh() ?? $ride),
+        ]);
+    }
+
+    public function complainByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        \App\Modules\NexaTaxi\Services\TaxiRideComplaintService $complaints,
+        ModuleDatabaseService $moduleDb
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'category' => 'required|string|max:40',
+            'description' => 'required|string|min:10|max:4000',
+            'subject' => 'nullable|string|max:160',
+            'customer_name' => 'nullable|string|max:160',
+            'customer_email' => 'nullable|email|max:190',
+            'customer_phone' => 'nullable|string|max:40',
+            'preferred_contact' => 'nullable|string|in:email,phone,none',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        try {
+            $complaint = $complaints->file($conn, $ride, $data);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'complaint' => $complaints->payloadForRide($conn, $ride),
+            'complaint_id' => (int) $complaint->id,
+            'ride' => $live->livePayload($ride->fresh() ?? $ride),
+            'message' => 'Je klacht is ontvangen. We nemen deze in behandeling.',
+        ]);
     }
 
     public function payByToken(

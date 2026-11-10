@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Helpers\GeoHelper;
 use App\Models\Company;
-use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Models\DriverAvailability;
+use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\PlatformBilling\TenantBillingAccessService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -18,6 +19,16 @@ class NearestTaxiTenantResolver
     public const MARKETPLACE_RADIUS_MAX_KM = 100.0;
 
     public const MARKETPLACE_MAX_TENANTS = 5;
+
+    /** Live-kaart (NearbyAvailableTaxiFleetService) blijft op 3 minuten. */
+    public const DRIVER_PRESENCE_MAX_AGE_SECONDS = 180;
+
+    /**
+     * Boeking/dispatch: een online chauffeur met laatst bekende positie blijft kandidaat
+     * terwijl de telefoon op standby staat en geen GPS meer post. De kaart toont hen
+     * na 3 minuten niet meer; het aanbod moet er wel zijn.
+     */
+    public const BOOKING_ONLINE_MAX_AGE_SECONDS = 21600;
 
     public static function normalizeRadiusKm(mixed $value): float
     {
@@ -50,8 +61,8 @@ class NearestTaxiTenantResolver
     }
 
     /**
-     * Dichtstbijzijnde geschikte taxicentrales. Met een radius alleen bedrijven daarbinnen
-     * (tot $limit stuks). Zonder radius ($radiusKm = null) de allerdichtste.
+     * Dichtstbijzijnde geschikte taxibedrijven op basis van online taxi's (chauffeur-GPS)
+     * rond de ophaallocatie — niet op vestigingsplaats.
      *
      * @return list<array{company: Company, distance_km: float}>
      */
@@ -63,23 +74,7 @@ class NearestTaxiTenantResolver
         array $excludeCompanyIds = []
     ): array {
         $limit = max(1, $limit);
-        $eligible = [];
-
-        foreach ($this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds) as $candidate) {
-            /** @var Company $company */
-            $company = $candidate['company'];
-            if ($this->billingAccess->isBookingBlocked($company)) {
-                continue;
-            }
-            if (! $this->canReceiveMarketplaceRides($company)) {
-                continue;
-            }
-            if (! $this->companyHasActiveVehicles($company)) {
-                continue;
-            }
-
-            $eligible[] = $candidate;
-        }
+        $eligible = $this->rankedCandidates($pickupLat, $pickupLng, $excludeCompanyIds);
 
         if ($eligible === []) {
             return [];
@@ -98,35 +93,101 @@ class NearestTaxiTenantResolver
     }
 
     /**
+     * Rangschik bedrijven op afstand van de dichtstbijzijnde online chauffeur tot de pickup.
+     *
      * @return list<array{company: Company, distance_km: float}>
      */
     public function rankedCandidates(float $pickupLat, float $pickupLng, array $excludeCompanyIds = []): array
     {
         $exclude = array_values(array_filter(array_map('intval', $excludeCompanyIds)));
-        $ranked = [];
+        $companies = $this->bookableCompanies()->keyBy(fn (Company $c) => (int) $c->id);
+        if ($companies->isEmpty()) {
+            return [];
+        }
 
-        foreach ($this->eligibleCompanies() as $company) {
-            if (in_array((int) $company->id, $exclude, true)) {
-                continue;
-            }
-            $coords = $this->coordinatesFor($company);
-            if ($coords === null) {
+        $companyIds = $companies->keys()
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => in_array($id, $exclude, true))
+            ->values()
+            ->all();
+        if ($companyIds === []) {
+            return [];
+        }
+
+        $bestDistanceByCompany = $this->nearestOnlineDriverDistanceByCompany($pickupLat, $pickupLng, $companyIds);
+        if ($bestDistanceByCompany === []) {
+            return [];
+        }
+
+        $ranked = [];
+        foreach ($bestDistanceByCompany as $companyId => $distanceKm) {
+            $company = $companies->get($companyId);
+            if (! $company instanceof Company) {
                 continue;
             }
             $ranked[] = [
                 'company' => $company,
-                'distance_km' => round(GeoHelper::calculateDistance(
-                    $pickupLat,
-                    $pickupLng,
-                    $coords['lat'],
-                    $coords['lng']
-                ), 2),
+                'distance_km' => round((float) $distanceKm, 2),
             ];
         }
 
         usort($ranked, static fn (array $a, array $b) => $a['distance_km'] <=> $b['distance_km']);
 
         return $ranked;
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     * @return array<int, float> company_id => afstand in km van dichtstbijzijnde online chauffeur
+     */
+    public function nearestOnlineDriverDistanceByCompany(float $pickupLat, float $pickupLng, array $companyIds): array
+    {
+        $companyIds = array_values(array_filter(array_map('intval', $companyIds), static fn (int $id): bool => $id > 0));
+        if ($companyIds === []) {
+            return [];
+        }
+
+        try {
+            $this->moduleDb->ensureModuleStorageReady('taxi');
+            $conn = $this->moduleDb->getModuleConnectionName('taxi');
+        } catch (\Throwable) {
+            return [];
+        }
+
+        if (! TaxiDispatchSchema::driverAvailabilityExists($conn)) {
+            return [];
+        }
+
+        $cutoff = now()->subSeconds(self::BOOKING_ONLINE_MAX_AGE_SECONDS);
+        $rows = DriverAvailability::on($conn)
+            ->whereIn('company_id', $companyIds)
+            ->where('is_online', true)
+            ->whereNotNull('lat')
+            ->whereNotNull('lng')
+            ->where(function ($query) use ($cutoff) {
+                $query->where('last_seen_at', '>=', $cutoff)
+                    ->orWhere('location_updated_at', '>=', $cutoff);
+            })
+            ->get(['company_id', 'lat', 'lng']);
+
+        $best = [];
+        foreach ($rows as $row) {
+            $companyId = (int) ($row->company_id ?? 0);
+            if ($companyId <= 0 || ! in_array($companyId, $companyIds, true)) {
+                continue;
+            }
+            $lat = (float) $row->lat;
+            $lng = (float) $row->lng;
+            if (! $this->isValidCoord($lat, $lng)) {
+                continue;
+            }
+            $distanceKm = GeoHelper::calculateDistance($pickupLat, $pickupLng, $lat, $lng);
+            if (! isset($best[$companyId]) || $distanceKm < $best[$companyId]) {
+                $best[$companyId] = $distanceKm;
+            }
+        }
+
+        return $best;
     }
 
     /**
@@ -146,6 +207,63 @@ class NearestTaxiTenantResolver
     }
 
     /**
+     * Bedrijven die nu marketplace-ritten mogen ontvangen. Zelfde set voor de live-kaart
+     * en voor quote/boeking, zodat een getoonde taxi ook echt boekbaar is.
+     * Alleen een volledige facturatieblokkade sluit uit (net als de chauffeur-app); de
+     * blokkade "boekingen" geldt voor de eigen website-boeking van het bedrijf.
+     *
+     * @return Collection<int, Company>
+     */
+    public function bookableCompanies(): Collection
+    {
+        return $this->eligibleCompanies()
+            ->reject(fn (Company $company) => $this->billingAccess->isFullyBlocked($company))
+            ->filter(fn (Company $company) => $this->canReceiveMarketplaceRides($company))
+            ->values();
+    }
+
+    /**
+     * Dichtstbijzijnde bookable tenant op vestigingscoördinaten (prijsindicatie als er
+     * geen online chauffeur in de straal is). Dispatch blijft chauffeur-GPS gebruiken.
+     *
+     * @return array{company: Company, distance_km: float}|null
+     */
+    public function nearestByHeadquarters(float $pickupLat, float $pickupLng, ?float $radiusKm = null): ?array
+    {
+        $best = null;
+        $bestDistance = null;
+        foreach ($this->bookableCompanies() as $company) {
+            $coords = $this->coordinatesFor($company);
+            if ($coords === null) {
+                continue;
+            }
+            $distanceKm = GeoHelper::calculateDistance(
+                $pickupLat,
+                $pickupLng,
+                (float) $coords['lat'],
+                (float) $coords['lng']
+            );
+            if ($radiusKm !== null && $radiusKm > 0 && $distanceKm > $radiusKm) {
+                continue;
+            }
+            if ($bestDistance === null || $distanceKm < $bestDistance) {
+                $bestDistance = $distanceKm;
+                $best = $company;
+            }
+        }
+        if (! $best instanceof Company || $bestDistance === null) {
+            return null;
+        }
+
+        return [
+            'company' => $best,
+            'distance_km' => round((float) $bestDistance, 2),
+        ];
+    }
+
+    /**
+     * Vestigingscoördinaten (legacy / overige flows). Marketplace-matching gebruikt chauffeur-GPS.
+     *
      * @return array{lat: float, lng: float}|null
      */
     public function coordinatesFor(Company $company): ?array
@@ -183,21 +301,6 @@ class NearestTaxiTenantResolver
         return null;
     }
 
-    public function companyHasActiveVehicles(Company $company): bool
-    {
-        try {
-            $this->moduleDb->ensureModuleStorageReady('taxi');
-            $conn = $this->moduleDb->getModuleConnectionName('taxi');
-        } catch (\Throwable) {
-            return true;
-        }
-
-        return Vehicle::on($conn)
-            ->where('company_id', $company->id)
-            ->where('active', true)
-            ->exists();
-    }
-
     /**
      * Eigen website-boeking óf fee-only marketplace (dispatch + chauffeur-app).
      */
@@ -211,6 +314,13 @@ class NearestTaxiTenantResolver
             && $this->entitlements->allows($company, \App\Support\TenantPackageCapability::DRIVER_APP);
     }
 
+    private function isValidCoord(float $lat, float $lng): bool
+    {
+        return $lat >= -90.0 && $lat <= 90.0
+            && $lng >= -180.0 && $lng <= 180.0
+            && ! ($lat === 0.0 && $lng === 0.0);
+    }
+
     private function numericOrNull(mixed $value): ?float
     {
         if ($value === null || $value === '') {
@@ -219,11 +329,11 @@ class NearestTaxiTenantResolver
         if (! is_numeric($value)) {
             return null;
         }
-        $number = (float) $value;
-        if ($number == 0.0) {
+        $n = (float) $value;
+        if (! is_finite($n)) {
             return null;
         }
 
-        return $number;
+        return $n;
     }
 }

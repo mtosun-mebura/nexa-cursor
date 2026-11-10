@@ -38,7 +38,7 @@ class PayoutIdentityAuditLogger
      */
     private function stripSecrets(array $payload): array
     {
-        $banned = ['password', 'api_key', 'card_number', 'cvc', 'cvv', 'iban', 'account_number', 'secret', 'access_token', 'refresh_token', 'pan'];
+        $banned = ['password', 'api_key', 'card_number', 'cvc', 'cvv', 'iban', 'iban_encrypted', 'account_number', 'secret', 'access_token', 'refresh_token', 'pan'];
         foreach ($banned as $key) {
             unset($payload[$key]);
         }

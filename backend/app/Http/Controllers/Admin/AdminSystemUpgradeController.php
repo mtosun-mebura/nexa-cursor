@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SystemUpgradeLog;
 use App\Services\SystemDockerComposeService;
 use App\Services\SystemLaravelUpgradeService;
+use App\Services\SystemPhpCriticalUpdateService;
 use App\Services\SystemPhpDockerUpgradeService;
 use App\Services\SystemPostgresDockerUpgradeService;
 use App\Services\SystemStackSnapshotService;
@@ -22,6 +23,7 @@ class AdminSystemUpgradeController extends Controller
         protected SystemUpgradePreviewService $previewService,
         protected SystemUpgradeService $upgrades,
         protected SystemPhpDockerUpgradeService $phpDocker,
+        protected SystemPhpCriticalUpdateService $phpCritical,
         protected SystemLaravelUpgradeService $laravel,
         protected SystemDockerComposeService $docker,
         protected SystemPostgresDockerUpgradeService $postgres,
@@ -30,6 +32,12 @@ class AdminSystemUpgradeController extends Controller
     public function index()
     {
         $this->ensureSuperAdmin();
+
+        $phpCriticalUpdates = [];
+        if ($this->phpCritical->enabled()) {
+            $phpStatus = $this->phpCritical->attachAndNotify($this->phpDocker->status());
+            $phpCriticalUpdates = is_array($phpStatus['critical_updates'] ?? null) ? $phpStatus['critical_updates'] : [];
+        }
 
         $stack = $this->snapshots->labeledStack();
         $releaseVersion = $this->snapshots->currentReleaseVersion();
@@ -45,6 +53,7 @@ class AdminSystemUpgradeController extends Controller
             'upgradeHistory' => $upgradeHistory,
             'webUpgradeEnabled' => $this->upgrades->webUpgradeEnabled(),
             'coolifyVpsPublicIp' => \App\Support\CoolifyVpsPublicIp::get(),
+            'phpCriticalUpdates' => $phpCriticalUpdates,
         ]);
     }
 
@@ -55,15 +64,15 @@ class AdminSystemUpgradeController extends Controller
         $validated = $request->validate([
             'coolify_vps_public_ip' => ['required', 'ip'],
         ], [
-            'coolify_vps_public_ip.required' => 'Vul het publieke VPS-IP in.',
-            'coolify_vps_public_ip.ip' => 'Vul een geldig IPv4- of IPv6-adres in.',
+            'coolify_vps_public_ip.required' => __('Vul het publieke VPS-IP in.'),
+            'coolify_vps_public_ip.ip' => __('Vul een geldig IPv4- of IPv6-adres in.'),
         ]);
 
         \App\Support\CoolifyVpsPublicIp::set($validated['coolify_vps_public_ip']);
 
         return redirect()
             ->route('admin.settings.upgrade.index', ['saved' => 1])
-            ->with('success', 'VPS-IP opgeslagen. Dit adres wordt gebruikt in de tenant-checklist.');
+            ->with('success', __('VPS-IP opgeslagen. Dit adres wordt gebruikt in de tenant-checklist.'));
     }
 
     public function preview(): JsonResponse
@@ -73,7 +82,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -90,7 +99,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -121,9 +130,14 @@ class AdminSystemUpgradeController extends Controller
     {
         $this->ensureSuperAdmin();
 
+        $data = $this->phpDocker->status();
+        if ($this->phpCritical->enabled()) {
+            $data = $this->phpCritical->attachAndNotify($data);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $this->phpDocker->status(),
+            'data' => $data,
         ]);
     }
 
@@ -134,7 +148,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -142,7 +156,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $status['can_run'] && ! $status['pending_finalize']) {
             return response()->json([
                 'success' => false,
-                'message' => $status['message'] !== '' ? $status['message'] : 'PHP-upgrade via Docker is niet beschikbaar.',
+                'message' => $status['message'] !== '' ? $status['message'] : __('PHP-upgrade via Docker is niet beschikbaar.'),
             ], 422);
         }
 
@@ -197,7 +211,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -267,13 +281,13 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->docker->ready()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Docker is in deze omgeving niet beschikbaar.',
+                'message' => __('Docker is in deze omgeving niet beschikbaar.'),
             ], 422);
         }
         if ($action === 'rebuild' && ! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -304,7 +318,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->docker->ready()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Docker is in deze omgeving niet beschikbaar.',
+                'message' => __('Docker is in deze omgeving niet beschikbaar.'),
             ], 422);
         }
 
@@ -325,13 +339,13 @@ class AdminSystemUpgradeController extends Controller
 
         $output = $result['output'] !== ''
             ? $result['output']
-            : '(geen uitvoer, exit '.$result['exit_code'].')';
+            : __('(geen uitvoer, exit :code)', ['code' => $result['exit_code']]);
 
         return response()->json([
             'success' => $result['success'],
             'message' => $result['success']
-                ? 'Commando uitgevoerd op '.$result['service'].'.'
-                : 'Commando eindigde met exit '.$result['exit_code'].'.',
+                ? __('Commando uitgevoerd op :service.', ['service' => $result['service']])
+                : __('Commando eindigde met exit :code.', ['code' => $result['exit_code']]),
             'data' => [
                 'exit_code' => $result['exit_code'],
                 'output' => $output,
@@ -358,7 +372,7 @@ class AdminSystemUpgradeController extends Controller
         if (! $this->upgrades->webUpgradeEnabled()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Web-upgrades zijn uitgeschakeld.',
+                'message' => __('Web-upgrades zijn uitgeschakeld.'),
             ], 422);
         }
 
@@ -373,7 +387,7 @@ class AdminSystemUpgradeController extends Controller
                 'success' => false,
                 'message' => $status['message'] !== ''
                     ? $status['message']
-                    : 'PostgreSQL-upgrade via Docker is niet beschikbaar.',
+                    : __('PostgreSQL-upgrade via Docker is niet beschikbaar.'),
             ], 422);
         }
 
@@ -411,14 +425,14 @@ class AdminSystemUpgradeController extends Controller
         if ($deleted === 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Geen regels verwijderd. Lopende upgrades blijven staan.',
+                'message' => __('Geen regels verwijderd. Lopende upgrades blijven staan.'),
                 'deleted' => 0,
             ], 422);
         }
 
         $message = $deleted === 1
-            ? '1 regel verwijderd.'
-            : $deleted.' regels verwijderd.';
+            ? __('1 regel verwijderd.')
+            : __(':count regels verwijderd.', ['count' => $deleted]);
 
         return response()->json([
             'success' => true,
@@ -508,7 +522,7 @@ class AdminSystemUpgradeController extends Controller
     protected function ensureSuperAdmin(): void
     {
         if (! auth()->check() || ! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Je hebt geen rechten om deze pagina te bekijken. Alleen super-admins hebben toegang.');
+            abort(403, __('Je hebt geen rechten om deze pagina te bekijken. Alleen super-admins hebben toegang.'));
         }
     }
 }

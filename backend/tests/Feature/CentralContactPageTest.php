@@ -49,10 +49,22 @@ class CentralContactPageTest extends TestCase
     public function contact_page_prefills_package_and_message_from_query(): void
     {
         $this->get('http://localhost:8085/contact?pakket=Start')
+            ->assertRedirect('http://localhost:8085/contact');
+
+        $this->get('http://localhost:8085/contact')
             ->assertOk()
             ->assertSee('name="pakket"', false)
             ->assertSee('value="Start" selected', false)
             ->assertSee('Ik ben geïnteresseerd in het pakket Start.', false);
+    }
+
+    #[Test]
+    public function contact_page_with_pakket_query_has_clean_canonical_after_strip(): void
+    {
+        $this->followingRedirects()
+            ->get('http://localhost:8085/contact?pakket=Pro')
+            ->assertOk()
+            ->assertSee('<link rel="canonical" href="http://localhost:8085/contact">', false);
     }
 
     #[Test]

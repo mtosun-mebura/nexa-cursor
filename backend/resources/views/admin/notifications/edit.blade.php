@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Notificatie Bewerken')
+@section('title', __('Notificatie Bewerken'))
 
 @section('content')
 
@@ -8,13 +8,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Notificatie Bewerken
+                {{ __('Notificatie Bewerken') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -30,14 +30,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Notificatie Details
+                        {{ __('Notificatie Details') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal">
-                                Ontvanger *
+                                {{ __('Ontvanger *') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="flex flex-col">
@@ -49,10 +49,10 @@
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 300px; max-width: 100%;"
                                                     required>
-                                                <option value="">Selecteer ontvanger</option>
+                                                <option value="">{{ __('Selecteer ontvanger') }}</option>
                                                 
                                                 @if($backendUsers->count() > 0)
-                                                    <optgroup label="Gebruikers van het bedrijf">
+                                                    <optgroup label="{{ __('Gebruikers van het bedrijf') }}">
                                                         @foreach($backendUsers as $user)
                                                             <option value="{{ $user->id }}" {{ old('user_id', $notification->user_id) == $user->id ? 'selected' : '' }}>
                                                                 {{ $user->first_name }} {{ $user->last_name }} ({{ $user->email }})
@@ -62,7 +62,7 @@
                                                 @endif
                                                 
                                                 @if($candidates->count() > 0)
-                                                    <optgroup label="Kandidaten">
+                                                    <optgroup label="{{ __('Kandidaten') }}">
                                                         @foreach($candidates as $candidate)
                                                             @php
                                                                 $vacancies = $candidateVacancies[$candidate->email] ?? [];
@@ -83,17 +83,17 @@
                                         @enderror
                                     </div>
                                     @error('user_id')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Selecteer een backend gebruiker van je bedrijf of een kandidaat die heeft gesolliciteerd op je vacatures
+                                        {{ __('Selecteer een backend gebruiker van je bedrijf of een kandidaat die heeft gesolliciteerd op je vacatures') }}
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Categorie *
+                                {{ __('Categorie *') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -105,15 +105,15 @@
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 200px; max-width: 100%;"
                                                     required>
-                                                <option value="">Selecteer categorie</option>
-                                                <option value="info" {{ old('category', $notification->category ?? 'info') == 'info' ? 'selected' : '' }}>Informatie</option>
-                                                <option value="warning" {{ old('category', $notification->category ?? '') == 'warning' ? 'selected' : '' }}>Waarschuwing</option>
-                                                <option value="success" {{ old('category', $notification->category ?? '') == 'success' ? 'selected' : '' }}>Succes</option>
-                                                <option value="error" {{ old('category', $notification->category ?? '') == 'error' ? 'selected' : '' }}>Fout</option>
-                                                <option value="reminder" {{ old('category', $notification->category ?? '') == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                                <option value="update" {{ old('category', $notification->category ?? '') == 'update' ? 'selected' : '' }}>Update</option>
-                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>Incident</option>
-                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>Incident</option>
+                                                <option value="">{{ __('Selecteer categorie') }}</option>
+                                                <option value="info" {{ old('category', $notification->category ?? 'info') == 'info' ? 'selected' : '' }}>{{ __('Informatie') }}</option>
+                                                <option value="warning" {{ old('category', $notification->category ?? '') == 'warning' ? 'selected' : '' }}>{{ __('Waarschuwing') }}</option>
+                                                <option value="success" {{ old('category', $notification->category ?? '') == 'success' ? 'selected' : '' }}>{{ __('Succes') }}</option>
+                                                <option value="error" {{ old('category', $notification->category ?? '') == 'error' ? 'selected' : '' }}>{{ __('Fout') }}</option>
+                                                <option value="reminder" {{ old('category', $notification->category ?? '') == 'reminder' ? 'selected' : '' }}>{{ __('Herinnering') }}</option>
+                                                <option value="update" {{ old('category', $notification->category ?? '') == 'update' ? 'selected' : '' }}>{{ __('Update') }}</option>
+                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>{{ __('Incident') }}</option>
+                                                <option value="incident" {{ old('category', $notification->category ?? '') == 'incident' ? 'selected' : '' }}>{{ __('Incident') }}</option>
                                             </select>
                                         </div>
                                         @error('category')
@@ -123,14 +123,14 @@
                                         @enderror
                                     </div>
                                     @error('category')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Type *
+                                {{ __('Type *') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -142,14 +142,14 @@
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 200px; max-width: 100%;"
                                                     required>
-                                                <option value="">Selecteer type</option>
-                                                <option value="match" {{ old('type', $notification->type) == 'match' ? 'selected' : '' }}>Match</option>
-                                                <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>Sollicitatie</option>
-                                                <option value="system" {{ old('type', $notification->type) == 'system' ? 'selected' : '' }}>Systeem</option>
-                                                <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>E-mail</option>
-                                                <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>Herinnering</option>
-                                                <option value="file" {{ old('type', $notification->type) == 'file' ? 'selected' : '' }}>Bestand</option>
-                                                <option value="incident" {{ old('type', $notification->type) == 'incident' ? 'selected' : '' }}>Incident</option>
+                                                <option value="">{{ __('Selecteer type') }}</option>
+                                                <option value="match" {{ old('type', $notification->type) == 'match' ? 'selected' : '' }}>{{ __('Match') }}</option>
+                                                <option value="interview" {{ old('type', $notification->type) == 'interview' ? 'selected' : '' }}>{{ __('Sollicitatie') }}</option>
+                                                <option value="system" {{ old('type', $notification->type) == 'system' ? 'selected' : '' }}>{{ __('Systeem') }}</option>
+                                                <option value="email" {{ old('type', $notification->type) == 'email' ? 'selected' : '' }}>{{ __('E-mail') }}</option>
+                                                <option value="reminder" {{ old('type', $notification->type) == 'reminder' ? 'selected' : '' }}>{{ __('Herinnering') }}</option>
+                                                <option value="file" {{ old('type', $notification->type) == 'file' ? 'selected' : '' }}>{{ __('Bestand') }}</option>
+                                                <option value="incident" {{ old('type', $notification->type) == 'incident' ? 'selected' : '' }}>{{ __('Incident') }}</option>
                                             </select>
                                         </div>
                                         @error('type')
@@ -159,14 +159,14 @@
                                         @enderror
                                     </div>
                                     @error('type')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                E-mail Template
+                                {{ __('E-mail Template') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -177,7 +177,7 @@
                                                     name="email_template_id" 
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 300px; max-width: 100%;">
-                                                <option value="">Geen template (alleen notificatie)</option>
+                                                <option value="">{{ __('Geen template (alleen notificatie)') }}</option>
                                                 @if(isset($emailTemplates) && $emailTemplates->count() > 0)
                                                     @foreach($emailTemplates as $template)
                                                         <option value="{{ $template->id }}" {{ old('email_template_id', $notification->email_template_id) == $template->id ? 'selected' : '' }}>
@@ -197,14 +197,14 @@
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Selecteer een e-mail template om automatisch een e-mail te versturen bij deze notificatie
+                                        {{ __('Selecteer een e-mail template om automatisch een e-mail te versturen bij deze notificatie') }}
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Titel *
+                                {{ __('Titel *') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -215,7 +215,7 @@
                                                id="title"
                                                value="{{ old('title', $notification->title) }}" 
                                                required
-                                               placeholder="Bijv. Nieuwe match gevonden">
+                                               placeholder="{{ __('Bijv. Nieuwe match gevonden') }}">
                                         @error('title')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -223,14 +223,14 @@
                                         @enderror
                                     </div>
                                     @error('title')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Bericht *
+                                {{ __('Bericht *') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -240,7 +240,7 @@
                                                   name="message" 
                                                   rows="4" 
                                                   required
-                                                  placeholder="Voer hier het bericht in...">{{ old('message', $notification->message) }}</textarea>
+                                                  placeholder="{{ __('Voer hier het bericht in...') }}">{{ old('message', $notification->message) }}</textarea>
                                         @error('message')
                                             <div class="validation-icon-wrapper" style="display: flex; align-items: flex-start; justify-content: center; width: 1.25rem; height: 1.25rem; flex-shrink: 0; padding-top: 0.5rem;">
                                                 <i class="ki-filled ki-cross-circle text-destructive" style="font-size: 1.25rem;"></i>
@@ -248,14 +248,14 @@
                                         @enderror
                                     </div>
                                     @error('message')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Prioriteit
+                                {{ __('Prioriteit') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -266,10 +266,10 @@
                                                     name="priority"
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 200px; max-width: 100%;">
-                                                <option value="low" {{ old('priority', $notification->priority) == 'low' ? 'selected' : '' }}>Laag</option>
-                                                <option value="normal" {{ old('priority', $notification->priority ?? 'normal') == 'normal' ? 'selected' : '' }}>Normaal</option>
-                                                <option value="high" {{ old('priority', $notification->priority) == 'high' ? 'selected' : '' }}>Hoog</option>
-                                                <option value="urgent" {{ old('priority', $notification->priority) == 'urgent' ? 'selected' : '' }}>Urgent</option>
+                                                <option value="low" {{ old('priority', $notification->priority) == 'low' ? 'selected' : '' }}>{{ __('Laag') }}</option>
+                                                <option value="normal" {{ old('priority', $notification->priority ?? 'normal') == 'normal' ? 'selected' : '' }}>{{ __('Normaal') }}</option>
+                                                <option value="high" {{ old('priority', $notification->priority) == 'high' ? 'selected' : '' }}>{{ __('Hoog') }}</option>
+                                                <option value="urgent" {{ old('priority', $notification->priority) == 'urgent' ? 'selected' : '' }}>{{ __('Urgent') }}</option>
                                             </select>
                                         </div>
                                         @error('priority')
@@ -282,14 +282,14 @@
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        De prioriteit bepaalt de kleur van het notificatie icoon (Laag: grijs, Normaal: blauw, Hoog: oranje, Urgent: rood)
+                                        {{ __('De prioriteit bepaalt de kleur van het notificatie icoon (Laag: grijs, Normaal: blauw, Hoog: oranje, Urgent: rood)') }}
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Actie URL
+                                {{ __('Actie URL') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -310,14 +310,14 @@
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Optionele URL waar de gebruiker naartoe wordt geleid bij klikken op de notificatie
+                                        {{ __('Optionele URL waar de gebruiker naartoe wordt geleid bij klikken op de notificatie') }}
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Gepland op
+                                {{ __('Gepland op') }}
                             </td>
                             <td>
                                 <div class="flex flex-col">
@@ -336,7 +336,7 @@
                                                        data-kt-date-picker-selected-month="{{ $notification->scheduled_at->format('n') - 1 }}"
                                                        data-kt-date-picker-selected-year="{{ $notification->scheduled_at->format('Y') }}"
                                                        @endif
-                                                       placeholder="Selecteer datum"
+                                                       placeholder="{{ __('Selecteer datum') }}"
                                                        readonly
                                                        type="text"
                                                        value="{{ old('scheduled_at', $notification->scheduled_at ? $notification->scheduled_at->format('d-m-Y') : '') }}"/>
@@ -368,18 +368,18 @@
                                         </div>
                                     </div>
                                     @error('scheduled_at')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
                                     @error('scheduled_time')
-                                        <div class="text-xs text-destructive mt-1">Dit veld is verplicht!</div>
+                                        <div class="text-xs text-destructive mt-1">{{ __('Dit veld is verplicht!') }}</div>
                                     @enderror
-                                    <small class="text-muted-foreground text-xs mt-1 block">Voer tijd in als hh:mm (bijv. 14:30) of gebruik het klok icoon</small>
+                                    <small class="text-muted-foreground text-xs mt-1 block">{{ __('Voer tijd in als hh:mm (bijv. 14:30) of gebruik het klok icoon') }}</small>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal">
-                                Locatie
+                                {{ __('Locatie') }}
                             </td>
                             <td>
                                 @php
@@ -393,7 +393,7 @@
                                                     name="location_id"
                                                     data-kt-select="true"
                                                     style="width: auto; min-width: 300px; max-width: 100%;">
-                                                <option value="">Selecteer locatie</option>
+                                                <option value="">{{ __('Selecteer locatie') }}</option>
                                     @if($company)
                                         @php
                                             $mainLocation = $company->mainLocation;
@@ -408,7 +408,7 @@
                                                 if ($mainLocation->city) {
                                                     $mainDisplayName .= ' - ' . $mainLocation->city;
                                                 }
-                                                $mainDisplayName .= ' (Hoofdadres)';
+                                                $mainDisplayName .= ' (' . __('Hoofdadres') . ')';
                                             @endphp
                                             <option value="{{ $mainLocation->id }}" {{ old('location_id', $notification->location_id) == $mainLocation->id ? 'selected' : '' }}>
                                                 {{ $mainDisplayName }}
@@ -421,7 +421,7 @@
                                                 if ($company->city) {
                                                     $companyDisplayName .= ' - ' . $company->city;
                                                 }
-                                                $companyDisplayName .= ' (Hoofdadres)';
+                                                $companyDisplayName .= ' (' . __('Hoofdadres') . ')';
                                             @endphp
                                             <option value="company_main" {{ old('location_id', $notification->location_id) == 0 || old('location_id', $notification->location_id) == 'company_main' ? 'selected' : '' }}>
                                                 {{ $companyDisplayName }}
@@ -439,7 +439,7 @@
                                                     $locationDisplayName .= ' - ' . $location->city;
                                                 }
                                                 if ($isMain) {
-                                                    $locationDisplayName .= ' (Hoofdadres)';
+                                                    $locationDisplayName .= ' (' . __('Hoofdadres') . ')';
                                                 }
                                             @endphp
                                             <option value="{{ $location->id }}" {{ old('location_id', $notification->location_id) == $location->id ? 'selected' : '' }}>
@@ -456,7 +456,7 @@
                                                              (isset($notificationData['location_or_type']) && $notificationData['location_or_type'] === 'Op afstand'));
                                     @endphp
                                                 <option value="remote" {{ $isRemoteSelected ? 'selected' : '' }}>
-                                                    Op afstand
+                                                    {{ __('Op afstand') }}
                                                 </option>
                                             </select>
                                         </div>
@@ -470,14 +470,14 @@
                                         <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                     @enderror
                                     <div class="text-xs text-muted-foreground mt-1">
-                                        Optioneel: selecteer een locatie van je bedrijf
+                                        {{ __('Optioneel: selecteer een locatie van je bedrijf') }}
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         <tr class="border-b-0">
                             <td class="text-secondary-foreground font-normal border-b-0">
-                                Bestand
+                                {{ __('Bestand') }}
                             </td>
                             <td class="border-b-0">
                                 @if($notification->file_path)
@@ -487,7 +487,7 @@
                                             {{ $notification->file_name }}
                                         </a>
                                         <span class="text-xs text-muted-foreground ms-2">
-                                            ({{ number_format($notification->file_size / 1024, 2) }} KB)
+                                            {{ __('(:filesize KB)', ['filesize' => number_format($notification->file_size / 1024, 2)]) }}
                                         </span>
                                     </div>
                                 @endif
@@ -500,14 +500,14 @@
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Optioneel: upload een nieuw bestand om het huidige te vervangen (max 10MB)
+                                    {{ __('Optioneel: upload een nieuw bestand om het huidige te vervangen (max 10MB)') }}
                                 </div>
                             </td>
                         </tr>
                         {{-- Extra Data (JSON) field hidden - only used internally --}}
                         <tr style="display: none;">
                             <td class="text-secondary-foreground font-normal align-top">
-                                Extra Data (JSON)
+                                {{ __('Extra Data (JSON)') }}
                             </td>
                             <td>
                                 <textarea class="kt-input @error('data') border-destructive @enderror" 
@@ -519,7 +519,7 @@
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Optionele JSON data voor extra informatie
+                                    {{ __('Optionele JSON data voor extra informatie') }}
                                 </div>
                             </td>
                         </tr>
@@ -530,11 +530,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.notifications.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Wijzigingen Opslaan
+                    {{ __('Wijzigingen Opslaan') }}
                 </button>
             </div>
         </div>

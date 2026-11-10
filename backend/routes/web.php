@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminCompanySubscriptionController;
 use App\Http\Controllers\Admin\AdminCompanyWizardController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminEmailTemplateController;
+use App\Http\Controllers\Admin\AdminExplanationOverviewController;
 use App\Http\Controllers\Admin\AdminTenantSetupChecklistController;
 use App\Http\Controllers\Admin\AdminNexaNetworkGuideController;
 use App\Http\Controllers\Admin\AdminPaymentFlowsGuideController;
@@ -31,7 +32,9 @@ use App\Http\Controllers\Admin\AdminLegacyVacancyRedirectController;
 // AdminMatchController and AdminInterviewController moved to Skillmatching module
 use App\Http\Controllers\Admin\AdminJobConfigurationTypeController;
 use App\Http\Controllers\Admin\AdminModuleController;
+use App\Http\Controllers\Admin\AdminMonitoringController;
 use App\Http\Controllers\Admin\AdminNewsletterController;
+use App\Http\Controllers\Admin\AdminTaxiPartnerFinderController;
 use App\Http\Controllers\Admin\AdminNexaPricingController;
 use App\Http\Controllers\Admin\AdminNexaSuiteMarketplaceController;
 use App\Http\Controllers\Admin\AdminNotificationController;
@@ -46,6 +49,7 @@ use App\Http\Controllers\Admin\AdminPlatformInvoiceController;
 use App\Http\Controllers\Admin\AdminProfileController;
 use App\Http\Controllers\Admin\AdminRoleController;
 use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Admin\AdminSettingsBankAccountController;
 use App\Http\Controllers\Admin\AdminSystemUpgradeController;
 use App\Http\Controllers\Admin\AdminTenantCustomerEmailController;
 use App\Http\Controllers\Admin\AdminTenantCustomerInvoiceController;
@@ -423,9 +427,8 @@ Route::get('/vacatures', function () {
 })->name('vacatures.index');
 Route::get('/vacatures/{company:slug}/{vacancy}', [PublicVacancyController::class, 'show'])->name('vacatures.show');
 
-// Frontend meld: sessie verlopen (toegankelijk zonder login)
+// Frontend meld: sessie verlopen → direct naar login (geen tussenpagina)
 Route::get('/meld/sessie-verlopen', function (Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen frontend-pagina's, geen /admin)
     $intended = $request->query('intended');
     if ($intended && is_string($intended)) {
         $path = parse_url($intended, PHP_URL_PATH) ?? '';
@@ -434,12 +437,15 @@ Route::get('/meld/sessie-verlopen', function (Request $request) {
         }
     }
 
-    return view('meld.redirect', [
-        'title' => 'Sessie verlopen',
-        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
-        'redirectUrl' => route('login'),
-        'redirectLabel' => 'Naar inlogpagina',
-    ]);
+    $loginQuery = [];
+    if ($intended && is_string($intended)) {
+        $path = parse_url($intended, PHP_URL_PATH) ?? '';
+        if ($path !== '' && ! Str::startsWith($path, '/admin')) {
+            $loginQuery['intended'] = $intended;
+        }
+    }
+
+    return redirect()->to('/login'.($loginQuery !== [] ? '?'.http_build_query($loginQuery) : ''));
 })->name('meld.sessie-verlopen');
 
 // Frontend vacancy details (company slug + vacancy id; no model binding to avoid type confusion)
@@ -454,6 +460,7 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLoginForm'])->name(
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login')->name('admin.login.post');
 Route::post('/admin/login/first-code', [AdminAuthController::class, 'requestFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-code');
 Route::post('/admin/login/first-verify', [AdminAuthController::class, 'verifyFirstLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.first-verify');
+Route::post('/admin/login/marketplace-code', [AdminAuthController::class, 'requestMarketplaceLoginCode'])->middleware('throttle:admin-first-login')->name('admin.login.marketplace-code');
 Route::post('/admin/login/marketplace-register', [AdminAuthController::class, 'registerMarketplaceCompany'])->middleware('throttle:admin-first-login')->name('admin.login.marketplace-register');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 Route::get('/admin/manifest.webmanifest', AdminWebManifestController::class)->name('admin.manifest');
@@ -469,21 +476,14 @@ Route::middleware(['web', 'auth:web'])->prefix('admin')->name('admin.')->group(f
     })->name('api.session-check');
 });
 
-// Admin meld: sessie verlopen (toegankelijk zonder login)
+// Admin meld: sessie verlopen → direct naar login (geen tussenpagina)
 Route::get('/admin/meld/sessie-verlopen', function (Request $request) {
-    // Bewaar de bedoelde URL voor na inloggen (alleen admin-pagina's, nooit login/meld zelf)
     $intended = AdminReturnUrl::resolveIntended($request->query('intended'));
     if ($intended !== null) {
         session(['url.intended' => $intended]);
     }
-    $redirectUrl = AdminReturnUrl::loginUrlWithIntended($intended);
 
-    return view('admin.meld.redirect', [
-        'title' => 'Sessie verlopen',
-        'message' => 'Uw sessie is verlopen. Log opnieuw in om verder te gaan.',
-        'redirectUrl' => $redirectUrl,
-        'redirectLabel' => 'Naar inlogpagina',
-    ]);
+    return redirect()->to(AdminReturnUrl::loginUrlWithIntended($intended));
 })->name('admin.meld.sessie-verlopen');
 
 // Password Reset Routes
@@ -500,6 +500,9 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         ->name('ai-chat.message');
 
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('locale/{locale}', [\App\Http\Controllers\Admin\AdminLocaleController::class, 'switch'])
+        ->whereIn('locale', ['nl', 'en'])
+        ->name('locale.switch');
     Route::post('/tenant/switch', [AdminDashboardController::class, 'switchTenant'])->name('tenant.switch');
 
     Route::middleware('role:super-admin')->group(function () {
@@ -507,6 +510,8 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             ->name('tenant-setup-checklist');
         Route::get('nexa-network', [AdminNexaNetworkGuideController::class, 'index'])
             ->name('nexa-network.guide');
+        Route::get('uitleg', [AdminExplanationOverviewController::class, 'index'])
+            ->name('uitleg');
         Route::get('payment-flows', [AdminPaymentFlowsGuideController::class, 'guide'])
             ->name('payment-flows.guide');
         Route::get('payment-flows/settlements', [AdminPaymentFlowsGuideController::class, 'settlements'])
@@ -517,6 +522,20 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             ->name('payment-flows.settlements.retry');
         Route::post('payment-flows/settlements/{settlement}/force-paid', [AdminPaymentFlowsGuideController::class, 'forcePaidOut'])
             ->name('payment-flows.settlements.force-paid');
+    });
+
+    Route::middleware('super-admin')->prefix('monitoring')->name('monitoring.')->group(function () {
+        Route::get('/', [AdminMonitoringController::class, 'index'])->name('index');
+        Route::get('status', [AdminMonitoringController::class, 'status'])->name('status');
+        Route::post('vastgelopen/herstart', [AdminMonitoringController::class, 'restartStuck'])->name('jobs.restart-stuck');
+        Route::post('vastgelopen/{id}/vrijgeven', [AdminMonitoringController::class, 'releaseStuck'])
+            ->whereNumber('id')
+            ->name('jobs.release');
+        Route::post('mislukt/{uuid}/herstart', [AdminMonitoringController::class, 'retryFailed'])
+            ->whereUuid('uuid')
+            ->name('jobs.retry');
+        Route::post('fouten/oplossen', [AdminMonitoringController::class, 'resolveErrors'])->name('errors.bulk-resolve');
+        Route::post('fouten/{errorLog}/opgelost', [AdminMonitoringController::class, 'resolveError'])->name('errors.resolve');
     });
 
     // Legacy /admin/vacancies: nooit een kapotte 404; door naar skillmatching of dashboard.
@@ -554,6 +573,9 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
     Route::post('email-communicatie/{customerEmail}/opnieuw-versturen', [AdminTenantCustomerEmailController::class, 'resend'])->name('customer-emails.resend');
 
     Route::get('settings', [AdminSettingsController::class, 'index'])->name('settings.index');
+    Route::get('settings/bank-account', [AdminSettingsBankAccountController::class, 'edit'])->name('settings.bank-account');
+    Route::post('settings/bank-account', [AdminSettingsBankAccountController::class, 'update'])->name('settings.bank-account.update');
+    Route::post('settings/bank-account/send-code', [AdminSettingsBankAccountController::class, 'sendConfirmationCode'])->name('settings.bank-account.send-code');
     Route::post('settings/mail', [AdminSettingsController::class, 'updateMail'])->name('settings.mail.update');
     Route::post('settings/mail/test', [AdminSettingsController::class, 'testEmail'])->name('settings.mail.test');
 
@@ -826,6 +848,19 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::put('{campaign}', [AdminNewsletterController::class, 'update'])->name('update');
     });
 
+    // Landelijke Taxi Partner Finder (onafhankelijk van boeking; voedt nieuwsbrieflijst)
+    Route::middleware('role:super-admin')->prefix('taxi-partner-finder')->name('taxi-partner-finder.')->group(function () {
+        Route::get('/', [AdminTaxiPartnerFinderController::class, 'index'])->name('index');
+        Route::get('export', [AdminTaxiPartnerFinderController::class, 'exportCsv'])->name('export');
+        Route::post('sync-knv', [AdminTaxiPartnerFinderController::class, 'syncKnv'])->name('sync-knv');
+        Route::post('import-csv', [AdminTaxiPartnerFinderController::class, 'importCsv'])->name('import-csv');
+        Route::post('prepare-invitations', [AdminTaxiPartnerFinderController::class, 'prepareInvitations'])->name('prepare-invitations');
+        Route::get('{prospect}', [AdminTaxiPartnerFinderController::class, 'show'])->name('show');
+        Route::put('{prospect}', [AdminTaxiPartnerFinderController::class, 'update'])->name('update');
+        Route::post('{prospect}/push-newsletter', [AdminTaxiPartnerFinderController::class, 'pushNewsletter'])->name('push-newsletter');
+        Route::post('{prospect}/opt-out', [AdminTaxiPartnerFinderController::class, 'optOut'])->name('opt-out');
+    });
+
     // Candidates (Super Admin only)
     Route::middleware('role:super-admin')->group(function () {
         Route::resource('candidates', AdminCandidateController::class);
@@ -884,8 +919,14 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::post('invoices/{invoice}/mark-paid', [AdminNexaSuiteMarketplaceController::class, 'markPaid'])->name('invoices.mark-paid');
             Route::post('invoices/{invoice}/status', [AdminNexaSuiteMarketplaceController::class, 'updateStatus'])->name('invoices.status');
             Route::post('invoices/{invoice}/reminder', [AdminNexaSuiteMarketplaceController::class, 'sendReminder'])->name('invoices.reminder');
+            Route::get('werkwijze', [AdminNexaSuiteMarketplaceController::class, 'procedure'])->name('procedure');
             Route::get('settings', [AdminNexaSuiteMarketplaceController::class, 'settings'])->name('settings');
             Route::put('settings', [AdminNexaSuiteMarketplaceController::class, 'updateSettings'])->name('settings.update');
+            Route::post('settings/public-hosts', [AdminNexaSuiteMarketplaceController::class, 'storePublicHost'])->name('settings.public-hosts.store');
+            Route::put('settings/public-hosts/{hostId}', [AdminNexaSuiteMarketplaceController::class, 'updatePublicHost'])->name('settings.public-hosts.update');
+            Route::delete('settings/public-hosts/{hostId}', [AdminNexaSuiteMarketplaceController::class, 'destroyPublicHost'])->name('settings.public-hosts.destroy');
+            Route::post('settings/public-hosts/{hostId}/payments', [AdminNexaSuiteMarketplaceController::class, 'usePublicHostForPayments'])->name('settings.public-hosts.payments');
+            Route::post('settings/refresh-prices', [AdminNexaSuiteMarketplaceController::class, 'refreshFeePrices'])->name('settings.refresh-prices');
             Route::post('generate', [AdminNexaSuiteMarketplaceController::class, 'generate'])->name('generate');
             Route::post('run-now', [AdminNexaSuiteMarketplaceController::class, 'runNow'])->name('run-now');
             Route::post('run-dunning', [AdminNexaSuiteMarketplaceController::class, 'runDunning'])->name('run-dunning');
@@ -919,7 +960,7 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::post('tenants/{company}/invoice-preview-pdf', [AdminCompanyBillingProfileController::class, 'invoicePreviewPdf'])->name('tenants.invoice-preview-pdf');
             Route::post('tenants/{company}/mandate', [AdminCompanyBillingProfileController::class, 'requestMandate'])->name('tenants.mandate');
             Route::post('tenants/{company}/emergency-terminate', [AdminCompanyBillingProfileController::class, 'emergencyTerminate'])->name('tenants.emergency-terminate');
-            Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', 'Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.'))->name('mandates.return');
+            Route::get('mandates/return/{company}', fn () => redirect()->route('admin.platform-billing.tenants.index')->with('success', __('Mandaat-flow afgerond. Status wordt bijgewerkt na webhook.')))->name('mandates.return');
             Route::get('invoices', [AdminPlatformInvoiceController::class, 'index'])->name('invoices.index');
             Route::post('invoices/run-now', [AdminPlatformInvoiceController::class, 'runNow'])->name('invoices.run-now');
             Route::post('invoices/run-dunning', [AdminPlatformInvoiceController::class, 'runDunningNow'])->name('invoices.run-dunning');
@@ -1310,13 +1351,20 @@ Route::post('/language/switch', function () {
     return response()->json(['success' => true, 'language' => $language]);
 })->name('language.switch');
 
-// About/contact: website builder wanneer geconfigureerd, anders doorverwijzen naar home (legacy).
+// About: canonieke slug (meestal /over-ons). Geen soft-redirect naar home — dat gaf GSC "pagina met omleiding".
 Route::get('/about', function () {
-    if (app(WebsiteBuilderService::class)->getAboutPage()) {
-        return app(WebsitePageController::class)->showAbout();
+    $builder = app(WebsiteBuilderService::class);
+    $page = $builder->getAboutPage();
+    if ($page === null) {
+        abort(404);
     }
 
-    return redirect()->route('home');
+    $canonicalPath = $builder->publicPathsForWebsitePage($page)[0] ?? '/over-ons';
+    if ($canonicalPath !== '/about') {
+        return redirect()->to($canonicalPath, 301);
+    }
+
+    return app(WebsitePageController::class)->showAbout();
 })->name('about');
 
 Route::get('/help', function () {

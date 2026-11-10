@@ -1,0 +1,119 @@
+import { t } from '../i18n';
+import { AppState, Platform, Vibration } from 'react-native';
+import { playRideAlertTone, rideAlertNotificationSound } from '../audio/rideAlert';
+
+type NotificationsModule = typeof import('expo-notifications');
+
+let Notifications: NotificationsModule | null = null;
+try {
+  // Native module ontbreekt tot een rebuild met expo-notifications — crash dan niet.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Notifications = require('expo-notifications') as NotificationsModule;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch {
+  Notifications = null;
+}
+
+let permissionReady: Promise<boolean> | null = null;
+
+/** Nieuw id bij sound-wissel (Android wijzigt sound op bestaande kanalen niet). */
+const CONTRACT_RIDES_CHANNEL = 'contract-rides-v7';
+
+export function contractNotificationsAvailable(): boolean {
+  return Notifications != null;
+}
+
+export async function ensureContractNotificationPermission(): Promise<boolean> {
+  if (!Notifications) return false;
+  if (!permissionReady) {
+    permissionReady = (async () => {
+      const current = await Notifications!.getPermissionsAsync();
+      if (
+        current.granted ||
+        current.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
+      ) {
+        return true;
+      }
+      const asked = await Notifications!.requestPermissionsAsync();
+      return !!(
+        asked.granted ||
+        asked.ios?.status === Notifications!.IosAuthorizationStatus.PROVISIONAL
+      );
+    })().catch(() => false);
+  }
+  return permissionReady;
+}
+
+export async function notifyNewContractRide(opts: {
+  count: number;
+  pickup?: string | null;
+  dropoff?: string | null;
+  playSound?: boolean;
+}): Promise<void> {
+  const pickup = String(opts.pickup || '').trim() || t("Nieuwe rit");
+  const dropoff = String(opts.dropoff || '').trim();
+  const body = dropoff ? `${pickup} → ${dropoff}` : pickup;
+  const title = opts.count > 1 ? `${opts.count} nieuwe ritten` : t("Nieuwe rit");
+
+  const playSound = opts.playSound !== false;
+  try {
+    if (Platform.OS === 'ios') {
+      Vibration.vibrate();
+    } else {
+      Vibration.vibrate([0, 120, 60, 120, 60, 200]);
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (playSound && AppState.currentState === 'active') {
+    try {
+      playRideAlertTone();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (!Notifications) return;
+  const ok = await ensureContractNotificationPermission();
+  if (!ok) return;
+
+  try {
+    await setupContractNotificationChannel();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        // Zelfde ritgeluid (Bel) als in de app — ook op slot/achtergrond via OS.
+        sound: playSound ? rideAlertNotificationSound() : false,
+        data: { type: 'contract_ride', screen: 'trips' },
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+        ...(Platform.OS === 'android'
+          ? { channelId: CONTRACT_RIDES_CHANNEL, color: '#2563EB' }
+          : {}),
+      },
+      trigger: null,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function setupContractNotificationChannel(): Promise<void> {
+  if (!Notifications || Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(CONTRACT_RIDES_CHANNEL, {
+    name: t("Contractritten"),
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 120, 60, 120],
+    lightColor: '#2563EB',
+    sound: rideAlertNotificationSound(),
+    enableVibrate: true,
+  });
+}

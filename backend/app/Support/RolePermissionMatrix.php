@@ -80,7 +80,9 @@ final class RolePermissionMatrix
      */
     public function build(iterable $permissions): array
     {
-        $allPermissions = $this->visibility->filter(collect($permissions))->values();
+        $allPermissions = \App\Modules\NexaTaxi\Support\TaxiDispatchAccess::withoutGranular(
+            $this->visibility->filter(collect($permissions))
+        )->values();
         $modulePermissions = $this->visibility->filterModulePermissionGroups(
             $this->menuService->getModulePermissionsGrouped()
         );

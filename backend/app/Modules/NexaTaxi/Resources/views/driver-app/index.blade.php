@@ -2245,6 +2245,82 @@
         .profile-panel .profile-session-note {
             margin: 0 0 0.25rem;
         }
+        .profile-media {
+            margin: 0.85rem 0 0.35rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid var(--line, rgba(255,255,255,0.08));
+        }
+        .profile-media__title {
+            margin: 0 0 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .profile-media__hint {
+            margin: 0 0 0.65rem;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: var(--muted);
+        }
+        .profile-media__row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+        .profile-media__card {
+            appearance: none;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.35rem;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            text-align: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .profile-media__card:disabled {
+            opacity: 0.55;
+            cursor: wait;
+        }
+        .profile-media__preview {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 1px solid var(--line, rgba(255,255,255,0.12));
+            background: var(--card-elevated, var(--card));
+            object-fit: cover;
+            display: block;
+        }
+        .profile-media__preview.is-logo {
+            object-fit: contain;
+            background: transparent;
+        }
+        .profile-media__preview.is-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 1.5rem;
+            background: var(--card-elevated, var(--card));
+        }
+        .profile-media__label {
+            margin: 0;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            line-height: 1.25;
+            color: var(--text);
+        }
+        .profile-media__error {
+            margin: 0.5rem 0 0;
+            font-size: 0.8125rem;
+            color: #f87171;
+        }
         .profile-panel .btn,
         .earnings-panel .btn {
             margin-top: 0.75rem;
@@ -3504,7 +3580,7 @@
             align-items: center;
             justify-content: space-between;
             gap: 0.75rem;
-            margin: 0.85rem 0 0.35rem;
+            margin: 1.25rem 0 0.35rem;
             padding: 0.85rem 1rem;
             border-radius: 0.75rem;
             border: 1px solid rgba(var(--accent-rgb), 0.45);
@@ -3928,23 +4004,23 @@
                 <p id="login-error" class="error" hidden></p>
                 <button type="submit" class="btn btn-primary" id="login-btn">Inloggen</button>
                 <p class="login-first-login" id="login-first-open-wrap">
-                    <button type="button" id="btn-open-first-login">Eerste keer inloggen? Inlogcode aanvragen</button>
+                    <button type="button" id="btn-open-first-login">Eerste keer inloggen of inloggen met code? Inlogcode aanvragen</button>
                 </p>
                 <div id="first-login-panel" hidden>
                     <input type="hidden" id="first-login-email" value="" autocomplete="off">
                     <button type="button" class="btn btn-primary" id="btn-send-login-code">Code versturen</button>
                     <p class="login-first-note"
-                        data-note-idle="We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord."
-                        data-note-sent="We hebben een eenmalige code naar je e-mailadres gestuurd. Deze is beperkt geldig, voer deze hieronder in en stel een eigen wachtwoord in."
-                    >We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna kies je zelf een wachtwoord.</p>
+                        data-note-idle="We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna log je in met die code; een wachtwoord is optioneel."
+                        data-note-sent="We hebben een eenmalige code naar je e-mailadres gestuurd. Voer die hieronder in om in te loggen. Een wachtwoord is optioneel."
+                    >We sturen een eenmalige code naar je e-mail. Die is kort geldig. Daarna log je in met die code; een wachtwoord is optioneel.</p>
                     <div id="first-login-verify" hidden>
                         <label for="login-code">Code uit e-mail</label>
                         <input id="login-code" name="login_code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">
-                        <label for="new-password">Nieuw wachtwoord</label>
+                        <label for="new-password">Nieuw wachtwoord <span class="muted">(optioneel)</span></label>
                         <input id="new-password" name="new_password" type="password" autocomplete="new-password">
                         <label for="new-password-confirm">Wachtwoord bevestigen</label>
                         <input id="new-password-confirm" name="new_password_confirm" type="password" autocomplete="new-password">
-                        <button type="button" class="btn btn-primary" id="btn-verify-login-code">Wachtwoord opslaan en inloggen</button>
+                        <button type="button" class="btn btn-primary" id="btn-verify-login-code">Inloggen</button>
                     </div>
                     <button type="button" class="btn btn-ghost" id="btn-cancel-first-login">Terug naar inloggen</button>
                 </div>
@@ -4332,11 +4408,37 @@
                             <dt class="profile-info__label">Accountstatus</dt>
                             <dd class="profile-info__value" id="profile-account-status">—</dd>
                         </div>
+                        <div class="profile-info__row" id="profile-rating-row" hidden>
+                            <dt class="profile-info__label">Beoordeling</dt>
+                            <dd class="profile-info__value" id="profile-rating">—</dd>
+                        </div>
                     </dl>
+                </div>
+                <div class="profile-media" id="profile-media">
+                    <p class="profile-media__title">Foto’s voor de klant</p>
+                    <p class="profile-media__hint">
+                        Profielfoto is verplicht voordat je een rit kunt accepteren. Logo en auto-foto zijn optioneel.
+                        PNG met transparante achtergrond blijft zichtbaar zonder vlak erachter.
+                    </p>
+                    <div class="profile-media__row">
+                        <button type="button" class="profile-media__card" data-media-kind="profile" id="profile-media-profile">
+                            <span class="profile-media__preview is-empty" id="profile-media-profile-preview" aria-hidden="true">👤</span>
+                            <p class="profile-media__label" id="profile-media-profile-label">Profielfoto (verplicht)</p>
+                        </button>
+                        <button type="button" class="profile-media__card" data-media-kind="logo" id="profile-media-logo">
+                            <span class="profile-media__preview is-empty is-logo" id="profile-media-logo-preview" aria-hidden="true">🏢</span>
+                            <p class="profile-media__label">Bedrijfslogo</p>
+                        </button>
+                        <button type="button" class="profile-media__card" data-media-kind="vehicle" id="profile-media-vehicle">
+                            <span class="profile-media__preview is-empty" id="profile-media-vehicle-preview" aria-hidden="true">🚗</span>
+                            <p class="profile-media__label">Auto</p>
+                        </button>
+                    </div>
+                    <input type="file" id="profile-media-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                    <p class="profile-media__error" id="profile-media-error" hidden></p>
                 </div>
                 @include('taxi::partials.pwa-accent', ['section' => 'picker'])
                 @include('taxi::partials.ride-alert-tone', ['section' => 'picker'])
-                <p class="offer-meta profile-session-note">Gegevens zijn alleen ter inzage.</p>
                 <a class="profile-guide-link" id="profile-guide-link" href="{{ $guideUrl ?? '/taxi/chauffeur/handleiding' }}">
                     <strong>Handleiding</strong>
                     <span>Openen →</span>
@@ -4547,7 +4649,7 @@ window.NEXA_TAXI_DRIVER = {
 };
 </script>
 <script src="/assets/js/taxi-pwa-accent.js?v=1" defer></script>
-<script src="/assets/js/taxi-driver-app.js?v=184" defer></script>
+<script src="/assets/js/taxi-driver-app.js?v=188" defer></script>
 @include('partials.password-toggle')
 </body>
 </html>

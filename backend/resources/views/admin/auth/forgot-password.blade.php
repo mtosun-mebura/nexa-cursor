@@ -74,6 +74,16 @@ Author: Keenthemes
             caret-color: var(--foreground);
         }
 
+        .kt-card .kt-input.border-destructive,
+        .kt-card input.kt-input.border-destructive {
+            border-color: var(--destructive) !important;
+        }
+        .kt-card input.kt-input.border-destructive:focus,
+        .kt-card input.kt-input.border-destructive:focus-visible {
+            border-color: var(--destructive) !important;
+            --tw-ring-color: color-mix(in oklab, var(--destructive) 30%, transparent);
+        }
+
         .auth-status-success {
             display: flex;
             align-items: flex-start;
@@ -122,7 +132,7 @@ Author: Keenthemes
     
     <div class="flex items-center justify-center grow bg-center bg-no-repeat page-bg">
         <div class="kt-card max-w-[370px] w-full">
-            <form action="{{ route('admin.password.email') }}" class="kt-card-content flex flex-col gap-5 p-10" id="reset_password_enter_email_form" method="POST">
+            <form action="{{ route('admin.password.email') }}" class="kt-card-content flex flex-col gap-5 p-10" id="reset_password_enter_email_form" method="POST" novalidate>
                 @csrf
                 
                 <div class="text-center mb-2.5">
@@ -147,25 +157,22 @@ Author: Keenthemes
                     </div>
                 @endif
 
-                @error('email')
-                    <div class="auth-status-danger" role="alert">
-                        <i class="ki-filled ki-information-5 text-xl" aria-hidden="true"></i>
-                        <div class="text-sm font-medium">{{ $message }}</div>
-                    </div>
-                @enderror
-
                 @if (!session('status'))
                     <div class="flex flex-col gap-1">
-                        <label class="kt-form-label font-normal text-mono">
+                        <label class="kt-form-label font-normal text-mono" for="forgot_email">
                             E-mail
                         </label>
-                        <input class="kt-input @error('email') border-danger @enderror" 
-                               placeholder="email@email.com" 
-                               type="email" 
+                        <input class="kt-input @error('email') border-destructive @enderror"
+                               id="forgot_email"
+                               placeholder="email@email.com"
+                               type="email"
                                name="email"
-                               value="{{ old('email') }}" 
-                               required
+                               value="{{ old('email') }}"
+                               autocomplete="username"
                                autofocus/>
+                        <div class="text-xs text-destructive mt-1 @error('email') @else hidden @enderror" data-field-error="forgot_email">
+                            @error('email'){{ $message }}@enderror
+                        </div>
                     </div>
 
                     <button type="submit" class="kt-btn kt-btn-primary flex justify-center grow">
@@ -187,6 +194,48 @@ Author: Keenthemes
     
     <!-- Scripts -->
     <script src="{{ asset('assets/vendors/ktui/ktui.min.js') }}" defer></script>
+    <script>
+        (function () {
+            const form = document.getElementById('reset_password_enter_email_form');
+            const emailInput = document.getElementById('forgot_email');
+            const errorEl = document.querySelector('[data-field-error="forgot_email"]');
+            if (!form || !emailInput) return;
+
+            function clearError() {
+                emailInput.classList.remove('border-destructive');
+                emailInput.removeAttribute('aria-invalid');
+                if (errorEl) {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                }
+            }
+
+            function setError(message) {
+                emailInput.classList.add('border-destructive');
+                emailInput.setAttribute('aria-invalid', 'true');
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
+                }
+            }
+
+            emailInput.addEventListener('input', clearError);
+            form.addEventListener('submit', function (event) {
+                const email = (emailInput.value || '').trim();
+                if (!email) {
+                    event.preventDefault();
+                    setError('Vul een e-mailadres in.');
+                    emailInput.focus();
+                    return;
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    event.preventDefault();
+                    setError('Vul een geldig e-mailadres in.');
+                    emailInput.focus();
+                }
+            });
+        })();
+    </script>
     <!-- End of Scripts -->
 </body>
 </html>

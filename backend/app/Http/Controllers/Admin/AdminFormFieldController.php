@@ -13,7 +13,7 @@ class AdminFormFieldController extends Controller
     private function authorizeFormFields(): void
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen een super-admin mag formulier velden beheren.');
+            abort(403, __('Alleen een super-admin mag formulier velden beheren.'));
         }
     }
 
@@ -94,7 +94,7 @@ class AdminFormFieldController extends Controller
             'validation_rule' => 'nullable|string|max:100',
             'sort_order' => 'nullable|integer|min:0',
         ], [
-            'name.regex' => 'De slug mag alleen kleine letters en underscores bevatten (geen cijfers).',
+            'name.regex' => __('De slug mag alleen kleine letters en underscores bevatten (geen cijfers).'),
         ]);
 
         InfoRequestFormField::create([
@@ -106,7 +106,7 @@ class AdminFormFieldController extends Controller
         ]);
 
         return redirect()->route('admin.email-templates.form-fields.index')
-            ->with('success', 'Formulierveld toegevoegd.');
+            ->with('success', __('Formulierveld toegevoegd.'));
     }
 
     public function edit(InfoRequestFormField $info_request_form_field): View
@@ -125,7 +125,7 @@ class AdminFormFieldController extends Controller
             'validation_rule' => 'nullable|string|max:100',
             'sort_order' => 'nullable|integer|min:0',
         ], [
-            'name.regex' => 'De slug mag alleen kleine letters en underscores bevatten (geen cijfers).',
+            'name.regex' => __('De slug mag alleen kleine letters en underscores bevatten (geen cijfers).'),
         ]);
 
         $info_request_form_field->update([
@@ -137,7 +137,7 @@ class AdminFormFieldController extends Controller
         ]);
 
         return redirect()->route('admin.email-templates.form-fields.index')
-            ->with('success', 'Formulierveld bijgewerkt.');
+            ->with('success', __('Formulierveld bijgewerkt.'));
     }
 
     public function destroy(InfoRequestFormField $info_request_form_field): RedirectResponse
@@ -145,6 +145,6 @@ class AdminFormFieldController extends Controller
         $this->authorizeFormFields();
         $info_request_form_field->delete();
         return redirect()->route('admin.email-templates.form-fields.index')
-            ->with('success', 'Formulierveld verwijderd.');
+            ->with('success', __('Formulierveld verwijderd.'));
     }
 }

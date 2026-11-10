@@ -49,7 +49,6 @@ TEXT;
 <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
     In de bijlage vindt u uw factuur <strong>{{ INVOICE_NUMBER }}</strong> van {{ INVOICE_DATE }}.
 </p>
-<p style="margin:0 0 8px;font-size:12px;color:#0f172a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Overzicht bedragen</p>
 {{ INVOICE_AMOUNTS_HTML }}
 <p style="margin:16px 0 0;font-size:15px;line-height:1.6;">Met vriendelijke groet,<br>{{ COMPANY_NAME }}</p>
 HTML;
@@ -60,7 +59,7 @@ HTML;
             $body,
             EmailCardHtml::companyLogoMarkup(),
             EmailCardHtml::poweredByFooter(),
-            '{{ COMPANY_NAME }}',
+            null,
         );
     }
 }

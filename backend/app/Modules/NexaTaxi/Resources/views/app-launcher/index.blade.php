@@ -10,6 +10,7 @@
     <title>Nexa Taxi</title>
     @include('taxi::partials.pwa-theme', ['section' => 'boot'])
     @include('taxi::partials.pwa-theme', ['section' => 'styles'])
+    @include('taxi::partials.pwa-brand-metrics')
     <style>
         :root {
             --blue: #2563eb;
@@ -64,10 +65,11 @@
         .app-logo-bar {
             display: flex;
             justify-content: center;
-            align-items: flex-end;
+            align-items: center;
+            min-height: var(--nexa-brand-logo-bar-min);
             padding-left: 1rem;
             padding-right: 1rem;
-            padding-bottom: 0.3rem;
+            padding-bottom: 0.2rem;
             padding-top: calc(var(--safe-top) + 0.35rem);
         }
         @media (max-width: 48rem) {
@@ -75,25 +77,15 @@
                 padding-top: max(calc(var(--safe-top) + 0.35rem), 3.75rem);
             }
         }
-        .app-logo-bar img {
-            display: block;
-            width: auto;
-            height: auto;
-            max-width: 11rem;
-            max-height: 2.75rem;
-            object-fit: contain;
-            object-position: center bottom;
-            margin: 0 auto;
-        }
         html[data-theme="dark"] .app-logo-light { display: none !important; }
         html[data-theme="light"] .app-logo-dark { display: none !important; }
         .app-nav-row {
             display: grid;
-            grid-template-columns: 2.75rem 1fr 2.75rem;
+            grid-template-columns: var(--nexa-page-side-slot) 1fr var(--nexa-page-side-slot);
             align-items: center;
             gap: 0.35rem;
-            min-height: 2.75rem;
-            padding: 0.15rem 0.75rem 0.55rem;
+            min-height: var(--nexa-brand-logo-bar-min);
+            padding: 0.25rem 0.75rem 0.4rem;
             max-width: 480px;
             margin: 0 auto;
             width: 100%;
@@ -102,18 +94,10 @@
         .app-nav-end {
             display: flex;
             align-items: center;
-            height: 2.25rem;
+            height: var(--nexa-page-side-slot);
         }
         .app-nav-start { justify-content: flex-start; }
         .app-nav-end { justify-content: flex-end; }
-        .app-nav-title {
-            margin: 0;
-            text-align: center;
-            font-size: 1.05rem;
-            font-weight: 700;
-            line-height: 1.2;
-            color: var(--text);
-        }
         .app-nav-end > .nexa-pwa-chrome-actions {
             position: static !important;
             top: auto !important;
@@ -177,6 +161,34 @@
             background: transparent; color: var(--muted);
             border: 1px solid var(--line);
         }
+        .login-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 18px;
+            display: grid;
+            gap: 12px;
+        }
+        .login-card label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .login-card input {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 1rem;
+            background: transparent;
+            color: var(--text);
+        }
+        .login-card .row { display: grid; gap: 10px; }
+        .login-error { color: #f87171; font-size: 0.85rem; margin: 0; min-height: 1.2em; }
+        .login-hint { color: var(--muted); font-size: 0.8rem; margin: 0; }
+        .screens-host { display: grid; gap: 12px; }
     </style>
 </head>
 <body>
@@ -189,49 +201,67 @@
     </div>
     <div class="app-nav-row">
         <div class="app-nav-start" aria-hidden="true"></div>
-        <h1 class="app-nav-title">Kies je rol</h1>
+        <h1 class="app-nav-title" id="app-nav-title">Maak je keuze</h1>
         <div class="app-nav-end" id="launcher-theme-slot"></div>
     </div>
 </header>
 
 <div class="wrap">
-    <p class="sub">Eén app voor klanten, chauffeurs en contractanten.</p>
+    <p class="sub" id="app-sub" hidden></p>
 
     <div id="role-remembered" class="hidden">
         <p class="sub" id="remembered-label" style="margin:0">Je was eerder ingelogd.</p>
         <div class="actions">
             <button type="button" class="btn btn-primary" id="btn-continue">Doorgaan</button>
-            <button type="button" class="btn btn-ghost" id="btn-switch">Andere rol kiezen</button>
+            <button type="button" class="btn btn-ghost" id="btn-switch">Andere keuze</button>
         </div>
     </div>
 
-    <div id="role-picker" class="stack hidden">
+    <div id="home-picker" class="stack hidden">
         <a class="card primary" href="{{ $customerUrl }}?guest=1" data-role="customer-guest">
-            <span class="badge">Zonder account</span>
-            <h2>Ik wil een taxi boeken</h2>
-            <p>Direct boeken als gast. Locatie wordt automatisch bepaald.</p>
-        </a>
-        <a class="card" href="{{ $customerUrl }}?login=1" data-role="customer">
             <span class="badge">Klant</span>
-            <h2>Inloggen als klant</h2>
-            <p>Profiel, boekingen en live ritstatus met account.</p>
+            <h2>Taxi boeken</h2>
+            <p>Adres, prijs, boeken en live volgen.</p>
         </a>
-        <a class="card" href="{{ $driverUrl }}" data-role="driver">
-            <span class="badge">Chauffeur</span>
-            <h2>Inloggen als chauffeur</h2>
-            <p>Ritten ontvangen, accepteren en navigeren.</p>
-        </a>
-        <a class="card" href="{{ $contractUrl }}" data-role="contract">
-            <span class="badge">Contract / ouder</span>
-            <h2>Inloggen als contractant</h2>
-            <p>Planning en afwezigheid voor contractvervoer.</p>
-        </a>
-        <a class="card" href="{{ url('/admin/login?marketplace=1') }}" data-role="company">
+        <button type="button" class="card" id="btn-staff-login" style="text-align:left;cursor:pointer;width:100%;font:inherit;">
+            <span class="badge">Chauffeur · NEXA-marktplaats · Netwerk · Contract</span>
+            <h2>Inloggen</h2>
+            <p>We bepalen automatisch welke schermen bij jouw rollen horen.</p>
+        </button>
+        <a class="card" href="{{ route('taxi.app.marketplace') }}" data-role="company">
             <span class="badge">Taxibedrijf</span>
-            <h2>Aanmelden als taxibedrijf</h2>
-            <p>Marketplace zonder abonnement — alleen fee over Nexa Suite-ritten.</p>
+            <h2>Aanmelden op NEXA Taxi marktplaats</h2>
+            <p>Registreer je taxibedrijf op de NEXA Taxi marktplaats en ontvang ritten uit het NEXA-netwerk. Dit is geen aanmelding bij marktplaats.nl.</p>
         </a>
     </div>
+
+    <div id="staff-login" class="hidden">
+        <div class="login-card">
+            <div>
+                <label for="login-email">E-mailadres</label>
+                <input id="login-email" type="email" autocomplete="username" inputmode="email" placeholder="jij@bedrijf.nl">
+            </div>
+            <div class="row" id="login-password-row">
+                <div>
+                    <label for="login-password">Wachtwoord (optioneel)</label>
+                    <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••">
+                </div>
+            </div>
+            <div class="row hidden" id="login-code-row">
+                <div>
+                    <label for="login-code">Code uit e-mail</label>
+                    <input id="login-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+                </div>
+            </div>
+            <p class="login-hint" id="login-hint">Heb je geen wachtwoord? Vraag een eenmalige code aan.</p>
+            <p class="login-error" id="login-error" aria-live="polite"></p>
+            <button type="button" class="btn btn-primary" id="btn-login-submit">Inloggen</button>
+            <button type="button" class="btn btn-ghost" id="btn-request-code">Code sturen</button>
+            <button type="button" class="btn btn-ghost" id="btn-login-back">Terug</button>
+        </div>
+    </div>
+
+    <div id="role-screens" class="screens-host hidden"></div>
 </div>
 <script>
 (function () {
@@ -240,24 +270,34 @@
     if (chrome && slot) slot.appendChild(chrome);
 
     const STORAGE_KEY = 'nexa_taxi_app_role';
+    const SESSION_KEY = 'nexa_taxi_app_session';
+    const DRIVER_TOKEN_KEY = 'taxi_driver_token';
+    const CONTRACT_TOKEN_KEY = 'taxi_contract_token';
     const URLS = {
         'customer-guest': @json($customerUrl) + '?guest=1',
         customer: @json($customerUrl) + '?login=1',
         driver: @json($driverUrl),
         contract: @json($contractUrl)
     };
-    const LABELS = {
-        'customer-guest': 'Doorgaan zonder account (klant)',
-        customer: 'Doorgaan als klant',
-        driver: 'Doorgaan als chauffeur',
-        contract: 'Doorgaan als contractant'
+    const API = {
+        login: @json($appLoginUrl),
+        codeRequest: @json($appCodeRequestUrl),
+        codeVerify: @json($appCodeVerifyUrl)
     };
 
+    const titleEl = document.getElementById('app-nav-title');
+    const subEl = document.getElementById('app-sub');
     const remembered = document.getElementById('role-remembered');
-    const picker = document.getElementById('role-picker');
+    const homePicker = document.getElementById('home-picker');
+    const staffLogin = document.getElementById('staff-login');
+    const roleScreens = document.getElementById('role-screens');
     const rememberedLabel = document.getElementById('remembered-label');
     const btnContinue = document.getElementById('btn-continue');
     const btnSwitch = document.getElementById('btn-switch');
+    const loginError = document.getElementById('login-error');
+    const loginHint = document.getElementById('login-hint');
+    const codeRow = document.getElementById('login-code-row');
+    let loginChannel = null;
 
     function getRole() {
         try { return localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { return ''; }
@@ -268,21 +308,203 @@
     function clearRole() {
         try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     }
+    function saveSession(payload) {
+        try { localStorage.setItem(SESSION_KEY, JSON.stringify(payload)); } catch (e) {}
+        if (payload.tokens && payload.tokens.driver && payload.tokens.driver.token) {
+            try { localStorage.setItem(DRIVER_TOKEN_KEY, payload.tokens.driver.token); } catch (e) {}
+        }
+        if (payload.tokens && payload.tokens.contract && payload.tokens.contract.token) {
+            try { localStorage.setItem(CONTRACT_TOKEN_KEY, payload.tokens.contract.token); } catch (e) {}
+        }
+    }
+    function clearSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+            localStorage.removeItem(DRIVER_TOKEN_KEY);
+            localStorage.removeItem(CONTRACT_TOKEN_KEY);
+        } catch (e) {}
+    }
+    function readSession() {
+        try {
+            var raw = localStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    }
 
-    function showPicker() {
+    function hideAll() {
         remembered.classList.add('hidden');
-        picker.classList.remove('hidden');
+        homePicker.classList.add('hidden');
+        staffLogin.classList.add('hidden');
+        roleScreens.classList.add('hidden');
+    }
+    function setSub(text) {
+        if (!subEl) return;
+        var t = String(text || '').trim();
+        if (!t) {
+            subEl.textContent = '';
+            subEl.hidden = true;
+            return;
+        }
+        subEl.textContent = t;
+        subEl.hidden = false;
+    }
+    function showHome() {
+        hideAll();
+        titleEl.textContent = 'Maak je keuze';
+        setSub('');
+        homePicker.classList.remove('hidden');
+    }
+    function showLogin() {
+        hideAll();
+        titleEl.textContent = 'Inloggen';
+        setSub('We bepalen automatisch welke schermen bij jouw rollen horen.');
+        staffLogin.classList.remove('hidden');
+        loginError.textContent = '';
     }
     function showRemembered(role) {
-        rememberedLabel.textContent = LABELS[role] || 'Doorgaan met je vorige rol';
+        hideAll();
+        rememberedLabel.textContent = role === 'driver'
+            ? 'Doorgaan als chauffeur'
+            : (role === 'contract' ? 'Doorgaan als contractant' : 'Doorgaan met je vorige keuze');
         remembered.classList.remove('hidden');
-        picker.classList.add('hidden');
         btnContinue.onclick = function () {
             window.location.href = URLS[role] || URLS.customer;
         };
     }
 
-    document.querySelectorAll('[data-role]').forEach(function (el) {
+    function goScreen(screen) {
+        if (!screen || !screen.url) return;
+        setRole(screen.key);
+        window.location.href = screen.url;
+    }
+
+    function renderScreens(capabilities) {
+        hideAll();
+        var screens = (capabilities && capabilities.screens) || [];
+        titleEl.textContent = 'Kies je scherm';
+        var modes = (capabilities && capabilities.modes) || {};
+        var bits = [];
+        if (modes.marketplace) bits.push('NEXA Taxi marktplaats');
+        if (modes.network) bits.push('network');
+        if (modes.chauffeur && !modes.marketplace) bits.push('chauffeur');
+        if (modes.contract) bits.push('contract');
+        setSub(bits.length
+            ? ('Account herkend: ' + bits.join(' + ') + '. Kies hoe je verder wilt.')
+            : 'Kies hoe je verder wilt.');
+
+        if (screens.length === 1) {
+            goScreen(screens[0]);
+            return;
+        }
+        if (screens.length === 0) {
+            loginError.textContent = 'Geen chauffeur- of contract-toegang op dit account.';
+            showLogin();
+            return;
+        }
+
+        roleScreens.innerHTML = '';
+        screens.forEach(function (screen) {
+            var a = document.createElement('a');
+            a.className = 'card' + (screen.primary ? ' primary' : '');
+            a.href = screen.url;
+            a.setAttribute('data-role', screen.key);
+            a.innerHTML =
+                '<span class="badge"></span><h2></h2><p></p>';
+            a.querySelector('.badge').textContent = screen.badge || screen.key;
+            a.querySelector('h2').textContent = screen.title || screen.key;
+            a.querySelector('p').textContent = screen.description || '';
+            a.addEventListener('click', function () { setRole(screen.key); });
+            roleScreens.appendChild(a);
+        });
+        var back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'btn btn-ghost';
+        back.textContent = 'Andere account';
+        back.addEventListener('click', function () {
+            clearSession();
+            clearRole();
+            showHome();
+        });
+        roleScreens.appendChild(back);
+        roleScreens.classList.remove('hidden');
+    }
+
+    async function postJson(url, body) {
+        var res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(body || {})
+        });
+        var data = await res.json().catch(function () { return {}; });
+        return { ok: res.ok, status: res.status, data: data };
+    }
+
+    document.getElementById('btn-staff-login').addEventListener('click', showLogin);
+    document.getElementById('btn-login-back').addEventListener('click', showHome);
+
+    document.getElementById('btn-request-code').addEventListener('click', async function () {
+        loginError.textContent = '';
+        var email = (document.getElementById('login-email').value || '').trim();
+        if (!email) {
+            loginError.textContent = 'Vul je e-mailadres in.';
+            return;
+        }
+        var result = await postJson(API.codeRequest, { email: email });
+        if (!result.ok) {
+            loginError.textContent = result.data.message || 'Code versturen mislukt.';
+            return;
+        }
+        loginChannel = result.data.channel || null;
+        codeRow.classList.remove('hidden');
+        loginHint.textContent = result.data.message || 'Code verstuurd. Vul de code hieronder in.';
+        document.getElementById('login-code').focus();
+    });
+
+    document.getElementById('btn-login-submit').addEventListener('click', async function () {
+        loginError.textContent = '';
+        var email = (document.getElementById('login-email').value || '').trim();
+        var password = document.getElementById('login-password').value || '';
+        var code = (document.getElementById('login-code').value || '').trim();
+        if (!email) {
+            loginError.textContent = 'Vul je e-mailadres in.';
+            return;
+        }
+
+        var result;
+        if (code) {
+            result = await postJson(API.codeVerify, {
+                email: email,
+                code: code,
+                skip_password: !password,
+                password: password || undefined,
+                channel: loginChannel || undefined
+            });
+        } else if (password) {
+            result = await postJson(API.login, { email: email, password: password });
+        } else {
+            loginError.textContent = 'Vul je wachtwoord in, of vraag een code aan.';
+            return;
+        }
+
+        if (!result.ok) {
+            loginError.textContent = result.data.message || 'Inloggen mislukt.';
+            if (result.data.error === 'first_login_required') {
+                codeRow.classList.remove('hidden');
+                loginHint.textContent = 'Vraag een eenmalige code aan om verder te gaan.';
+            }
+            return;
+        }
+
+        saveSession(result.data);
+        renderScreens(result.data.capabilities || {});
+    });
+
+    document.querySelectorAll('#home-picker [data-role]').forEach(function (el) {
         el.addEventListener('click', function () {
             setRole(el.getAttribute('data-role'));
         });
@@ -290,26 +512,51 @@
 
     btnSwitch.addEventListener('click', function () {
         clearRole();
-        showPicker();
+        showHome();
     });
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('switch') === '1') {
         clearRole();
-        showPicker();
+        clearSession();
+        showHome();
+        return;
+    }
+
+    var session = readSession();
+    if (session && session.capabilities && Array.isArray(session.capabilities.screens) && session.capabilities.screens.length) {
+        if (params.get('prompt') === '1') {
+            renderScreens(session.capabilities);
+            return;
+        }
+        var def = session.capabilities.default_screen;
+        var screens = session.capabilities.screens;
+        if (def && screens.length === 1) {
+            goScreen(screens[0]);
+            return;
+        }
+        if (def) {
+            var match = screens.find(function (s) { return s.key === def; });
+            if (match && getRole() === def) {
+                goScreen(match);
+                return;
+            }
+        }
+        renderScreens(session.capabilities);
         return;
     }
 
     const role = getRole();
-    if (role && URLS[role]) {
+    if (role && URLS[role] && (role === 'customer' || role === 'customer-guest')) {
         if (params.get('prompt') === '1') {
             showRemembered(role);
         } else {
             window.location.replace(URLS[role]);
         }
-    } else {
-        showPicker();
+        return;
     }
+
+    showHome();
 })();
 </script>
 </body>

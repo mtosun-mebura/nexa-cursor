@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\TaxiNetworkPartnership;
+use App\Modules\NexaTaxi\Support\TaxiDispatchAccess;
 use App\Modules\NexaTaxi\Services\TaxiCustomerAcceptEmailTemplateService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerSmsService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -30,12 +31,12 @@ class DispatchSettingsController extends Controller
 
     public function edit(): View
     {
-        $this->authorizeOrPermissionAny(['rides.view', 'rides.update']);
+        TaxiDispatchAccess::authorizeDispatchScreen();
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $ttlSeconds = $this->dispatchSettings->offerTtlSeconds($companyId);
         $envDefault = (int) config('taxi-dispatch.offer_ttl_seconds', 300);
-        $isSuperAdmin = auth()->user()->hasRole('super-admin');
+        $isSuperAdmin = TaxiDispatchAccess::isSuper(auth()->user());
 
         $inviteCode = null;
         $pendingIncoming = collect();
@@ -48,8 +49,16 @@ class DispatchSettingsController extends Controller
             $acceptedPartners = $this->networkPartnerships->acceptedAsOwner($companyId);
         }
 
+        $marketplaceNetworkOnly = ! $isSuperAdmin && $this->isMarketplacePackageCompany($companyId);
+        if ($marketplaceNetworkOnly && ! TaxiDispatchAccess::sees(auth()->user(), 'network')) {
+            abort(403, __('Geen rechten voor chauffeur dispatch.'));
+        }
+        $marketplaceCanOwnNetwork = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
+
         return view('taxi::admin.dispatch-settings.edit', [
             'noTenantSelected' => $companyId === null,
+            'marketplaceNetworkOnly' => $marketplaceNetworkOnly,
+            'marketplaceCanOwnNetwork' => $marketplaceCanOwnNetwork,
             'offerTtlSeconds' => $ttlSeconds,
             'offerTtlMinutes' => (int) round($ttlSeconds / 60),
             'envDefaultSeconds' => $envDefault,
@@ -59,14 +68,23 @@ class DispatchSettingsController extends Controller
             'envDefaultPastPickupGraceMinutes' => (int) config('taxi-dispatch.past_pickup_grace_minutes', 60),
             'minPastPickupGraceMinutes' => TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES,
             'maxPastPickupGraceMinutes' => TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES,
+            'overdueAutoArchiveDays' => $this->dispatchSettings->overdueAutoArchiveDays($companyId),
+            'envDefaultOverdueAutoArchiveDays' => (int) config('taxi-dispatch.overdue_auto_archive_days', 2),
+            'minOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS,
+            'maxOverdueAutoArchiveDays' => TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS,
             'unacceptedAutoCancelMinutes' => $this->dispatchSettings->unacceptedAutoCancelMinutes($companyId),
-            'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30),
+            'envDefaultUnacceptedAutoCancelMinutes' => (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 20),
             'minUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES,
             'maxUnacceptedAutoCancelMinutes' => TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES,
             'customerUnacceptedDecisionMinutes' => $this->dispatchSettings->customerUnacceptedDecisionMinutes($companyId),
             'envDefaultCustomerUnacceptedDecisionMinutes' => (int) config('taxi-dispatch.customer_unaccepted_decision_minutes', 30),
             'minCustomerUnacceptedDecisionMinutes' => TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
             'maxCustomerUnacceptedDecisionMinutes' => TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES,
+            'marketplaceMaxWaitMinutes' => $this->dispatchSettings->marketplaceMaxWaitMinutes($companyId),
+            'envDefaultMarketplaceMaxWaitMinutes' => (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30),
+            'minMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
+            'maxMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES,
+            'requireEnRouteBeforeStart' => $this->dispatchSettings->requireEnRouteBeforeStart($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
             'paymentBookingEnabled' => $this->dispatchSettings->paymentBookingEnabled($companyId),
@@ -112,12 +130,15 @@ class DispatchSettingsController extends Controller
             'networkPendingIncoming' => $pendingIncoming,
             'networkPendingOutgoing' => $pendingOutgoing,
             'networkAcceptedPartners' => $acceptedPartners,
+            'dispatchSections' => TaxiDispatchAccess::visibleMap(auth()->user()),
         ]);
     }
 
     public function editCustomerAcceptEmail(): View
     {
-        $this->authorizeOrPermissionAny(['rides.view', 'rides.update']);
+        if (! TaxiDispatchAccess::sees(auth()->user(), 'customer_accept')) {
+            abort(403, __('Geen rechten voor deze actie.'));
+        }
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
         $resolved = $this->customerAcceptEmailTemplate->templateForEditing($companyId);
@@ -135,7 +156,7 @@ class DispatchSettingsController extends Controller
 
     public function updateCustomerAcceptEmail(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('customer_accept');
 
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:255'],
@@ -143,8 +164,8 @@ class DispatchSettingsController extends Controller
             'text_content' => ['nullable', 'string'],
             'uses_global_fallback' => ['nullable', 'in:0,1'],
         ], [
-            'subject.required' => 'Vul een onderwerp in.',
-            'html_content.required' => 'Vul de HTML-inhoud van de e-mail in.',
+            'subject.required' => __('Vul een onderwerp in.'),
+            'html_content.required' => __('Vul de HTML-inhoud van de e-mail in.'),
         ]);
 
         $companyId = GeneralSetting::resolveScopeCompanyId();
@@ -157,11 +178,32 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.customer_accept_email.edit', ['saved' => 1])
-            ->with('success', 'E-mailtekst voor rit geaccepteerd is opgeslagen.');
+            ->with('success', __('E-mailtekst voor rit geaccepteerd is opgeslagen.'));
     }
 
     public function update(Request $request): RedirectResponse
     {
+        $user = auth()->user();
+        $fullSave = TaxiDispatchAccess::isSuper($user);
+        if (! $fullSave) {
+            TaxiDispatchAccess::authorizeDispatchScreen();
+        }
+
+        $companyId = GeneralSetting::resolveScopeCompanyId();
+        if ($companyId === null && ! auth()->user()?->hasRole('super-admin')) {
+            return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
+        }
+
+        if (! $fullSave && $this->isMarketplacePackageCompany($companyId)) {
+            TaxiDispatchAccess::authorizeMutate('network');
+
+            return $this->updateMarketplaceNetworkOnly($request, $companyId);
+        }
+
+        if (! $fullSave) {
+            return $this->updateVisibleSections($request, $companyId);
+        }
+
         $this->authorizeOrPermissionAny(['rides.update']);
 
         $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
@@ -170,10 +212,14 @@ class DispatchSettingsController extends Controller
         $maxLoginCodeMinutes = TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES;
         $minGraceMinutes = TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES;
         $maxGraceMinutes = TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES;
+        $minOverdueArchiveDays = TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS;
+        $maxOverdueArchiveDays = TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS;
         $minAutoCancelMinutes = TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES;
         $maxAutoCancelMinutes = TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES;
         $minDecisionMinutes = TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES;
         $maxDecisionMinutes = TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES;
+        $minMarketplaceMaxWait = TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES;
+        $maxMarketplaceMaxWait = TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES;
         $isSuperAdmin = auth()->user()->hasRole('super-admin');
 
         $rules = [
@@ -181,6 +227,8 @@ class DispatchSettingsController extends Controller
             'past_pickup_grace_minutes' => ['required', 'integer', 'min:'.$minGraceMinutes, 'max:'.$maxGraceMinutes],
             'unaccepted_auto_cancel_minutes' => ['required', 'integer', 'min:'.$minAutoCancelMinutes, 'max:'.$maxAutoCancelMinutes],
             'customer_unaccepted_decision_minutes' => ['required', 'integer', 'min:'.$minDecisionMinutes, 'max:'.$maxDecisionMinutes],
+            'marketplace_max_wait_minutes' => ['required', 'integer', 'min:'.$minMarketplaceMaxWait, 'max:'.$maxMarketplaceMaxWait],
+            'require_en_route_before_start' => ['nullable', 'in:0,1'],
             'customer_login_code_expires_minutes' => ['required', 'integer', 'min:'.$minLoginCodeMinutes, 'max:'.$maxLoginCodeMinutes],
             'booking_driver_email_enabled' => ['nullable', 'in:0,1'],
             'booking_customer_email_enabled' => ['nullable', 'in:0,1'],
@@ -198,33 +246,42 @@ class DispatchSettingsController extends Controller
             'network_fallback_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
             'network_max_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
         ];
+        if ($companyId !== null) {
+            $rules['overdue_auto_archive_days'] = [
+                'required',
+                'integer',
+                'min:'.$minOverdueArchiveDays,
+                'max:'.$maxOverdueArchiveDays,
+            ];
+        }
         if ($isSuperAdmin) {
             $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
         }
 
         $validated = $request->validate($rules, [
-            'offer_ttl_minutes.required' => 'Vul de acceptatietijd in.',
-            'offer_ttl_minutes.integer' => 'Acceptatietijd moet een heel getal zijn.',
-            'offer_ttl_minutes.min' => 'Acceptatietijd moet minimaal '.$minMinutes.' minuut zijn.',
-            'offer_ttl_minutes.max' => 'Acceptatietijd mag maximaal '.$maxMinutes.' minuten zijn.',
-            'past_pickup_grace_minutes.required' => 'Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.',
-            'past_pickup_grace_minutes.min' => 'Grace-interval moet minimaal '.$minGraceMinutes.' minuten zijn.',
-            'past_pickup_grace_minutes.max' => 'Grace-interval mag maximaal '.$maxGraceMinutes.' minuten zijn.',
-            'unaccepted_auto_cancel_minutes.required' => 'Vul in na hoeveel minuten de klant mag kiezen om te wachten of te annuleren.',
-            'unaccepted_auto_cancel_minutes.min' => 'Deze tijd moet minimaal '.$minAutoCancelMinutes.' minuten zijn (0 = uit).',
-            'unaccepted_auto_cancel_minutes.max' => 'Deze tijd mag maximaal '.$maxAutoCancelMinutes.' minuten zijn.',
-            'customer_unaccepted_decision_minutes.required' => 'Vul in hoe lang de klant mag reageren (wachten of annuleren).',
-            'customer_unaccepted_decision_minutes.min' => 'Reactietijd moet minimaal '.$minDecisionMinutes.' minuten zijn (0 = nooit automatisch annuleren).',
-            'customer_unaccepted_decision_minutes.max' => 'Reactietijd mag maximaal '.$maxDecisionMinutes.' minuten zijn.',
-            'customer_login_code_expires_minutes.required' => 'Vul de geldigheid van de inlogcode in.',
-            'customer_login_code_expires_minutes.min' => 'Geldigheid moet minimaal '.$minLoginCodeMinutes.' minuten zijn.',
-            'customer_login_code_expires_minutes.max' => 'Geldigheid mag maximaal '.$maxLoginCodeMinutes.' minuten zijn.',
+            'offer_ttl_minutes.required' => __('Vul de acceptatietijd in.'),
+            'offer_ttl_minutes.integer' => __('Acceptatietijd moet een heel getal zijn.'),
+            'offer_ttl_minutes.min' => __('Acceptatietijd moet minimaal :min minuut zijn.', ['min' => $minMinutes]),
+            'offer_ttl_minutes.max' => __('Acceptatietijd mag maximaal :max minuten zijn.', ['max' => $maxMinutes]),
+            'past_pickup_grace_minutes.required' => __('Vul in hoe lang een verlopen ophaalmoment nog in Nieuwe ritaanvraag blijft.'),
+            'past_pickup_grace_minutes.min' => __('Grace-interval moet minimaal :min minuten zijn.', ['min' => $minGraceMinutes]),
+            'past_pickup_grace_minutes.max' => __('Grace-interval mag maximaal :max minuten zijn.', ['max' => $maxGraceMinutes]),
+            'overdue_auto_archive_days.required' => __('Vul in na hoeveel verlopen dagen de rit automatisch gearchiveerd wordt.'),
+            'overdue_auto_archive_days.min' => __('Auto-archief moet minimaal :min dagen zijn (0 = uit).', ['min' => $minOverdueArchiveDays]),
+            'overdue_auto_archive_days.max' => __('Auto-archief mag maximaal :max dagen zijn.', ['max' => $maxOverdueArchiveDays]),
+            'unaccepted_auto_cancel_minutes.required' => __('Vul in na hoeveel minuten de klant mag kiezen om te wachten of te annuleren.'),
+            'unaccepted_auto_cancel_minutes.min' => __('Deze tijd moet minimaal :min minuten zijn (0 = uit).', ['min' => $minAutoCancelMinutes]),
+            'unaccepted_auto_cancel_minutes.max' => __('Deze tijd mag maximaal :max minuten zijn.', ['max' => $maxAutoCancelMinutes]),
+            'customer_unaccepted_decision_minutes.required' => __('Vul in hoe lang de klant mag reageren (wachten of annuleren).'),
+            'customer_unaccepted_decision_minutes.min' => __('Reactietijd moet minimaal :min minuten zijn (0 = nooit automatisch annuleren).', ['min' => $minDecisionMinutes]),
+            'customer_unaccepted_decision_minutes.max' => __('Reactietijd mag maximaal :max minuten zijn.', ['max' => $maxDecisionMinutes]),
+            'marketplace_max_wait_minutes.required' => __('Vul de marktplaats max. wachttijd in.'),
+            'marketplace_max_wait_minutes.min' => __('Max. wachttijd moet minimaal :min minuten zijn (0 = uit).', ['min' => $minMarketplaceMaxWait]),
+            'marketplace_max_wait_minutes.max' => __('Max. wachttijd mag maximaal :max minuten zijn.', ['max' => $maxMarketplaceMaxWait]),
+            'customer_login_code_expires_minutes.required' => __('Vul de geldigheid van de inlogcode in.'),
+            'customer_login_code_expires_minutes.min' => __('Geldigheid moet minimaal :min minuten zijn.', ['min' => $minLoginCodeMinutes]),
+            'customer_login_code_expires_minutes.max' => __('Geldigheid mag maximaal :max minuten zijn.', ['max' => $maxLoginCodeMinutes]),
         ]);
-
-        $companyId = GeneralSetting::resolveScopeCompanyId();
-        if ($companyId === null && ! auth()->user()?->hasRole('super-admin')) {
-            return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
-        }
 
         $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
         $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
@@ -232,12 +289,26 @@ class DispatchSettingsController extends Controller
             (int) $validated['past_pickup_grace_minutes'],
             $companyId
         );
+        if ($companyId !== null && array_key_exists('overdue_auto_archive_days', $validated)) {
+            $this->dispatchSettings->setOverdueAutoArchiveDays(
+                (int) $validated['overdue_auto_archive_days'],
+                $companyId
+            );
+        }
         $this->dispatchSettings->setUnacceptedAutoCancelMinutes(
             (int) $validated['unaccepted_auto_cancel_minutes'],
             $companyId
         );
         $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes(
             (int) $validated['customer_unaccepted_decision_minutes'],
+            $companyId
+        );
+        $this->dispatchSettings->setMarketplaceMaxWaitMinutes(
+            (int) $validated['marketplace_max_wait_minutes'],
+            $companyId
+        );
+        $this->dispatchSettings->setRequireEnRouteBeforeStart(
+            $request->boolean('require_en_route_before_start'),
             $companyId
         );
         $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes(
@@ -263,6 +334,161 @@ class DispatchSettingsController extends Controller
             $companyId
         );
 
+        $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
+
+        $success = $companyId === null
+            ? __('Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.')
+            : __('Chauffeur dispatch is opgeslagen.');
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', $success);
+    }
+
+    private function updateVisibleSections(Request $request, ?int $companyId): RedirectResponse
+    {
+        $user = auth()->user();
+        $mutating = [];
+        foreach (TaxiDispatchAccess::visibleMap($user) as $key => $visible) {
+            if ($visible && TaxiDispatchAccess::canMutate($user, $key) && ! in_array($key, ['gps_vehicles', 'gps_settings'], true)) {
+                $mutating[] = $key;
+            }
+        }
+        if ($mutating === []) {
+            abort(403, __('Geen rechten voor deze actie.'));
+        }
+
+        $rules = [];
+        if (in_array('accept_timer', $mutating, true)) {
+            $minMinutes = (int) ceil(TaxiDispatchSettingsService::MIN_TTL_SECONDS / 60);
+            $maxMinutes = (int) floor(TaxiDispatchSettingsService::MAX_TTL_SECONDS / 60);
+            $rules['offer_ttl_minutes'] = ['required', 'integer', 'min:'.$minMinutes, 'max:'.$maxMinutes];
+            $rules['past_pickup_grace_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_PAST_PICKUP_GRACE_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_PAST_PICKUP_GRACE_MINUTES];
+            $rules['unaccepted_auto_cancel_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES];
+            $rules['customer_unaccepted_decision_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES];
+            $rules['marketplace_max_wait_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES];
+            $rules['require_en_route_before_start'] = ['nullable', 'in:0,1'];
+            if ($companyId !== null) {
+                $rules['overdue_auto_archive_days'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, 'max:'.TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS];
+            }
+        }
+        if (in_array('customer_login', $mutating, true)) {
+            $rules['customer_login_code_expires_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_LOGIN_CODE_EXPIRES_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_LOGIN_CODE_EXPIRES_MINUTES];
+        }
+        if (in_array('booking_notifications', $mutating, true)) {
+            $rules['booking_driver_email_enabled'] = ['nullable', 'in:0,1'];
+            $rules['booking_customer_email_enabled'] = ['nullable', 'in:0,1'];
+        }
+        if (in_array('payments', $mutating, true)) {
+            $rules['payment_booking_enabled'] = ['nullable', 'in:0,1'];
+            $rules['payment_driver_enabled'] = ['nullable', 'in:0,1'];
+        }
+        if (in_array('customer_accept', $mutating, true)) {
+            $rules['customer_accept_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_email_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_whatsapp_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_sms_enabled'] = ['nullable', 'in:0,1'];
+            $rules['customer_accept_sms_provider'] = ['nullable', 'string', 'in:off,demo,vonage'];
+            $rules['customer_whatsapp_status_events'] = ['nullable', 'array'];
+            $rules['customer_whatsapp_status_events.*'] = ['string', 'in:'.implode(',', array_keys(TaxiDispatchSettingsService::customerWhatsappStatusEventLabels()))];
+        }
+        if (in_array('network', $mutating, true)) {
+            $rules['network_enabled'] = ['nullable', 'in:0,1'];
+            $rules['network_mode'] = ['nullable', 'string', 'in:off,manual,auto'];
+            $rules['network_fallback_seconds'] = ['nullable', 'integer', 'min:30', 'max:3600'];
+            $rules['network_max_radius_km'] = ['nullable', 'integer', 'min:1', 'max:200'];
+            if ($user?->hasRole('super-admin')) {
+                $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
+            }
+        }
+
+        $validated = $request->validate($rules);
+
+        if (in_array('accept_timer', $mutating, true)) {
+            $seconds = $this->dispatchSettings->clampTtl((int) $validated['offer_ttl_minutes'] * 60);
+            $this->dispatchSettings->setOfferTtlSeconds($seconds, $companyId);
+            $this->dispatchSettings->setPastPickupGraceMinutes((int) $validated['past_pickup_grace_minutes'], $companyId);
+            if ($companyId !== null && array_key_exists('overdue_auto_archive_days', $validated)) {
+                $this->dispatchSettings->setOverdueAutoArchiveDays((int) $validated['overdue_auto_archive_days'], $companyId);
+            }
+            $this->dispatchSettings->setUnacceptedAutoCancelMinutes((int) $validated['unaccepted_auto_cancel_minutes'], $companyId);
+            $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes((int) $validated['customer_unaccepted_decision_minutes'], $companyId);
+            $this->dispatchSettings->setMarketplaceMaxWaitMinutes((int) $validated['marketplace_max_wait_minutes'], $companyId);
+            $this->dispatchSettings->setRequireEnRouteBeforeStart($request->boolean('require_en_route_before_start'), $companyId);
+        }
+        if (in_array('customer_login', $mutating, true)) {
+            $this->dispatchSettings->setCustomerLoginCodeExpiresMinutes((int) $validated['customer_login_code_expires_minutes'], $companyId);
+        }
+        if (in_array('booking_notifications', $mutating, true)) {
+            $this->dispatchSettings->setBookingDriverEmailEnabled($request->boolean('booking_driver_email_enabled'), $companyId);
+            $this->dispatchSettings->setBookingCustomerEmailEnabled($request->boolean('booking_customer_email_enabled'), $companyId);
+        }
+        if (in_array('payments', $mutating, true)) {
+            $this->dispatchSettings->setPaymentBookingEnabled($request->boolean('payment_booking_enabled'), $companyId);
+            $this->dispatchSettings->setPaymentDriverEnabled($request->boolean('payment_driver_enabled'), $companyId);
+        }
+        if (in_array('customer_accept', $mutating, true)) {
+            $acceptEnabled = $request->boolean('customer_accept_enabled');
+            $this->dispatchSettings->setCustomerAcceptNotificationEnabled($acceptEnabled, $companyId);
+            $this->dispatchSettings->setCustomerAcceptEmailEnabled($acceptEnabled && $request->boolean('customer_accept_email_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptWhatsappEnabled($acceptEnabled && $request->boolean('customer_accept_whatsapp_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptSmsEnabled($acceptEnabled && $request->boolean('customer_accept_sms_enabled'), $companyId);
+            $this->dispatchSettings->setCustomerAcceptSmsProvider(
+                (string) ($validated['customer_accept_sms_provider'] ?? TaxiDispatchSettingsService::SMS_PROVIDER_OFF),
+                $companyId
+            );
+            $this->dispatchSettings->setCustomerWhatsappStatusEvents($request->input('customer_whatsapp_status_events', []), $companyId);
+        }
+        if (in_array('network', $mutating, true)) {
+            $this->persistNetworkSettings($request, $validated, $companyId, (bool) $user?->hasRole('super-admin'));
+        }
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', __('Chauffeur dispatch is opgeslagen.'));
+    }
+
+    private function updateMarketplaceNetworkOnly(Request $request, ?int $companyId): RedirectResponse
+    {
+        $isSuperAdmin = auth()->user()->hasRole('super-admin');
+        $rules = [
+            'network_enabled' => ['nullable', 'in:0,1'],
+            'network_mode' => ['nullable', 'string', 'in:off,manual,auto'],
+            'network_fallback_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
+            'network_max_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ];
+        if ($isSuperAdmin) {
+            $rules['network_manual_partner_company_ids'] = ['nullable', 'string', 'max:500'];
+        }
+
+        $validated = $request->validate($rules);
+
+        $mayOwn = $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId);
+        if (! $mayOwn && $request->boolean('network_enabled')) {
+            return redirect()
+                ->route('admin.taxi.dispatch_settings.edit')
+                ->withErrors([
+                    'network_enabled' => __('Marketplace heeft geen betaald maandabonnement. Schakel network niet in als owner; deel je invite-code zodat betaalde tenants jou als uitvoerder kunnen koppelen (NEXA-fee op die ritten). Een super-admin kan marketplace↔marketplace later aanzetten bij Configuraties → Nexa Suite (klant-app).'),
+                ])
+                ->withFragment('dispatch-nexa-network');
+        }
+
+        if (! $mayOwn) {
+            $validated['network_mode'] = TaxiDispatchSettingsService::NETWORK_MODE_OFF;
+            $request->merge(['network_enabled' => '0']);
+        }
+        $this->persistNetworkSettings($request, $validated, $companyId, $isSuperAdmin);
+
+        return redirect()
+            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
+            ->with('success', __('NEXA Network-partnerinstellingen zijn opgeslagen.'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function persistNetworkSettings(Request $request, array $validated, ?int $companyId, bool $isSuperAdmin): void
+    {
         $networkEnabled = $request->boolean('network_enabled');
         $networkMode = (string) ($validated['network_mode'] ?? TaxiDispatchSettingsService::NETWORK_MODE_OFF);
         if (! $networkEnabled) {
@@ -287,19 +513,23 @@ class DispatchSettingsController extends Controller
             }
             $this->networkPartnerships->syncOwnerPartnerIds($companyId);
         }
+    }
 
-        $success = $companyId === null
-            ? 'Nexa Suite dispatch-instellingen (marktplaats & network) zijn opgeslagen.'
-            : 'Chauffeur dispatch is opgeslagen.';
+    private function isMarketplacePackageCompany(?int $companyId): bool
+    {
+        if (! $companyId) {
+            return false;
+        }
 
-        return redirect()
-            ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', $success);
+        $company = Company::query()->find($companyId);
+
+        return $company !== null
+            && strcasecmp((string) ($company->package_key ?? ''), 'marketplace') === 0;
     }
 
     public function rotateNetworkInvite(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -309,13 +539,13 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'Nieuwe network invite-code aangemaakt. De oude code werkt niet meer.')
+            ->with('success', __('Nieuwe network invite-code aangemaakt. De oude code werkt niet meer.'))
             ->withFragment('dispatch-nexa-network');
     }
 
     public function updateNetworkInviteAutoAccept(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -325,22 +555,32 @@ class DispatchSettingsController extends Controller
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
-            ->with('success', 'Auto-accept voor invites is bijgewerkt.')
+            ->with('success', __('Auto-accept voor invites is bijgewerkt.'))
             ->withFragment('dispatch-nexa-network');
     }
 
     public function redeemNetworkInvite(Request $request): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
         }
 
+        if (! $this->networkPartnerships->companyCanInitiateNetworkPartnerships($companyId)) {
+            return redirect()
+                ->route('admin.taxi.dispatch_settings.edit')
+                ->withErrors([
+                    'invite_code' => __('Alleen met een betaald maandabonnement (Start, Pro of Business) kun je partners koppelen om network te gebruiken. Marketplace mag wel als uitvoerder gekoppeld worden (met NEXA-fee op die ritten).'),
+                ])
+                ->withInput()
+                ->withFragment('dispatch-nexa-network');
+        }
+
         $validated = $request->validate([
             'invite_code' => ['required', 'string', 'max:32'],
         ], [
-            'invite_code.required' => 'Vul de invite-code van de partner in.',
+            'invite_code.required' => __('Vul de invite-code van de partner in.'),
         ]);
 
         try {
@@ -358,8 +598,8 @@ class DispatchSettingsController extends Controller
         }
 
         $message = $result['auto_accepted']
-            ? 'Partner gekoppeld (auto-accept). Zij mogen nu jouw network-ritten uitvoeren als network aan staat.'
-            : 'Koppelverzoek verstuurd. De partner moet het verzoek nog accepteren.';
+            ? __('Partner gekoppeld (auto-accept). Zij mogen nu jouw network-ritten uitvoeren als network aan staat.')
+            : __('Koppelverzoek verstuurd. De partner moet het verzoek nog accepteren.');
 
         return redirect()
             ->route('admin.taxi.dispatch_settings.edit', ['saved' => 1])
@@ -384,7 +624,7 @@ class DispatchSettingsController extends Controller
 
     private function actOnPartnership(TaxiNetworkPartnership $partnership, string $action): RedirectResponse
     {
-        $this->authorizeOrPermissionAny(['rides.update']);
+        TaxiDispatchAccess::authorizeMutate('network');
         $companyId = GeneralSetting::resolveScopeCompanyId();
         if ($companyId === null) {
             return $this->redirectNoTenant('admin.taxi.dispatch_settings.edit');
@@ -393,13 +633,13 @@ class DispatchSettingsController extends Controller
         try {
             if ($action === 'accept') {
                 $this->networkPartnerships->acceptPartnership($partnership, $companyId, auth()->user());
-                $message = 'Partnerverzoek geaccepteerd.';
+                $message = __('Partnerverzoek geaccepteerd.');
             } elseif ($action === 'decline') {
                 $this->networkPartnerships->declinePartnership($partnership, $companyId, auth()->user());
-                $message = 'Partnerverzoek afgewezen.';
+                $message = __('Partnerverzoek afgewezen.');
             } else {
                 $this->networkPartnerships->revokePartnership($partnership, $companyId, auth()->user());
-                $message = 'Network-koppeling ingetrokken.';
+                $message = __('Network-koppeling ingetrokken.');
             }
         } catch (InvalidArgumentException|RuntimeException $e) {
             return redirect()
@@ -411,7 +651,7 @@ class DispatchSettingsController extends Controller
 
             return redirect()
                 ->route('admin.taxi.dispatch_settings.edit')
-                ->withErrors(['network_partnership' => 'Actie mislukt. Probeer het opnieuw.'])
+                ->withErrors(['network_partnership' => __('Actie mislukt. Probeer het opnieuw.')])
                 ->withFragment('dispatch-nexa-network');
         }
 
@@ -429,8 +669,8 @@ class DispatchSettingsController extends Controller
     private function redirectNoTenant(string $route): RedirectResponse
     {
         $message = auth()->user()?->hasRole('super-admin')
-            ? 'Selecteer een tenant voor bedrijfsinstellingen, of bewerk zonder tenant de Nexa Suite-standaard (marktplaats & network).'
-            : 'Geen bedrijf gekoppeld aan dit account.';
+            ? __('Selecteer een tenant voor bedrijfsinstellingen, of bewerk zonder tenant de Nexa Suite-standaard (marktplaats & network).')
+            : __('Geen bedrijf gekoppeld aan dit account.');
 
         return redirect()->route($route)->withErrors(['tenant' => $message])->withInput();
     }
@@ -445,6 +685,6 @@ class DispatchSettingsController extends Controller
                 return;
             }
         }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 }

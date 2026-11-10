@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'NEXA-factuur bewerken '.$invoice->invoice_number)
+@section('title', __('NEXA-factuur bewerken').' '.$invoice->invoice_number)
 
 @php
     $lineItems = old('line_items', $invoice->line_items ?? []);
@@ -21,7 +21,7 @@
     <div class="flex flex-wrap items-center lg:items-end justify-between gap-5 pb-7.5">
         <div class="flex flex-col justify-center gap-2">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Factuur bewerken <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}</span>
+                {{ __('Factuur bewerken') }} <span style="color: rgb(234 179 8);">|</span> <span style="color: rgb(59 130 246);">{{ $invoice->invoice_number }}</span>
             </h1>
             <div class="flex items-center gap-2 text-sm font-normal text-secondary-foreground">
                 {{ $invoice->company?->name }} · {{ $invoice->billing_period }}
@@ -30,7 +30,7 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.platform-billing.invoices.show', $invoice) }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -39,11 +39,11 @@
         <div class="kt-alert kt-alert-warning mb-5" role="alert">
             <i class="ki-filled ki-information-2 me-2"></i>
             @if($invoice->isPaid() && $hasMolliePayment)
-                Deze factuur is betaald en heeft een Mollie-betaling. Wijzigingen werken niet door naar Mollie.
+                {{ __('Deze factuur is betaald en heeft een Mollie-betaling. Wijzigingen werken niet door naar Mollie.') }}
             @elseif($invoice->isPaid())
-                Deze factuur is als betaald gemarkeerd. Controleer of het totaal nog klopt na wijzigen.
+                {{ __('Deze factuur is als betaald gemarkeerd. Controleer of het totaal nog klopt na wijzigen.') }}
             @else
-                Er is een Mollie-betaling gekoppeld. Wijzigingen werken niet door naar Mollie.
+                {{ __('Er is een Mollie-betaling gekoppeld. Wijzigingen werken niet door naar Mollie.') }}
             @endif
         </div>
     @endif
@@ -57,38 +57,38 @@
 
             <div class="kt-card min-w-full">
                 <div class="kt-card-header px-5 py-5">
-                    <h3 class="kt-card-title mb-0">Factuurgegevens</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Factuurgegevens') }}</h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal">Tenant</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Tenant') }}</td>
                             <td class="font-medium text-foreground">{{ $invoice->company?->name }}</td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Status <span class="text-destructive">*</span></td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Status') }} <span class="text-destructive">*</span></td>
                             <td>
                                 <select class="kt-select w-full max-w-xs @error('status') border-destructive @enderror" name="status" required>
                                     @foreach(\App\Models\PlatformInvoice::STATUS_LABELS as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('status', $invoice->status) === $value)>{{ $label }}</option>
+                                        <option value="{{ $value }}" @selected(old('status', $invoice->status) === $value)>{{ __($label) }}</option>
                                     @endforeach
                                 </select>
                                 @error('status')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Betaaltermijn <span class="text-destructive">*</span></td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Betaaltermijn') }} <span class="text-destructive">*</span></td>
                             <td>
                                 <input type="number" name="payment_terms_days" min="1" max="365" class="kt-input @error('payment_terms_days') border-destructive @enderror" style="width: 13ch;" value="{{ old('payment_terms_days', $invoice->payment_terms_days ?? \App\Models\PlatformBillingSetting::paymentTermsDaysForInvoice($invoice)) }}" required>
-                                <span class="text-sm text-muted-foreground ms-2">dagen</span>
-                                <div class="text-xs text-muted-foreground mt-1">De vervaldatum wordt herberekend vanaf de factuurdatum.</div>
+                                <span class="text-sm text-muted-foreground ms-2">{{ __('dagen') }}</span>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('De vervaldatum wordt herberekend vanaf de factuurdatum.') }}</div>
                                 @error('payment_terms_days')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
                         <tr>
-                            <td class="text-secondary-foreground font-normal align-top">Notities</td>
+                            <td class="text-secondary-foreground font-normal align-top">{{ __('Notities') }}</td>
                             <td>
-                                <textarea class="kt-input w-full @error('notes') border-destructive @enderror" name="notes" rows="3" placeholder="Optionele interne notitie…">{{ old('notes', $invoice->notes) }}</textarea>
+                                <textarea class="kt-input w-full @error('notes') border-destructive @enderror" name="notes" rows="3" placeholder="{{ __('Optionele interne notitie…') }}">{{ old('notes', $invoice->notes) }}</textarea>
                                 @error('notes')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
                             </td>
                         </tr>
@@ -98,11 +98,11 @@
 
             <div class="kt-card min-w-full">
                 <div class="kt-card-header px-5 py-5 flex flex-wrap items-center justify-between gap-3">
-                    <h3 class="kt-card-title mb-0">Factuurregels</h3>
+                    <h3 class="kt-card-title mb-0">{{ __('Factuurregels') }}</h3>
                     <div class="flex flex-wrap items-center gap-2">
                         @if($catalogLineItems->isNotEmpty())
-                            <select class="kt-select w-full sm:w-72" data-add-catalog aria-label="Bestaande factuurregel toevoegen">
-                                <option value="">Bestaande regel kiezen…</option>
+                            <select class="kt-select w-full sm:w-72" data-add-catalog aria-label="{{ __('Bestaande factuurregel toevoegen') }}">
+                                <option value="">{{ __('Bestaande regel kiezen…') }}</option>
                                 @foreach($catalogLineItems as $catalogItem)
                                     <option value="{{ $catalogItem->id }}">
                                         {{ $catalogItem->name }} (€ {{ number_format((float) $catalogItem->unit_price, 2, ',', '.') }})
@@ -112,7 +112,7 @@
                         @endif
                         <button type="button" class="kt-btn kt-btn-sm kt-btn-outline" data-platform-invoice-add-line>
                             <i class="ki-filled ki-plus me-1"></i>
-                            Lege regel
+                            {{ __('Lege regel') }}
                         </button>
                     </div>
                 </div>
@@ -122,11 +122,11 @@
                         <table class="kt-table kt-table-border align-middle text-sm w-full" id="platform-invoice-lines">
                             <thead>
                                 <tr>
-                                    <th class="text-secondary-foreground font-normal text-left">Omschrijving</th>
-                                    <th class="text-secondary-foreground font-normal text-right">Aantal</th>
-                                    <th class="text-secondary-foreground font-normal text-right">Prijs excl. BTW</th>
-                                    <th class="text-secondary-foreground font-normal text-right">Totaal excl. BTW</th>
-                                    <th class="admin-table__actions-col text-secondary-foreground font-normal text-center">Acties</th>
+                                    <th class="text-secondary-foreground font-normal text-left">{{ __('Omschrijving') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-right">{{ __('Aantal') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-right">{{ __('Prijs excl. BTW') }}</th>
+                                    <th class="text-secondary-foreground font-normal text-right">{{ __('Totaal excl. BTW') }}</th>
+                                    <th class="admin-table__actions-col text-secondary-foreground font-normal text-center">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -137,9 +137,9 @@
                         </table>
                     </div>
                     <div class="flex flex-col items-end gap-1 mt-4 text-sm">
-                        <div class="text-muted-foreground">Subtotaal <span class="inline-block min-w-28 text-right tabular-nums text-foreground" data-invoice-subtotal>€ 0,00</span></div>
-                        <div class="text-muted-foreground">BTW ({{ rtrim(rtrim(number_format((float) $taxRate, 2, ',', '.'), '0'), ',') }}%) <span class="inline-block min-w-28 text-right tabular-nums text-foreground" data-invoice-tax>€ 0,00</span></div>
-                        <div class="font-medium text-foreground">Totaal <span class="inline-block min-w-28 text-right tabular-nums" data-invoice-total>€ 0,00</span></div>
+                        <div class="text-muted-foreground">{{ __('Subtotaal') }} <span class="inline-block min-w-28 text-right tabular-nums text-foreground" data-invoice-subtotal>€ 0,00</span></div>
+                        <div class="text-muted-foreground">{{ __('BTW') }} ({{ rtrim(rtrim(number_format((float) $taxRate, 2, ',', '.'), '0'), ',') }}%) <span class="inline-block min-w-28 text-right tabular-nums text-foreground" data-invoice-tax>€ 0,00</span></div>
+                        <div class="font-medium text-foreground">{{ __('Totaal') }} <span class="inline-block min-w-28 text-right tabular-nums" data-invoice-total>€ 0,00</span></div>
                     </div>
                 </div>
             </div>
@@ -147,11 +147,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.platform-billing.invoices.show', $invoice) }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>

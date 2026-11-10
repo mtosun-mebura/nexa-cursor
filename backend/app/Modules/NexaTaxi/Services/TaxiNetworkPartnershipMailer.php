@@ -58,7 +58,7 @@ class TaxiNetworkPartnershipMailer
             ->where('email', '!=', '')
             ->get()
             ->filter(function (User $user): bool {
-                return $user->hasRole('company-admin')
+                return $user->isTenantAdmin()
                     || $user->hasRole('super-admin')
                     || $user->can('rides.update');
             })

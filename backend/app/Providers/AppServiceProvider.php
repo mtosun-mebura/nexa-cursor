@@ -10,6 +10,7 @@ use App\Services\AiWebsite\Providers\AiProviderInterface;
 use App\Services\AiWebsite\Providers\OpenAiProvider;
 use App\Services\EnvService;
 use App\Services\ModuleDatabaseService;
+use App\Services\Monitoring\ScheduledTaskRunRecorder;
 use App\Services\WebsiteBuilderService;
 use App\Support\Admin\AdminTenantScope;
 use App\Support\DestructiveDatabaseGuard;
@@ -23,6 +24,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
     {
         require_once app_path('helpers.php');
         $this->app->bind(AiProviderInterface::class, OpenAiProvider::class);
+        // Legacy company-split cron. Driver completion payouts use MollieConnectBalanceTransferClient.
         $this->app->bind(
             \App\Services\Payout\PlatformSettlementTransferClient::class,
             \App\Services\Payout\StubPlatformSettlementTransferClient::class
@@ -62,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->registerDestructiveDatabaseGuard();
+        app(ScheduledTaskRunRecorder::class)->listen();
         $this->registerModuleDatabaseConnections();
         $this->registerWebsitePageRouteBinding();
         $this->syncMapsConfigFromSettings();
@@ -85,12 +89,33 @@ class AppServiceProvider extends ServiceProvider
 
             $hideContent = $data['adminHideContentWithoutTenant'] ?? $scope->shouldHideContent();
 
+            $unresolvedMonitoringErrors = 0;
+            if ($user = auth()->user()) {
+                if ($user instanceof User && $user->isSuperAdmin()) {
+                    $unresolvedMonitoringErrors = app(\App\Services\Monitoring\MonitoringErrorLogger::class)->unresolvedCount();
+                }
+            }
+
             $view->with([
                 'adminTenantScopedActive' => $tenantScopedActive,
                 'adminShowTenantNotice' => $showNotice,
                 'adminHideContentWithoutTenant' => $hideContent,
                 'adminTenantScopeVariant' => $data['adminTenantScopeVariant'] ?? $scope->noticeVariant(),
+                'adminMonitoringUnresolvedErrors' => $unresolvedMonitoringErrors,
             ]);
+        });
+
+        Event::listen(JobFailed::class, function (JobFailed $event): void {
+            $jobName = method_exists($event->job, 'resolveName') ? $event->job->resolveName() : $event->job::class;
+            app(\App\Services\Monitoring\MonitoringErrorLogger::class)->record(
+                $event->exception->getMessage() !== '' ? $event->exception->getMessage() : $jobName,
+                'queue',
+                [
+                    'job' => $jobName,
+                    'uuid' => $event->job->uuid(),
+                    'queue' => $event->job->getQueue(),
+                ]
+            );
         });
 
         View::composer(['frontend.layouts.website', 'frontend.layouts.app', 'frontend.layouts.partials.header'], function ($view) {
@@ -143,10 +168,82 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Numeric throttle:N,1 shares one cache key per user/IP (no route prefix).
+        // Driver GPS (~1/s) would then block accept/complete after ~30 hits.
         RateLimiter::for('taxi-driver-poll', function ($request) {
+            $userId = $request->user()?->id;
+            if ($userId) {
+                return Limit::perMinute(180)->by('taxi-poll|u|'.$userId);
+            }
+
+            $token = trim((string) ($request->query('token') ?: $request->input('public_token', '')));
+            if ($token !== '') {
+                return Limit::perMinute(120)->by('taxi-poll|t|'.sha1($token));
+            }
+
+            return Limit::perMinute(90)->by('taxi-poll|ip|'.$request->ip());
+        });
+
+        // Contract-app pollt today/week/passengers apart van chauffeur-GPS.
+        RateLimiter::for('taxi-contract-poll', function ($request) {
+            $userId = $request->user()?->id;
+
+            return Limit::perMinute(300)->by('taxi-contract-poll|'.($userId ?: $request->ip()));
+        });
+
+        RateLimiter::for('taxi-driver-location', function ($request) {
             $key = $request->user()?->id ?: $request->ip();
 
-            return Limit::perMinute(120)->by('taxi-poll|'.$key);
+            return Limit::perMinute(180)->by('taxi-loc|'.$key);
+        });
+
+        RateLimiter::for('taxi-driver-stream', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(90)->by('taxi-stream|'.$key);
+        });
+
+        RateLimiter::for('taxi-driver-action', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(90)->by('taxi-action|'.$key);
+        });
+
+        // Accepteren deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur (ook een dubbele tik) mag hier nooit 429 krijgen;
+        // "al genomen" / "verlopen" komt uit de claim-service.
+        RateLimiter::for('taxi-driver-accept', function () {
+            return Limit::none();
+        });
+
+        // Annuleren deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur (ook een dubbele tik) moet een rit kunnen annuleren.
+        RateLimiter::for('taxi-driver-cancel', function () {
+            return Limit::none();
+        });
+
+        // Online/offline deelt geen emmer met inbox, GPS, login of taxi-driver-action.
+        // Een ingelogde chauffeur moet altijd kunnen schakelen.
+        RateLimiter::for('taxi-driver-availability', function () {
+            return Limit::none();
+        });
+
+        RateLimiter::for('taxi-driver-read', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(180)->by('taxi-read|'.$key);
+        });
+
+        RateLimiter::for('taxi-customer-action', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(60)->by('taxi-cust-action|'.$key);
+        });
+
+        RateLimiter::for('taxi-customer-read', function ($request) {
+            $key = $request->user()?->id ?: $request->ip();
+
+            return Limit::perMinute(120)->by('taxi-cust-read|'.$key);
         });
 
         RateLimiter::for('public-forms', function ($request) {

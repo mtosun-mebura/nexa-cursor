@@ -26,13 +26,13 @@
     $hasIntro = $themeCompId !== '';
 @endphp
 <div class="home-section-card-body px-3 sm:px-5 pb-4">
-    <p class="text-xs font-semibold uppercase tracking-wide text-primary mb-3">Thema: {{ $themeComp->theme_name ?? '—' }}</p>
+    <p class="text-xs font-semibold uppercase tracking-wide text-primary mb-3">{{ __('Thema: :name', ['name' => $themeComp->theme_name ?? '—']) }}</p>
     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
         @if($hasIntro)
             @php
-                $themeField('eyebrow', $themeMerged['eyebrow'] ?? '', 'Boventitel');
-                $themeField('title', $themeMerged['title'] ?? '', $themeCompId === 'vue_material.author_header' ? 'Naam' : 'Titel');
-                $themeField('subtitle', $themeMerged['subtitle'] ?? '', $themeCompId === 'vue_material.author_header' ? 'Functie' : 'Subtitel', 'textarea');
+                $themeField('eyebrow', $themeMerged['eyebrow'] ?? '', __('Boventitel'));
+                $themeField('title', $themeMerged['title'] ?? '', $themeCompId === 'vue_material.author_header' ? __('Naam') : __('Titel'));
+                $themeField('subtitle', $themeMerged['subtitle'] ?? '', $themeCompId === 'vue_material.author_header' ? __('Functie') : __('Subtitel'), 'textarea');
             @endphp
         @endif
         @if($themeCompId === 'landwind.faq')
@@ -40,139 +40,139 @@
                 $faqWidth = max(30, min(100, (int) ($themeMerged['width_percent'] ?? 60)));
             @endphp
             <tr>
-                <td class="min-w-40 text-secondary-foreground font-normal align-top pt-3">Blokbreedte</td>
+                <td class="min-w-40 text-secondary-foreground font-normal align-top pt-3">{{ __('Blokbreedte') }}</td>
                 <td class="w-full pt-2 pb-2">
-                    <select class="kt-input w-full max-w-[8rem] text-sm" name="home_sections[{{ $sectionKey }}][width_percent]" title="Breedte van dit blok ten opzichte van de pagina">
+                    <select class="kt-input w-full max-w-[8rem] text-sm" name="home_sections[{{ $sectionKey }}][width_percent]" title="{{ __('Breedte van dit blok ten opzichte van de pagina') }}">
                         @foreach([100, 90, 80, 70, 60, 50, 40, 30] as $pct)
                             <option value="{{ $pct }}" @selected($faqWidth === $pct)>{{ $pct }}%</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-muted-foreground mt-1 mb-0">Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.</p>
+                    <p class="text-xs text-muted-foreground mt-1 mb-0">{{ __('Op desktop en iPad. Op mobiel altijd volle breedte met zijpadding.') }}</p>
                 </td>
             </tr>
         @endif
         @if($themeCompId === 'play.video_spotlight')
             @php
-                $themeField('video_url', $themeMerged['video_url'] ?? '', 'Video-URL (YouTube)');
-                $themeField('cta_label', $themeMerged['cta_label'] ?? '', 'Overlay-tekst');
+                $themeField('video_url', $themeMerged['video_url'] ?? '', __('Video-URL (YouTube)'));
+                $themeField('cta_label', $themeMerged['cta_label'] ?? '', __('Overlay-tekst'));
             @endphp
         @endif
         @if($themeCompId === 'landwind.feature_checklist')
-            @php $themeField('image_url', $themeMerged['image_url'] ?? '', 'Afbeelding-URL'); @endphp
+            @php $themeField('image_url', $themeMerged['image_url'] ?? '', __('Afbeelding-URL')); @endphp
         @endif
         @if($themeCompId === 'play.about_overlap')
             @php
-                $themeField('image_url', $themeMerged['image_url'] ?? '', 'Foto 1 (URL)');
-                $themeField('image_url_2', $themeMerged['image_url_2'] ?? '', 'Foto 2 (URL)');
-                $themeField('body', $themeMerged['body'] ?? '', 'Tekst', 'textarea');
-                $themeField('cta_label', $themeMerged['cta_label'] ?? '', 'Knoptekst');
-                $themeField('cta_url', $themeMerged['cta_url'] ?? '', 'Knop-URL');
+                $themeField('image_url', $themeMerged['image_url'] ?? '', __('Foto 1 (URL)'));
+                $themeField('image_url_2', $themeMerged['image_url_2'] ?? '', __('Foto 2 (URL)'));
+                $themeField('body', $themeMerged['body'] ?? '', __('Tekst'), 'textarea');
+                $themeField('cta_label', $themeMerged['cta_label'] ?? '', __('Knoptekst'));
+                $themeField('cta_url', $themeMerged['cta_url'] ?? '', __('Knop-URL'));
             @endphp
         @endif
         @if($themeCompId === 'play.contact_split')
             @php
-                $themeField('address', $themeMerged['address'] ?? '', 'Adres');
-                $themeField('phone', $themeMerged['phone'] ?? '', 'Telefoon');
-                $themeField('email', $themeMerged['email'] ?? '', 'E-mail');
-                $themeField('cta_label', $themeMerged['cta_label'] ?? '', 'Knoptekst');
+                $themeField('address', $themeMerged['address'] ?? '', __('Adres'));
+                $themeField('phone', $themeMerged['phone'] ?? '', __('Telefoon'));
+                $themeField('email', $themeMerged['email'] ?? '', __('E-mail'));
+                $themeField('cta_label', $themeMerged['cta_label'] ?? '', __('Knoptekst'));
             @endphp
         @endif
         @if($themeCompId === 'vue_material.author_header')
             @php
-                $themeField('image_url', $themeMerged['image_url'] ?? '', 'Foto-URL');
-                $themeField('bio', $themeMerged['bio'] ?? '', 'Bio', 'textarea');
+                $themeField('image_url', $themeMerged['image_url'] ?? '', __('Foto-URL'));
+                $themeField('bio', $themeMerged['bio'] ?? '', __('Bio'), 'textarea');
             @endphp
         @endif
     </table>
 
     @if($themeCompId === 'landwind.faq')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Vragen</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Vragen') }}</p>
         @foreach(array_pad($themeItems, 4, ['question' => '', 'answer' => '']) as $i => $row)
             <div class="mb-3 rounded-lg border border-border p-3 space-y-2">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][question]" value="{{ $row['question'] ?? '' }}" placeholder="Vraag">
-                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][answer]" rows="2" placeholder="Antwoord">{{ $row['answer'] ?? '' }}</textarea>
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][question]" value="{{ $row['question'] ?? '' }}" placeholder="{{ __('Vraag') }}">
+                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][answer]" rows="2" placeholder="{{ __('Antwoord') }}">{{ $row['answer'] ?? '' }}</textarea>
             </div>
         @endforeach
     @elseif($themeCompId === 'landwind.trusted_by')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Merknamen</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Merknamen') }}</p>
         <div class="grid gap-2 sm:grid-cols-2">
             @foreach(array_pad($themeItems, 5, ['name' => '']) as $i => $row)
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" placeholder="Merk {{ $i + 1 }}">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" placeholder="{{ __('Merk :n', ['n' => $i + 1]) }}">
             @endforeach
         </div>
     @elseif($themeCompId === 'landwind.feature_checklist')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Vinkjes</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Vinkjes') }}</p>
         @foreach(array_pad($themeItems, 4, ['text' => '']) as $i => $row)
-            <input class="kt-input w-full mb-2" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" value="{{ $row['text'] ?? '' }}" placeholder="Punt {{ $i + 1 }}">
+            <input class="kt-input w-full mb-2" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" value="{{ $row['text'] ?? '' }}" placeholder="{{ __('Punt :n', ['n' => $i + 1]) }}">
         @endforeach
     @elseif(in_array($themeCompId, ['landwind.stats_strip', 'vue_material.stats_counters'], true))
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Cijfers</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Cijfers') }}</p>
         @foreach(array_pad($themeItems, 4, ['value' => '', 'suffix' => '', 'label' => '', 'decimals' => '0']) as $i => $row)
             <div class="mb-3 grid gap-2 sm:grid-cols-4">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][value]" value="{{ $row['value'] ?? '' }}" placeholder="Getal">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][suffix]" value="{{ $row['suffix'] ?? '' }}" placeholder="Suffix">
-                <input class="kt-input w-full sm:col-span-2" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="Label">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][value]" value="{{ $row['value'] ?? '' }}" placeholder="{{ __('Getal') }}">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][suffix]" value="{{ $row['suffix'] ?? '' }}" placeholder="{{ __('Suffix') }}">
+                <input class="kt-input w-full sm:col-span-2" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="{{ __('Label') }}">
                 @if($themeCompId === 'vue_material.stats_counters')
                     <input type="hidden" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][decimals]" value="{{ $row['decimals'] ?? '0' }}">
                 @endif
             </div>
         @endforeach
     @elseif($themeCompId === 'play.team')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Teamleden</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Teamleden') }}</p>
         @foreach(array_pad($themeItems, 3, ['name' => '', 'role' => '', 'initials' => '']) as $i => $row)
             <div class="mb-3 grid gap-2 sm:grid-cols-3">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" placeholder="Naam">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][role]" value="{{ $row['role'] ?? '' }}" placeholder="Rol">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][initials]" value="{{ $row['initials'] ?? '' }}" placeholder="Initialen">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][name]" value="{{ $row['name'] ?? '' }}" placeholder="{{ __('Naam') }}">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][role]" value="{{ $row['role'] ?? '' }}" placeholder="{{ __('Rol') }}">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][initials]" value="{{ $row['initials'] ?? '' }}" placeholder="{{ __('Initialen') }}">
             </div>
         @endforeach
     @elseif($themeCompId === 'play.blog_preview')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Berichten</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Berichten') }}</p>
         @foreach(array_pad($themeItems, 3, ['title' => '', 'excerpt' => '', 'date' => '', 'image_url' => '', 'url' => '']) as $i => $row)
             <div class="mb-3 rounded-lg border border-border p-3 space-y-2">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="Titel">
-                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][excerpt]" rows="2" placeholder="Excerpt">{{ $row['excerpt'] ?? '' }}</textarea>
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="{{ __('Titel') }}">
+                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][excerpt]" rows="2" placeholder="{{ __('Excerpt') }}">{{ $row['excerpt'] ?? '' }}</textarea>
                 <div class="grid gap-2 sm:grid-cols-3">
-                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][date]" value="{{ $row['date'] ?? '' }}" placeholder="Datum">
-                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" value="{{ $row['image_url'] ?? '' }}" placeholder="Foto-URL">
-                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][url]" value="{{ $row['url'] ?? '' }}" placeholder="Link">
+                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][date]" value="{{ $row['date'] ?? '' }}" placeholder="{{ __('Datum') }}">
+                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][image_url]" value="{{ $row['image_url'] ?? '' }}" placeholder="{{ __('Foto-URL') }}">
+                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][url]" value="{{ $row['url'] ?? '' }}" placeholder="{{ __('Link') }}">
                 </div>
             </div>
         @endforeach
     @elseif($themeCompId === 'vue_material.elevated_cards')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Kaarten</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Kaarten') }}</p>
         @foreach(array_pad($themeItems, 3, ['title' => '', 'text' => '', 'accent' => '']) as $i => $row)
             <div class="mb-3 rounded-lg border border-border p-3 space-y-2">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="Kaarttitel">
-                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" rows="2" placeholder="Tekst">{{ $row['text'] ?? '' }}</textarea>
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="{{ __('Kaarttitel') }}">
+                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" rows="2" placeholder="{{ __('Tekst') }}">{{ $row['text'] ?? '' }}</textarea>
                 <input class="kt-input w-32" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][accent]" value="{{ $row['accent'] ?? '' }}" placeholder="#e91e63">
             </div>
         @endforeach
     @elseif($themeCompId === 'vue_material.quote_cards')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Quotes</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Quotes') }}</p>
         @foreach(array_pad($themeItems, 3, ['quote' => '', 'author' => '', 'role' => '']) as $i => $row)
             <div class="mb-3 rounded-lg border border-border p-3 space-y-2">
-                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][quote]" rows="2" placeholder="Quote">{{ $row['quote'] ?? '' }}</textarea>
+                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][quote]" rows="2" placeholder="{{ __('Quote') }}">{{ $row['quote'] ?? '' }}</textarea>
                 <div class="grid gap-2 sm:grid-cols-2">
-                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][author]" value="{{ $row['author'] ?? '' }}" placeholder="Naam">
-                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][role]" value="{{ $row['role'] ?? '' }}" placeholder="Functie">
+                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][author]" value="{{ $row['author'] ?? '' }}" placeholder="{{ __('Naam') }}">
+                    <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][role]" value="{{ $row['role'] ?? '' }}" placeholder="{{ __('Functie') }}">
                 </div>
             </div>
         @endforeach
     @elseif($themeCompId === 'vue_material.info_pills')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Pills</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Pills') }}</p>
         @foreach(array_pad($themeItems, 3, ['label' => '', 'title' => '', 'text' => '']) as $i => $row)
             <div class="mb-3 rounded-lg border border-border p-3 space-y-2">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="Pill">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="Paneeltitel">
-                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" rows="2" placeholder="Tekst">{{ $row['text'] ?? '' }}</textarea>
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="{{ __('Pill') }}">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][title]" value="{{ $row['title'] ?? '' }}" placeholder="{{ __('Paneeltitel') }}">
+                <textarea class="kt-input w-full min-h-16" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][text]" rows="2" placeholder="{{ __('Tekst') }}">{{ $row['text'] ?? '' }}</textarea>
             </div>
         @endforeach
     @elseif($themeCompId === 'vue_material.author_header')
-        <p class="text-xs font-medium text-foreground mt-4 mb-2">Socials</p>
+        <p class="text-xs font-medium text-foreground mt-4 mb-2">{{ __('Socials') }}</p>
         @foreach(array_pad($themeItems, 3, ['label' => '', 'url' => '']) as $i => $row)
             <div class="mb-2 grid gap-2 sm:grid-cols-2">
-                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="Label">
+                <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][label]" value="{{ $row['label'] ?? '' }}" placeholder="{{ __('Label') }}">
                 <input class="kt-input w-full" type="text" name="home_sections[{{ $sectionKey }}][items][{{ $i }}][url]" value="{{ $row['url'] ?? '' }}" placeholder="URL">
             </div>
         @endforeach

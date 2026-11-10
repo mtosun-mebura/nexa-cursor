@@ -5,6 +5,8 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\CustomerMailLocale;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use App\Modules\NexaTaxi\Support\TaxiCustomerAppSchema;
 use App\Services\ModuleDatabaseService;
 use App\Services\NearestTaxiTenantResolver;
@@ -54,7 +56,7 @@ class CustomerMarketplaceBookingService
         );
         if ($matches === []) {
             throw ValidationException::withMessages([
-                'pickup_address' => ['Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.'],
+                'pickup_address' => ['Er zijn momenteel geen taxi\'s beschikbaar in de buurt van deze ophaallocatie.'],
             ]);
         }
 
@@ -93,7 +95,12 @@ class CustomerMarketplaceBookingService
             'special_baggage' => $specialBaggage,
         ];
 
-        $quotes = $this->pricing->buildQuotes($sectionConfig, $quoteInput, null);
+        // Prijsindicatie op tarieven van de dichtstbijzijnde kandidaat; rit blijft unclaimed.
+        $quotes = $this->pricing->buildQuotes(
+            $sectionConfig,
+            $quoteInput,
+            $settingsCompanyId > 0 ? $settingsCompanyId : null
+        );
         $offers = $quotes['offers'] ?? [];
         if ($offers === []) {
             throw ValidationException::withMessages([
@@ -150,6 +157,9 @@ class CustomerMarketplaceBookingService
             'customer_unaccepted_decision_minutes' => $dispatchSettings->customerUnacceptedDecisionMinutes(
                 $settingsCompanyId > 0 ? $settingsCompanyId : null
             ),
+            'marketplace_max_wait_minutes' => $dispatchSettings->marketplaceMaxWaitMinutes(
+                $settingsCompanyId > 0 ? $settingsCompanyId : null
+            ),
         ];
 
         $returnUrl = isset($data['return_url']) ? trim((string) $data['return_url']) : '';
@@ -168,6 +178,19 @@ class CustomerMarketplaceBookingService
             ],
             'pricing' => $quotes,
         ];
+        $pickupPlace = RidePlaceName::distinct($data['pickup_place_name'] ?? null, $data['pickup_address'] ?? '');
+        $dropoffPlace = RidePlaceName::distinct($data['dropoff_place_name'] ?? null, $data['dropoff_address'] ?? '');
+        if ($pickupPlace !== null) {
+            $payload['pickup_place_name'] = $pickupPlace;
+        }
+        if ($dropoffPlace !== null) {
+            $payload['dropoff_place_name'] = $dropoffPlace;
+        }
+        $locale = CustomerMailLocale::normalize($data['locale'] ?? CustomerMailLocale::fromRequest());
+        $payload['locale'] = $locale;
+        if ($customer) {
+            CustomerMailLocale::persistForUser($customer, $locale);
+        }
 
         $rideData = [
             'company_id' => null,
@@ -209,7 +232,7 @@ class CustomerMarketplaceBookingService
         $checkoutUrl = null;
         $appReturn = $returnUrl !== ''
             ? $returnUrl
-            : url('/taxi/klant');
+            : app(\App\Services\NexaSuitePublicHost::class)->withPublicHost(url('/taxi/klant'));
         $separator = str_contains($appReturn, '?') ? '&' : '?';
         $appReturn .= $separator.'boeking=betaald&token='.urlencode($trackToken);
 
@@ -229,7 +252,7 @@ class CustomerMarketplaceBookingService
         }
 
         try {
-            $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price);
+            $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price, true);
             $checkoutUrl = $paymentResult['checkout_url'];
         } catch (ValidationException $e) {
             throw $e;
@@ -291,7 +314,7 @@ class CustomerMarketplaceBookingService
 
         $appReturn = is_string($returnUrl) ? trim($returnUrl) : '';
         if ($appReturn === '') {
-            $appReturn = url('/taxi/klant');
+            $appReturn = app(\App\Services\NexaSuitePublicHost::class)->withPublicHost(url('/taxi/klant'));
         }
         $separator = str_contains($appReturn, '?') ? '&' : '?';
         if (! str_contains($appReturn, 'token=')) {
@@ -314,7 +337,7 @@ class CustomerMarketplaceBookingService
         );
         $ride->update(['booking_payload' => $payload]);
 
-        $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price);
+        $paymentResult = $this->paymentService->createBookingPayment($conn, $ride->fresh() ?? $ride, $price, true);
 
         return [
             'ride' => $ride->fresh() ?? $ride,
@@ -341,11 +364,6 @@ class CustomerMarketplaceBookingService
             NearestTaxiTenantResolver::MARKETPLACE_MAX_TENANTS,
             $radiusKm
         );
-        if ($matches === []) {
-            throw ValidationException::withMessages([
-                'pickup_address' => ['Er is momenteel geen taxicentrale beschikbaar in de buurt van deze ophaallocatie.'],
-            ]);
-        }
 
         $candidates = [];
         $candidateIds = [];
@@ -361,6 +379,12 @@ class CustomerMarketplaceBookingService
 
         $sectionConfig = $this->pricing->getDefaultSectionConfig();
         $sectionConfig['logic']['offer_display_mode'] = 'person_range';
+        $nearestCompanyId = $candidateIds[0] ?? 0;
+        if ($nearestCompanyId <= 0) {
+            $hq = $this->nearestResolver->nearestByHeadquarters($lat, $lng, $radiusKm)
+                ?? $this->nearestResolver->nearestByHeadquarters($lat, $lng, null);
+            $nearestCompanyId = $hq ? (int) $hq['company']->id : 0;
+        }
         $quotes = $this->pricing->buildQuotes($sectionConfig, [
             'distance_meters' => (int) $data['distance_meters'],
             'duration_seconds' => (int) $data['duration_seconds'],
@@ -373,9 +397,10 @@ class CustomerMarketplaceBookingService
             'pickup_lng' => $lng,
             'baggage' => $this->normalizeBaggageMap($data['baggage'] ?? []),
             'special_baggage' => $this->normalizeBaggageMap($data['special_baggage'] ?? []),
-        ], null);
+        ], $nearestCompanyId > 0 ? $nearestCompanyId : null);
 
         $paymentOptions = app(TaxiDispatchSettingsService::class)->paymentOptionsForMarketplace();
+        $taxiAvailable = $candidateIds !== [];
 
         return [
             'offers' => array_values($quotes['offers'] ?? []),
@@ -383,11 +408,21 @@ class CustomerMarketplaceBookingService
                 'radius_km' => $radiusKm,
                 'candidate_count' => count($candidateIds),
                 'candidates' => $candidates,
+                'taxi_available' => $taxiAvailable,
+                'unavailable_message' => $taxiAvailable
+                    ? null
+                    : 'Er is momenteel geen taxi beschikbaar in de buurt van deze ophaallocatie.',
             ],
             'payment' => [
-                'booking' => (bool) ($paymentOptions['booking'] ?? false),
+                // Online betalen alleen zinvol als er nu een taxi is om te dispatchen.
+                'booking' => $taxiAvailable && (bool) ($paymentOptions['booking'] ?? false),
                 'driver' => false,
                 'mollie_configured' => (bool) ($paymentOptions['mollie_configured'] ?? false),
+                'deferred_until_taxi' => ! $taxiAvailable,
+            ],
+            'route' => [
+                'distance_meters' => (int) $data['distance_meters'],
+                'duration_seconds' => (int) $data['duration_seconds'],
             ],
         ];
     }
@@ -427,16 +462,47 @@ class CustomerMarketplaceBookingService
                 $normalized .= ':00';
             }
 
+            $this->assertPickupAtNotInPast($normalized);
+
             return $normalized;
         }
 
         try {
-            return Carbon::parse($raw)
+            $normalized = Carbon::parse($raw)
                 ->timezone(ContractTransportTimezone::TIMEZONE)
                 ->format('Y-m-d H:i:s');
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
                 'pickup_at' => ['Ongeldige ophaaltijd.'],
+            ]);
+        }
+
+        $this->assertPickupAtNotInPast($normalized);
+
+        return $normalized;
+    }
+
+    /**
+     * Alleen nu of toekomst; kleine grace voor klokverschil zodat "nu" niet false-failt.
+     */
+    protected function assertPickupAtNotInPast(string $amsterdamWallClock): void
+    {
+        try {
+            $pickup = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $amsterdamWallClock,
+                ContractTransportTimezone::TIMEZONE
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'pickup_at' => ['Ongeldige ophaaltijd.'],
+            ]);
+        }
+
+        $threshold = now(ContractTransportTimezone::TIMEZONE)->subSeconds(60);
+        if ($pickup->lt($threshold)) {
+            throw ValidationException::withMessages([
+                'pickup_at' => ['Kies een ophaalmoment in de toekomst.'],
             ]);
         }
     }

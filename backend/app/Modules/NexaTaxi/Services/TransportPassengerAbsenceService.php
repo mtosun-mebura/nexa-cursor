@@ -11,6 +11,7 @@ use App\Modules\NexaTaxi\Models\TransportPassenger;
 use App\Modules\NexaTaxi\Models\TransportPassengerAbsence;
 use App\Modules\NexaTaxi\Models\TransportRouteTemplate;
 use App\Modules\NexaTaxi\Support\ContractTransportTimezone;
+use App\Modules\NexaTaxi\Support\RideStopStatusSource;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
@@ -176,13 +177,16 @@ class TransportPassengerAbsenceService
 
         foreach ($stops as $stop) {
             if ($markAbsent) {
-                if (! in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true)) {
+                $open = in_array($stop->status, [RideStop::STATUS_PLANNED, RideStop::STATUS_ARRIVED], true);
+                $autoBoarded = $stop->status === RideStop::STATUS_PICKED_UP
+                    && RideStopStatusSource::isAuto($stop);
+                if (! $open && ! $autoBoarded) {
                     continue;
                 }
-                $stop->update([
+                $stop->update(array_merge([
                     'status' => RideStop::STATUS_SKIPPED,
                     'completed_at' => now(),
-                ]);
+                ], RideStopStatusSource::clearedAttributes($conn)));
             } else {
                 if ($stop->status !== RideStop::STATUS_SKIPPED) {
                     continue;

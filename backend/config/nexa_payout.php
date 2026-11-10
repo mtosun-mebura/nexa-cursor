@@ -38,8 +38,25 @@ return [
 
     /*
     | Of de stub-transfer automatisch slaagt (tests/dev). Zet false om failed→manual te oefenen.
+    | Geldt niet voor chauffeur-uitbetaling bij ritafsluiting; die loopt via Mollie Connect.
     */
     'platform_payout_auto_succeed' => (bool) env('NEXA_PLATFORM_PAYOUT_AUTO_SUCCEED', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mollie Connect balance transfer (chauffeur, direct na afronden)
+    |--------------------------------------------------------------------------
+    | Platformbreed, één keer voor NEXA. Niet per chauffeur of tenant, en niet
+    | hetzelfde als PLATFORM_MOLLIE_API_KEY (Admin → SaaS-facturatie).
+    | Zet deze twee waarden in de omgeving (.env):
+    | - NEXA_MOLLIE_CONNECT_ACCESS_TOKEN: Mollie → organization access token
+    |   of Connect OAuth, scope balance-transfers.write (geen test_/live_ sleutel).
+    | - NEXA_MOLLIE_CONNECT_ORGANIZATION_ID: org_… van NEXA in het Mollie-dashboard.
+    | Zonder token of org_ faalt de uitbetaling; er wordt niets als betaald gemarkeerd.
+    */
+    'connect_access_token' => env('NEXA_MOLLIE_CONNECT_ACCESS_TOKEN'),
+    'connect_source_organization_id' => env('NEXA_MOLLIE_CONNECT_ORGANIZATION_ID'),
+    'connect_testmode' => (bool) env('NEXA_MOLLIE_CONNECT_TESTMODE', false),
 
     /*
     | Network split van het netto-bedrag (na NEXA-fee). Som moet 100 zijn.

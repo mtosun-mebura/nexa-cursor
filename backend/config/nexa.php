@@ -54,4 +54,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'marketing_url' => env('NEXA_MARKETING_URL', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Native app store-links (WhatsApp boekingsbevestiging)
+    |--------------------------------------------------------------------------
+    */
+    'app_store_url' => env('NEXA_APP_STORE_URL', ''),
+    'play_store_url' => env('NEXA_PLAY_STORE_URL', ''),
 ];

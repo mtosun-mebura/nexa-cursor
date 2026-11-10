@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Factuurinstellingen')
+@section('title', __('Factuurinstellingen'))
 
 @section('content')
 
@@ -8,13 +8,13 @@
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Factuurinstellingen
+                {{ __('Factuurinstellingen') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -29,14 +29,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Factuurnummer Instellingen
+                        {{ __('Factuurnummer Instellingen') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Prefix
+                                {{ __('Prefix') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input @error('invoice_number_prefix') border-destructive @enderror" 
@@ -45,7 +45,7 @@
                                        id="invoice_number_prefix"
                                        value="{{ old('invoice_number_prefix', $settings->invoice_number_prefix) }}"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Bijv: NX</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Bijv: NX') }}</div>
                                 @error('invoice_number_prefix')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -53,7 +53,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Formaat
+                                {{ __('Formaat') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('invoice_number_format') border-destructive @enderror" 
@@ -62,7 +62,7 @@
                                        id="invoice_number_format"
                                        value="{{ old('invoice_number_format', $settings->invoice_number_format) }}"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Gebruik: {prefix}, {year}, {number}</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Gebruik: {prefix}, {year}, {number}') }}</div>
                                 @error('invoice_number_format')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -70,7 +70,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Volgende Factuurnummer
+                                {{ __('Volgende Factuurnummer') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('next_invoice_number') border-destructive @enderror" 
@@ -88,7 +88,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Huidig Jaar
+                                {{ __('Huidig Jaar') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('current_year') border-destructive @enderror" 
@@ -101,7 +101,7 @@
                                        style="width: 13ch;"
                                        required>
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Standaard {{ now()->year }} (lopend kalenderjaar). Pas handmatig aan indien nodig en sla op.
+                                    {{ __('Standaard :year (lopend kalenderjaar). Pas handmatig aan indien nodig en sla op.', ['year' => now()->year]) }}
                                 </div>
                                 @error('current_year')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -116,14 +116,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Betaaltermijn
+                        {{ __('Betaaltermijn') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Betaaltermijn (dagen)
+                                {{ __('Betaaltermijn (dagen)') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <input class="kt-input @error('payment_terms_days') border-destructive @enderror" 
@@ -135,7 +135,7 @@
                                        max="365"
                                        style="width: 13ch;"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Aantal dagen dat klanten hebben om te betalen</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Aantal dagen dat klanten hebben om te betalen') }}</div>
                                 @error('payment_terms_days')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -143,7 +143,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Standaard BTW Percentage
+                                {{ __('Standaard BTW Percentage') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('default_tax_rate') border-destructive @enderror" 
@@ -156,7 +156,7 @@
                                        step="1"
                                        style="width: 13ch;"
                                        required>
-                                <div class="text-xs text-muted-foreground mt-1">Bijv: 21 voor 21%</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Bijv: 21 voor 21%') }}</div>
                                 @error('default_tax_rate')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -164,7 +164,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Standaard Bedrag (excl. BTW)
+                                {{ __('Standaard Bedrag (excl. BTW)') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('default_amount') border-destructive @enderror" 
@@ -175,7 +175,7 @@
                                        min="0"
                                        step="any"
                                        style="width: 13ch;">
-                                <div class="text-xs text-muted-foreground mt-1">Standaard bedrag dat wordt voorgesteld bij het aanmaken van een nieuwe factuur (bijv: 10000 of 10000.00)</div>
+                                <div class="text-xs text-muted-foreground mt-1">{{ __('Standaard bedrag dat wordt voorgesteld bij het aanmaken van een nieuwe factuur (bijv: 10000 of 10000.00)') }}</div>
                                 @error('default_amount')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                                 @enderror
@@ -189,14 +189,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Betaaltermijntekst
+                        {{ __('Betaaltermijntekst') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Tekst onderaan factuur
+                                {{ __('Tekst onderaan factuur') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <textarea class="kt-input @error('invoice_payment_terms_text') border-destructive @enderror"
@@ -205,8 +205,8 @@
                                           rows="4"
                                           placeholder="{{ \App\Models\InvoiceSetting::DEFAULT_PAYMENT_TERMS_TEXT }}">{{ old('invoice_payment_terms_text', $settings->invoice_payment_terms_text) }}</textarea>
                                 <div class="text-xs text-muted-foreground mt-1">
-                                    Wordt onderaan de factuur-PDF getoond. Laat leeg voor de standaardtekst.
-                                    Gebruik <code>{dagen}</code> voor het aantal dagen en <code>{dagen_label}</code> voor &ldquo;dag&rdquo; of &ldquo;dagen&rdquo;.
+                                    {{ __('Wordt onderaan de factuur-PDF getoond. Laat leeg voor de standaardtekst.') }}
+                                    {{ __('Gebruik') }} <code>{dagen}</code> {{ __('voor het aantal dagen en') }} <code>{dagen_label}</code> {!! __('voor &ldquo;dag&rdquo; of &ldquo;dagen&rdquo;.') !!}
                                 </div>
                                 @error('invoice_payment_terms_text')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -221,14 +221,14 @@
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
                     <h3 class="kt-card-title">
-                        Bedrijfsgegevens
+                        {{ __('Bedrijfsgegevens') }}
                     </h3>
                 </div>
                 <div class="kt-card-table kt-scrollable-x-auto pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Bedrijf
+                                {{ __('Bedrijf') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 @if(!empty($scopedTenantId))
@@ -240,7 +240,7 @@
                                             name="company_id" 
                                             id="company_id"
                                             data-kt-select="true">
-                                        <option value="">Selecteer bedrijf</option>
+                                        <option value="">{{ __('Selecteer bedrijf') }}</option>
                                         @foreach($companies as $company)
                                             @php
                                                 $hasLocations = $company->locations && $company->locations->count() > 0;
@@ -270,7 +270,7 @@
                         </tr>
                         <tr id="location-row" style="display: none;">
                             <td class="min-w-56 text-secondary-foreground font-normal align-top">
-                                Vestiging
+                                {{ __('Vestiging') }}
                             </td>
                             <td class="min-w-48 w-full">
                                 <div class="kt-select-wrapper">
@@ -278,7 +278,7 @@
                                             name="location_id" 
                                             id="location_id"
                                             data-kt-select="true">
-                                        <option value="">Selecteer vestiging</option>
+                                        <option value="">{{ __('Selecteer vestiging') }}</option>
                                     </select>
                                 </div>
                                 @error('location_id')
@@ -295,7 +295,7 @@
                         <input type="hidden" name="company_country" id="company_country" value="{{ old('company_country', $settings->company_country) }}">
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                BTW Nummer
+                                {{ __('BTW Nummer') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('company_vat_number') border-destructive @enderror" 
@@ -310,7 +310,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                E-mail
+                                {{ __('E-mail') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('company_email') border-destructive @enderror" 
@@ -325,7 +325,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Telefoon
+                                {{ __('Telefoon') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('company_phone') border-destructive @enderror" 
@@ -340,7 +340,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Bankrekening
+                                {{ __('Bankrekening') }}
                             </td>
                             <td>
                                 <input class="kt-input @error('bank_account') border-destructive @enderror" 
@@ -355,7 +355,7 @@
                         </tr>
                         <tr>
                             <td class="text-secondary-foreground font-normal align-top">
-                                Footer Tekst
+                                {{ __('Footer Tekst') }}
                             </td>
                             <td>
                                 <textarea class="kt-input @error('invoice_footer_text') border-destructive @enderror" 
@@ -375,11 +375,11 @@
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.invoices.index') }}" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-cross me-2"></i>
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" class="kt-btn kt-btn-primary">
                     <i class="ki-filled ki-check me-2"></i>
-                    Opslaan
+                    {{ __('Opslaan') }}
                 </button>
             </div>
         </div>
@@ -625,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Clear location select
             if (locationSelect) {
-                locationSelect.innerHTML = '<option value="">Selecteer vestiging</option>';
+                locationSelect.innerHTML = '<option value="">' + @js(__('Selecteer vestiging')) + '</option>';
             }
             
             if (!companyId) {
@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Populate location options
                 if (locationSelect) {
-                    locationSelect.innerHTML = '<option value="">Selecteer vestiging</option>';
+                    locationSelect.innerHTML = '<option value="">' + @js(__('Selecteer vestiging')) + '</option>';
                     
                     // Add main address as first option
                     const mainAddress = (company.street || '') + ' ' + (company.house_number || '') + (company.house_number_extension ? '-' + company.house_number_extension : '');
@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     const mainOption = document.createElement('option');
                     mainOption.value = 'main';
-                    mainOption.textContent = 'Hoofdvestiging' + (mainAddressLabel.trim() ? ' - ' + mainAddressLabel.trim() : '');
+                    mainOption.textContent = @js(__('Hoofdvestiging')) + (mainAddressLabel.trim() ? ' - ' + mainAddressLabel.trim() : '');
                     mainOption.dataset.companyName = company.name;
                     mainOption.dataset.address = mainAddress.trim();
                     mainOption.dataset.city = company.city || '';

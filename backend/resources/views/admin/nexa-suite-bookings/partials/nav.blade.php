@@ -5,16 +5,17 @@
         ['key' => 'rides', 'label' => 'Ritten', 'icon' => 'ki-filled ki-route', 'route' => 'admin.nexa-suite-bookings.rides'],
         ['key' => 'invoices', 'label' => 'Facturen', 'icon' => 'ki-filled ki-bill', 'route' => 'admin.nexa-suite-bookings.invoices'],
         ['key' => 'settings', 'label' => 'Instellingen', 'icon' => 'ki-filled ki-setting-2', 'route' => 'admin.nexa-suite-bookings.settings'],
+        ['key' => 'procedure', 'label' => 'Werkwijze', 'icon' => 'ki-filled ki-information-2', 'route' => 'admin.nexa-suite-bookings.procedure'],
     ];
 @endphp
-<nav class="kt-tabs kt-tabs-line admin-page-tabs mb-5 min-w-0" aria-label="NEXA Suite boekingen">
+<nav class="kt-tabs kt-tabs-line admin-page-tabs mb-5 min-w-0" aria-label="{{ __('NEXA Suite boekingen') }}">
     @foreach($tabs as $tab)
         @php $isActive = $nav === $tab['key']; @endphp
         <a href="{{ route($tab['route']) }}"
            class="kt-tab-toggle {{ $isActive ? 'active' : '' }}"
            @if($isActive) aria-current="page" @endif>
             <i class="{{ $tab['icon'] }}" aria-hidden="true"></i>
-            <span class="kt-tab-title">{{ $tab['label'] }}</span>
+            <span class="kt-tab-title">{{ __($tab['label']) }}</span>
         </a>
     @endforeach
 </nav>

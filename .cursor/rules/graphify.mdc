@@ -1,0 +1,16 @@
+---
+description: Use graphify knowledge graph when present for architecture / cross-file questions (token-efficient).
+alwaysApply: true
+---
+
+# Graphify (project)
+
+If `graphify-out/graph.json` exists:
+
+- For **architecture / “how does X relate to Y” / impact analysis**: run `graphify query "…"`, `graphify path "A" "B"`, or `graphify explain "…"` **before** broad Grep/Glob sweeps.
+- For **surgical edits** with known paths: Read/edit directly; skip graphify.
+- After larger structural changes: `graphify update .` (AST-only, cheap).
+
+If `graphify-out/` is missing: explore normally, then suggest `/graphify .` or scoped `/graphify backend/app/Modules/NexaTaxi` when the user wants a durable blueprint.
+
+Do **not** re-read `GRAPH_REPORT.md` every turn — only for broad architecture review.

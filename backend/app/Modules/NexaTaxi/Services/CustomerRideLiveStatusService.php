@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Helpers\GeoHelper;
 use App\Models\Company;
+use App\Models\Invoice;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideGpsPoint;
@@ -14,6 +15,8 @@ use App\Modules\NexaTaxi\Support\TaxiCustomerAppSchema;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiRideTrackSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\WhatsAppBookingMessageComposer;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -37,6 +40,7 @@ class CustomerRideLiveStatusService
         TaxiCustomerAppSchema::ensureTrackTokenColumn($conn);
         TaxiDispatchSchema::ensureFulfillingCompanyColumn($conn);
         TaxiRideTrackSchema::ensure($conn);
+        \App\Modules\NexaTaxi\Support\TaxiDriverProfileSchema::ensure($conn);
     }
 
     public function issueTrackToken(RideRequest $ride): string
@@ -129,8 +133,17 @@ class CustomerRideLiveStatusService
         }
 
         $driverLoc = $this->resolveDriverLocation($conn, $ride, $driverId);
+        $storedStatus = data_get($ride->booking_payload, 'customer_status');
+        $customerEvent = is_array($storedStatus) ? (string) ($storedStatus['event'] ?? '') : '';
+        $tripStarted = $ride->trip_started_at !== null || $status === RideRequest::STATUS_ASSIGNED;
         $eta = null;
-        if ($accepted && $driverLoc && $ride->pickup_lat !== null && $ride->pickup_lng !== null) {
+        if (
+            ! $tripStarted
+            && $customerEvent === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE
+            && $driverLoc
+            && $ride->pickup_lat !== null
+            && $ride->pickup_lng !== null
+        ) {
             $eta = $this->estimateEtaMinutes(
                 (float) $driverLoc['lat'],
                 (float) $driverLoc['lng'],
@@ -221,11 +234,56 @@ class CustomerRideLiveStatusService
             $statusLabel = 'Wacht op betaling';
         }
 
+        $driverMedia = $driver
+            ? app(TaxiDriverProfileMediaService::class)->publicPayload($driver)
+            : [
+                'profile_photo_url' => null,
+                'company_logo_url' => null,
+                'vehicle_photo_url' => null,
+                'rating_avg' => null,
+                'rating_count' => 0,
+            ];
+        $statusUpdates = app(TaxiCustomerRideStatusNotificationService::class)
+            ->statusTimeline($conn, (int) $ride->id);
+        $statusUpdates = $this->ensureCompletedStatusUpdate($ride, $statusUpdates);
+        $statusUpdates = $this->ensureInvoiceSentStatusUpdates($ride, $statusUpdates);
+        // Voorkeur: opgeslagen customer_status op de rit, anders nieuwste timeline-entry.
+        $payloadStatus = data_get($ride->booking_payload, 'customer_status');
+        $payloadLabel = trim((string) (data_get($payloadStatus, 'label') ?? ''));
+        if ($payloadLabel !== '' && in_array($status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+            RideRequest::STATUS_COMPLETED,
+        ], true)) {
+            $statusLabel = $payloadLabel;
+        } elseif ($statusUpdates !== [] && in_array($status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+            RideRequest::STATUS_COMPLETED,
+        ], true)) {
+            $latestUpdate = $statusUpdates[array_key_last($statusUpdates)] ?? null;
+            $latestLabel = trim((string) ($latestUpdate['label'] ?? ''));
+            if ($latestLabel !== '') {
+                $statusLabel = $latestLabel;
+            }
+        }
+        $ratingPayload = app(TaxiRideRatingService::class)->payloadForRide($conn, $ride);
+        $pickupService = app(MarketplacePickupConfirmationService::class);
+        if ($pickupService->appliesTo($ride)) {
+            try {
+                $ride = $pickupService->ensurePin($conn, $ride);
+            } catch (\Throwable) {
+                // Live-status blijft beschikbaar als PIN-aanmaak faalt.
+            }
+        }
+
         return [
             'id' => (int) $ride->id,
             'status' => $status,
             'status_label' => $statusLabel,
             'phase' => $phase,
+            'trip_started' => $tripStarted,
+            'customer_event' => $customerEvent !== '' ? $customerEvent : null,
             'accepted' => $accepted,
             'can_cancel' => $canCancel,
             'needs_unaccepted_decision' => $needsDecision,
@@ -243,8 +301,21 @@ class CustomerRideLiveStatusService
             'payment_failure_status' => $paymentFailureStatus,
             'payment_error' => $paymentError,
             'checkout_url' => $checkoutUrl,
+            'cancellation_message' => $status === RideRequest::STATUS_CANCELLED
+                ? $cancellation->cancellationMessageForCustomer($ride)
+                : null,
+            'refund_message' => $status === RideRequest::STATUS_CANCELLED
+                ? app(TaxiCustomerRideCancelledMailer::class)->customerRefundNotice(
+                    $this->paymentStatusForRefundNotice($paymentStatus, $latestBookingPayment)
+                )
+                : null,
+            'cancellation_reason' => $status === RideRequest::STATUS_CANCELLED
+                ? (($cancellation->cancellationPayload($ride)['reason'] ?? null) ?: null)
+                : null,
             'pickup_address' => (string) ($ride->pickup_address ?? ''),
             'dropoff_address' => (string) ($ride->dropoff_address ?? ''),
+            'pickup_place_name' => $ride->pickupPlaceName(),
+            'dropoff_place_name' => $ride->dropoffPlaceName(),
             'pickup_lat' => $ride->pickup_lat !== null ? (float) $ride->pickup_lat : null,
             'pickup_lng' => $ride->pickup_lng !== null ? (float) $ride->pickup_lng : null,
             'dropoff_lat' => $ride->dropoff_lat !== null ? (float) $ride->dropoff_lat : null,
@@ -252,7 +323,10 @@ class CustomerRideLiveStatusService
             'pickup_at' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::toDriverIso8601($ride->pickup_at),
             'pickup_at_label' => \App\Modules\NexaTaxi\Support\ContractTransportTimezone::asAmsterdamWall($ride->pickup_at)?->format('d-m-Y H:i'),
             'passengers' => (int) ($ride->passengers ?? 1),
+            'distance_km' => $ride->distance_meters ? round(((int) $ride->distance_meters) / 1000, 1) : null,
+            'duration_seconds' => $ride->duration_seconds !== null ? (int) $ride->duration_seconds : null,
             'quoted_price' => $ride->quoted_price !== null ? (float) $ride->quoted_price : null,
+            'baggage' => $this->baggageFromBookingPayload($ride),
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => (string) $company->name,
@@ -263,11 +337,21 @@ class CustomerRideLiveStatusService
                 'name' => (string) ($vehicle->name ?? ''),
                 'license_plate' => preg_replace('/\s+/', '', (string) ($vehicle->license_plate ?? '')) ?: null,
                 'label' => $vehicle->fleetLabel(),
+                'photo_url' => $this->vehiclePhotoUrl($conn, $vehicle),
             ] : null,
             'driver' => $driver ? [
                 'id' => (int) $driver->id,
                 'name' => trim(($driver->first_name ?? '').' '.($driver->last_name ?? '')) ?: 'Chauffeur',
+                'photo_url' => $driverMedia['profile_photo_url'] ?? null,
+                'company_logo_url' => $driverMedia['company_logo_url'] ?? null,
+                'rating_avg' => $driverMedia['rating_avg'] ?? null,
+                'rating_count' => ($driverMedia['rating_count'] ?? 0) > 0 ? (int) $driverMedia['rating_count'] : null,
             ] : null,
+            'status_updates' => $statusUpdates,
+            'status_notify_events' => app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+            'rating' => $ratingPayload,
+            'complaint' => app(TaxiRideComplaintService::class)->payloadForRide($conn, $ride),
+            'pickup_confirmation' => $pickupService->customerPayload($ride),
             'vehicle_location' => $driverLoc,
             'eta_minutes' => $eta['minutes'] ?? null,
             'eta_label' => $eta['label'] ?? null,
@@ -278,13 +362,15 @@ class CustomerRideLiveStatusService
     }
 
     /**
-     * @return array{lat: float, lng: float, updated_at: ?string}|null
+     * @return array{lat: float, lng: float, updated_at: ?string, heading: ?float}|null
      */
     protected function resolveDriverLocation(string $conn, RideRequest $ride, int $driverId): ?array
     {
         if ($driverId <= 0) {
             return null;
         }
+
+        $heading = $this->headingForDriver($ride, $driverId);
 
         if (TaxiRideTrackSchema::pointsTableExists($conn)) {
             $point = RideGpsPoint::on($conn)
@@ -297,6 +383,7 @@ class CustomerRideLiveStatusService
                     'lat' => (float) $point->lat,
                     'lng' => (float) $point->lng,
                     'updated_at' => $point->recorded_at?->toIso8601String(),
+                    'heading' => $heading,
                 ];
             }
         }
@@ -316,7 +403,40 @@ class CustomerRideLiveStatusService
             'lat' => (float) $availability->lat,
             'lng' => (float) $availability->lng,
             'updated_at' => $availability->location_updated_at?->toIso8601String(),
+            'heading' => $heading,
         ];
+    }
+
+    /**
+     * "ongeveer 6 minuten" tot de chauffeur bij de klant is, of null.
+     */
+    public function pickupArrivalPhrase(string $conn, RideRequest $ride): ?string
+    {
+        if ($ride->trip_started_at !== null || (string) $ride->status === RideRequest::STATUS_ASSIGNED) {
+            return null;
+        }
+        if ($ride->pickup_lat === null || $ride->pickup_lng === null) {
+            return null;
+        }
+
+        $driverLoc = $this->resolveDriverLocation($conn, $ride, (int) ($ride->driver_id ?? 0));
+        if (! $driverLoc) {
+            return null;
+        }
+
+        return $this->estimateEtaMinutes(
+            (float) $driverLoc['lat'],
+            (float) $driverLoc['lng'],
+            (float) $ride->pickup_lat,
+            (float) $ride->pickup_lng
+        )['label'];
+    }
+
+    protected function headingForDriver(RideRequest $ride, int $driverId): ?float
+    {
+        $cached = Cache::get('taxi-gps-heading:'.(int) $ride->company_id.':'.$driverId);
+
+        return is_numeric($cached) ? round((float) $cached, 1) : null;
     }
 
     /**
@@ -335,5 +455,155 @@ class CustomerRideLiveStatusService
             'label' => $label,
             'distance_km' => round($km, 2),
         ];
+    }
+
+    /**
+     * Afronden schrijft de status in de app-tijdlijn. Ontbreekt die (oudere rit of log uit),
+     * dan tonen we alsnog "Rit afgerond" als laatste statusupdate.
+     *
+     * @param  list<array{event: string, label: string, at: string|null, channel: string}>  $statusUpdates
+     * @return list<array{event: string, label: string, at: string|null, channel: string}>
+     */
+    protected function ensureCompletedStatusUpdate(RideRequest $ride, array $statusUpdates): array
+    {
+        if ((string) $ride->status !== RideRequest::STATUS_COMPLETED) {
+            return $statusUpdates;
+        }
+
+        foreach ($statusUpdates as $update) {
+            if (($update['event'] ?? '') === WhatsAppBookingMessageComposer::EVENT_COMPLETED) {
+                return $statusUpdates;
+            }
+        }
+
+        $label = WhatsAppBookingMessageComposer::statusEventLabels()[WhatsAppBookingMessageComposer::EVENT_COMPLETED]
+            ?? 'Rit afgerond';
+        $statusUpdates[] = [
+            'event' => WhatsAppBookingMessageComposer::EVENT_COMPLETED,
+            'label' => $label,
+            'at' => $ride->updated_at?->toIso8601String(),
+            'channel' => 'app',
+        ];
+
+        return $statusUpdates;
+    }
+
+    /**
+     * Factuurversturen hoort in de tijdlijn, ook als die log nog ontbreekt.
+     *
+     * @param  list<array{event: string, label: string, at: string|null, channel: string}>  $statusUpdates
+     * @return list<array{event: string, label: string, at: string|null, channel: string}>
+     */
+    protected function ensureInvoiceSentStatusUpdates(RideRequest $ride, array $statusUpdates): array
+    {
+        foreach ($statusUpdates as $update) {
+            if (($update['event'] ?? '') === 'invoice_sent') {
+                return $statusUpdates;
+            }
+        }
+
+        $sent = Invoice::query()
+            ->where('module', Invoice::MODULE_TAXI)
+            ->where('module_reference_id', $ride->id)
+            ->where('status', 'sent')
+            ->orderBy('id')
+            ->get(['id', 'updated_at']);
+
+        foreach ($sent as $invoice) {
+            $statusUpdates[] = [
+                'event' => 'invoice_sent',
+                'label' => TaxiCustomerRideStatusNotificationService::INVOICE_SENT_LABEL,
+                'at' => $invoice->updated_at?->toIso8601String(),
+                'channel' => 'app',
+            ];
+        }
+
+        return $statusUpdates;
+    }
+
+    /**
+     * @return array{items: list<array{key: string, label: string, qty: int}>, summary: ?string}
+     */
+    protected function baggageFromBookingPayload(RideRequest $ride): array
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $labels = [
+            'large' => 'Grote ruimbagage',
+            'small' => 'Kleine ruimbagage',
+            'hand' => 'Handbagage',
+            'wheelchair' => 'Opvouwbare rolstoel',
+            'pets' => 'Huisdieren',
+            'winter' => 'Wintersport',
+            'golf' => 'Golftas',
+        ];
+
+        $items = [];
+        foreach (['baggage', 'special_baggage'] as $bagKey) {
+            $bag = is_array($payload[$bagKey] ?? null) ? $payload[$bagKey] : [];
+            foreach ($bag as $key => $qty) {
+                $count = (int) $qty;
+                if ($count <= 0) {
+                    continue;
+                }
+                $keyStr = (string) $key;
+                $items[] = [
+                    'key' => $keyStr,
+                    'label' => $labels[$keyStr] ?? $keyStr,
+                    'qty' => $count,
+                ];
+            }
+        }
+
+        $summary = $items === []
+            ? null
+            : implode(', ', array_map(
+                static fn (array $row): string => $row['label'].' × '.$row['qty'],
+                $items
+            ));
+
+        return [
+            'items' => $items,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
+     * Voor terugbetalingsmelding: gebruik ride.payment_status, anders status van laatste booking-betaling.
+     */
+    protected function paymentStatusForRefundNotice(string $paymentStatus, ?RidePayment $latestBookingPayment): string
+    {
+        $known = [
+            RideRequest::PAYMENT_STATUS_PAID,
+            RideRequest::PAYMENT_STATUS_REFUNDED,
+            RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+            RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+        ];
+        if (in_array($paymentStatus, $known, true)) {
+            return $paymentStatus;
+        }
+
+        if (! $latestBookingPayment) {
+            return $paymentStatus;
+        }
+
+        return match ((string) $latestBookingPayment->status) {
+            RidePayment::STATUS_PAID => RideRequest::PAYMENT_STATUS_PAID,
+            RidePayment::STATUS_REFUNDED => RideRequest::PAYMENT_STATUS_REFUNDED,
+            RidePayment::STATUS_REFUND_PENDING => RideRequest::PAYMENT_STATUS_REFUND_PENDING,
+            RidePayment::STATUS_REFUND_FAILED => RideRequest::PAYMENT_STATUS_REFUND_FAILED,
+            default => $paymentStatus,
+        };
+    }
+
+    private function vehiclePhotoUrl(string $conn, Vehicle $vehicle): ?string
+    {
+        TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
+        if (! Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
+            return null;
+        }
+
+        $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+
+        return app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
     }
 }

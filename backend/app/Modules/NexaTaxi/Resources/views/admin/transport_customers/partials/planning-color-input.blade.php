@@ -5,7 +5,7 @@
     }
 @endphp
 <tr>
-    <td class="text-secondary-foreground font-normal">Planningkleur</td>
+    <td class="text-secondary-foreground font-normal">{{ __('Planningkleur') }}</td>
     <td>
         <div class="flex flex-wrap items-center gap-3">
             <input
@@ -13,10 +13,10 @@
                 name="planning_color"
                 value="{{ $fieldValue }}"
                 class="h-10 w-14 cursor-pointer rounded border border-input p-1"
-                title="Kleur in planningsoverzicht"
-                aria-label="Planningkleur abonnement"
+                title="{{ __('Kleur in planningsoverzicht') }}"
+                aria-label="{{ __('Planningkleur abonnement') }}"
             >
-            <span class="text-xs text-muted-foreground">Wordt gebruikt als achtergrondkleur in het planningsoverzicht.</span>
+            <span class="text-xs text-muted-foreground">{{ __('Wordt gebruikt als achtergrondkleur in het planningsoverzicht.') }}</span>
         </div>
     </td>
 </tr>

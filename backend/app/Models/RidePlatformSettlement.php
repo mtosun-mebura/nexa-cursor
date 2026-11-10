@@ -11,6 +11,9 @@ class RidePlatformSettlement extends Model
 
     public const MODEL_NETWORK = 'network';
 
+    /** Eigen website: 0% platformfee, netto naar de chauffeur. */
+    public const MODEL_OWN_SITE = 'own_site';
+
     public const STATUS_PENDING_PAYOUT = 'pending_payout';
 
     public const STATUS_PAID_OUT = 'paid_out';

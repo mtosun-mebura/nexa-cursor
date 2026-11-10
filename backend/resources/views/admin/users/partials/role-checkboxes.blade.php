@@ -15,10 +15,10 @@
             <span class="kt-badge kt-badge-info">{{ ucfirst(str_replace('-', ' ', (string) $roleName)) }}</span>
             <input type="hidden" name="roles[]" value="{{ $roleName }}">
         @empty
-            <span class="text-sm text-muted-foreground">Geen rollen</span>
+            <span class="text-sm text-muted-foreground">{{ __('Geen rollen') }}</span>
         @endforelse
     </div>
-    <p class="text-xs text-muted-foreground mt-2 mb-0">Alleen een super-admin kan rollen wijzigen. Je kunt je eigen rollen niet aanpassen.</p>
+    <p class="text-xs text-muted-foreground mt-2 mb-0">{{ __('Alleen een super-admin kan rollen wijzigen. Je kunt je eigen rollen niet aanpassen.') }}</p>
 @else
 <div class="grid grid-cols-2 gap-x-6 @error('roles') ring-1 ring-destructive rounded-lg p-3 @enderror @error('roles.*') ring-1 ring-destructive rounded-lg p-3 @enderror" data-required-checkbox-group="roles">
     @forelse($roles as $role)
@@ -34,10 +34,10 @@
             </label>
         @endif
     @empty
-        <p class="text-sm text-muted-foreground col-span-2 mb-0">Geen rollen beschikbaar.</p>
+        <p class="text-sm text-muted-foreground col-span-2 mb-0">{{ __('Geen rollen beschikbaar.') }}</p>
     @endforelse
 </div>
-<p class="text-xs text-muted-foreground mt-1">Selecteer één of meer rollen, bijv. company admin én chauffeur.</p>
+<p class="text-xs text-muted-foreground mt-1">{{ __('Selecteer één of meer rollen, bijv. company admin én chauffeur.') }}</p>
 @endif
 @error('roles')
     <div class="text-xs text-destructive mt-1">{{ $message }}</div>

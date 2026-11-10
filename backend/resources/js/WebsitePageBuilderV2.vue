@@ -9,6 +9,7 @@ import { mergeFooterData } from './website-page-builder-v2/footer-data'
 import { deepMerge } from './website-page-builder-v2/nested-data'
 import type { BuilderBootstrap, PageMetaForm, PaletteDragPayload } from './website-page-builder-v2/types'
 import { baseTypeFromKey } from './website-page-builder-v2/palette-meta'
+import { flushAllWysiwygFields } from './website-page-builder-v2/wysiwyg-flush'
 
 const props = defineProps<{
   bootstrap: BuilderBootstrap
@@ -245,7 +246,13 @@ function onSaveShortcut(event: KeyboardEvent) {
   void save()
 }
 
+function openConfigModal() {
+  flushAllWysiwygFields()
+  configModalOpen.value = true
+}
+
 function closeConfigModal() {
+  flushAllWysiwygFields()
   configModalOpen.value = false
 }
 
@@ -599,14 +606,14 @@ onUnmounted(() => {
             class="builder-panel__expand-btn"
             title="Instellingen vergroten"
             aria-label="Instellingen vergroten"
-            @click="configModalOpen = true"
+            @click="openConfigModal"
           >
             <i class="ki-filled ki-arrow-two-diagonals" aria-hidden="true" />
           </button>
         </div>
         <div class="builder-panel__scroll">
           <BuilderConfigPanel
-            v-if="hasConfigSelection && selectedKey"
+            v-if="hasConfigSelection && selectedKey && !configModalOpen"
             :block-key="selectedKey"
             :label="selectedConfigLabel"
             :is-component="!!selectedBlock?.isComponent"
@@ -636,6 +643,9 @@ onUnmounted(() => {
             @patch="patchSelected"
             @patch-visibility="setSectionVisible"
           />
+          <div v-else-if="configModalOpen && hasConfigSelection" class="builder-empty-config">
+            <p class="text-sm text-muted-foreground mt-3 mb-0">Instellingen staan in het vergrote venster.</p>
+          </div>
           <div v-else class="builder-empty-config">
             <i class="ki-filled ki-setting-2 text-3xl text-muted-foreground/60" />
             <p class="text-sm text-muted-foreground mt-3">Selecteer een blok om titels, teksten en knoppen aan te passen.</p>

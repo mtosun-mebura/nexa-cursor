@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class PayoutIdentityService
 {
+    public const DRIVER_IBAN_REQUIRED_MESSAGE = 'Vul eerst een geldig IBAN in bij Bedrijf in je profiel. Dit is nodig voor de uitbetaling van de ritten.';
+
     /** @var list<string> */
     public const FORBIDDEN_SECRET_FIELDS = [
         'card_number',
@@ -45,6 +47,17 @@ class PayoutIdentityService
     {
         return PayoutIdentity::query()
             ->where('owner_key', $this->ownerKeyForCompany($company, $provider))
+            ->first();
+    }
+
+    public function forIndependentDriver(int $userId, string $provider = PayoutIdentity::PROVIDER_MOLLIE): ?PayoutIdentity
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        return PayoutIdentity::query()
+            ->where('owner_key', 'user:'.$userId.':'.$provider)
             ->first();
     }
 
@@ -89,7 +102,7 @@ class PayoutIdentityService
     ): PayoutIdentity {
         if (! is_valid_iban($iban)) {
             throw ValidationException::withMessages([
-                'iban' => ['Voer een geldig IBAN in.'],
+                'iban' => [__('Voer een geldig IBAN in.')],
             ]);
         }
 
@@ -114,12 +127,19 @@ class PayoutIdentityService
 
         if ($identity->masked_destination === $masked) {
             throw ValidationException::withMessages([
-                'iban' => ['Dit is al de geregistreerde rekening (zelfde eindcijfers).'],
+                'iban' => [__('Dit is al de geregistreerde rekening (zelfde eindcijfers).')],
             ]);
         }
 
-        // Change: step-up password + cooling-off (reuse destination-change hold fields).
-        $this->assertStepUpPassword($actor, (string) ($password ?? ''), $request);
+        // Change: step-up (wachtwoord of e-mailcode) + cooling-off.
+        $this->assertStepUp(
+            $actor,
+            (string) ($password ?? ''),
+            $request,
+            is_string($request?->input('confirmation_code'))
+                ? (string) $request->input('confirmation_code')
+                : null
+        );
 
         $hours = max(1, (int) config('nexa_payout.destination_change_cooling_off_hours', 48));
         $eligibleAt = now()->addHours($hours);
@@ -151,11 +171,123 @@ class PayoutIdentityService
 
         if (strlen($last4) < 4) {
             throw ValidationException::withMessages([
-                'iban' => ['IBAN bevat te weinig cijfers om te maskeren.'],
+                'iban' => [__('IBAN bevat te weinig cijfers om te maskeren.')],
             ]);
         }
 
         return '***'.$last4;
+    }
+
+    /**
+     * Profielweergave: twaalf sterretjes + laatste 4 cijfers. Nooit het volledige IBAN.
+     */
+    public function maskIbanForProfile(string $iban): string
+    {
+        $normalized = normalize_iban($iban);
+        $digits = preg_replace('/\D+/', '', $normalized) ?? '';
+        $last4 = substr($digits, -4);
+
+        if (strlen($last4) < 4) {
+            throw ValidationException::withMessages([
+                'iban' => [__('IBAN bevat te weinig cijfers om te maskeren.')],
+            ]);
+        }
+
+        return str_repeat('*', 12).$last4;
+    }
+
+    public function driverHasIban(int $userId): bool
+    {
+        $identity = $this->forIndependentDriver($userId);
+
+        return $identity !== null
+            && filled($identity->iban_encrypted)
+            && filled($identity->masked_destination);
+    }
+
+    public function driverIbanMask(int $userId): ?string
+    {
+        if (! $this->driverHasIban($userId)) {
+            return null;
+        }
+
+        $mask = $this->forIndependentDriver($userId)?->masked_destination;
+
+        return filled($mask) ? (string) $mask : null;
+    }
+
+    /**
+     * Bewaar een echt IBAN op de chauffeur-uitbetalingsrekening, versleuteld.
+     * API en profiel krijgen alleen het masker. Geen Mollie Connect-onboarding.
+     */
+    public function setDriverIban(User $driver, string $iban, ?Request $request = null): PayoutIdentity
+    {
+        $normalized = $this->assertNormalizedIban($iban);
+        $companyId = (int) $driver->company_id;
+        if ($companyId <= 0) {
+            throw ValidationException::withMessages([
+                'iban' => [__('Geen bedrijf gekoppeld aan dit account.')],
+            ]);
+        }
+
+        $masked = $this->maskIbanForProfile($normalized);
+        $provider = PayoutIdentity::PROVIDER_MOLLIE;
+        $identity = PayoutIdentity::query()->firstOrCreate(
+            ['owner_key' => $this->ownerKeyForIndependentDriver($driver, $provider)],
+            [
+                'company_id' => $companyId,
+                'user_id' => $driver->id,
+                'settlement_party' => PayoutIdentity::PARTY_INDEPENDENT_DRIVER,
+                'provider' => $provider,
+                'capability_status' => PayoutIdentity::STATUS_PENDING,
+            ]
+        );
+
+        $status = $identity->capability_status === PayoutIdentity::STATUS_NOT_STARTED
+            ? PayoutIdentity::STATUS_PENDING
+            : $identity->capability_status;
+
+        $identity->forceFill([
+            'company_id' => $companyId,
+            'user_id' => $driver->id,
+            'settlement_party' => PayoutIdentity::PARTY_INDEPENDENT_DRIVER,
+            'iban_encrypted' => $normalized,
+            'masked_destination' => $masked,
+            'capability_status' => $status,
+        ])->save();
+
+        $this->audit->log($identity, 'driver_iban_set', [
+            'masked_destination' => $masked,
+        ], $driver, $request);
+
+        return $identity->fresh();
+    }
+
+    /**
+     * Eerste IBAN van een marktplaats-tenant. Zelfde opslag als de chauffeur: versleuteld + masker.
+     */
+    public function setCompanyRegistrationIban(Company $company, User $actor, string $iban, ?Request $request = null): PayoutIdentity
+    {
+        $normalized = $this->assertNormalizedIban($iban);
+        $masked = $this->maskIbanForProfile($normalized);
+        $identity = $this->bootstrapCompanyIdentity($company, $actor, $request);
+        $status = $identity->capability_status === PayoutIdentity::STATUS_NOT_STARTED
+            ? PayoutIdentity::STATUS_PENDING
+            : $identity->capability_status;
+
+        $identity->forceFill([
+            'iban_encrypted' => $normalized,
+            'masked_destination' => $masked,
+            'capability_status' => $status,
+        ])->save();
+
+        $this->audit->log($identity, 'company_bank_account_set', [
+            'masked_destination' => $masked,
+            'first_set' => true,
+            'source' => 'marketplace_registration',
+        ], $actor, $request);
+
+        return $identity->fresh();
     }
 
     public function companyCanReceiveSettlement(Company $company): bool
@@ -231,7 +363,7 @@ class PayoutIdentityService
 
             throw ValidationException::withMessages([
                 'settlement_party' => [
-                    'Directe uitbetaling aan individuele chauffeurs is niet beschikbaar. Settlement loopt via het taxibedrijf (rechtspersoon).',
+                    __('Directe uitbetaling aan individuele chauffeurs is niet beschikbaar. Settlement loopt via het taxibedrijf (rechtspersoon).'),
                 ],
             ]);
         }
@@ -240,7 +372,7 @@ class PayoutIdentityService
 
         throw ValidationException::withMessages([
             'settlement_party' => [
-                'Independent-driver payout onboarding is geconfigureerd maar nog niet geïmplementeerd voor productie.',
+                __('Independent-driver payout onboarding is geconfigureerd maar nog niet geïmplementeerd voor productie.'),
             ],
         ]);
     }
@@ -280,18 +412,23 @@ class PayoutIdentityService
     public function requestDestinationChange(PayoutIdentity $identity, User $actor, array $input, ?Request $request = null): PayoutIdentity
     {
         $this->rejectSecretFields($input);
-        $this->assertStepUpPassword($actor, (string) ($input['password'] ?? ''), $request);
+        $this->assertStepUp(
+            $actor,
+            (string) ($input['password'] ?? ''),
+            $request,
+            isset($input['confirmation_code']) ? (string) $input['confirmation_code'] : null
+        );
 
         $newAccountId = trim((string) ($input['provider_account_id'] ?? ''));
         if ($newAccountId === '') {
             throw ValidationException::withMessages([
-                'provider_account_id' => ['Nieuwe provider-account-id is verplicht.'],
+                'provider_account_id' => [__('Nieuwe provider-account-id is verplicht.')],
             ]);
         }
 
         if ($newAccountId === (string) $identity->provider_account_id) {
             throw ValidationException::withMessages([
-                'provider_account_id' => ['Dit is al de actieve bestemming.'],
+                'provider_account_id' => [__('Dit is al de actieve bestemming.')],
             ]);
         }
 
@@ -320,14 +457,14 @@ class PayoutIdentityService
     {
         if (! $identity->hasPendingDestinationChange()) {
             throw ValidationException::withMessages([
-                'destination' => ['Er is geen openstaande bestemmingswijziging.'],
+                'destination' => [__('Er is geen openstaande bestemmingswijziging.')],
             ]);
         }
 
         if ($identity->destinationChangeIsCooling()) {
             throw ValidationException::withMessages([
                 'destination' => [
-                    'Cooling-off loopt nog tot '.$identity->destination_change_eligible_at->toIso8601String().'.',
+                    __('Cooling-off loopt nog tot :date.', ['date' => $identity->destination_change_eligible_at->toIso8601String()]),
                 ],
             ]);
         }
@@ -356,9 +493,9 @@ class PayoutIdentityService
         return $this->syncFromProvider($identity->fresh(), $actor, $request);
     }
 
-    public function disable(PayoutIdentity $identity, User $actor, string $password, ?Request $request = null): PayoutIdentity
+    public function disable(PayoutIdentity $identity, User $actor, string $password, ?Request $request = null, ?string $confirmationCode = null): PayoutIdentity
     {
-        $this->assertStepUpPassword($actor, $password, $request);
+        $this->assertStepUp($actor, $password, $request, $confirmationCode);
 
         $identity->forceFill([
             'capability_status' => PayoutIdentity::STATUS_DISABLED,
@@ -413,17 +550,40 @@ class PayoutIdentityService
         foreach (self::FORBIDDEN_SECRET_FIELDS as $field) {
             if (array_key_exists($field, $input) && $input[$field] !== null && $input[$field] !== '') {
                 throw ValidationException::withMessages([
-                    $field => ['Het opslaan van betaal- of bankgegevens is niet toegestaan. Gebruik provider-hosted onboarding.'],
+                    $field => [__('Het opslaan van betaal- of bankgegevens is niet toegestaan. Gebruik provider-hosted onboarding.')],
                 ]);
             }
         }
     }
 
-    private function assertStepUpPassword(User $actor, string $password, ?Request $request): void
-    {
-        if ($password === '' || ! Hash::check($password, (string) $actor->password)) {
+    /**
+     * Step-up: wachtwoord óf eenmalige e-mailcode (voor wie met code inlogt zonder wachtwoord).
+     */
+    private function assertStepUp(
+        User $actor,
+        string $password,
+        ?Request $request,
+        ?string $confirmationCode = null
+    ): void {
+        $password = trim($password);
+        $code = preg_replace('/\s+/', '', (string) ($confirmationCode ?? '')) ?? '';
+
+        $passwordOk = $password !== '' && Hash::check($password, (string) $actor->password);
+        if ($passwordOk) {
+            // ok
+        } elseif ($code !== '') {
+            if (! app(\App\Services\AdminFirstLoginService::class)->consumeStepUpCode($actor, $code)) {
+                throw ValidationException::withMessages([
+                    'confirmation_code' => [__('Deze bevestigingscode is onjuist of verlopen. Vraag een nieuwe code aan.')],
+                ]);
+            }
+            $passwordOk = true;
+        }
+
+        if (! $passwordOk) {
             throw ValidationException::withMessages([
-                'password' => ['Bevestig met je huidige wachtwoord om door te gaan.'],
+                'password' => [__('Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.')],
+                'confirmation_code' => [__('Bevestig met je wachtwoord, of vraag een eenmalige e-mailcode aan.')],
             ]);
         }
 
@@ -435,6 +595,23 @@ class PayoutIdentityService
         }
     }
 
+    private function assertNormalizedIban(string $iban): string
+    {
+        if (trim($iban) === '') {
+            throw ValidationException::withMessages([
+                'iban' => [__('Vul een IBAN in.')],
+            ]);
+        }
+
+        if (! is_valid_iban($iban)) {
+            throw ValidationException::withMessages([
+                'iban' => [__('Voer een geldig IBAN in.')],
+            ]);
+        }
+
+        return normalize_iban($iban);
+    }
+
     private function sanitizeMaskedDestination(string $value): string
     {
         $value = trim($value);
@@ -442,7 +619,7 @@ class PayoutIdentityService
         // Reject values that look like a full IBAN/PAN rather than a masked label.
         if ($digitCount >= 12 || preg_match('/\d{12,}/', $value)) {
             throw ValidationException::withMessages([
-                'masked_destination' => ['Gebruik alleen een gemaskeerde weergave van de provider, geen volledige rekening- of kaartnummers.'],
+                'masked_destination' => [__('Gebruik alleen een gemaskeerde weergave van de provider, geen volledige rekening- of kaartnummers.')],
             ]);
         }
 

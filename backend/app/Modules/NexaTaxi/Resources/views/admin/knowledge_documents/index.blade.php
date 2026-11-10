@@ -1,27 +1,27 @@
 @extends('admin.layouts.app')
 
-@section('title', 'AI-chatbot kennis')
+@section('title', __('AI-chatbot kennis'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-5">
         <div class="min-w-0">
-            <h1 class="text-xl font-medium leading-none text-mono">AI-chatbot</h1>
-            <p class="text-secondary-foreground text-sm mt-2">Beheer kennisdocumenten voor de taxi-assistent.</p>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('AI-chatbot') }}</h1>
+            <p class="text-secondary-foreground text-sm mt-2">{{ __('Beheer kennisdocumenten voor de taxi-assistent.') }}</p>
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
             @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('ai_chatbot.create') || auth()->user()->can('rides.update') || auth()->user()->can('vehicles.update'))
             <form action="{{ route('admin.taxi.knowledge_documents.generate_from_website') }}" method="POST" class="inline"
-                  onsubmit="return confirm('Website-inhoud importeren of bijwerken? Dit omvat diensten, contactgegevens, het boekingsformulier, contactformulier en veelgestelde vragen over de website.');">
+                  onsubmit="return confirm('{{ __('Website-inhoud importeren of bijwerken? Dit omvat diensten, contactgegevens, het boekingsformulier, contactformulier en veelgestelde vragen over de website.') }}');">
                 @csrf
                 <button type="submit" class="kt-btn kt-btn-outline">
                     <i class="ki-filled ki-technology-2 me-2"></i>
-                    Genereer content obv website
+                    {{ __('Genereer content obv website') }}
                 </button>
             </form>
             <a href="{{ route('admin.taxi.knowledge_documents.create') }}" class="kt-btn kt-btn-primary">
                 <i class="ki-filled ki-plus me-2"></i>
-                Nieuw document
+                {{ __('Nieuw document') }}
             </a>
             @endif
         </div>
@@ -32,13 +32,13 @@
     <div class="kt-card kt-card-grid w-full min-w-0">
         <div class="kt-card-header py-5 flex-wrap gap-2 min-w-0">
             <h3 class="kt-card-title text-sm pb-3 w-full mb-0">
-                <span data-admin-datatable-info="true">Toon 1 tot {{ $documents->count() }} van {{ $documents->count() }} documenten</span>
+                <span data-admin-datatable-info="true">{{ __('Toon 1 tot :count van :total documenten', ['count' => $documents->count(), 'total' => $documents->count()]) }}</span>
             </h3>
             <div class="admin-filter-panel flex flex-col sm:flex-row flex-wrap gap-2.5 w-full sm:w-auto min-w-0 items-stretch sm:items-center"
                  data-admin-live-filter="off">
                 <label class="kt-input w-full sm:w-64 min-w-0">
                     <i class="ki-filled ki-magnifier"></i>
-                    <input placeholder="Zoek titel of inhoud..."
+                    <input placeholder="{{ __('Zoek titel of inhoud...') }}"
                            type="text"
                            name="search"
                            id="knowledge-search-input"
@@ -46,23 +46,23 @@
                            autocomplete="off">
                 </label>
                 <select class="kt-select w-full sm:w-44" id="knowledge-category-filter" name="category" data-admin-datatable-filter="category">
-                    <option value="">Alle categorieën</option>
+                    <option value="">{{ __('Alle categorieën') }}</option>
                     @foreach($categoryLabels as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
+                        <option value="{{ $value }}">{{ __($label) }}</option>
                     @endforeach
                 </select>
                 <button type="button"
                         id="knowledge-filter-reset"
                         data-admin-datatable-reset
                         class="kt-btn kt-btn-outline kt-btn-icon shrink-0 hidden"
-                        title="Filters resetten">
+                        title="{{ __('Filters resetten') }}">
                     <i class="ki-filled ki-arrows-circle text-base"></i>
                 </button>
             </div>
         </div>
         <div class="kt-card-content p-0 min-w-0">
             @if($documents->count() > 0)
-            <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="20" id="knowledge_documents_table" data-admin-datatable-label="documenten">
+            <div class="grid w-full min-w-0" data-admin-datatable="true" data-admin-datatable-page-size="20" id="knowledge_documents_table" data-admin-datatable-label="{{ __('documenten') }}">
             <div class="knowledge-documents-table-wrap min-w-0">
             <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
                 <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full knowledge-documents-table" id="knowledge-documents-table">
@@ -75,29 +75,30 @@
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Titel">Titel</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Categorie">Categorie</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Inhoud">Inhoud</th>
-                            <th class="text-secondary-foreground font-normal text-left" data-label="Aangemaakt">Aangemaakt</th>
-                            <th class="knowledge-documents-table__actions-col text-secondary-foreground font-normal text-center" data-label="Acties">Acties</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Titel') }}">{{ __('Titel') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Categorie') }}">{{ __('Categorie') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Inhoud') }}">{{ __('Inhoud') }}</th>
+                            <th class="text-secondary-foreground font-normal text-left" data-label="{{ __('Aangemaakt') }}">{{ __('Aangemaakt') }}</th>
+                            <th class="knowledge-documents-table__actions-col text-secondary-foreground font-normal text-center" data-label="{{ __('Acties') }}">{{ __('Acties') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($documents as $document)
                         @php
                             $categoryLabel = $categoryLabels[$document->category] ?? $document->category;
+                            $categoryLabelDisplay = __($categoryLabel);
                             $plainContent = trim(html_entity_decode(strip_tags((string) $document->content), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
                             $plainContent = preg_replace('/\s+/u', ' ', $plainContent) ?? '';
-                            $searchText = mb_strtolower($document->title.' '.$categoryLabel.' '.$document->category.' '.$plainContent, 'UTF-8');
+                            $searchText = mb_strtolower($document->title.' '.$categoryLabelDisplay.' '.$document->category.' '.$plainContent, 'UTF-8');
                         @endphp
                         <tr data-row-href="{{ route('admin.taxi.knowledge_documents.show', $document) }}"
                             data-category="{{ $document->category }}"
                             data-search-text="{{ $searchText }}">
                             <td class="font-medium text-mono knowledge-documents-table__title">{{ $document->title }}</td>
                             <td>
-                                <span class="sr-only knowledge-row-category" aria-hidden="true" data-category="{{ $document->category }}">{{ $categoryLabel }}</span>
+                                <span class="sr-only knowledge-row-category" aria-hidden="true" data-category="{{ $document->category }}">{{ $categoryLabelDisplay }}</span>
                                 <span class="kt-badge kt-badge-outline kt-badge-sm">
-                                    {{ $categoryLabel }}
+                                    {{ $categoryLabelDisplay }}
                                 </span>
                             </td>
                             <td class="text-secondary-foreground text-sm knowledge-documents-table__content">
@@ -120,7 +121,7 @@
                                 @if($canEditDocument || $canDeleteDocument)
                                 <div class="kt-menu flex justify-center" data-kt-menu="true">
                                     <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                        <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="Acties">
+                                        <button class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" type="button" aria-label="{{ __('Acties') }}">
                                             <i class="ki-filled ki-dots-vertical text-lg"></i>
                                         </button>
                                         <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -130,7 +131,7 @@
                                                     <span class="kt-menu-icon">
                                                         <i class="ki-filled ki-pencil"></i>
                                                     </span>
-                                                    <span class="kt-menu-title">Bewerken</span>
+                                                    <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                 </a>
                                             </div>
                                             @endif
@@ -139,14 +140,14 @@
                                             <div class="kt-menu-separator"></div>
                                             @endif
                                             <div class="kt-menu-item">
-                                                <form action="{{ route('admin.taxi.knowledge_documents.destroy', $document) }}" method="POST" class="block" onsubmit="return confirm('Weet je zeker dat je dit document wilt verwijderen?');">
+                                                <form action="{{ route('admin.taxi.knowledge_documents.destroy', $document) }}" method="POST" class="block" onsubmit="return confirm('{{ __('Weet je zeker dat je dit document wilt verwijderen?') }}');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                         <span class="kt-menu-icon">
                                                             <i class="ki-filled ki-trash"></i>
                                                         </span>
-                                                        <span class="kt-menu-title">Verwijderen</span>
+                                                        <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -164,7 +165,7 @@
             </div>
             <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium pt-5 min-w-0">
                 <div class="admin-datatable-footer__perpage flex flex-wrap items-center gap-2">
-                    Toon
+                    {{ __('Toon') }}
                     <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                         <option value="10">10</option>
                         <option value="15">15</option>
@@ -172,7 +173,7 @@
                         <option value="25">25</option>
                         <option value="50">50</option>
                     </select>
-                    per pagina
+                    {{ __('per pagina') }}
                 </div>
                 <div class="admin-datatable-footer__pagination max-w-full overflow-x-auto">
                     <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -182,9 +183,9 @@
             </div>
             @else
             <div class="py-10 px-3 sm:px-5 text-center text-secondary-foreground">
-                <p class="mb-4">Nog geen kennisdocumenten.</p>
+                <p class="mb-4">{{ __('Nog geen kennisdocumenten.') }}</p>
                 @if(auth()->user()->hasRole('super-admin') || auth()->user()->can('ai_chatbot.create') || auth()->user()->can('rides.update') || auth()->user()->can('vehicles.update'))
-                <p class="text-sm">Voeg handmatig content toe of gebruik <strong>Genereer content obv website</strong> om diensten en pagina-inhoud automatisch te importeren.</p>
+                <p class="text-sm">{!! __('Voeg handmatig content toe of gebruik <strong>Genereer content obv website</strong> om diensten en pagina-inhoud automatisch te importeren.') !!}</p>
                 @endif
             </div>
             @endif

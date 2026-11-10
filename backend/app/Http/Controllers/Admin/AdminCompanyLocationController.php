@@ -23,11 +23,11 @@ class AdminCompanyLocationController extends Controller
     public function getLocationsJson(Company $company)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te bekijken.');
+            abort(403, __('Je hebt geen rechten om vestigingen te bekijken.'));
         }
 
         if (!$this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $locations = CompanyLocation::where('company_id', $company->id)
@@ -77,11 +77,11 @@ class AdminCompanyLocationController extends Controller
     public function show(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('view-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te bekijken.');
+            abort(403, __('Je hebt geen rechten om vestigingen te bekijken.'));
         }
 
         if (!$this->canAccessResource($company) || $location->company_id !== $company->id) {
-            abort(403, 'Je hebt geen toegang tot deze vestiging.');
+            abort(403, __('Je hebt geen toegang tot deze vestiging.'));
         }
 
         return view('admin.company-locations.show', compact('company', 'location'));
@@ -90,11 +90,11 @@ class AdminCompanyLocationController extends Controller
     public function create(Company $company)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen toe te voegen.');
+            abort(403, __('Je hebt geen rechten om vestigingen toe te voegen.'));
         }
 
         if (!$this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
@@ -108,11 +108,11 @@ class AdminCompanyLocationController extends Controller
     public function edit(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te bewerken.');
+            abort(403, __('Je hebt geen rechten om vestigingen te bewerken.'));
         }
 
         if (!$this->canAccessResource($company) || $location->company_id !== $company->id) {
-            abort(403, 'Je hebt geen toegang tot deze vestiging.');
+            abort(403, __('Je hebt geen toegang tot deze vestiging.'));
         }
 
         $googleMapsApiKey = $this->envService->getGoogleMapsApiKey();
@@ -126,7 +126,7 @@ class AdminCompanyLocationController extends Controller
     public function store(Request $request, Company $company)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen toe te voegen.');
+            abort(403, __('Je hebt geen rechten om vestigingen toe te voegen.'));
         }
 
         $request->validate([
@@ -160,18 +160,18 @@ class AdminCompanyLocationController extends Controller
         $location->save();
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Vestiging succesvol toegevoegd.');
+            ->with('success', __('Vestiging succesvol toegevoegd.'));
     }
 
     public function update(Request $request, Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te bewerken.');
+            abort(403, __('Je hebt geen rechten om vestigingen te bewerken.'));
         }
 
         // Check if location belongs to company
         if ($location->company_id !== $company->id) {
-            abort(403, 'Deze vestiging behoort niet tot dit bedrijf.');
+            abort(403, __('Deze vestiging behoort niet tot dit bedrijf.'));
         }
 
         $request->validate([
@@ -204,35 +204,35 @@ class AdminCompanyLocationController extends Controller
         $location->update($data);
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Vestiging succesvol bijgewerkt.');
+            ->with('success', __('Vestiging succesvol bijgewerkt.'));
     }
 
     public function destroy(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te verwijderen.');
+            abort(403, __('Je hebt geen rechten om vestigingen te verwijderen.'));
         }
 
         // Check if location belongs to company
         if ($location->company_id !== $company->id) {
-            abort(403, 'Deze vestiging behoort niet tot dit bedrijf.');
+            abort(403, __('Deze vestiging behoort niet tot dit bedrijf.'));
         }
 
         $location->delete();
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Vestiging succesvol verwijderd.');
+            ->with('success', __('Vestiging succesvol verwijderd.'));
     }
 
     public function setMain(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om het hoofdkantoor aan te wijzen.');
+            abort(403, __('Je hebt geen rechten om het hoofdkantoor aan te wijzen.'));
         }
 
         // Check if location belongs to company
         if ($location->company_id !== $company->id) {
-            abort(403, 'Deze vestiging behoort niet tot dit bedrijf.');
+            abort(403, __('Deze vestiging behoort niet tot dit bedrijf.'));
         }
 
         // Zet alle andere vestigingen op false
@@ -245,40 +245,42 @@ class AdminCompanyLocationController extends Controller
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Vestiging '{$location->name}' is succesvol aangewezen als hoofdkantoor.",
+                'message' => __('Vestiging \':name\' is succesvol aangewezen als hoofdkantoor.', ['name' => $location->name]),
                 'is_main' => $location->is_main
             ]);
         }
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', 'Hoofdkantoor succesvol aangewezen.');
+            ->with('success', __('Hoofdkantoor succesvol aangewezen.'));
     }
 
     public function toggleStatus(Company $company, CompanyLocation $location)
     {
         if (!auth()->user()->hasRole('super-admin') && !auth()->user()->can('edit-companies')) {
-            abort(403, 'Je hebt geen rechten om vestigingen te bewerken.');
+            abort(403, __('Je hebt geen rechten om vestigingen te bewerken.'));
         }
 
         // Check if location belongs to company
         if ($location->company_id !== $company->id) {
-            abort(403, 'Deze vestiging behoort niet tot dit bedrijf.');
+            abort(403, __('Deze vestiging behoort niet tot dit bedrijf.'));
         }
 
         $location->update(['is_active' => !$location->is_active]);
 
-        $status = $location->is_active ? 'geactiveerd' : 'gedeactiveerd';
+        $toggleMessage = $location->is_active
+            ? __('Vestiging \':name\' is succesvol geactiveerd.', ['name' => $location->name])
+            : __('Vestiging \':name\' is succesvol gedeactiveerd.', ['name' => $location->name]);
 
         if (request()->expectsJson() || request()->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Vestiging '{$location->name}' is succesvol {$status}.",
+                'message' => $toggleMessage,
                 'is_active' => $location->is_active
             ]);
         }
 
         return redirect()->route('admin.companies.show', $company)
-            ->with('success', "Vestiging '{$location->name}' is succesvol {$status}.");
+            ->with('success', $toggleMessage);
     }
 }
 

@@ -26,7 +26,7 @@ class CustomerAuthController extends Controller
             return response()->json(['message' => 'Onjuiste e-mail of wachtwoord.'], 401);
         }
 
-        if (! $user->hasRole(PublicRegistrationService::ROLE_CUSTOMER)) {
+        if (! $user->isSuperAdmin() && ! $user->hasRole(PublicRegistrationService::ROLE_CUSTOMER)) {
             return response()->json([
                 'message' => 'Dit account is geen klantaccount. Kies een andere rol in de app.',
             ], 403);

@@ -27,7 +27,7 @@
         </label>
     @empty
         <div class="platform-billing-line-item-picker__empty">
-            Geen actieve factuurregels beschikbaar.
+            {{ __('Geen actieve factuurregels beschikbaar.') }}
         </div>
     @endforelse
 </div>

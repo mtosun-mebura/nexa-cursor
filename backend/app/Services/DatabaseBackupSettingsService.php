@@ -140,12 +140,12 @@ final class DatabaseBackupSettingsService
     public function nextRunDescription(?Carbon $now = null): string
     {
         if (! $this->isEnabled()) {
-            return 'Automatische backups staan uit.';
+            return __('Automatische backups staan uit.');
         }
 
         $now = $this->nowInDisplayTimezone($now);
         if ($this->isDueForScheduledRun($now)) {
-            return 'Backup start binnen een minuut (Nederlandse tijd).';
+            return __('Backup start binnen een minuut (Nederlandse tijd).');
         }
 
         [$hour, $minute] = array_map('intval', explode(':', $this->time()));
@@ -156,15 +156,18 @@ final class DatabaseBackupSettingsService
                 $next->addWeek();
             }
 
-            return 'Volgende backup '.$next->locale('nl')->isoFormat('dddd D MMMM [om] HH:mm').' (Nederlandse tijd).';
+            return __('Volgende backup :day om :time (Nederlandse tijd).', [
+                'day' => $next->locale(app()->getLocale() === 'en' ? 'en' : 'nl')->isoFormat('dddd D MMMM'),
+                'time' => $next->format('H:i'),
+            ]);
         }
 
         $today = $now->copy()->setTime($hour, $minute, 0);
         if ($now->lt($today)) {
-            return 'Volgende backup vandaag om '.$this->time().' (Nederlandse tijd).';
+            return __('Volgende backup vandaag om :time (Nederlandse tijd).', ['time' => $this->time()]);
         }
 
-        return 'Volgende backup morgen om '.$this->time().' (Nederlandse tijd).';
+        return __('Volgende backup morgen om :time (Nederlandse tijd).', ['time' => $this->time()]);
     }
 
     private function displayTimezone(): string

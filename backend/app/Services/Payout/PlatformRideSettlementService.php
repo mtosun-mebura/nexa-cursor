@@ -4,7 +4,6 @@ namespace App\Services\Payout;
 
 use App\Models\RidePlatformSettlement;
 use App\Modules\NexaTaxi\Models\RideRequest;
-use App\Support\NexaMarketplaceFeeCopy;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -93,8 +92,9 @@ class PlatformRideSettlementService
     {
         $model ??= $this->resolveModel($ride) ?? RidePlatformSettlement::MODEL_MARKETPLACE;
         $gross = $this->grossAmount($ride);
-        $feePercent = max(0, min(100, NexaMarketplaceFeeCopy::percent()));
-        $feeAmount = round($gross * ($feePercent / 100), 2);
+        $calc = app(MarketplaceFeeCalculator::class)->calculate($gross, $ride->paidMollieMethod());
+        $feePercent = $calc['percent'];
+        $feeAmount = $calc['fee'];
         $net = round(max(0, $gross - $feeAmount), 2);
 
         $ownerId = (int) ($ride->company_id ?? 0) ?: null;

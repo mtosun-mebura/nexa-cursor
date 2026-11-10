@@ -3,16 +3,16 @@
         <div class="kt-card-header admin-dashboard-card-header flex flex-wrap items-center justify-between gap-3 px-5 py-5">
             <h3 class="kt-card-title mb-0">
                 <i class="ki-filled ki-notification-bing me-2"></i>
-                Acties
+                {{ __('Acties') }}
             </h3>
             <a href="{{ route('admin.platform-billing.invoices.index') }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0 admin-card-header-action">
-                NEXA-facturen
+                {{ __('NEXA-facturen') }}
             </a>
         </div>
         <div class="kt-card-content p-5">
             @if(empty($saasActionItems))
                 <p class="text-sm text-muted-foreground mb-0">
-                    Geen openstaande acties. Alle NEXA-facturen van deze maand zijn bij, en er zijn geen blokkades of aflopende proefperiodes.
+                    {{ __('Geen openstaande acties. Alle NEXA-facturen van deze maand zijn bij, en er zijn geen blokkades of aflopende proefperiodes.') }}
                 </p>
             @else
                 <ul class="m-0 flex flex-col gap-3 p-0 list-none">
@@ -34,7 +34,7 @@
                                 </div>
                                 @if(!empty($item['url']))
                                     <a href="{{ $item['url'] }}" class="kt-btn kt-btn-sm kt-btn-outline shrink-0">
-                                        Openen
+                                        {{ __('Openen') }}
                                     </a>
                                 @endif
                             </div>

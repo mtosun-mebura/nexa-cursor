@@ -140,6 +140,57 @@ class TaxiBookingPaymentReturnTest extends TestCase
     }
 
     #[Test]
+    public function safe_return_url_allows_native_app_deep_link(): void
+    {
+        $request = Request::create('https://nexasuite.online/nexa-taxi/booking/betaling/terug');
+        $url = TaxiBookingPaymentController::safeReturnUrl(
+            'nexataxi://customer?token=abc123',
+            $request
+        );
+
+        $this->assertSame('nexataxi://customer?token=abc123', $url);
+    }
+
+    #[Test]
+    public function safe_return_url_rejects_unknown_app_scheme_host(): void
+    {
+        $request = Request::create('https://nexasuite.online/nexa-taxi/booking/betaling/terug');
+        $url = TaxiBookingPaymentController::safeReturnUrl('nexataxi://evil-host', $request);
+
+        $this->assertStringNotContainsString('evil-host', $url);
+        $this->assertStringContainsString('#boek-rit', $url);
+    }
+
+    #[Test]
+    public function paid_return_redirects_to_native_app_deep_link(): void
+    {
+        $ride = RideRequest::on('module_taxi')->create([
+            'status' => RideRequest::STATUS_PENDING_DISPATCH,
+            'payment_status' => RideRequest::PAYMENT_STATUS_PAID,
+            'pickup_address' => 'Station Enschede',
+            'dropoff_address' => 'Molenstraat 22',
+            'pickup_at' => now()->addHour(),
+            'customer_name' => 'Test Klant',
+        ]);
+
+        $response = $this->withSession([
+            'nexataxi.booking_payment.'.$ride->id => [
+                'return_url' => 'nexataxi://customer',
+                'channel' => 'customer_app',
+                'track_token' => 'native-token-1',
+            ],
+        ])->get(route('nexataxi.booking.payment.return', ['ride' => $ride->id]));
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith('nexataxi://customer?', $location);
+        $this->assertStringContainsString('boeking=betaald', $location);
+        $this->assertStringContainsString('token=native-token-1', $location);
+        $this->assertStringNotContainsString('nexasuite.online', $location);
+        $this->assertStringNotContainsString('#boek-rit', $location);
+    }
+
+    #[Test]
     public function failed_payment_redirects_to_booking_page_with_failure_flag(): void
     {
         $ride = RideRequest::on('module_taxi')->create([
@@ -230,5 +281,17 @@ class TaxiBookingPaymentReturnTest extends TestCase
         $this->assertStringContainsString('boeking=betaling-mislukt', $out);
         $this->assertStringContainsString('reden=mislukt', $out);
         $this->assertStringNotContainsString('#boek-rit', $out);
+    }
+
+    #[Test]
+    public function with_booking_result_query_builds_native_app_deep_link(): void
+    {
+        $out = TaxiBookingPaymentController::withBookingResultQuery(
+            'nexataxi://customer',
+            'betaald',
+            ['token' => 'tok123']
+        );
+
+        $this->assertSame('nexataxi://customer?boeking=betaald&token=tok123', $out);
     }
 }

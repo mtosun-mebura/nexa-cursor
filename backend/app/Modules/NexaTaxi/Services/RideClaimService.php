@@ -32,6 +32,8 @@ class RideClaimService
         ?string $pickupAt = null,
         ?int $vehicleId = null
     ): array {
+        app(TaxiDriverProfileMediaService::class)->assertCanAcceptRides($driver);
+
         $result = DB::connection($conn)->transaction(function () use ($conn, $driver, $offerId, $pickupAt, $vehicleId) {
             $offer = RideDispatchOffer::on($conn)->whereKey($offerId)->lockForUpdate()->first();
             if (! $offer || (int) $offer->driver_id !== (int) $driver->id) {
@@ -120,6 +122,16 @@ class RideClaimService
                 (int) $ride->id
             );
 
+            $withdrawnOffers = RideDispatchOffer::on($conn)
+                ->where('ride_request_id', $ride->id)
+                ->where('id', '!=', $offer->id)
+                ->where('status', RideDispatchOffer::STATUS_PENDING)
+                ->get(['id', 'driver_id', 'ride_request_id']);
+            $withdrawnDriverIds = $withdrawnOffers
+                ->pluck('driver_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
             RideDispatchOffer::on($conn)
                 ->where('ride_request_id', $ride->id)
                 ->where('id', '!=', $offer->id)
@@ -176,8 +188,27 @@ class RideClaimService
                 'offer' => $freshOffer,
                 'propose_pickup_at' => $proposePickupAt,
                 'force_customer_notify' => $requiresNewPickup && $proposePickupAt === null,
+                'withdrawn_driver_ids' => $withdrawnDriverIds,
+                'withdrawn_offers' => $withdrawnOffers->map(fn ($row) => [
+                    'id' => (int) $row->id,
+                    'driver_id' => (int) $row->driver_id,
+                    'ride_request_id' => (int) $row->ride_request_id,
+                ])->all(),
             ];
         });
+
+        $withdrawnDriverIds = array_values(array_filter(
+            array_map('intval', $result['withdrawn_driver_ids'] ?? []),
+            static fn (int $id): bool => $id > 0
+        ));
+        if ($withdrawnDriverIds !== [] && ! empty($result['ride'])) {
+            // Geen “Rit geannuleerd”-push: die is alleen voor echte annulering.
+            // Inbox-poll / silent notify haalt het aanbod weg bij andere chauffeurs.
+            app(TaxiDriverInboxPushService::class)->notifyDrivers(
+                $withdrawnDriverIds,
+                (int) $result['ride']->id
+            );
+        }
 
         $pickupProposed = false;
         if (! empty($result['propose_pickup_at']) && ! empty($result['ride'])) {
@@ -202,7 +233,79 @@ class RideClaimService
         $result['pickup_proposed'] = $pickupProposed;
         $result['pickup_changed'] = $pickupProposed;
 
+        if (! empty($result['ride'])) {
+            try {
+                $result['ride'] = app(MarketplacePickupConfirmationService::class)
+                    ->ensurePin($conn, $result['ride']);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         return $result;
+    }
+
+    /**
+     * Chauffeur opent navigatie naar ophaalpunt → klant ziet “onderweg naar jou”.
+     * Wijzigt de ritstatus niet (blijft accepted tot “klant opgehaald”).
+     */
+    public function markEnRouteToPickup(string $conn, User $driver, int $rideId): RideRequest
+    {
+        $ride = RideRequest::on($conn)->whereKey($rideId)->first();
+        if (! $ride) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        if (! $ride->isVisibleToDriver((int) $driver->id, $vehicleId)) {
+            throw ValidationException::withMessages([
+                'ride' => ['Rit niet gevonden.'],
+            ]);
+        }
+
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+        ], true)) {
+            throw ValidationException::withMessages([
+                'ride' => ['Deze rit heeft geen ophaalstatus meer.'],
+            ]);
+        }
+
+        $event = WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+        $label = WhatsAppBookingMessageComposer::statusEventLabels()[$event] ?? $event;
+        $arrival = app(CustomerRideLiveStatusService::class)->pickupArrivalPhrase($conn, $ride);
+        if (is_string($arrival) && $arrival !== '') {
+            $label = 'De chauffeur is onderweg naar jou. Aankomst over '.$arrival.'.';
+        }
+        $this->persistCustomerStatusEvent($ride, $event, $label);
+        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $event, $driver, [
+            'status_label' => $label,
+        ]);
+
+        return $ride->fresh() ?? $ride;
+    }
+
+    /**
+     * Bewaar de laatste klantgerichte status op de rit (fallback naast notification-log).
+     */
+    public function persistCustomerStatusEvent(RideRequest $ride, string $event, string $label): void
+    {
+        $conn = $ride->getConnectionName() ?: $ride->getConnection()->getName();
+        if (! Schema::connection($conn)->hasColumn('ride_requests', 'booking_payload')) {
+            return;
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $payload['customer_status'] = [
+            'event' => $event,
+            'label' => $label,
+            'at' => now()->toIso8601String(),
+        ];
+        $ride->booking_payload = $payload;
+        $ride->save();
     }
 
     public function startRide(string $conn, User $driver, int $rideId): RideRequest
@@ -234,7 +337,7 @@ class RideClaimService
                 ]);
             }
 
-            if (! $ride->isContractRide()) {
+            if (! $ride->isContractRide() && ! $ride->canStartWithoutPickupProposal()) {
                 TaxiDispatchSchema::ensurePickupProposalColumns($conn);
                 $ride->refresh();
                 $dispatchSettings = app(TaxiDispatchSettingsService::class);
@@ -273,9 +376,12 @@ class RideClaimService
             report($e);
         }
 
-        $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_STARTED, $driver);
+        $startedEvent = WhatsAppBookingMessageComposer::EVENT_STARTED;
+        $startedLabel = WhatsAppBookingMessageComposer::statusEventLabels()[$startedEvent] ?? $startedEvent;
+        $this->persistCustomerStatusEvent($ride, $startedEvent, $startedLabel);
+        $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $startedEvent, $driver);
 
-        return $ride;
+        return $ride->fresh() ?? $ride;
     }
 
     private function assertContractRideCanStartToday(string $conn, RideRequest $ride): void
@@ -711,6 +817,10 @@ class RideClaimService
             if ($allowOverdueContractComplete && $ride->isContractRide()) {
                 $this->contractStops->resolvePendingStopsForForcedComplete($conn, $ride);
             } else {
+                // Contract: openstaande pickups auto-opgehaald bij afronden (niet-meegenomen blijft skipped).
+                if ($ride->isContractRide()) {
+                    app(ContractPortalAutoBoardService::class)->applyForRide($conn, $ride, true);
+                }
                 $this->contractStops->assertGroupRideCanComplete($ride);
             }
 
@@ -730,11 +840,19 @@ class RideClaimService
                 report($e);
             }
             try {
+                $ride = app(MarketplacePickupConfirmationService::class)->noteDropoff($conn, $ride, $driver);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+            try {
                 $ride = app(RideSettlementEligibilityService::class)->evaluateAfterCompletion($conn, $ride);
             } catch (\Throwable $e) {
                 report($e);
             }
-            $this->notifyCustomerStatus($conn, $ride, WhatsAppBookingMessageComposer::EVENT_COMPLETED, $driver);
+            $completedEvent = WhatsAppBookingMessageComposer::EVENT_COMPLETED;
+            $completedLabel = WhatsAppBookingMessageComposer::statusEventLabels()[$completedEvent] ?? $completedEvent;
+            $this->persistCustomerStatusEvent($ride, $completedEvent, $completedLabel);
+            $this->notifyCustomerStatus($conn, $ride->fresh() ?? $ride, $completedEvent, $driver);
         } elseif ($clientTrack !== []) {
             try {
                 app(RideTrackService::class)->bufferClientTrack($conn, $ride, $clientTrack);
@@ -766,6 +884,24 @@ class RideClaimService
             $driverPhone = trim((string) ($driver->phone ?? ''));
             if ($driverPhone !== '') {
                 $context['driver_phone'] = $driverPhone;
+            }
+        }
+
+        if (! array_key_exists('license_plate', $context) || trim((string) ($context['license_plate'] ?? '')) === '') {
+            try {
+                $vehicleId = (int) ($ride->vehicle_id ?? 0);
+                if ($vehicleId > 0) {
+                    $plate = trim((string) (
+                        \App\Modules\NexaTaxi\Models\Vehicle::on($conn)
+                            ->whereKey($vehicleId)
+                            ->value('license_plate') ?? ''
+                    ));
+                    if ($plate !== '') {
+                        $context['license_plate'] = $plate;
+                    }
+                }
+            } catch (\Throwable) {
+                // composeStatus valt terug op rit/voertuig of "—"
             }
         }
 

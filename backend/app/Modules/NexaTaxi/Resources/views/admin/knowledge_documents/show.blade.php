@@ -33,13 +33,13 @@
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-category text-muted-foreground text-sm shrink-0"></i>
                     <span class="kt-badge kt-badge-outline kt-badge-sm">
-                        {{ $categoryLabels[$document->category] ?? $document->category }}
+                        {{ __($categoryLabels[$document->category] ?? $document->category) }}
                     </span>
                 </div>
                 <div class="flex gap-1.25 items-center">
                     <i class="ki-filled ki-calendar text-muted-foreground text-sm shrink-0"></i>
                     <span class="text-secondary-foreground font-medium">
-                        Aangemaakt {{ $document->created_at?->format('d-m-Y H:i') ?? '—' }}
+                        {{ __('Aangemaakt :date', ['date' => $document->created_at?->format('d-m-Y H:i') ?? '—']) }}
                     </span>
                 </div>
             </div>
@@ -52,14 +52,14 @@
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.taxi.knowledge_documents.index') }}" class="kt-btn kt-btn-outline shrink-0">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
         @if($canEditDocument)
         <div class="flex items-center gap-2.5">
             <a href="{{ route('admin.taxi.knowledge_documents.edit', $document) }}" class="kt-btn kt-btn-primary shrink-0">
                 <i class="ki-filled ki-notepad-edit me-2"></i>
-                Bewerken
+                {{ __('Bewerken') }}
             </a>
         </div>
         @endif
@@ -67,7 +67,7 @@
 
     <div class="kt-card w-full min-w-0">
         <div class="kt-card-header">
-            <h3 class="kt-card-title mb-0">Inhoud</h3>
+            <h3 class="kt-card-title mb-0">{{ __('Inhoud') }}</h3>
         </div>
         <div class="kt-card-content px-3 sm:px-5 py-5 min-w-0">
             <div class="knowledge-document-content text-foreground text-sm leading-relaxed break-words">{!! app(\App\Modules\NexaTaxi\Services\TaxiKnowledgeContentFormatterService::class)->normalizeDisplayHtml($document->content) !!}</div>

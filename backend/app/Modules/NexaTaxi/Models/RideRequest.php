@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Models;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Support\RidePlaceName;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -341,6 +342,16 @@ class RideRequest extends Model
     }
 
     /**
+     * Rit is gestart of afgerond: voertuig en chauffeur horen vast te staan.
+     */
+    public function hasBeenDriven(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED
+            || $this->trip_started_at !== null
+            || $this->trip_completed_at !== null;
+    }
+
+    /**
      * Ophaalmoment ligt nog binnen het grace-venster voor de chauffeur-wachtrij.
      */
     public function scopeDispatchPickupWithinQueueWindow($query, CarbonInterface $pickupCutoff)
@@ -383,6 +394,29 @@ class RideRequest extends Model
         return false;
     }
 
+    /** Marketplace/NEXA Suite: chauffeur mag starten zonder nieuw ophaalvoorstel. */
+    public function canStartWithoutPickupProposal(): bool
+    {
+        if ($this->isNexaSuiteBooking()) {
+            return true;
+        }
+
+        $source = strtolower(trim((string) ($this->source ?? '')));
+        if (in_array($source, [self::SOURCE_NEXA_SUITE, 'marketplace', 'nexa-suite'], true)) {
+            return true;
+        }
+
+        $payload = is_array($this->booking_payload) ? $this->booking_payload : [];
+        $channel = strtolower(trim((string) ($payload['channel'] ?? '')));
+        if (in_array($channel, [self::SOURCE_NEXA_SUITE, 'marketplace', 'nexa-suite'], true)) {
+            return true;
+        }
+
+        $marketplace = $payload['marketplace'] ?? null;
+
+        return is_array($marketplace) && $marketplace !== [];
+    }
+
     /**
      * @return list<int>
      */
@@ -405,6 +439,52 @@ class RideRequest extends Model
         return $this->isNexaSuiteBooking()
             && ! $this->driver_id
             && (int) ($this->company_id ?? 0) <= 0;
+    }
+
+    /**
+     * Klant boekt in de native app: marktplaatsrit (booking_payload.marketplace.channel = customer_app).
+     */
+    public function isCustomerAppMarketplaceBooking(): bool
+    {
+        $payload = is_array($this->booking_payload) ? $this->booking_payload : [];
+        $marketplace = is_array($payload['marketplace'] ?? null) ? $payload['marketplace'] : [];
+        if (strtolower(trim((string) ($marketplace['channel'] ?? ''))) === 'customer_app') {
+            return true;
+        }
+
+        $paymentReturn = is_array($payload['payment_return'] ?? null) ? $payload['payment_return'] : [];
+        if (strtolower(trim((string) ($paymentReturn['channel'] ?? ''))) === 'customer_app') {
+            return true;
+        }
+
+        $step = is_array($payload['step_data'] ?? null) ? $payload['step_data'] : [];
+
+        return ($step['app'] ?? null) === 'customer' && $this->isNexaSuiteBooking();
+    }
+
+    /**
+     * Rit van de tenant zelf (eigen website, of oudere tenantboeking zonder marketplace).
+     * Native-app- en NEXA Suite-boekingen vallen hier buiten.
+     */
+    public function isOwnTenantFleetRide(): bool
+    {
+        if ($this->isCustomerAppMarketplaceBooking() || $this->isNexaSuiteBooking() || $this->isContractRide()) {
+            return false;
+        }
+
+        if ((int) ($this->company_id ?? 0) <= 0) {
+            return false;
+        }
+
+        if ($this->source === self::SOURCE_BOOKING || $this->source === self::SOURCE_MANUAL) {
+            return true;
+        }
+
+        if ($this->source !== null && $this->source !== '') {
+            return false;
+        }
+
+        return $this->marketplaceCandidateCompanyIds() === [];
     }
 
     public function isVisibleToMarketplaceTenant(int $companyId): bool
@@ -451,7 +531,12 @@ class RideRequest extends Model
                             $company->whereNull('company_id')->orWhere('company_id', 0);
                         })
                         ->whereNotNull('booking_payload')
-                        ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId);
+                        ->where(function ($candidates) use ($companyId) {
+                            // Postgres/MySQL: JSON kan ints of strings bevatten.
+                            $candidates
+                                ->whereJsonContains('booking_payload->marketplace->candidate_company_ids', $companyId)
+                                ->orWhereJsonContains('booking_payload->marketplace->candidate_company_ids', (string) $companyId);
+                        });
                 });
         });
     }
@@ -517,6 +602,92 @@ class RideRequest extends Model
                     self::RIDE_TYPE_CONTRACT_INDIVIDUAL,
                 ]);
             }
+        });
+    }
+
+    /**
+     * Rit die een online chauffeur nú van de boekingskaart haalt.
+     *
+     * Alleen een geaccepteerde rit of contractrit waarvan het tijdvak nu is, of een rit
+     * die echt onderweg is. Afgeronde ritten (status, trip_completed_at, of alle stops
+     * klaar) en een rit op een ander tijdstip doen dat niet. De rol contractant speelt geen rol.
+     * Ophaaltijden zijn Amsterdam-muurtijd; trip_started_at is een echt tijdstip.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Modules\NexaTaxi\Models\RideRequest>
+     */
+    public function scopeOccupyingBookingMap($query)
+    {
+        $connection = $query->getConnection()->getName();
+        $schema = \Illuminate\Support\Facades\Schema::connection($connection);
+        $hasPickupAt = $schema->hasColumn('ride_requests', 'pickup_at');
+        $hasTripStarted = $schema->hasColumn('ride_requests', 'trip_started_at');
+        $hasTripCompleted = $schema->hasColumn('ride_requests', 'trip_completed_at');
+        $hasStops = $schema->hasTable('ride_stops');
+        $graceMinutes = max(0, (int) config('taxi-dispatch.past_pickup_grace_minutes', 60));
+        $nowWall = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::naiveUtcForWallClockQuery(
+            now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)
+        );
+        $windowStart = \App\Modules\NexaTaxi\Support\ContractTransportTimezone::naiveUtcForWallClockQuery(
+            now(\App\Modules\NexaTaxi\Support\ContractTransportTimezone::TIMEZONE)->subMinutes($graceMinutes)
+        );
+        $activeSince = now()->subHours(12);
+        $openStopStatuses = [
+            RideStop::STATUS_PLANNED,
+            RideStop::STATUS_ARRIVED,
+            RideStop::STATUS_PICKED_UP,
+        ];
+
+        $query->whereIn('status', [self::STATUS_ACCEPTED, self::STATUS_ASSIGNED]);
+
+        if ($hasTripCompleted) {
+            $query->whereNull('trip_completed_at');
+        }
+
+        if ($hasStops) {
+            // Stops die allemaal klaar zijn: de rit is afgerond, ook als de status nog assigned is.
+            $query->where(function ($unfinished) use ($openStopStatuses) {
+                $unfinished->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('ride_stops')
+                        ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id');
+                })->orWhereExists(function ($sub) use ($openStopStatuses) {
+                    $sub->selectRaw('1')
+                        ->from('ride_stops')
+                        ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id')
+                        ->whereIn('ride_stops.status', $openStopStatuses);
+                });
+            });
+        }
+
+        return $query->where(function ($window) use ($hasPickupAt, $hasTripStarted, $hasStops, $nowWall, $windowStart, $activeSince) {
+            if ($hasTripStarted) {
+                $window->where(function ($started) use ($activeSince) {
+                    $started->whereNotNull('trip_started_at')
+                        ->where('trip_started_at', '>=', $activeSince);
+                });
+            }
+
+            $window->orWhere(function ($slot) use ($hasPickupAt, $hasTripStarted, $hasStops, $nowWall, $windowStart) {
+                if ($hasTripStarted) {
+                    $slot->whereNull('trip_started_at');
+                }
+                if (! $hasPickupAt) {
+                    return;
+                }
+                $slot->where(function ($time) use ($hasStops, $nowWall, $windowStart) {
+                    $time->where(function ($immediate) use ($hasStops) {
+                        $immediate->whereNull('pickup_at');
+                        if ($hasStops) {
+                            $immediate->whereNotExists(function ($sub) {
+                                $sub->selectRaw('1')
+                                    ->from('ride_stops')
+                                    ->whereColumn('ride_stops.ride_request_id', 'ride_requests.id');
+                            });
+                        }
+                    })->orWhereBetween('pickup_at', [$windowStart, $nowWall]);
+                });
+            });
         });
     }
 
@@ -795,14 +966,45 @@ class RideRequest extends Model
         }
 
         if ((int) $this->driver_id === $driverId) {
-            return round($full, 2);
+            return $this->netEarningsFromGross($full);
         }
 
         if ((int) $this->outbound_driver_id === $driverId && $this->isReturnTrip()) {
-            return round($this->splitReturnTripLegAmounts()['outbound'], 2);
+            return $this->netEarningsFromGross($this->splitReturnTripLegAmounts()['outbound']);
         }
 
         return null;
+    }
+
+    private function netEarningsFromGross(float $gross): float
+    {
+        $gross = round(max(0, $gross), 2);
+        if (! $this->isNexaSuiteBooking() && ! $this->isNetworkFulfilled()) {
+            return $gross;
+        }
+
+        $fee = app(\App\Services\Payout\MarketplaceFeeCalculator::class)
+            ->calculate($gross, $this->paidMollieMethod())['fee'];
+
+        return round(max(0, $gross - $fee), 2);
+    }
+
+    /**
+     * Mollie-betaalmethode van de betaalde klantbetaling (ideal, creditcard, …), indien bekend.
+     */
+    public function paidMollieMethod(): ?string
+    {
+        try {
+            $payload = $this->payments()
+                ->where('status', RidePayment::STATUS_PAID)
+                ->value('mollie_payload');
+            $payload = is_string($payload) ? json_decode($payload, true) : $payload;
+            $method = is_array($payload) ? ($payload['method'] ?? null) : null;
+
+            return is_string($method) && $method !== '' ? $method : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function requiresPerLegDriverPayment(): bool
@@ -1073,6 +1275,34 @@ class RideRequest extends Model
         }
 
         return trim((string) $this->dropoff_address);
+    }
+
+    public function pickupPlaceName(): ?string
+    {
+        return RidePlaceName::fromPayload($this->booking_payload, 'pickup');
+    }
+
+    public function dropoffPlaceName(): ?string
+    {
+        return RidePlaceName::fromPayload($this->booking_payload, 'dropoff');
+    }
+
+    public function driverLegPickupPlaceName(): ?string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return $this->dropoffPlaceName();
+        }
+
+        return $this->pickupPlaceName();
+    }
+
+    public function driverLegDropoffPlaceName(): ?string
+    {
+        if ($this->isReturnTrip() && $this->hasOutboundCompleted()) {
+            return $this->pickupPlaceName();
+        }
+
+        return $this->dropoffPlaceName();
     }
 
     public function canReleaseReturnLeg(?int $driverId = null): bool

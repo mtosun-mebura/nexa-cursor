@@ -21,7 +21,7 @@ class WebsiteStructuredDataService
         ?array $homeSections,
         ?string $pageUrl = null,
     ): array {
-        $pageUrl = $pageUrl ?? url()->current();
+        $pageUrl = $pageUrl ?? \App\Support\WebsiteSeoMeta::canonicalUrl();
 
         $pageTitle = filled(trim((string) ($page->title ?? '')))
             ? trim($page->title)

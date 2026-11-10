@@ -96,12 +96,12 @@ class StoreUserRequest extends BaseFormRequest
                     }
                     $parsed = parse_url($value);
                     if (! is_array($parsed) || empty($parsed['path']) || ! str_starts_with($parsed['path'], '/admin/')) {
-                        $fail('Ongeldige terug-URL.');
+                        $fail(__('Ongeldige terug-URL.'));
 
                         return;
                     }
                     if (isset($parsed['host']) && $parsed['host'] !== request()->getHost()) {
-                        $fail('Ongeldige terug-URL.');
+                        $fail(__('Ongeldige terug-URL.'));
                     }
                 },
             ],
@@ -116,7 +116,7 @@ class StoreUserRequest extends BaseFormRequest
                 return;
             }
             if (! auth()->user()->hasRole('super-admin') && in_array('super-admin', $roles, true)) {
-                $validator->errors()->add('roles', 'Je mag geen super-admin rol toewijzen.');
+                $validator->errors()->add('roles', __('Je mag geen super-admin rol toewijzen.'));
             }
         });
     }
@@ -124,25 +124,25 @@ class StoreUserRequest extends BaseFormRequest
     public function messages(): array
     {
         return [
-            'first_name.required' => 'Voornaam is verplicht.',
-            'first_name.min' => 'Voornaam moet minimaal 2 karakters lang zijn.',
-            'first_name.max' => 'Voornaam mag maximaal 255 karakters bevatten.',
-            'first_name.regex' => 'Voornaam mag alleen letters, spaties, streepjes, apostrofs en punten bevatten.',
-            'last_name.required' => 'Achternaam is verplicht.',
-            'last_name.min' => 'Achternaam moet minimaal 2 karakters lang zijn.',
-            'last_name.max' => 'Achternaam mag maximaal 255 karakters bevatten.',
-            'last_name.regex' => 'Achternaam mag alleen letters, spaties, streepjes, apostrofs en punten bevatten.',
-            'email.required' => 'E-mailadres is verplicht.',
-            'email.unique' => 'Dit e-mailadres is al in gebruik.',
-            'email.regex' => 'E-mailadres moet een geldig e-mailadres zijn.',
-            'password.min' => 'Wachtwoord moet minimaal 8 karakters lang zijn.',
-            'password.regex' => 'Wachtwoord moet minimaal 1 kleine letter, 1 hoofdletter en 1 cijfer bevatten.',
-            'phone.regex' => 'Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).',
-            'date_of_birth.before' => 'Geboortedatum moet in het verleden liggen.',
-            'company_id.exists' => 'Het geselecteerde bedrijf bestaat niet.',
-            'roles.required' => 'Selecteer minimaal één rol.',
-            'roles.min' => 'Selecteer minimaal één rol.',
-            'roles.*.exists' => 'Een geselecteerde rol bestaat niet.',
+            'first_name.required' => __('Voornaam is verplicht.'),
+            'first_name.min' => __('Voornaam moet minimaal 2 karakters lang zijn.'),
+            'first_name.max' => __('Voornaam mag maximaal 255 karakters bevatten.'),
+            'first_name.regex' => __('Voornaam mag alleen letters, spaties, streepjes, apostrofs en punten bevatten.'),
+            'last_name.required' => __('Achternaam is verplicht.'),
+            'last_name.min' => __('Achternaam moet minimaal 2 karakters lang zijn.'),
+            'last_name.max' => __('Achternaam mag maximaal 255 karakters bevatten.'),
+            'last_name.regex' => __('Achternaam mag alleen letters, spaties, streepjes, apostrofs en punten bevatten.'),
+            'email.required' => __('E-mailadres is verplicht.'),
+            'email.unique' => __('Dit e-mailadres is al in gebruik.'),
+            'email.regex' => __('E-mailadres moet een geldig e-mailadres zijn.'),
+            'password.min' => __('Wachtwoord moet minimaal 8 karakters lang zijn.'),
+            'password.regex' => __('Wachtwoord moet minimaal 1 kleine letter, 1 hoofdletter en 1 cijfer bevatten.'),
+            'phone.regex' => __('Telefoonnummer moet een geldig Nederlands nummer zijn (bijv. 0612345678 of +31612345678).'),
+            'date_of_birth.before' => __('Geboortedatum moet in het verleden liggen.'),
+            'company_id.exists' => __('Het geselecteerde bedrijf bestaat niet.'),
+            'roles.required' => __('Selecteer minimaal één rol.'),
+            'roles.min' => __('Selecteer minimaal één rol.'),
+            'roles.*.exists' => __('Een geselecteerde rol bestaat niet.'),
         ];
     }
 }

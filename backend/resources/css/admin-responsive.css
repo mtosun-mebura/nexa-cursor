@@ -1617,6 +1617,42 @@ html.dark #content [data-kt-select-options]::-webkit-scrollbar-thumb,
     max-width: 100%;
 }
 
+/* Validatiefout: altijd rode rand (Metronic + class + aria-invalid) */
+#content .kt-input.border-destructive,
+#content input.kt-input.border-destructive,
+#content textarea.kt-input.border-destructive,
+#content select.kt-input.border-destructive,
+#content .kt-input[aria-invalid="true"],
+#content input.kt-input[aria-invalid="true"],
+#content textarea.kt-input[aria-invalid="true"],
+#content select.kt-input[aria-invalid="true"] {
+    border-color: var(--destructive, #ef4444) !important;
+}
+
+#content .kt-input.border-destructive:focus-visible,
+#content input.kt-input.border-destructive:focus-visible,
+#content .kt-input[aria-invalid="true"]:focus-visible,
+#content input.kt-input[aria-invalid="true"]:focus-visible {
+    border-color: var(--destructive, #ef4444) !important;
+    --tw-ring-color: color-mix(in oklab, var(--destructive, #ef4444) 20%, transparent);
+}
+
+/* Validatiefoutmelding: altijd rood, direct onder het veld */
+#content .field-feedback,
+#content .laravel-inline-error,
+#content [data-laravel-field] {
+    color: var(--destructive, #ef4444);
+}
+
+html.dark #content .field-feedback,
+html.dark #content .laravel-inline-error,
+html.dark #content [data-laravel-field],
+body.dark #content .field-feedback,
+body.dark #content .laravel-inline-error,
+body.dark #content [data-laravel-field] {
+    color: #f87171;
+}
+
 html.admin-kt-select-open main#content,
 html.admin-kt-select-open #content .kt-card,
 html.admin-kt-select-open #content .kt-card-header,
@@ -4409,4 +4445,72 @@ html.dark .admin-time-picker__col + .admin-time-picker__col,
     height: 1rem;
     overflow: visible;
     font-size: 1rem !important;
+}
+
+/* Zelfde tegels als klantonderdelen (Abonnementen, Contractportaal, …). */
+#content .customer-section-nav {
+    min-width: 0;
+}
+
+#content .customer-section-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius, 0.5rem) + 4px);
+    background: var(--card, var(--background));
+    color: inherit;
+    text-decoration: none;
+    box-shadow: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#content .customer-section-tile:hover {
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+    color: inherit;
+}
+
+#content .customer-section-tile.is-active {
+    border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
+    background: color-mix(in oklab, var(--primary) 8%, var(--background));
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 28%, transparent);
+}
+
+#content .customer-section-tile__label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--foreground);
+    line-height: 1.3;
+}
+
+#content .customer-section-tile__value {
+    font-size: 1.5rem;
+    font-weight: 650;
+    line-height: 1.2;
+    color: var(--mono, var(--foreground));
+    letter-spacing: -0.02em;
+}
+
+#content .customer-section-tile.is-active .customer-section-tile__value {
+    color: var(--primary);
+}
+
+#content .customer-section-tile__meta {
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+    line-height: 1.35;
+}
+
+#content .customer-section-panel.is-active {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+#content .customer-section-panel:not(.is-active) {
+    display: none !important;
 }

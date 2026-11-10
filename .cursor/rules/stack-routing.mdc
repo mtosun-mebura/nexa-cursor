@@ -1,0 +1,17 @@
+---
+description: Route backend / admin / mobile work to the right folders and rules without re-explaining.
+globs:
+  - backend/**
+  - mobile-app/**
+alwaysApply: false
+---
+
+# Stack routing
+
+| Path | Stack | Prefer rules |
+|------|--------|--------------|
+| `backend/app/Modules/NexaTaxi/` | Laravel NexaTaxi | admin-* when editing Blade |
+| `backend/resources/views/` | Admin Blade | `.cursor/rules/admin-*.mdc` |
+| `mobile-app/` | Expo RN iOS/Android | `mobile-app-*.mdc`, AppModal for dialogs |
+
+Surgical edits only. Match neighbors in the same folder. For cross-module impact with `graphify-out/` present: `graphify query` first.

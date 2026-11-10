@@ -367,10 +367,12 @@ class TaxiGpsDemoFleetService
     private function upsertUser(string $email, array $attrs): User
     {
         $user = User::query()->firstOrNew(['email' => $email]);
-        $user->fill(array_merge($attrs, [
-            'password' => self::PASSWORD,
-            'email_verified_at' => now(),
-        ]));
+        $attrs['email_verified_at'] = now();
+        // Wachtwoord alleen bij aanmaken — bestaande accounts nooit resetten bij herhaalde ensure/deploy.
+        if (! $user->exists) {
+            $attrs['password'] = self::PASSWORD;
+        }
+        $user->fill($attrs);
         if (Schema::hasColumn('users', 'is_active')) {
             $user->is_active = true;
         }

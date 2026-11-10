@@ -1,48 +1,48 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Contractvervoer planning')
+@section('title', __('Contractvervoer planning'))
 
 @section('content')
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
         <div>
-            <h1 class="text-xl font-medium leading-none text-mono">Planningsoverzicht</h1>
+            <h1 class="text-xl font-medium leading-none text-mono">{{ __('Planningsoverzicht') }}</h1>
             <p class="text-sm text-muted-foreground pt-2">
-                Week {{ $weekStart->locale('nl')->translatedFormat('d M') }} – {{ $weekEnd->locale('nl')->translatedFormat('d M Y') }}
+                {{ __('Week') }} {{ $weekStart->locale(app()->getLocale())->translatedFormat('d M') }} – {{ $weekEnd->locale(app()->getLocale())->translatedFormat('d M Y') }}
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('admin.taxi.transport_planning.index', array_filter(['week' => $prevWeek, 'contract_id' => $contractFilter])) }}" class="kt-btn kt-btn-outline">← Vorige week</a>
+            <a href="{{ route('admin.taxi.transport_planning.index', array_filter(['week' => $prevWeek, 'contract_id' => $contractFilter])) }}" class="kt-btn kt-btn-outline">{{ __('← Vorige week') }}</a>
             <a
                 href="{{ route('admin.taxi.transport_planning.index', array_filter(['week' => $todayWeek, 'contract_id' => $contractFilter])) }}"
                 class="kt-btn {{ $isCurrentWeek ? 'kt-btn-primary' : 'kt-btn-outline' }}"
                 @if($isCurrentWeek) aria-current="date" @endif
-            >Vandaag</a>
-            <a href="{{ route('admin.taxi.transport_planning.index', array_filter(['week' => $nextWeek, 'contract_id' => $contractFilter])) }}" class="kt-btn kt-btn-outline">Volgende week →</a>
+            >{{ __('Vandaag') }}</a>
+            <a href="{{ route('admin.taxi.transport_planning.index', array_filter(['week' => $nextWeek, 'contract_id' => $contractFilter])) }}" class="kt-btn kt-btn-outline">{{ __('Volgende week →') }}</a>
         </div>
     </div>
 
     <form method="GET" class="kt-card mb-5">
         <div class="kt-card-content flex flex-wrap items-end gap-3 p-4">
             <div>
-                <label class="text-sm text-secondary-foreground block mb-1">Week (maandag)</label>
+                <label class="text-sm text-secondary-foreground block mb-1">{{ __('Week (maandag)') }}</label>
                 @include('taxi::admin.transport_customers.partials.date-picker-input', [
                     'name' => 'week',
                     'value' => $weekStart->format('Y-m-d'),
                     'wrapperClass' => 'w-full',
-                    'placeholder' => 'Selecteer week',
+                    'placeholder' => __('Selecteer week'),
                 ])
             </div>
             <div>
-                <label class="text-sm text-secondary-foreground block mb-1">Abonnement</label>
+                <label class="text-sm text-secondary-foreground block mb-1">{{ __('Abonnement') }}</label>
                 <select name="contract_id" class="kt-select min-w-48">
-                    <option value="">Alle abonnementen</option>
+                    <option value="">{{ __('Alle abonnementen') }}</option>
                     @foreach($contracts as $contractOption)
                         <option value="{{ $contractOption->id }}" @selected($contractFilter == $contractOption->id)>{{ $contractOption->name }}</option>
                     @endforeach
                 </select>
             </div>
-            <button type="submit" class="kt-btn kt-btn-primary">Filteren</button>
+            <button type="submit" class="kt-btn kt-btn-primary">{{ __('Filteren') }}</button>
         </div>
     </form>
 
@@ -74,9 +74,9 @@
                     <div class="rounded border border-dashed border-warning/60 bg-warning/10 px-2 py-1 text-xs text-warning-foreground">
                         {{ $exception->name }}
                         @if($exception->transport_contract_id)
-                            <span class="text-muted-foreground">(abonnement)</span>
+                            <span class="text-muted-foreground">{{ __('(abonnement)') }}</span>
                         @else
-                            <span class="text-muted-foreground">(bedrijf)</span>
+                            <span class="text-muted-foreground">{{ __('(bedrijf)') }}</span>
                         @endif
                     </div>
                 @endforeach
@@ -87,14 +87,14 @@
                         $contract = $occurrence->contract;
                         $isGroup = $occurrence->occurrence_type === 'group' || $ride?->ride_type === 'contract_group';
                         $title = $isGroup
-                            ? ($occurrence->routeTemplate?->group?->name ?? 'Groepsrit')
-                            : ($occurrence->individualBooking?->passenger?->full_name ?? 'Individuele rit');
+                            ? ($occurrence->routeTemplate?->group?->name ?? __('Groepsrit'))
+                            : ($occurrence->individualBooking?->passenger?->full_name ?? __('Individuele rit'));
                         $status = $ride?->status ?? $occurrence->status;
                         $statusLabel = match($status) {
-                            'completed' => 'Voltooid',
-                            'assigned' => 'Onderweg',
-                            'accepted' => 'Gepland',
-                            'cancelled' => 'Geannuleerd',
+                            'completed' => __('Voltooid'),
+                            'assigned' => __('Onderweg'),
+                            'accepted' => __('Gepland'),
+                            'cancelled' => __('Geannuleerd'),
                             default => ucfirst((string) $status),
                         };
                         $cardStyle = $contract ? $contract->planningCardStyle() : 'background-color: rgba(148, 163, 184, 0.16); border-color: rgba(148, 163, 184, 0.55);';
@@ -106,7 +106,7 @@
                             : '';
                         $vehicleLabel = $vehicleLabel !== '' ? $vehicleLabel : '—';
                         $dateLabel = $occurrence->scheduled_date
-                            ? $occurrence->scheduled_date->locale('nl')->translatedFormat('l d F Y')
+                            ? $occurrence->scheduled_date->locale(app()->getLocale())->translatedFormat('l d F Y')
                             : $day['label'];
                         $timeLabel = $occurrence->scheduled_at
                             ? $occurrence->scheduled_at->format('H:i')
@@ -116,8 +116,8 @@
                             ->values()
                             ->map(function ($stop) {
                                 $typeLabel = match ($stop->stop_type) {
-                                    'pickup' => 'Ophalen',
-                                    'dropoff', 'destination' => 'Afzetten',
+                                    'pickup' => __('Ophalen'),
+                                    'dropoff', 'destination' => __('Afzetten'),
                                     default => ucfirst((string) $stop->stop_type),
                                 };
                                 $planned = $stop->planned_at ? $stop->planned_at->format('H:i') : null;
@@ -136,7 +136,7 @@
                         $planningOccurrenceDetails[(string) $occurrence->id] = [
                             'title' => $title,
                             'contract' => $contract?->name,
-                            'type' => $isGroup ? 'Groepsrit' : 'Individuele rit',
+                            'type' => $isGroup ? __('Groepsrit') : __('Individuele rit'),
                             'date' => $dateLabel,
                             'time' => $timeLabel,
                             'status' => $statusLabel,
@@ -159,13 +159,13 @@
                         @endif
                         <div class="font-medium text-foreground">{{ $title }}</div>
                         <div class="text-muted-foreground">
-                            {{ $isGroup ? 'Groep' : 'Individueel' }}
+                            {{ $isGroup ? __('Groep') : __('Individueel') }}
                             @if($occurrence->scheduled_at)
                                 · {{ $occurrence->scheduled_at->format('H:i') }}
                             @endif
                         </div>
                         <div class="text-muted-foreground">
-                            Chauffeur: {{ $driverName !== '' ? $driverName : '—' }}
+                            {{ __('Chauffeur: :name', ['name' => $driverName !== '' ? $driverName : '—']) }}
                         </div>
                         <div class="pt-1">
                             <span class="kt-badge kt-badge-sm {{ $status === 'completed' ? 'kt-badge-success' : 'kt-badge-light' }}">{{ $statusLabel }}</span>
@@ -173,7 +173,7 @@
                     </button>
                 @empty
                     @if($day['exceptions']->isEmpty())
-                        <p class="text-xs text-muted-foreground">Geen ritten</p>
+                        <p class="text-xs text-muted-foreground">{{ __('Geen ritten') }}</p>
                     @endif
                 @endforelse
             </div>
@@ -200,48 +200,48 @@
             <button type="button"
                     class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0"
                     data-planning-modal-close
-                    aria-label="Sluiten">
+                    aria-label="{{ __('Sluiten') }}">
                 <i class="ki-filled ki-cross"></i>
             </button>
         </div>
         <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Datum</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Datum') }}</div>
                     <div class="font-medium text-foreground" data-planning-modal-date></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Tijd</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Tijd') }}</div>
                     <div class="font-medium text-foreground" data-planning-modal-time></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Type</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Type') }}</div>
                     <div class="font-medium text-foreground" data-planning-modal-type></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Status</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Status') }}</div>
                     <div><span class="kt-badge kt-badge-sm kt-badge-light" data-planning-modal-status></span></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Chauffeur</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Chauffeur') }}</div>
                     <div class="font-medium text-foreground" data-planning-modal-driver></div>
                 </div>
                 <div>
-                    <div class="text-xs text-muted-foreground mb-0.5">Voertuig</div>
+                    <div class="text-xs text-muted-foreground mb-0.5">{{ __('Voertuig') }}</div>
                     <div class="font-medium text-foreground" data-planning-modal-vehicle></div>
                 </div>
             </div>
 
             <div>
-                <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">Stops</div>
+                <div class="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">{{ __('Stops') }}</div>
                 <div class="space-y-2" data-planning-modal-stops>
-                    <p class="text-sm text-muted-foreground mb-0">Geen stops beschikbaar.</p>
+                    <p class="text-sm text-muted-foreground mb-0">{{ __('Geen stops beschikbaar.') }}</p>
                 </div>
             </div>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-input px-5 py-3 shrink-0">
-            <button type="button" class="kt-btn kt-btn-outline" data-planning-modal-close>Sluiten</button>
-            <a href="#" class="kt-btn kt-btn-primary hidden" data-planning-modal-detail>Rit openen</a>
+            <button type="button" class="kt-btn kt-btn-outline" data-planning-modal-close>{{ __('Sluiten') }}</button>
+            <a href="#" class="kt-btn kt-btn-primary hidden" data-planning-modal-detail>{{ __('Rit openen') }}</a>
         </div>
     </div>
 </div>
@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function openModal(detail) {
         lastFocus = document.activeElement;
         detail = detail || {};
-        titleEl.textContent = detail.title || 'Planning';
+        titleEl.textContent = detail.title || @json(__('Planning'));
         contractEl.textContent = detail.contract || '';
         contractEl.classList.toggle('hidden', !detail.contract);
         dateEl.textContent = detail.date || '—';
@@ -302,12 +302,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var stops = Array.isArray(detail.stops) ? detail.stops : [];
         if (!stops.length) {
-            stopsEl.innerHTML = '<p class="text-sm text-muted-foreground mb-0">Geen stops beschikbaar.</p>';
+            stopsEl.innerHTML = '<p class="text-sm text-muted-foreground mb-0">' + escapeHtml(@json(__('Geen stops beschikbaar.'))) + '</p>';
         } else {
             stopsEl.innerHTML = stops.map(function (stop) {
                 return '<div class="rounded-lg border border-input px-3 py-2 text-sm">'
                     + '<div class="flex flex-wrap items-center justify-between gap-2">'
-                    + '<span class="font-medium text-foreground">' + escapeHtml(stop.type || 'Stop') + '</span>'
+                    + '<span class="font-medium text-foreground">' + escapeHtml(stop.type || @json(__('Stop'))) + '</span>'
                     + (stop.time ? '<span class="text-xs text-muted-foreground tabular-nums">' + escapeHtml(stop.time) + '</span>' : '')
                     + '</div>'
                     + (stop.name ? '<div class="text-foreground mt-0.5">' + escapeHtml(stop.name) + '</div>' : '')

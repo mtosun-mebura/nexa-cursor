@@ -17,6 +17,9 @@ class CustomerLoginCode extends Model
 
     public const PURPOSE_ADMIN = 'admin';
 
+    /** Bevestigingscode voor gevoelige acties (bijv. bankrekening wijzigen) zonder wachtwoord. */
+    public const PURPOSE_ADMIN_STEP_UP = 'admin_step_up';
+
     protected $fillable = [
         'user_id',
         'purpose',

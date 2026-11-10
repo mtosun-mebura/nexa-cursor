@@ -24,11 +24,11 @@ class AdminCompanyConfigAccessController extends Controller
     public function update(Request $request, Company $company): RedirectResponse
     {
         if (! auth()->user()?->isSuperAdmin()) {
-            abort(403, 'Alleen een super-admin kan configuratie-toegang beheren.');
+            abort(403, __('Alleen een super-admin kan configuratie-toegang beheren.'));
         }
 
         if (! $this->canAccessResource($company)) {
-            abort(403, 'Je hebt geen toegang tot dit bedrijf.');
+            abort(403, __('Je hebt geen toegang tot dit bedrijf.'));
         }
 
         $validKeys = TenantConfigCapability::keys();
@@ -60,11 +60,11 @@ class AdminCompanyConfigAccessController extends Controller
 
         $redirect = $request->input('redirect_to');
         if (is_string($redirect) && $redirect !== '' && str_starts_with($redirect, '/')) {
-            return redirect($redirect)->with('success', 'Configuratie-toegang opgeslagen.');
+            return redirect($redirect)->with('success', __('Configuratie-toegang opgeslagen.'));
         }
 
         return redirect()
             ->route('admin.companies.show', $company)
-            ->with('success', 'Configuratie-toegang opgeslagen.');
+            ->with('success', __('Configuratie-toegang opgeslagen.'));
     }
 }

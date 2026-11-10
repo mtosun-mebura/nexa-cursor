@@ -121,4 +121,7 @@ services:
 
 volumes:
   nexa_postgres_data:
-    name: ${COMPOSE_PROJECT_NAME:-nexa}_postgres_data
+    # Vaste naam: NOOIT aan COMPOSE_PROJECT_NAME koppelen.
+    # Coolify wisselt soms de projectnaam; dan ontstaat een leeg volume en lijken
+    # alle wachtwoorden “gereset” (nieuwe DB + bootstrap-default).
+    name: nexa_postgres_data

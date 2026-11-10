@@ -47,9 +47,13 @@ class TaxiPickupProposalService
                 throw ValidationException::withMessages(['ride' => ['Alleen geaccepteerde ritten kunnen een nieuw tijdstip krijgen.']]);
             }
 
-            if ($ride->isContractRide()) {
-                throw ValidationException::withMessages(['ride' => ['Contractritten gebruiken geen ophaalvoorstel.']]);
-            }
+        if ($ride->isContractRide()) {
+            throw ValidationException::withMessages(['ride' => ['Contractritten gebruiken geen ophaalvoorstel.']]);
+        }
+
+        if ($ride->canStartWithoutPickupProposal()) {
+            throw ValidationException::withMessages(['ride' => ['Marktplaatsritten gebruiken geen ophaalvoorstel.']]);
+        }
 
             $instant = Carbon::parse($pickupAtIso);
             if ($instant->lte(now())) {
@@ -82,6 +86,19 @@ class TaxiPickupProposalService
 
     public function sendProposalWhatsapp(string $conn, RideRequest $ride, ?User $driver = null): bool
     {
+        if ($ride->isNexaSuiteBooking()) {
+            $this->logProposal(
+                $conn,
+                (int) $ride->id,
+                RideRequestNotificationLog::STATUS_SKIPPED,
+                trim((string) ($ride->customer_phone ?? '')) ?: null,
+                $driver?->id,
+                'Marktplaats-rit: ophaalvoorstel gaat via de app, niet via WhatsApp.'
+            );
+
+            return false;
+        }
+
         $companyId = (int) ($ride->company_id ?? 0);
         $settingsCompanyId = $companyId > 0 ? $companyId : null;
         $phone = trim((string) ($ride->customer_phone ?? ''));

@@ -1,0 +1,94 @@
+@php
+    $stopTypeLabels = [
+        \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_PICKUP => ['Ophalen', 'kt-badge-light'],
+        \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_DROPOFF => ['Afzetten', 'kt-badge-primary'],
+        \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_DESTINATION => ['Bestemming', 'kt-badge-success'],
+    ];
+    $firstPickup = $returnRouteStops->firstWhere('stop_type', \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_PICKUP);
+    $lastStop = $returnRouteStops->last();
+    $pickupCount = $returnRouteStops->where('stop_type', \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_PICKUP)->count();
+    $returnStopCount = $returnRouteStops->count();
+    $returnCollapseId = 'route-stops-return-'.($returnRouteTemplate->id ?? '0');
+@endphp
+
+<div class="px-3 sm:px-5 pb-3 min-w-0">
+    <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground w-full">
+        <tr>
+            <td class="min-w-56 text-secondary-foreground font-medium">{{ __('Passagiers op route') }}</td>
+            <td>{{ __(':count ophaalstop(s) bij school', ['count' => $pickupCount]) }}</td>
+        </tr>
+        <tr>
+            <td class="text-secondary-foreground font-medium">{{ __('Ophalen school') }}</td>
+            <td>
+                @if($firstPickup)
+                    {{ substr((string) $firstPickup->planned_at_time, 0, 5) }}
+                    <span class="text-muted-foreground">· {{ Str::limit($firstPickup->address, 55) }}</span>
+                @else
+                    —
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <td class="text-secondary-foreground font-medium">{{ __('Laatste afzet') }}</td>
+            <td>
+                @if($lastStop)
+                    {{ substr((string) $lastStop->planned_at_time, 0, 5) }}
+                    <span class="text-muted-foreground">· {{ Str::limit($lastStop->address, 55) }}</span>
+                @else
+                    —
+                @endif
+            </td>
+        </tr>
+        @if($group->return_pickup_time)
+        <tr>
+            <td class="text-secondary-foreground font-medium">{{ __('Instaptijd') }}</td>
+            <td>{{ __('+:minutes min na ophalen', ['minutes' => (int) ($group->return_boarding_delay_minutes ?? 15)]) }}</td>
+        </tr>
+        @endif
+    </table>
+</div>
+
+@if($returnRouteStops->isNotEmpty())
+<div class="route-stops-collapse border-t border-input" data-route-stops-collapse data-leg="terug">
+    <button type="button"
+            class="route-stops-collapse__toggle"
+            data-route-stops-toggle
+            aria-expanded="false"
+            aria-controls="{{ $returnCollapseId }}">
+        <span>
+            <span data-route-stops-label-closed>{{ __('Stops tonen (:count)', ['count' => $returnStopCount]) }}</span>
+            <span data-route-stops-label-open class="hidden">{{ __('Stops verbergen') }}</span>
+        </span>
+        <i class="ki-filled ki-down route-stops-collapse__chevron" aria-hidden="true"></i>
+    </button>
+    <div id="{{ $returnCollapseId }}" class="route-stops-collapse__panel hidden" data-route-stops-panel hidden>
+        <div class="kt-scrollable-x-auto admin-table-scroll-wrap">
+            <table class="kt-table kt-table-border admin-fluid-table align-middle text-sm w-full">
+                <thead>
+                    <tr>
+                        <th class="w-12">#</th>
+                        <th>{{ __('Type') }}</th>
+                        <th>{{ __('Passagier') }}</th>
+                        <th>{{ __('Adres') }}</th>
+                        <th>{{ __('Tijd') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($returnRouteStops as $index => $stop)
+                        @php
+                            $typeMeta = $stopTypeLabels[$stop->stop_type] ?? ['Stop', 'kt-badge-secondary'];
+                        @endphp
+                        <tr @class(['route-stop-destination-row' => $stop->stop_type === \App\Modules\NexaTaxi\Models\TransportRouteStop::STOP_TYPE_DESTINATION])>
+                            <td class="text-muted-foreground">{{ $index + 1 }}</td>
+                            <td><span class="kt-badge {{ $typeMeta[1] }} kt-badge-sm">{{ __($typeMeta[0]) }}</span></td>
+                            <td class="font-medium">{{ $stop->passenger?->full_name ?? '—' }}</td>
+                            <td class="text-muted-foreground">{{ Str::limit($stop->address, 55) }}</td>
+                            <td class="font-medium">{{ substr((string) $stop->planned_at_time, 0, 5) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@endif

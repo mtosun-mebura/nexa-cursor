@@ -3,14 +3,23 @@
 namespace Tests\Unit;
 
 use App\Modules\NexaTaxi\Support\ContractPortalNavigationRoute;
+use Carbon\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ContractPortalNavigationRouteTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     #[Test]
     public function it_uses_each_client_pickup_as_a_waypoint_then_shared_destination(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 07:05:00', 'Europe/Amsterdam'));
+
         $route = ContractPortalNavigationRoute::fromDayItems([
             [
                 'name' => 'Emma Jansen',
@@ -57,7 +66,9 @@ class ContractPortalNavigationRouteTest extends TestCase
         ]);
 
         $this->assertSame('heen', $route['leg_key']);
-        $this->assertSame('Heen', $route['leg_label']);
+        $this->assertSame('Heenweg', $route['leg_label']);
+        $this->assertSame('Doel', $route['hub_label']);
+        $this->assertSame('Schoolplein 4, Utrecht', $route['hub_address']);
         $this->assertCount(3, $route['stops']);
         $this->assertSame('pickup', $route['stops'][0]['kind']);
         $this->assertSame('Ophalen', $route['stops'][0]['label']);
@@ -71,6 +82,8 @@ class ContractPortalNavigationRouteTest extends TestCase
     #[Test]
     public function it_skips_absent_and_already_picked_up_clients(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 07:15:00', 'Europe/Amsterdam'));
+
         $route = ContractPortalNavigationRoute::fromDayItems([
             [
                 'name' => 'Afwezig',
@@ -127,6 +140,8 @@ class ContractPortalNavigationRouteTest extends TestCase
     #[Test]
     public function it_uses_retour_wave_when_morning_is_done(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 14:00:00', 'Europe/Amsterdam'));
+
         $route = ContractPortalNavigationRoute::fromDayItems([
             [
                 'name' => 'Emma',
@@ -142,7 +157,7 @@ class ContractPortalNavigationRouteTest extends TestCase
                     ],
                     [
                         'leg_key' => 'retour',
-                        'leg_label' => 'Retour',
+                        'leg_label' => 'Terug',
                         'status_key' => 'planned',
                         'picked_up' => false,
                         'pickup_address' => 'School',
@@ -159,8 +174,116 @@ class ContractPortalNavigationRouteTest extends TestCase
     }
 
     #[Test]
+    public function it_uses_retour_wave_when_morning_is_only_expired(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 14:00:00', 'Europe/Amsterdam'));
+
+        $route = ContractPortalNavigationRoute::fromDayItems([
+            [
+                'name' => 'Emma',
+                'status_key' => 'expired',
+                'legs' => [
+                    [
+                        'leg_key' => 'heen',
+                        'leg_label' => 'Heen',
+                        'status_key' => 'expired',
+                        'picked_up' => false,
+                        'pickup_address' => 'Thuis',
+                        'destination_address' => 'School',
+                        'planned_at' => '2026-08-29T07:10:00+02:00',
+                    ],
+                    [
+                        'leg_key' => 'retour',
+                        'leg_label' => 'Terug',
+                        'status_key' => 'planned',
+                        'picked_up' => false,
+                        'pickup_address' => 'Schoolplein 4',
+                        'destination_address' => 'Thuis Emma',
+                        'planned_at' => '2026-08-29T15:10:00+02:00',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('retour', $route['leg_key']);
+        $this->assertSame('Terugweg', $route['leg_label']);
+        $this->assertSame('Ophalen vanaf', $route['hub_label']);
+        $this->assertSame('Schoolplein 4', $route['hub_address']);
+        $this->assertSame('Schoolplein 4', $route['stops'][0]['address']);
+        $this->assertSame('Thuis Emma', $route['stops'][1]['address']);
+    }
+
+    #[Test]
+    public function it_hides_past_heenweg_even_when_still_marked_planned(): void
+    {
+        // Ochtendrit om 07:10, nu 15:46 — grace (90 min) allang voorbij.
+        Carbon::setTestNow(Carbon::parse('2026-08-29 15:46:00', 'Europe/Amsterdam'));
+
+        $route = ContractPortalNavigationRoute::fromDayItems([
+            [
+                'name' => 'Emma',
+                'status_key' => 'planned',
+                'legs' => [
+                    [
+                        'leg_key' => 'heen',
+                        'leg_label' => 'Heenweg',
+                        'status_key' => 'planned',
+                        'picked_up' => false,
+                        'pickup_address' => 'Thuis Emma',
+                        'destination_address' => 'Schoolplein 4',
+                        'planned_at' => '2026-08-29T07:10:00+02:00',
+                    ],
+                    [
+                        'leg_key' => 'retour',
+                        'leg_label' => 'Terugweg',
+                        'status_key' => 'planned',
+                        'picked_up' => false,
+                        'pickup_address' => 'Schoolplein 4',
+                        'destination_address' => 'Thuis Emma',
+                        'planned_at' => '2026-08-29T15:30:00+02:00',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('retour', $route['leg_key']);
+        $this->assertSame('Terugweg', $route['leg_label']);
+        $this->assertSame('Schoolplein 4', $route['stops'][0]['address']);
+        $this->assertSame('Thuis Emma', $route['stops'][1]['address']);
+    }
+
+    #[Test]
+    public function it_shows_empty_navigation_when_only_past_heenweg_remains(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 15:46:00', 'Europe/Amsterdam'));
+
+        $route = ContractPortalNavigationRoute::fromDayItems([
+            [
+                'name' => 'Emma',
+                'status_key' => 'planned',
+                'legs' => [
+                    [
+                        'leg_key' => 'heen',
+                        'leg_label' => 'Heenweg',
+                        'status_key' => 'planned',
+                        'picked_up' => false,
+                        'pickup_address' => 'Thuis Emma',
+                        'destination_address' => 'Schoolplein 4',
+                        'planned_at' => '2026-08-29T07:10:00+02:00',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertNull($route['leg_key']);
+        $this->assertSame([], $route['stops']);
+    }
+
+    #[Test]
     public function it_falls_back_to_client_pickups_when_there_is_no_ride_today(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-08-29 10:00:00', 'Europe/Amsterdam'));
+
         $route = ContractPortalNavigationRoute::fromDayItems([
             [
                 'name' => 'Mehmet',

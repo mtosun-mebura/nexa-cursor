@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\NexaSuiteMarketplaceSetting;
 use App\Models\PlatformBillingSetting;
 use App\Services\PlatformBilling\PlatformMollieService;
-use Illuminate\Support\Facades\URL;
 use RuntimeException;
 
 /**
@@ -57,7 +56,7 @@ class NexaSuiteMollieService
             return $override;
         }
 
-        $url = URL::to('/api/taxi/webhooks/mollie');
+        $url = app(NexaSuitePublicHost::class)->withPublicHost('/api/taxi/webhooks/mollie');
         if (! app(PaymentProviderService::class)->isMollieReachableWebhookUrl($url)) {
             return null;
         }

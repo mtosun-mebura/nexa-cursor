@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'E-mail rit geaccepteerd')
+@section('title', __('E-mail rit geaccepteerd'))
 
 @section('content')
 <style>
@@ -15,9 +15,9 @@
 </style>
 <div class="kt-container-fixed min-w-0">
     <div class="flex flex-wrap items-center justify-between gap-3 pb-7.5">
-        <h1 class="text-xl font-medium leading-none text-mono">E-mail: rit geaccepteerd</h1>
+        <h1 class="text-xl font-medium leading-none text-mono">{{ __('E-mail: rit geaccepteerd') }}</h1>
         <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline shrink-0">
-            <i class="ki-filled ki-arrow-left me-2"></i>Terug naar dispatch
+            <i class="ki-filled ki-arrow-left me-2"></i>{{ __('Terug naar dispatch') }}
         </a>
     </div>
 
@@ -29,8 +29,7 @@
 
     @if($usesGlobalFallback && $companyId)
         <div class="kt-alert kt-alert-info mb-5">
-            Je bewerkt nu de <strong>standaardtekst</strong>. Na opslaan wordt een <strong>eigen versie voor dit bedrijf</strong> aangemaakt;
-            die wordt gebruikt voor klanten van deze tenant.
+            {!! __('Je bewerkt nu de :default. Na opslaan wordt een :own aangemaakt; die wordt gebruikt voor klanten van deze tenant.', ['default' => '<strong>'.e(__('standaardtekst')).'</strong>', 'own' => '<strong>'.e(__('eigen versie voor dit bedrijf')).'</strong>']) !!}
         </div>
     @endif
 
@@ -41,20 +40,20 @@
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title mb-0">Onderwerp</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Onderwerp') }}</h3>
             </div>
             <div class="kt-card-content px-3 sm:px-5">
                 <input type="text" name="subject" class="kt-input w-full @error('subject') border-destructive @enderror"
                        value="{{ old('subject', $template->subject) }}" required>
                 @error('subject')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
-                <p class="text-xs text-muted-foreground mt-2">Bijv. <code>Uw taxirit is geaccepteerd – {{ '{' }}{{ '{' }} COMPANY_NAME {{ '}' }}{{ '}' }}</code></p>
+                <p class="text-xs text-muted-foreground mt-2">{{ __('Bijv.') }} <code>{{ __('Uw taxirit is geaccepteerd –') }} {{ '{' }}{{ '{' }} COMPANY_NAME {{ '}' }}{{ '}' }}</code></p>
             </div>
         </div>
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header flex-wrap gap-2">
-                <h3 class="kt-card-title mb-0">HTML-inhoud</h3>
-                <p class="text-xs text-muted-foreground mb-0 w-full">Wordt verstuurd naar de klant wanneer een chauffeur de rit accepteert (e-mail aan staat bij dispatch).</p>
+                <h3 class="kt-card-title mb-0">{{ __('HTML-inhoud') }}</h3>
+                <p class="text-xs text-muted-foreground mb-0 w-full">{{ __('Wordt verstuurd naar de klant wanneer een chauffeur de rit accepteert (e-mail aan staat bij dispatch).') }}</p>
             </div>
             <div class="kt-card-content px-3 sm:px-5">
                 <textarea name="html_content" id="html_content" class="kt-input w-full font-mono text-sm @error('html_content') border-destructive @enderror"
@@ -65,42 +64,42 @@
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title mb-0">Platte tekst (optioneel)</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Platte tekst (optioneel)') }}</h3>
             </div>
             <div class="kt-card-content px-3 sm:px-5">
                 <textarea name="text_content" class="kt-input w-full font-mono text-sm dispatch-customer-email-plain-text @error('text_content') border-destructive @enderror"
                           rows="14" wrap="soft">{{ old('text_content', $template->text_content) }}</textarea>
                 @error('text_content')<div class="text-xs text-destructive mt-1">{{ $message }}</div>@enderror
-                <p class="text-xs text-muted-foreground mt-2">Fallback voor e-mailclients zonder HTML. Leeg = afgeleid van HTML.</p>
+                <p class="text-xs text-muted-foreground mt-2">{{ __('Fallback voor e-mailclients zonder HTML. Leeg = afgeleid van HTML.') }}</p>
             </div>
         </div>
 
         <div class="kt-card w-full min-w-0">
             <div class="kt-card-header">
-                <h3 class="kt-card-title mb-0">Beschikbare variabelen</h3>
+                <h3 class="kt-card-title mb-0">{{ __('Beschikbare variabelen') }}</h3>
             </div>
             <div class="kt-card-content px-3 sm:px-5">
                 <div class="grid gap-2 sm:grid-cols-2">
                     @foreach($variableLabels as $key => $label)
                         <div class="flex items-start gap-2 text-sm">
                             <code class="shrink-0 px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{{ '{' }}{{ '{' }} {{ $key }} {{ '}' }}{{ '}' }}</code>
-                            <span class="text-muted-foreground">{{ $label }}</span>
+                            <span class="text-muted-foreground">{{ __($label) }}</span>
                         </div>
                     @endforeach
                 </div>
                 @if($canEditEmailTemplatesModule && (! $usesGlobalFallback || auth()->user()->hasRole('super-admin')))
                     <p class="text-xs text-muted-foreground mt-4 mb-0">
-                        Geavanceerd beheer (testmail, ontvanger):
-                        <a href="{{ route('admin.email-templates.edit', $template) }}" class="text-primary underline">E-mail templates-module</a>
+                        {{ __('Geavanceerd beheer (testmail, ontvanger):') }}
+                        <a href="{{ route('admin.email-templates.edit', $template) }}" class="text-primary underline">{{ __('E-mail templates-module') }}</a>
                     </p>
                 @endif
             </div>
         </div>
 
         <div class="admin-form-actions flex flex-wrap items-center justify-end gap-2.5 w-full min-w-0">
-            <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline">Annuleren</a>
+            <a href="{{ $dispatchSettingsUrl }}" class="kt-btn kt-btn-outline">{{ __('Annuleren') }}</a>
             <button type="submit" class="kt-btn kt-btn-primary">
-                <i class="ki-filled ki-check me-2"></i>Opslaan
+                <i class="ki-filled ki-check me-2"></i>{{ __('Opslaan') }}
             </button>
         </div>
     </form>

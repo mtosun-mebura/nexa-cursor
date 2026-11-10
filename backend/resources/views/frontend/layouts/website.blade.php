@@ -22,7 +22,7 @@
             $branding['site_description'] ?? null,
             $seoBrandName,
         );
-        $seoCanonical = url()->current();
+        $seoCanonical = \App\Support\WebsiteSeoMeta::canonicalUrl();
         $seoRobots = ! empty($seoNoindex) ? 'noindex, nofollow' : 'index, follow';
     @endphp
     <title>{{ $seoPageTitle }}</title>
@@ -694,8 +694,11 @@
                         <a href="{{ $url }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ $isActive ? 'opacity-100 font-semibold' : '' }}" style="{{ $isActive ? 'color: var(--theme-primary);' : '' }}">{{ $menuPage->publicNavLabel() }}</a>
                     @empty
                         {{-- Fallback als er geen menu-pagina's uit de database komen --}}
+                        @php $fallbackAboutUrl = app(\App\Services\WebsiteBuilderService::class)->publicAboutUrl(); @endphp
                         <a href="{{ route('home') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('home') && !request()->routeIs('home.*') ? 'color: var(--theme-primary);' : '' }}">Home</a>
-                        <a href="{{ route('about') }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->routeIs('about') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->routeIs('about') ? 'color: var(--theme-primary);' : '' }}">Over ons</a>
+                        @if($fallbackAboutUrl)
+                        <a href="{{ $fallbackAboutUrl }}" class="text-gray-900 dark:text-gray-100 hover:opacity-90 px-3 py-2 rounded-md text-base font-medium transition-colors {{ request()->is('about', 'over-ons') ? 'opacity-100 font-semibold' : '' }}" style="{{ request()->is('about', 'over-ons') ? 'color: var(--theme-primary);' : '' }}">Over ons</a>
+                        @endif
                     @endforelse
                     {{-- App-links (alleen wanneer Nexa Skillmatching actief is): Dashboard, Vacatures, Matches, Agenda --}}
                     @auth
@@ -770,8 +773,11 @@
                     @endphp
                     <a href="{{ $url }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">{{ $menuPage->publicNavLabel() }}</a>
                 @empty
+                    @php $fallbackAboutUrlMobile = app(\App\Services\WebsiteBuilderService::class)->publicAboutUrl(); @endphp
                     <a href="{{ route('home') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Home</a>
-                    <a href="{{ route('about') }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Over ons</a>
+                    @if($fallbackAboutUrlMobile)
+                    <a href="{{ $fallbackAboutUrlMobile }}" class="block px-4 py-3 rounded-lg text-base text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">Over ons</a>
+                    @endif
                 @endforelse
                 @auth
                 @if($showSkillmatchingAppLinks ?? false)

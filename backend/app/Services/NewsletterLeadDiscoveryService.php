@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\NewsletterProspect;
+use App\Models\TaxiProspectSource;
+use App\Services\TaxiPartnerFinder\TaxiProspectCandidate;
 use App\Services\CompanySearch\CompanySearchData;
 use App\Services\CompanySearch\ContactNameParser;
 use App\Services\CompanySearch\DomainService;
@@ -12,6 +14,7 @@ use App\Services\CompanySearch\GooglePlacesCompanySearchService;
 use App\Services\CompanySearch\HunterService;
 use App\Services\CompanySearch\PhoneExtractorService;
 use App\Services\CompanySearch\WebsiteCrawlerService;
+use App\Services\TaxiPartnerFinder\TaxiProspectUpsertService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -26,6 +29,7 @@ class NewsletterLeadDiscoveryService
         protected PhoneExtractorService $phones,
         protected DomainService $domains,
         protected ContactNameParser $contactNames,
+        protected TaxiProspectUpsertService $taxiProspects,
     ) {}
 
     /**
@@ -145,6 +149,7 @@ class NewsletterLeadDiscoveryService
                 'status' => NewsletterProspect::STATUS_SUBSCRIBED,
                 'notes' => $candidate['snippet'] ?? null,
             ]);
+            $this->mirrorTaxiProspect($prospect, $candidate, $placeId);
             $saved[] = $prospect;
             $created++;
             $report('enriching', count($candidates), $created, $skipped);
@@ -786,5 +791,47 @@ class NewsletterLeadDiscoveryService
         }
 
         return $host === '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $candidate
+     */
+    private function mirrorTaxiProspect(NewsletterProspect $prospect, array $candidate, string $placeId): void
+    {
+        if (! (bool) config('taxi-partner-finder.enabled', true)) {
+            return;
+        }
+        if (! (bool) config('taxi-partner-finder.sources.google_places.enabled', true)) {
+            return;
+        }
+        $branch = mb_strtolower((string) $prospect->branch);
+        if (! str_contains($branch, 'taxi')) {
+            return;
+        }
+
+        try {
+            $this->taxiProspects->upsert(new TaxiProspectCandidate(
+                companyName: $prospect->company_name,
+                sourceType: TaxiProspectSource::TYPE_GOOGLE_PLACES,
+                externalReference: $placeId !== '' ? $placeId : ('newsletter:'.$prospect->id),
+                sourceUrl: $prospect->source_url,
+                street: $prospect->address,
+                city: $prospect->city,
+                province: $prospect->province,
+                phone: $prospect->phone,
+                email: $prospect->email,
+                website: $prospect->website,
+                googlePlaceId: $placeId !== '' ? $placeId : null,
+                confidenceScore: 50,
+                rawMetadata: [
+                    'google_place_id' => $placeId !== '' ? $placeId : null,
+                    'newsletter_prospect_id' => $prospect->id,
+                    'consulted_at' => now()->toIso8601String(),
+                    'note' => 'Place ID bewaard; duurzame gegevens komen uit eigen verrijking/KNV.',
+                ],
+            ));
+        } catch (\Throwable $e) {
+            Log::info('Taxi prospect mirror skipped', ['error' => $e->getMessage()]);
+        }
     }
 }

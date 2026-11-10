@@ -210,7 +210,7 @@ class AdminInvoiceController extends Controller
         ]);
 
         return redirect()->route('admin.invoices.show', $invoice)
-            ->with('success', 'Factuur aangemaakt');
+            ->with('success', __('Factuur aangemaakt'));
     }
 
     public function show(Request $request, Invoice $invoice)
@@ -350,7 +350,7 @@ class AdminInvoiceController extends Controller
         $invoice->update($validated);
 
         return redirect()->route('admin.invoices.show', $invoice->id)
-            ->with('success', 'Factuur succesvol bijgewerkt.');
+            ->with('success', __('Factuur succesvol bijgewerkt.'));
     }
 
     public function getMatchesForCompany(Request $request)
@@ -407,10 +407,10 @@ class AdminInvoiceController extends Controller
             return back()
                 ->withErrors($e->errors())
                 ->withInput()
-                ->with('error', collect($e->errors())->flatten()->first());
+                ->with('error', __(collect($e->errors())->flatten()->first()));
         }
 
-        return back()->with('success', 'Aanmaning verstuurd naar '.$reminder->sent_to_email);
+        return back()->with('success', __('Aanmaning verstuurd naar :email', ['email' => $reminder->sent_to_email]));
     }
 
     public function downloadPdf(Invoice $invoice, InvoicePdfService $pdfService): Response
@@ -421,7 +421,7 @@ class AdminInvoiceController extends Controller
             $result = $pdfService->generateAndStore($invoice->fresh());
             $bytes = $result['bytes'];
         } catch (\Throwable $e) {
-            abort(500, 'PDF kon niet worden gemaakt: '.$e->getMessage());
+            abort(500, __('PDF kon niet worden gemaakt: :message', ['message' => $e->getMessage()]));
         }
 
         $filename = 'factuur-'.preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoice->invoice_number).'.pdf';
@@ -443,19 +443,19 @@ class AdminInvoiceController extends Controller
                 'key' => 'tikkie',
                 'label' => 'Tikkie',
                 'url' => $invoice->getPaymentLink('tikkie'),
-                'hint' => 'Placeholder-link (nog geen Tikkie-koppeling)',
+                'hint' => __('Placeholder-link (nog geen Tikkie-koppeling)'),
             ],
             [
                 'key' => 'qr',
-                'label' => 'QR-betaling',
+                'label' => __('QR-betaling'),
                 'url' => $invoice->getPaymentLink('qr'),
-                'hint' => 'Generieke betaalpagina op dit platform',
+                'hint' => __('Generieke betaalpagina op dit platform'),
             ],
             [
                 'key' => 'bank',
-                'label' => 'Bankoverschrijving',
+                'label' => __('Bankoverschrijving'),
                 'url' => $invoice->getPaymentLink('bank'),
-                'hint' => 'Instructiepagina bankbetaling',
+                'hint' => __('Instructiepagina bankbetaling'),
             ],
         ];
 
@@ -463,9 +463,9 @@ class AdminInvoiceController extends Controller
         if ($mollie) {
             array_unshift($links, [
                 'key' => 'mollie',
-                'label' => 'Mollie (openstaande ritbetaling)',
+                'label' => __('Mollie (openstaande ritbetaling)'),
                 'url' => $mollie,
-                'hint' => 'Actieve betaallink van de taxirit',
+                'hint' => __('Actieve betaallink van de taxirit'),
             ]);
         }
 
@@ -635,13 +635,13 @@ class AdminInvoiceController extends Controller
         $redirectParams = $companyId > 0 ? ['company_id' => $companyId] : [];
 
         return redirect()->route('admin.invoices.settings', $redirectParams)
-            ->with('success', 'Factuurinstellingen bijgewerkt');
+            ->with('success', __('Factuurinstellingen bijgewerkt'));
     }
 
     protected function ensureInvoiceAdmin(): void
     {
         if (! auth()->user()->hasRole('super-admin')) {
-            abort(403, 'Alleen super-admin heeft toegang tot facturen.');
+            abort(403, __('Alleen super-admin heeft toegang tot facturen.'));
         }
     }
 
@@ -649,7 +649,7 @@ class AdminInvoiceController extends Controller
     {
         $this->ensureInvoiceAdmin();
         if (! $this->canAccessResource($invoice)) {
-            abort(403, 'Geen toegang tot deze factuur.');
+            abort(403, __('Geen toegang tot deze factuur.'));
         }
     }
 
@@ -657,7 +657,7 @@ class AdminInvoiceController extends Controller
     {
         $tenantId = $this->getTenantId();
         if ($tenantId && (int) $companyId !== (int) $tenantId) {
-            abort(403, 'Deze actie is niet toegestaan voor het geselecteerde bedrijf.');
+            abort(403, __('Deze actie is niet toegestaan voor het geselecteerde bedrijf.'));
         }
     }
 

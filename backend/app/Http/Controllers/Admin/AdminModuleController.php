@@ -87,7 +87,7 @@ class AdminModuleController extends Controller
     {
         if (Cache::has('module_installing_'.$moduleName)) {
             return redirect()->route('admin.modules.index')
-                ->with('info', "Module {$moduleName} wordt al geïnstalleerd. Vernieuw de pagina over een minuut.");
+                ->with('info', __('Module :name wordt al geïnstalleerd. Vernieuw de pagina over een minuut.', ['name' => $moduleName]));
         }
 
         if (config('queue.default') === 'sync') {
@@ -97,7 +97,7 @@ class AdminModuleController extends Controller
                 $this->moduleManager->installModule($moduleName);
 
                 return redirect()->route('admin.modules.index')
-                    ->with('success', "Module {$moduleName} succesvol geïnstalleerd");
+                    ->with('success', __('Module :name succesvol geïnstalleerd', ['name' => $moduleName]));
             } catch (\Throwable $e) {
                 Log::error('Module install failed: '.$moduleName, [
                     'message' => $e->getMessage(),
@@ -111,14 +111,14 @@ class AdminModuleController extends Controller
                 }
 
                 return redirect()->route('admin.modules.index')
-                    ->with('error', 'Fout bij installeren van '.$moduleName.': '.$message);
+                    ->with('error', __('Fout bij installeren van :name: :message', ['name' => $moduleName, 'message' => $message]));
             }
         }
 
         InstallModuleJob::dispatch($moduleName);
 
         return redirect()->route('admin.modules.index')
-            ->with('success', "Installatie van {$moduleName} is gestart. Dit duurt ongeveer een minuut. Vernieuw de pagina om de status te zien.");
+            ->with('success', __('Installatie van :name is gestart. Dit duurt ongeveer een minuut. Vernieuw de pagina om de status te zien.', ['name' => $moduleName]));
     }
 
     public function activate(string $moduleName)
@@ -127,10 +127,10 @@ class AdminModuleController extends Controller
             $this->moduleManager->activateModule($moduleName);
 
             return redirect()->route('admin.modules.index')
-                ->with('success', "Module {$moduleName} succesvol geactiveerd");
+                ->with('success', __('Module :name succesvol geactiveerd', ['name' => $moduleName]));
         } catch (\Exception $e) {
             return redirect()->route('admin.modules.index')
-                ->with('error', 'Fout bij activeren: '.$e->getMessage());
+                ->with('error', __('Fout bij activeren: :message', ['message' => $e->getMessage()]));
         }
     }
 
@@ -140,10 +140,10 @@ class AdminModuleController extends Controller
             $this->moduleManager->deactivateModule($moduleName);
 
             return redirect()->route('admin.modules.index')
-                ->with('success', "Module {$moduleName} succesvol gedeactiveerd");
+                ->with('success', __('Module :name succesvol gedeactiveerd', ['name' => $moduleName]));
         } catch (\Exception $e) {
             return redirect()->route('admin.modules.index')
-                ->with('error', 'Fout bij deactiveren: '.$e->getMessage());
+                ->with('error', __('Fout bij deactiveren: :message', ['message' => $e->getMessage()]));
         }
     }
 
@@ -153,10 +153,10 @@ class AdminModuleController extends Controller
             $this->moduleManager->uninstallModule($moduleName);
 
             return redirect()->route('admin.modules.index')
-                ->with('success', "Module {$moduleName} succesvol verwijderd");
+                ->with('success', __('Module :name succesvol verwijderd', ['name' => $moduleName]));
         } catch (\Exception $e) {
             return redirect()->route('admin.modules.index')
-                ->with('error', 'Fout bij verwijderen: '.$e->getMessage());
+                ->with('error', __('Fout bij verwijderen: :message', ['message' => $e->getMessage()]));
         }
     }
 
@@ -167,12 +167,12 @@ class AdminModuleController extends Controller
     {
         $module = $this->moduleManager->loadModule($moduleName);
         if (! $module) {
-            return redirect()->route('admin.modules.index')->with('error', 'Module niet gevonden.');
+            return redirect()->route('admin.modules.index')->with('error', __('Module niet gevonden.'));
         }
 
         $moduleModel = ModuleModel::whereRaw('LOWER(name) = ?', [strtolower($moduleName)])->first();
         if (! $moduleModel || ! $moduleModel->installed) {
-            return redirect()->route('admin.modules.index')->with('error', 'Module is niet geïnstalleerd.');
+            return redirect()->route('admin.modules.index')->with('error', __('Module is niet geïnstalleerd.'));
         }
 
         $allItems = $module->registerMenuItems();
@@ -223,18 +223,18 @@ class AdminModuleController extends Controller
     {
         $module = $this->moduleManager->loadModule($moduleName);
         if (! $module) {
-            return redirect()->route('admin.modules.index')->with('error', 'Module niet gevonden.');
+            return redirect()->route('admin.modules.index')->with('error', __('Module niet gevonden.'));
         }
 
         $moduleModel = ModuleModel::whereRaw('LOWER(name) = ?', [strtolower($moduleName)])->first();
         if (! $moduleModel || ! $moduleModel->installed) {
-            return redirect()->route('admin.modules.index')->with('error', 'Module is niet geïnstalleerd.');
+            return redirect()->route('admin.modules.index')->with('error', __('Module is niet geïnstalleerd.'));
         }
 
         $companyId = $this->moduleConfigurationService->resolveCompanyId();
         if ($companyId === null) {
             return redirect()->route('admin.modules.config', $moduleModel->name)
-                ->with('error', 'Selecteer eerst een tenant in de zijbalk om module-instellingen op te slaan.');
+                ->with('error', __('Selecteer eerst een tenant in de zijbalk om module-instellingen op te slaan.'));
         }
 
         $allItems = $module->registerMenuItems();
@@ -272,7 +272,7 @@ class AdminModuleController extends Controller
         $this->moduleConfigurationService->saveTenantConfiguration($moduleModel, $companyId, $config);
 
         return redirect()->route('admin.modules.config', $moduleModel->name)
-            ->with('success', 'Module-configuratie voor deze tenant bijgewerkt.');
+            ->with('success', __('Module-configuratie voor deze tenant bijgewerkt.'));
     }
 
     /**
@@ -286,10 +286,10 @@ class AdminModuleController extends Controller
             $this->databaseResetService->resetAndRestoreSuperAdmin();
 
             return redirect()->route('admin.modules.index')
-                ->with('success', 'Database gereset. Alle tabellen zijn geleegd. Super admin m.tosun@mebura.nl is hersteld met alle rechten.');
+                ->with('success', __('Database gereset. Alle tabellen zijn geleegd. Super admin m.tosun@mebura.nl is hersteld met alle rechten.'));
         } catch (\Throwable $e) {
             return redirect()->route('admin.modules.index')
-                ->with('error', 'Database reset mislukt: '.$e->getMessage());
+                ->with('error', __('Database reset mislukt: :message', ['message' => $e->getMessage()]));
         }
     }
 
@@ -300,13 +300,13 @@ class AdminModuleController extends Controller
     {
         $module = $this->moduleManager->loadModule($moduleName);
         if (! $module) {
-            return redirect()->route('admin.modules.index')->with('error', 'Module niet gevonden.');
+            return redirect()->route('admin.modules.index')->with('error', __('Module niet gevonden.'));
         }
 
         $seeders = $module->getDummySeeders();
         if (empty($seeders)) {
             return redirect()->route('admin.modules.index')
-                ->with('success', "Module {$moduleName} heeft geen dummydata-seeders geconfigureerd.");
+                ->with('success', __('Module :name heeft geen dummydata-seeders geconfigureerd.', ['name' => $moduleName]));
         }
 
         $run = 0;
@@ -319,7 +319,7 @@ class AdminModuleController extends Controller
         }
 
         return redirect()->route('admin.modules.index')
-            ->with('success', "Dummydata voor {$moduleName} uitgevoerd ({$run} seeder(s)).");
+            ->with('success', __('Dummydata voor :name uitgevoerd (:count seeder(s)).', ['name' => $moduleName, 'count' => $run]));
     }
 
     /**
@@ -335,7 +335,7 @@ class AdminModuleController extends Controller
             }
 
             return redirect()->route('admin.modules.index')
-                ->with('success', "Migraties voor module «{$moduleName}» zijn uitgevoerd op de juiste database.");
+                ->with('success', __('Migraties voor module «:name» zijn uitgevoerd op de juiste database.', ['name' => $moduleName]));
         } catch (\Throwable $e) {
             Log::error('Module migrations re-run failed', [
                 'module' => $moduleName,
@@ -345,7 +345,7 @@ class AdminModuleController extends Controller
             ]);
 
             return redirect()->route('admin.modules.index')
-                ->with('error', 'Migraties mislukt: '.$e->getMessage());
+                ->with('error', __('Migraties mislukt: :message', ['message' => $e->getMessage()]));
         }
     }
 }

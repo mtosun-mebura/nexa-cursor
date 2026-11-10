@@ -44,7 +44,7 @@ class AdminMiddleware
 
             // For AJAX requests, return 401 status instead of redirect (client passes intended via window.location)
             if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
-                $relative = '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()]);
+                $relative = AdminReturnUrl::loginUrlWithIntended($request->fullUrl());
 
                 $message = 'Je sessie is verlopen. Log opnieuw in.';
 
@@ -59,7 +59,7 @@ class AdminMiddleware
             // Relatief pad i.p.v. route(): voorkomt absolute https://… URL’s terwijl Docker op :8000 geen TLS heeft
             // (anders ERR_CONNECTION_CLOSED in de browser).
             return new RedirectResponse(
-                '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()])
+                AdminReturnUrl::loginUrlWithIntended($request->fullUrl())
             );
         }
 
@@ -71,7 +71,7 @@ class AdminMiddleware
         }
         if (! $user) {
             return new RedirectResponse(
-                '/admin/meld/sessie-verlopen?'.http_build_query(['intended' => $request->fullUrl()])
+                AdminReturnUrl::loginUrlWithIntended($request->fullUrl())
             );
         }
         if ($user->company_id) {

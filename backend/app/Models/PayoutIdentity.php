@@ -36,6 +36,7 @@ class PayoutIdentity extends Model
         'provider_organization_id',
         'capability_status',
         'masked_destination',
+        'iban_encrypted',
         'verified_at',
         'disabled_at',
         'pending_provider_account_id',
@@ -46,9 +47,14 @@ class PayoutIdentity extends Model
         'provider_meta',
     ];
 
+    protected $hidden = [
+        'iban_encrypted',
+    ];
+
     protected function casts(): array
     {
         return [
+            'iban_encrypted' => 'encrypted',
             'verified_at' => 'datetime',
             'disabled_at' => 'datetime',
             'destination_change_requested_at' => 'datetime',
@@ -103,7 +109,7 @@ class PayoutIdentity extends Model
     public function safeMeta(): array
     {
         $meta = $this->provider_meta ?? [];
-        foreach (['api_key', 'card_number', 'cvc', 'iban', 'account_number', 'secret', 'access_token', 'refresh_token'] as $key) {
+        foreach (['api_key', 'card_number', 'cvc', 'iban', 'iban_encrypted', 'account_number', 'secret', 'access_token', 'refresh_token'] as $key) {
             unset($meta[$key]);
         }
 

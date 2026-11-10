@@ -512,7 +512,7 @@
             <!-- Chat Header with Back Button and Close Button -->
             <div class="flex items-center justify-between gap-2.5 text-sm text-mono font-semibold px-5 py-3.5 border-b border-border">
                 <div class="flex items-center gap-2.5">
-                    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost" onclick="showChatList()" title="Terug naar chat lijst">
+                    <button type="button" class="kt-btn kt-btn-icon kt-btn-sm kt-btn-ghost" onclick="showChatList()" title="{{ __('Terug naar chat lijst') }}">
                         <i class="ki-filled ki-arrow-left"></i>
                     </button>
                     <span>Chat</span>
@@ -596,7 +596,7 @@
                     <div class="absolute start-0 top-2/4 ms-2.5 size-[30px] -translate-y-2/4 rounded-full overflow-hidden">
                         <img alt="" class="size-[30px] rounded-full object-cover" id="chat_user_avatar" src="{{ auth()->user() && auth()->user()->photo_blob ? route('secure.photo', ['token' => auth()->user()->getPhotoToken()]) : asset('assets/media/avatars/300-2.png') }}">
                     </div>
-                    <textarea class="kt-input h-auto bg-transparent py-4 ps-12 pe-20 resize-none overflow-hidden" placeholder="Schrijf een bericht..." id="chat_message_input" rows="1"></textarea>
+                    <textarea class="kt-input h-auto bg-transparent py-4 ps-12 pe-20 resize-none overflow-hidden" placeholder="{{ __('Schrijf een bericht...') }}" id="chat_message_input" rows="1"></textarea>
                     <div class="absolute end-3 top-1/2 flex -translate-y-1/2 items-center gap-2.5">
                         <button class="kt-btn kt-btn-mono kt-btn-sm" type="button" id="chat_send_button" onclick="sendMessage()">
                             Verstuur

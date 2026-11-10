@@ -7,8 +7,9 @@ use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Support\Carbon;
 
 /**
- * Settlement gate: driver "complete" is only a completion claim.
- * Payable settlement requires an eligible outcome from this service.
+ * Settlement gate after a driver marks the ride completed.
+ * Paid, non-risk rides are eligible immediately and pay the driver out.
+ * High-risk rides stay in review. Incomplete payment is rejected.
  */
 class RideSettlementEligibilityService
 {
@@ -16,7 +17,8 @@ class RideSettlementEligibilityService
 
     public const HOLD_HOURS_DEFAULT = 24;
 
-    public const HOLD_HOURS_HIGH_RISK = 72;
+    /** Handmatige controle bij risico (geen 72u meer — chauffeur wil snel uitbetaling). */
+    public const HOLD_HOURS_HIGH_RISK = 6;
 
     public const DISTANCE_RATIO_MIN = 0.35;
 
@@ -24,7 +26,7 @@ class RideSettlementEligibilityService
 
     /**
      * Evaluate a fully completed ride and persist settlement fields.
-     * Never sets settlement_eligible immediately — hold first unless already past hold.
+     * Non-risk paid rides are eligible at once (no 24-hour hold).
      */
     public function evaluateAfterCompletion(string $conn, RideRequest $ride): RideRequest
     {
@@ -32,6 +34,10 @@ class RideSettlementEligibilityService
 
         $ride = RideRequest::on($conn)->whereKey($ride->id)->first() ?? $ride;
         if ($ride->status !== RideRequest::STATUS_COMPLETED) {
+            return $ride;
+        }
+
+        if ($ride->settlement_status === RideRequest::SETTLEMENT_SETTLED) {
             return $ride;
         }
 
@@ -66,14 +72,17 @@ class RideSettlementEligibilityService
         }
 
         $ride->forceFill([
-            'settlement_status' => RideRequest::SETTLEMENT_HOLD,
+            'settlement_status' => RideRequest::SETTLEMENT_ELIGIBLE,
             'settlement_risk_flags' => $flags,
             'settlement_evaluated_at' => now(),
-            'settlement_hold_until' => $holdUntil,
-            'settlement_eligible_at' => null,
+            'settlement_hold_until' => null,
+            'settlement_eligible_at' => now(),
         ])->save();
 
-        return $ride->fresh();
+        $fresh = $ride->fresh();
+        $this->enqueuePlatformSettlement($fresh);
+
+        return RideRequest::on($conn)->whereKey($ride->id)->first() ?? $fresh;
     }
 
     /**
@@ -139,9 +148,9 @@ class RideSettlementEligibilityService
             return;
         }
         try {
-            app(\App\Services\Payout\PlatformRideSettlementService::class)->ensureFromEligibleRide($ride);
+            app(\App\Services\Payout\DriverRidePayoutService::class)->payoutCompletedRide($ride);
         } catch (\Throwable) {
-            // Ledger is best-effort; cron syncEligibleRides catches stragglers.
+            // Ledger is best-effort; a later completion or cron retry picks it up.
         }
     }
 
@@ -270,6 +279,25 @@ class RideSettlementEligibilityService
             $flags[] = 'payment_incomplete';
         }
 
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $location = (string) data_get($payload, 'pickup_location_check.result', '');
+        if ($location === 'unknown') {
+            $flags[] = 'location_unknown_at_start';
+        }
+        if ($location === 'away') {
+            $flags[] = 'started_away_from_pickup';
+        }
+        $answer = (string) data_get($payload, 'pickup_confirmation.status', '');
+        if ($answer === 'confirmed') {
+            $flags[] = 'customer_confirmed_pickup';
+        }
+        if ($answer === 'denied') {
+            $flags[] = 'customer_denied_pickup';
+        }
+        if (! empty(data_get($payload, 'dropoff_location_check.away'))) {
+            $flags[] = 'completed_away_from_dropoff';
+        }
+
         return array_values(array_unique($flags));
     }
 
@@ -278,12 +306,25 @@ class RideSettlementEligibilityService
      */
     private function requiresManualReview(array $flags): bool
     {
-        return count(array_intersect($flags, [
+        if (count(array_intersect($flags, [
             'completed_too_soon',
             'distance_implausible',
             'cash_requires_verification',
             'payment_incomplete',
             'missing_trip_start',
+            'customer_denied_pickup',
+            'completed_away_from_dropoff',
+        ])) > 0) {
+            return true;
+        }
+
+        if (in_array('customer_confirmed_pickup', $flags, true)) {
+            return false;
+        }
+
+        return count(array_intersect($flags, [
+            'location_unknown_at_start',
+            'started_away_from_pickup',
         ])) > 0;
     }
 }

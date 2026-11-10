@@ -1,0 +1,321 @@
+import { apiRequest } from './client';
+import { resolveApiBaseUrl } from '../config';
+import { getLocale } from '../i18n';
+
+export type QuoteOffer = {
+  id: string;
+  price?: number;
+  price_label?: string;
+  label?: string;
+  title?: string;
+};
+
+export type QuoteResponse = {
+  success?: boolean;
+  offers: QuoteOffer[];
+  marketplace?: {
+    radius_km?: number;
+    candidate_count?: number;
+    taxi_available?: boolean;
+    unavailable_message?: string | null;
+    candidates?: Array<{ company_id: number; company_name: string; distance_km: number }>;
+  };
+  payment?: {
+    booking?: boolean;
+    mollie_configured?: boolean;
+    deferred_until_taxi?: boolean;
+  };
+  route?: {
+    distance_meters?: number;
+    duration_seconds?: number;
+  };
+};
+
+export type NearbyTaxi = {
+  id: string;
+  lat: number;
+  lng: number;
+  car_style?: string;
+  distance_km?: number | null;
+  busy?: boolean;
+  /** Graden met de klok mee vanaf het noorden. De voorkant van het icoon wijst omhoog. */
+  heading?: number | null;
+};
+
+export type RideStatusUpdate = {
+  event: string;
+  label: string;
+  at?: string | null;
+  channel?: string;
+};
+
+export type LiveRide = {
+  id: number;
+  status: string;
+  status_label: string;
+  phase: string;
+  trip_started?: boolean;
+  customer_event?: string | null;
+  accepted?: boolean;
+  can_cancel?: boolean;
+  needs_unaccepted_decision?: boolean;
+  waiting_for_taxi?: boolean;
+  auto_cancel_label?: string | null;
+  decision_deadline_label?: string | null;
+  decision_minutes?: number | null;
+  payment_error?: string | null;
+  can_retry_payment?: boolean;
+  checkout_url?: string | null;
+  cancellation_message?: string | null;
+  cancellation_reason?: string | null;
+  pickup_address?: string;
+  dropoff_address?: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
+  pickup_lat?: number | null;
+  pickup_lng?: number | null;
+  dropoff_lat?: number | null;
+  dropoff_lng?: number | null;
+  pickup_at?: string | null;
+  pickup_at_label?: string | null;
+  passengers?: number;
+  distance_km?: number | null;
+  duration_seconds?: number | null;
+  quoted_price?: number | null;
+  baggage?: {
+    items?: Array<{ key: string; label: string; qty: number }>;
+    summary?: string | null;
+  } | null;
+  company?: { id: number; name: string; phone?: string } | null;
+  vehicle?: {
+    name?: string | null;
+    label?: string;
+    license_plate?: string | null;
+    photo_url?: string | null;
+  } | null;
+  driver?: {
+    id: number;
+    name: string;
+    photo_url?: string | null;
+    company_logo_url?: string | null;
+    rating_avg?: number | null;
+    rating_count?: number | null;
+  } | null;
+  status_updates?: RideStatusUpdate[];
+  status_notify_events?: string[];
+  rating?: {
+    rated?: boolean;
+    stars?: number | null;
+    comment?: string | null;
+    can_rate?: boolean;
+  } | null;
+  complaint?: {
+    filed?: boolean;
+    can_file?: boolean;
+    complaint_id?: number | null;
+  } | null;
+  eta_minutes?: number | null;
+  eta_label?: string | null;
+  vehicle_location?: {
+    lat: number;
+    lng: number;
+    updated_at?: string | null;
+    heading?: number | null;
+  } | null;
+  poll_interval_ms?: number;
+  payment_status?: string | null;
+  payment_paid?: boolean;
+  refund_business_days?: number | null;
+  refund_message?: string | null;
+  can_download_invoice?: boolean;
+  pickup_confirmation?: {
+    method?: 'pin' | string | null;
+    pin?: string | null;
+    status?: 'pending' | 'confirmed' | 'denied' | string | null;
+    prompt?: string | null;
+    can_answer?: boolean;
+  } | null;
+};
+
+export type BookResponse = {
+  success: boolean;
+  message?: string;
+  ride_request_id: number;
+  track_token: string;
+  payment_required?: boolean;
+  checkout_url?: string | null;
+  live?: LiveRide;
+  offer?: QuoteOffer;
+};
+
+export type BookPayload = {
+  distance_meters: number;
+  duration_seconds: number;
+  passengers: number;
+  pickup_address: string;
+  dropoff_address: string;
+  pickup_place_name?: string | null;
+  dropoff_place_name?: string | null;
+  pickup_at: string;
+  pickup_lat: number;
+  pickup_lng: number;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email?: string | null;
+  remarks?: string | null;
+  selected_offer_id?: string | null;
+  payment_method?: 'booking' | null;
+  return_url?: string;
+  marketplace_radius_km?: number;
+  baggage?: Record<string, number>;
+  special_baggage?: Record<string, number>;
+  locale?: 'nl' | 'en';
+};
+
+const MARKETPLACE_SECTION = 'component:taxi.algemene_boekingsmodule';
+
+export function fetchQuote(body: {
+  distance_meters: number;
+  duration_seconds: number;
+  passengers: number;
+  pickup_lat: number;
+  pickup_lng: number;
+  pickup_at?: string | null;
+  marketplace_radius_km?: number;
+  baggage?: Record<string, number>;
+  special_baggage?: Record<string, number>;
+}) {
+  return apiRequest<QuoteResponse>('/api/taxi/v1/customer/quote', {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function fetchNearbyTaxis(input: {
+  lat: number;
+  lng: number;
+  radiusKm?: number;
+}): Promise<NearbyTaxi[]> {
+  const params = new URLSearchParams({
+    lat: String(input.lat),
+    lng: String(input.lng),
+    radius_km: String(input.radiusKm ?? 50),
+    section_key: MARKETPLACE_SECTION,
+  });
+  const base = await resolveApiBaseUrl();
+  const res = await fetch(`${base}/nexa-taxi/booking/nearby-taxis?${params}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const list = Array.isArray(data?.vehicles) ? data.vehicles : [];
+  return list
+    .map((v: NearbyTaxi) => ({
+      id: String(v.id),
+      lat: Number(v.lat),
+      lng: Number(v.lng),
+      car_style: v.car_style,
+      distance_km: v.distance_km == null ? null : Number(v.distance_km),
+      busy: !!v.busy,
+      heading: v.heading == null || !Number.isFinite(Number(v.heading)) ? null : Number(v.heading),
+    }))
+    .filter((v: NearbyTaxi) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
+}
+
+export function bookGuest(body: BookPayload) {
+  return apiRequest<BookResponse>('/api/taxi/v1/customer/book/guest', {
+    method: 'POST',
+    body: {
+      ...body,
+      locale: body.locale ?? getLocale(),
+    },
+  });
+}
+
+export function fetchLive(token: string) {
+  return apiRequest<{ success: boolean; ride: LiveRide }>(
+    `/api/taxi/v1/customer/live?token=${encodeURIComponent(token)}`
+  );
+}
+
+export function cancelLive(token: string) {
+  return apiRequest<{ success?: boolean; message?: string; ride?: LiveRide }>(
+    '/api/taxi/v1/customer/live/cancel',
+    { method: 'POST', body: { token } }
+  );
+}
+
+export function waitLive(token: string) {
+  return apiRequest<{ success?: boolean; message?: string; ride?: LiveRide }>(
+    '/api/taxi/v1/customer/live/wait',
+    { method: 'POST', body: { token } }
+  );
+}
+
+export function payLive(token: string, returnUrl?: string) {
+  return apiRequest<{
+    success?: boolean;
+    checkout_url?: string | null;
+    ride?: LiveRide;
+    message?: string;
+  }>('/api/taxi/v1/customer/live/pay', {
+    method: 'POST',
+    body: { token, return_url: returnUrl },
+  });
+}
+
+export function confirmPickupLive(token: string, answer: 'yes' | 'no') {
+  return apiRequest<{ success?: boolean; message?: string; ride?: LiveRide }>(
+    '/api/taxi/v1/customer/live/pickup-confirm',
+    { method: 'POST', body: { token, answer } }
+  );
+}
+
+export function rateLive(token: string, stars: number, comment?: string | null) {
+  return apiRequest<{
+    success?: boolean;
+    rating?: LiveRide['rating'];
+    ride?: LiveRide;
+    message?: string;
+  }>('/api/taxi/v1/customer/live/rate', {
+    method: 'POST',
+    body: { token, stars, comment: comment || null },
+  });
+}
+
+export const COMPLAINT_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'late', label: 'Te laat / niet gekomen' },
+  { value: 'unsafe_driving', label: 'Onveilig rijgedrag' },
+  { value: 'rude', label: 'Onbeleefd / ongepast gedrag' },
+  { value: 'dirty_vehicle', label: 'Vies of defect voertuig' },
+  { value: 'wrong_route', label: 'Verkeerde route / omweg' },
+  { value: 'payment', label: 'Betaling / prijs' },
+  { value: 'other', label: 'Overig' },
+];
+
+export function complainLive(
+  token: string,
+  payload: {
+    category: string;
+    description: string;
+    subject?: string | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
+    customer_phone?: string | null;
+    preferred_contact?: 'email' | 'phone' | 'none';
+  }
+) {
+  return apiRequest<{
+    success?: boolean;
+    complaint?: LiveRide['complaint'];
+    complaint_id?: number;
+    ride?: LiveRide;
+    message?: string;
+  }>('/api/taxi/v1/customer/live/complain', {
+    method: 'POST',
+    body: { token, ...payload },
+  });
+}

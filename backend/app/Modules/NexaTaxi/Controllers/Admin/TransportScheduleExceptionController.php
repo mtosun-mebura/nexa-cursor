@@ -72,8 +72,8 @@ class TransportScheduleExceptionController extends Controller
         if ($companyId <= 0) {
             return redirect()->back()->withInput()->withErrors([
                 'company_id' => auth()->user()->hasRole('super-admin')
-                    ? 'Selecteer eerst een tenant in de tenant-kiezer bovenaan (bij scope "Hele bedrijf"), of kies een abonnement.'
-                    : 'Geen bedrijf gekoppeld aan uw account.',
+                    ? __('Selecteer eerst een tenant in de tenant-kiezer bovenaan (bij scope "Hele bedrijf"), of kies een abonnement.')
+                    : __('Geen bedrijf gekoppeld aan uw account.'),
             ]);
         }
 
@@ -91,7 +91,7 @@ class TransportScheduleExceptionController extends Controller
             'active' => $request->boolean('active', true),
         ]);
 
-        return back()->with('success', 'Uitzonderingsdag toegevoegd.');
+        return back()->with('success', __('Uitzonderingsdag toegevoegd.'));
     }
 
     private function resolveCompanyId(string $conn, ?int $contractId): int
@@ -129,6 +129,6 @@ class TransportScheduleExceptionController extends Controller
 
         $exception->delete();
 
-        return back()->with('success', 'Uitzonderingsdag verwijderd.');
+        return back()->with('success', __('Uitzonderingsdag verwijderd.'));
     }
 }

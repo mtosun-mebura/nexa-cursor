@@ -1,9 +1,9 @@
 <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground wizard-onboarding-form-table w-full">
     <tr>
-        <td class="min-w-56 text-secondary-foreground font-normal">Passagier <span class="text-danger">*</span></td>
+        <td class="min-w-56 text-secondary-foreground font-normal">{{ __('Passagier') }} <span class="text-danger">*</span></td>
         <td class="min-w-48 w-full">
             <select name="transport_passenger_id" id="individual_booking_passenger_id" class="kt-select w-full max-w-md" required>
-                <option value="">— Selecteer passagier —</option>
+                <option value="">{{ __('— Selecteer passagier —') }}</option>
                 @foreach($passengers as $passenger)
                     <option value="{{ $passenger->id }}"
                         data-pickup-address="{{ $passenger->pickup_address }}"
@@ -17,7 +17,7 @@
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Ophaaladres <span class="text-danger">*</span></td>
+        <td class="text-secondary-foreground font-normal">{{ __('Ophaaladres') }} <span class="text-danger">*</span></td>
         <td>
             @include('admin.partials.google-address-input', [
                 'name' => 'pickup_address',
@@ -27,12 +27,12 @@
                 'latValue' => old('pickup_lat', $booking->pickup_lat ?? ''),
                 'lngValue' => old('pickup_lng', $booking->pickup_lng ?? ''),
                 'required' => true,
-                'placeholder' => 'Zoek ophaaladres...',
+                'placeholder' => __('Zoek ophaaladres...'),
             ])
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Afzetadres <span class="text-danger">*</span></td>
+        <td class="text-secondary-foreground font-normal">{{ __('Afzetadres') }} <span class="text-danger">*</span></td>
         <td>
             @include('admin.partials.google-address-input', [
                 'name' => 'dropoff_address',
@@ -42,12 +42,12 @@
                 'latValue' => old('dropoff_lat', $booking->dropoff_lat ?? ''),
                 'lngValue' => old('dropoff_lng', $booking->dropoff_lng ?? ''),
                 'required' => true,
-                'placeholder' => 'Zoek afzetadres...',
+                'placeholder' => __('Zoek afzetadres...'),
             ])
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Datum en tijd ophalen <span class="text-danger">*</span></td>
+        <td class="text-secondary-foreground font-normal">{{ __('Datum en tijd ophalen') }} <span class="text-danger">*</span></td>
         <td>
             @php
                 $pickupAtRaw = old('pickup_at');
@@ -87,7 +87,7 @@
                                data-kt-date-picker-selected-month="{{ $pickupAtCarbon->format('n') - 1 }}"
                                data-kt-date-picker-selected-year="{{ $pickupAtCarbon->format('Y') }}"
                                @endif
-                               placeholder="Selecteer datum"
+                               placeholder="{{ __('Selecteer datum') }}"
                                readonly
                                type="text"
                                value="{{ $pickupAtDisplay }}"
@@ -109,18 +109,18 @@
                 @error('pickup_at')
                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
                 @enderror
-                <small class="text-muted-foreground text-xs mt-1 block">Voer tijd in als hh:mm (bijv. 14:30)</small>
+                <small class="text-muted-foreground text-xs mt-1 block">{{ __('Voer tijd in als hh:mm (bijv. 14:30)') }}</small>
             </div>
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Chauffeur</td>
+        <td class="text-secondary-foreground font-normal">{{ __('Chauffeur') }}</td>
         <td>
             <select name="driver_id"
                     required
-                    data-required-message="Selecteer een vaste chauffeur."
+                    data-required-message="{{ __('Selecteer een vaste chauffeur.') }}"
                     class="kt-select w-full max-w-md @error('driver_id') border-destructive @enderror">
-                <option value="">— Selecteer chauffeur —</option>
+                <option value="">{{ __('— Selecteer chauffeur —') }}</option>
                 @foreach($drivers as $driver)
                     <option value="{{ $driver->id }}" @selected(old('driver_id', $booking->driver_id ?? '') == $driver->id)>
                         {{ $driver->first_name }} {{ $driver->last_name }}
@@ -133,13 +133,13 @@
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Voertuig</td>
+        <td class="text-secondary-foreground font-normal">{{ __('Voertuig') }}</td>
         <td>
             <select name="vehicle_id"
                     required
-                    data-required-message="Selecteer een vast voertuig."
+                    data-required-message="{{ __('Selecteer een vast voertuig.') }}"
                     class="kt-select w-full max-w-md @error('vehicle_id') border-destructive @enderror">
-                <option value="">— Selecteer voertuig —</option>
+                <option value="">{{ __('— Selecteer voertuig —') }}</option>
                 @foreach($vehicles as $vehicle)
                     <option value="{{ $vehicle->id }}" @selected(old('vehicle_id', $booking->vehicle_id ?? '') == $vehicle->id)>
                         {{ $vehicle->name }}@if($vehicle->license_plate) — {{ $vehicle->license_plate }}@endif
@@ -152,13 +152,13 @@
         </td>
     </tr>
     <tr>
-        <td class="text-secondary-foreground font-normal">Ritprijs override (€)</td>
+        <td class="text-secondary-foreground font-normal">{{ __('Ritprijs override (€)') }}</td>
         <td>
             <div class="flex items-center gap-2 w-full max-w-md">
                 <span class="shrink-0 text-sm font-medium text-foreground" aria-hidden="true">€</span>
                 <input type="number" name="price_override" class="kt-input w-full min-w-0" step="0.01" min="0"
                     value="{{ old('price_override', $booking->price_override ?? '') }}"
-                    placeholder="Leeg = abonnementsprijs per rit">
+                    placeholder="{{ __('Leeg = abonnementsprijs per rit') }}">
             </div>
         </td>
     </tr>

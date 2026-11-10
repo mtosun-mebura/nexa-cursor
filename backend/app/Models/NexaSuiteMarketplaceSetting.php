@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class NexaSuiteMarketplaceSetting extends Model
 {
@@ -11,6 +13,8 @@ class NexaSuiteMarketplaceSetting extends Model
 
     protected $fillable = [
         'fee_percent',
+        'fee_minimum_settings',
+        'allow_marketplace_network_owner',
         'auto_generate',
         'auto_send',
         'billing_day',
@@ -30,6 +34,8 @@ class NexaSuiteMarketplaceSetting extends Model
         'invoice_payment_terms_text',
         'mollie_api_key',
         'mollie_webhook_url',
+        'public_base_url',
+        'public_hosts',
     ];
 
     protected $hidden = [
@@ -38,6 +44,9 @@ class NexaSuiteMarketplaceSetting extends Model
 
     protected $casts = [
         'fee_percent' => 'integer',
+        'fee_minimum_settings' => 'array',
+        'public_hosts' => 'array',
+        'allow_marketplace_network_owner' => 'boolean',
         'auto_generate' => 'boolean',
         'auto_send' => 'boolean',
         'billing_day' => 'integer',
@@ -53,6 +62,7 @@ class NexaSuiteMarketplaceSetting extends Model
     {
         $defaults = [
             'fee_percent' => (int) config('nexa_suite_marketplace.fee_percent', 10),
+            'allow_marketplace_network_owner' => (bool) config('nexa_suite_marketplace.allow_marketplace_network_owner', false),
             'auto_generate' => (bool) config('nexa_suite_marketplace.auto_generate', true),
             'auto_send' => (bool) config('nexa_suite_marketplace.auto_send', true),
             'billing_day' => (int) config('nexa_suite_marketplace.billing_day', 1),
@@ -68,7 +78,28 @@ class NexaSuiteMarketplaceSetting extends Model
             'invoice_title' => (string) config('nexa_suite_marketplace.invoice_title', 'NEXA Suite boekingsfactuur'),
         ];
 
+        if (! Schema::hasColumn((new static)->getTable(), 'allow_marketplace_network_owner')) {
+            unset($defaults['allow_marketplace_network_owner']);
+        }
+
         return static::query()->firstOrCreate([], $defaults);
+    }
+
+    /**
+     * Marketplace-pakket mag zelf network-partners koppelen (marketplace↔marketplace).
+     * Super-admin schakelt dit in bij NEXA Suite boekingsinstellingen. Standaard uit.
+     */
+    public static function marketplaceMayOwnNetwork(): bool
+    {
+        try {
+            if (! Schema::hasColumn((new static)->getTable(), 'allow_marketplace_network_owner')) {
+                return (bool) config('nexa_suite_marketplace.allow_marketplace_network_owner', false);
+            }
+
+            return (bool) static::current()->allow_marketplace_network_owner;
+        } catch (Throwable) {
+            return (bool) config('nexa_suite_marketplace.allow_marketplace_network_owner', false);
+        }
     }
 
     public function shouldRunNow(\DateTimeInterface $now): bool

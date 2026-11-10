@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TaxiDriverEligibilityService
 {
@@ -17,6 +18,7 @@ class TaxiDriverEligibilityService
         'taxi_chauffeur',
         'taxichauffeur',
         'chauffeur-inkomsten',
+        'marketplace',
     ];
 
     public function chauffeurRoleNames(): array
@@ -44,6 +46,7 @@ class TaxiDriverEligibilityService
         return count(array_intersect($normalized, [
             TaxiContractPortalAccessService::SPATIE_CONTRACTANT,
             TaxiContractPortalAccessService::SPATIE_CONTRACTOUDER,
+            TaxiContractPortalAccessService::SPATIE_DEMO,
         ])) > 0;
     }
 
@@ -52,6 +55,28 @@ class TaxiDriverEligibilityService
         $names = $user->webRoleNames();
 
         return $this->rolesIncludeChauffeur($names) && $this->rolesIncludeContract($names);
+    }
+
+    public const CONTRACT_ASSIGNMENT_DENIED = 'Alleen een chauffeur met de rol contractant kan aan contractvervoer worden toegewezen.';
+
+    public function hasContractantRole(User $user): bool
+    {
+        $names = array_map(static fn ($name) => strtolower(trim((string) $name)), $user->webRoleNames());
+
+        return in_array(TaxiContractPortalAccessService::SPATIE_CONTRACTANT, $names, true);
+    }
+
+    /**
+     * Contractrit of contractroute: de chauffeur moet ook contractant zijn.
+     */
+    public function assertContractantForContractAssignment(int $driverId): void
+    {
+        $user = $driverId > 0 ? User::query()->find($driverId) : null;
+        if (! $user || ! $this->hasContractantRole($user)) {
+            throw ValidationException::withMessages([
+                'driver_id' => self::CONTRACT_ASSIGNMENT_DENIED,
+            ]);
+        }
     }
 
     public function isChauffeurForCompany(User $user, int $companyId): bool
@@ -130,6 +155,7 @@ class TaxiDriverEligibilityService
         ?float $pickupLat = null,
         ?float $pickupLng = null,
         ?int $maxRadiusKm = null,
+        bool $fillWithOffline = true,
     ): array {
         $enforceRadius = $maxRadiusKm !== null
             && $maxRadiusKm > 0
@@ -175,8 +201,8 @@ class TaxiDriverEligibilityService
         }
 
         if ($onlineIds === []) {
-            // Met radius-eis: geen locatie = geen aanbod (niet terugvallen op alle chauffeurs).
-            if ($enforceRadius) {
+            // Met radius-eis of zonder offline-fallback: geen locatie = geen aanbod.
+            if ($enforceRadius || ! $fillWithOffline) {
                 return [];
             }
 
@@ -190,7 +216,7 @@ class TaxiDriverEligibilityService
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        if (! $enforceRadius && count($eligible) < $limit) {
+        if ($fillWithOffline && ! $enforceRadius && count($eligible) < $limit) {
             $more = $this->buildChauffeurQuery($companyId)
                 ->whereNotIn('id', $eligible)
                 ->limit($limit - count($eligible))

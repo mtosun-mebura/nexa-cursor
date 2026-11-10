@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Notificaties Beheer')
+@section('title', __('Notificaties Beheer'))
 
 @section('content')
 @php
@@ -10,12 +10,12 @@
 <div class="kt-container-fixed">
     <div class="flex flex-wrap items-center justify-between gap-5 pb-7.5">
         <h1 class="text-xl font-medium leading-none text-mono">
-            Notificaties Beheer
+            {{ __('Notificaties Beheer') }}
         </h1>
         @can('create-notifications')
         <a href="{{ route('admin.notifications.create') }}" class="kt-btn kt-btn-primary">
             <i class="ki-filled ki-plus me-2"></i>
-            Nieuwe Notificatie
+            {{ __('Nieuwe Notificatie') }}
         </a>
         @endcan
     </div>
@@ -29,7 +29,7 @@
                         {{ $stats['read'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Gelezen
+                        {{ __('Gelezen') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -38,7 +38,7 @@
                         {{ $stats['unread'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Ongelezen
+                        {{ __('Ongelezen') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -47,7 +47,7 @@
                         {{ $stats['total_notifications'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Totaal Notificaties
+                        {{ __('Totaal Notificaties') }}
                     </span>
                 </div>
                 <span class="hidden sm:block not-last:border-e border-e-input my-1"></span>
@@ -56,7 +56,7 @@
                         {{ $stats['unique_users'] ?? 0 }}
                     </span>
                     <span class="text-secondary-foreground text-sm">
-                        Gebruikers
+                        {{ __('Gebruikers') }}
                     </span>
                 </div>
             </div>
@@ -71,8 +71,8 @@
                         id="notifications-bulk-delete"
                         class="kt-btn kt-btn-sm kt-btn-ghost kt-btn-destructive admin-bulk-delete hidden"
                         hidden
-                        aria-label="Geselecteerde notificaties verwijderen"
-                        title="Verwijderen">
+                        aria-label="{{ __('Geselecteerde notificaties verwijderen') }}"
+                        title="{{ __('Verwijderen') }}">
                     <i class="ki-filled ki-trash" aria-hidden="true"></i>
                     <span class="admin-bulk-delete__count">(<span data-notifications-selected-count>0</span>)</span>
                 </button>
@@ -102,7 +102,7 @@
                             @endif
                             <label class="kt-input w-full sm:w-64" style="position: relative !important;">
                                 <i class="ki-filled ki-magnifier"></i>
-                                <input placeholder="Zoek notificaties..."
+                                <input placeholder="{{ __('Zoek notificaties...') }}"
                                        type="text"
                                        name="search"
                                        value="{{ request('search') }}"
@@ -121,57 +121,57 @@
                             <select class="kt-select w-full sm:w-36"
                                     name="status"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Status"
+                                    data-kt-select-placeholder="{{ __('Status') }}"
                                     id="status-filter">
-                                <option value="">Alle statussen</option>
-                                <option value="unread" {{ request('status') == 'unread' ? 'selected' : '' }}>Ongelezen</option>
-                                <option value="read" {{ request('status') == 'read' ? 'selected' : '' }}>Gelezen</option>
+                                <option value="">{{ __('Alle statussen') }}</option>
+                                <option value="unread" {{ request('status') == 'unread' ? 'selected' : '' }}>{{ __('Ongelezen') }}</option>
+                                <option value="read" {{ request('status') == 'read' ? 'selected' : '' }}>{{ __('Gelezen') }}</option>
                             </select>
 
                             <select class="kt-select w-full sm:w-36"
                                     name="type"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Type"
+                                    data-kt-select-placeholder="{{ __('Type') }}"
                                     id="type-filter">
-                                <option value="">Alle types</option>
-                                <option value="info" {{ request('type') == 'info' ? 'selected' : '' }}>Info</option>
-                                <option value="warning" {{ request('type') == 'warning' ? 'selected' : '' }}>Waarschuwing</option>
-                                <option value="error" {{ request('type') == 'error' ? 'selected' : '' }}>Fout</option>
-                                <option value="success" {{ request('type') == 'success' ? 'selected' : '' }}>Succes</option>
-                                <option value="incident" {{ request('type') == 'incident' ? 'selected' : '' }}>Incident</option>
+                                <option value="">{{ __('Alle types') }}</option>
+                                <option value="info" {{ request('type') == 'info' ? 'selected' : '' }}>{{ __('Info') }}</option>
+                                <option value="warning" {{ request('type') == 'warning' ? 'selected' : '' }}>{{ __('Waarschuwing') }}</option>
+                                <option value="error" {{ request('type') == 'error' ? 'selected' : '' }}>{{ __('Fout') }}</option>
+                                <option value="success" {{ request('type') == 'success' ? 'selected' : '' }}>{{ __('Succes') }}</option>
+                                <option value="incident" {{ request('type') == 'incident' ? 'selected' : '' }}>{{ __('Incident') }}</option>
                             </select>
 
                             @if(auth()->user()->hasRole('super-admin'))
                             <select class="kt-select w-full sm:w-36"
                                     name="priority"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Prioriteit"
+                                    data-kt-select-placeholder="{{ __('Prioriteit') }}"
                                     id="priority-filter">
-                                <option value="">Alle prioriteiten</option>
-                                <option value="low" {{ request('priority') == 'low' ? 'selected' : '' }}>Laag</option>
-                                <option value="medium" {{ request('priority') == 'medium' ? 'selected' : '' }}>Gemiddeld</option>
-                                <option value="high" {{ request('priority') == 'high' ? 'selected' : '' }}>Hoog</option>
+                                <option value="">{{ __('Alle prioriteiten') }}</option>
+                                <option value="low" {{ request('priority') == 'low' ? 'selected' : '' }}>{{ __('Laag') }}</option>
+                                <option value="medium" {{ request('priority') == 'medium' ? 'selected' : '' }}>{{ __('Gemiddeld') }}</option>
+                                <option value="high" {{ request('priority') == 'high' ? 'selected' : '' }}>{{ __('Hoog') }}</option>
                             </select>
                             @endif
 
                             <select class="kt-select w-full sm:w-36"
                                     name="sort"
                                     data-kt-select="true"
-                                    data-kt-select-placeholder="Sortering"
+                                    data-kt-select-placeholder="{{ __('Sortering') }}"
                                     id="sort-filter">
-                                <option value="" {{ !request('sort') ? 'selected' : '' }}>Geen sortering</option>
-                                <option value="user" {{ request('sort') == 'user' ? 'selected' : '' }}>Gebruiker</option>
-                                <option value="sender" {{ request('sort') == 'sender' ? 'selected' : '' }}>Afzender</option>
-                                <option value="content" {{ request('sort') == 'content' ? 'selected' : '' }}>Inhoud</option>
-                                <option value="status" {{ request('sort') == 'status' ? 'selected' : '' }}>Status</option>
-                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Datum</option>
-                                <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>Type</option>
+                                <option value="" {{ !request('sort') ? 'selected' : '' }}>{{ __('Geen sortering') }}</option>
+                                <option value="user" {{ request('sort') == 'user' ? 'selected' : '' }}>{{ __('Gebruiker') }}</option>
+                                <option value="sender" {{ request('sort') == 'sender' ? 'selected' : '' }}>{{ __('Afzender') }}</option>
+                                <option value="content" {{ request('sort') == 'content' ? 'selected' : '' }}>{{ __('Inhoud') }}</option>
+                                <option value="status" {{ request('sort') == 'status' ? 'selected' : '' }}>{{ __('Status') }}</option>
+                                <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>{{ __('Datum') }}</option>
+                                <option value="type" {{ request('sort') == 'type' ? 'selected' : '' }}>{{ __('Type') }}</option>
                             </select>
                         </form>
                         @if(request('status') || request('type') || request('priority') || (request('sort') && request('sort') != 'created_at') || request('direction') || request('search'))
                         <a href="{{ route('admin.notifications.index') }}"
                            class="kt-btn kt-btn-outline kt-btn-icon"
-                           title="Filters resetten"
+                           title="{{ __('Filters resetten') }}"
                            id="reset-filter-btn"
                            style="display: inline-flex !important; visibility: visible !important; opacity: 1 !important; min-width: 34px !important; height: 34px !important; align-items: center !important; justify-content: center !important; border: 1px solid var(--input) !important; background-color: var(--background) !important; color: var(--secondary-foreground) !important; position: relative !important; z-index: 1 !important;">
                             <i class="ki-filled ki-arrows-circle text-base" style="display: block !important; visibility: visible !important; opacity: 1 !important; font-size: 1rem !important;"></i>
@@ -183,7 +183,7 @@
 
             <div class="kt-card-content">
                 @if($notifications->count() > 0)
-                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="notifications_table" data-admin-datatable-label="notificaties" data-admin-datatable-on-page="syncNotificationsBulkSelection">
+                    <div class="grid" data-admin-datatable="true" data-admin-datatable-page-size="10" id="notifications_table" data-admin-datatable-label="{{ __('notificaties') }}" data-admin-datatable-on-page="syncNotificationsBulkSelection">
                         <div class="kt-scrollable-x-auto notifications-table-wrap min-w-0">
                             <table class="kt-table kt-table-border admin-fluid-table w-full @if($canDeleteNotifications) has-notification-check @endif">
                             <thead>
@@ -210,41 +210,41 @@
                                         <label class="kt-label notifications-check-label">
                                             <input type="checkbox"
                                                    class="kt-checkbox notifications-select-all"
-                                                   aria-label="Alles selecteren">
+                                                   aria-label="{{ __('Alles selecteren') }}">
                                         </label>
                                     </th>
                                     @endif
                                     <th class="notifications-user-col" @if($notifSort === 'user') aria-sort="{{ $notifDir }}" @endif>
-                                        <a href="{{ $notifSortHref('user') }}" class="kt-table-col" aria-label="Sorteer op gebruiker">
-                                            <span class="kt-table-col-label">Gebruiker</span>
+                                        <a href="{{ $notifSortHref('user') }}" class="kt-table-col" aria-label="{{ __('Sorteer op gebruiker') }}">
+                                            <span class="kt-table-col-label">{{ __('Gebruiker') }}</span>
                                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                                         </a>
                                     </th>
                                     <th class="notifications-sender-col" @if($notifSort === 'sender') aria-sort="{{ $notifDir }}" @endif>
-                                        <a href="{{ $notifSortHref('sender') }}" class="kt-table-col" aria-label="Sorteer op afzender">
-                                            <span class="kt-table-col-label">Afzender</span>
+                                        <a href="{{ $notifSortHref('sender') }}" class="kt-table-col" aria-label="{{ __('Sorteer op afzender') }}">
+                                            <span class="kt-table-col-label">{{ __('Afzender') }}</span>
                                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                                         </a>
                                     </th>
                                     <th class="notifications-content-col" @if($notifSort === 'content') aria-sort="{{ $notifDir }}" @endif>
-                                        <a href="{{ $notifSortHref('content') }}" class="kt-table-col" aria-label="Sorteer op inhoud">
-                                            <span class="kt-table-col-label">Inhoud</span>
+                                        <a href="{{ $notifSortHref('content') }}" class="kt-table-col" aria-label="{{ __('Sorteer op inhoud') }}">
+                                            <span class="kt-table-col-label">{{ __('Inhoud') }}</span>
                                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                                         </a>
                                     </th>
                                     <th class="notifications-status-col" @if($notifSort === 'status') aria-sort="{{ $notifDir }}" @endif>
-                                        <a href="{{ $notifSortHref('status') }}" class="kt-table-col" aria-label="Sorteer op status">
-                                            <span class="kt-table-col-label">Status</span>
+                                        <a href="{{ $notifSortHref('status') }}" class="kt-table-col" aria-label="{{ __('Sorteer op status') }}">
+                                            <span class="kt-table-col-label">{{ __('Status') }}</span>
                                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                                         </a>
                                     </th>
                                     <th class="notifications-date-col" @if($notifSort === 'created_at') aria-sort="{{ $notifDir }}" @endif>
-                                        <a href="{{ $notifSortHref('created_at', 'desc') }}" class="kt-table-col" aria-label="Sorteer op datum">
-                                            <span class="kt-table-col-label">Gemaakt op</span>
+                                        <a href="{{ $notifSortHref('created_at', 'desc') }}" class="kt-table-col" aria-label="{{ __('Sorteer op datum') }}">
+                                            <span class="kt-table-col-label">{{ __('Gemaakt op') }}</span>
                                             <span class="kt-table-col-sort" aria-hidden="true"></span>
                                         </a>
                                     </th>
-                                    <th class="notifications-actions-col text-center">Acties</th>
+                                    <th class="notifications-actions-col text-center">{{ __('Acties') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -256,7 +256,7 @@
                                                 <input type="checkbox"
                                                        class="kt-checkbox notification-row-checkbox"
                                                        value="{{ $notification->id }}"
-                                                       aria-label="Selecteer notificatie {{ $notification->id }}">
+                                                       aria-label="{{ __('Selecteer notificatie :id', ['id' => $notification->id]) }}">
                                             </label>
                                         </td>
                                         @endif
@@ -271,7 +271,7 @@
                                                     </span>
                                                 </div>
                                             @else
-                                                <span class="text-sm text-muted-foreground">Gebruiker niet gevonden</span>
+                                                <span class="text-sm text-muted-foreground">{{ __('Gebruiker niet gevonden') }}</span>
                                             @endif
                                         </td>
                                         <td class="notifications-sender-col">
@@ -285,7 +285,7 @@
                                                     </span>
                                                 </div>
                                             @else
-                                                <span class="text-sm text-muted-foreground">Systeem</span>
+                                                <span class="text-sm text-muted-foreground">{{ __('Systeem') }}</span>
                                             @endif
                                         </td>
                                         <td class="notifications-content-col">
@@ -310,9 +310,9 @@
                                         </td>
                                         <td class="notifications-status-col">
                                             @if($notification->read_at)
-                                                <span class="kt-badge kt-badge-sm kt-badge-success">Gelezen</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-success">{{ __('Gelezen') }}</span>
                                             @else
-                                                <span class="kt-badge kt-badge-sm kt-badge-warning">Ongelezen</span>
+                                                <span class="kt-badge kt-badge-sm kt-badge-warning">{{ __('Ongelezen') }}</span>
                                             @endif
                                         </td>
                                         <td class="notifications-date-col text-foreground font-normal">
@@ -322,7 +322,7 @@
                                         <td class="notifications-actions-col text-center admin-table__actions-col" data-no-row-link>
                                             <div class="kt-menu flex justify-center" data-kt-menu="true">
                                                 <div class="kt-menu-item" data-kt-menu-item-offset="0, 10px" data-kt-menu-item-placement="bottom-end" data-kt-menu-item-placement-rtl="bottom-start" data-kt-menu-item-toggle="dropdown" data-kt-menu-item-trigger="click">
-                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="Acties">
+                                                    <button type="button" class="kt-menu-toggle kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" aria-label="{{ __('Acties') }}">
                                                         <i class="ki-filled ki-dots-vertical text-lg"></i>
                                                     </button>
                                                     <div class="kt-menu-dropdown kt-menu-default w-full max-w-[175px]" data-kt-menu-dismiss="true">
@@ -332,7 +332,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-eye"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bekijken</span>
+                                                                <span class="kt-menu-title">{{ __('Bekijken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -342,7 +342,7 @@
                                                                 <span class="kt-menu-icon">
                                                                     <i class="ki-filled ki-pencil"></i>
                                                                 </span>
-                                                                <span class="kt-menu-title">Bewerken</span>
+                                                                <span class="kt-menu-title">{{ __('Bewerken') }}</span>
                                                             </a>
                                                         </div>
                                                         @endcan
@@ -354,15 +354,15 @@
                                                             <form action="{{ route('admin.notifications.destroy', $notification) }}"
                                                                   method="POST"
                                                                   class="notification-delete-form"
-                                                                  data-confirm-title="Notificatie verwijderen"
-                                                                  data-confirm-message="Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.">
+                                                                  data-confirm-title="{{ __('Notificatie verwijderen') }}"
+                                                                  data-confirm-message="{{ __('Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}">
                                                                 @csrf
                                                                 @method('DELETE')
                                                                 <button type="submit" class="kt-menu-link w-full text-left text-danger">
                                                                     <span class="kt-menu-icon">
                                                                         <i class="ki-filled ki-trash"></i>
                                                                     </span>
-                                                                    <span class="kt-menu-title">Verwijderen</span>
+                                                                    <span class="kt-menu-title">{{ __('Verwijderen') }}</span>
                                                                 </button>
                                                             </form>
                                                         </div>
@@ -380,10 +380,10 @@
                     <!-- Pagination -->
                     <div class="kt-card-footer admin-datatable-footer text-secondary-foreground text-sm font-medium">
                         <div class="admin-datatable-footer__perpage flex items-center gap-2">
-                            Toon
+                            {{ __('Toon') }}
                             <select class="kt-select w-24" data-admin-datatable-size="true" data-kt-select="" name="perpage">
                             </select>
-                            per pagina
+                            {{ __('per pagina') }}
                         </div>
                         <div class="admin-datatable-footer__pagination">
                             <div class="kt-datatable-pagination" data-admin-datatable-pagination="true"></div>
@@ -394,7 +394,7 @@
                 @else
                     <div class="flex flex-col items-center justify-center py-16">
                         <i class="ki-filled ki-information-5 text-4xl text-muted-foreground mb-4"></i>
-                        <h4 class="text-lg font-semibold text-mono mb-2">Geen notificaties gevonden</h4>
+                        <h4 class="text-lg font-semibold text-mono mb-2">{{ __('Geen notificaties gevonden') }}</h4>
                     </div>
                 @endif
             </div>
@@ -421,16 +421,16 @@
     <div class="absolute inset-0 bg-slate-900/45 backdrop-blur-md" data-notifications-delete-dismiss></div>
     <div class="notifications-delete-panel relative z-10 w-full max-w-md rounded-2xl border shadow-2xl">
         <div class="notifications-delete-panel__head px-5 py-5">
-            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">Notificatie verwijderen</h3>
+            <h3 id="notifications-delete-modal-title" class="notifications-delete-panel__title mb-0">{{ __('Notificatie verwijderen') }}</h3>
         </div>
         <div class="notifications-delete-panel__body px-5 py-5">
             <p class="notifications-delete-panel__text mb-0" data-notifications-delete-message>
-                Weet je zeker dat je deze notificatie wilt verwijderen?
+                {{ __('Weet je zeker dat je deze notificatie wilt verwijderen?') }}
             </p>
         </div>
         <div class="notifications-delete-panel__foot px-5 py-5 flex flex-wrap justify-end gap-2">
-            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>Annuleren</button>
-            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>Verwijderen</button>
+            <button type="button" class="kt-btn kt-btn-outline notifications-delete-panel__cancel" data-notifications-delete-dismiss>{{ __('Annuleren') }}</button>
+            <button type="button" class="kt-btn kt-btn-destructive notifications-delete-panel__confirm" data-notifications-delete-confirm>{{ __('Verwijderen') }}</button>
         </div>
     </div>
 </div>
@@ -1106,8 +1106,8 @@
         }
         e.preventDefault();
         openModal(
-            form.getAttribute('data-confirm-title') || 'Notificatie verwijderen',
-            form.getAttribute('data-confirm-message') || 'Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.',
+            form.getAttribute('data-confirm-title') || @json(__('Notificatie verwijderen')),
+            form.getAttribute('data-confirm-message') || @json(__('Weet je zeker dat je deze notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')),
             form
         );
     });
@@ -1123,12 +1123,12 @@
             return;
         }
         fillBulkForm();
-        const title = count === 1 ? 'Notificatie verwijderen' : 'Notificaties verwijderen';
+        const title = count === 1 ? @json(__('Notificatie verwijderen')) : @json(__('Notificaties verwijderen'));
         const message = count === 1
-            ? 'Weet je zeker dat je de geselecteerde notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
-            : 'Weet je zeker dat je de ' + count + ' geselecteerde notificaties wilt verwijderen? Dit kan niet ongedaan worden gemaakt.';
+            ? @json(__('Weet je zeker dat je de geselecteerde notificatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'))
+            : @json(__('Weet je zeker dat je de :count geselecteerde notificaties wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')).replace(':count', count);
         if (typeof window.showAdminConfirm === 'function') {
-            window.showAdminConfirm({ title: title, message: message, confirmLabel: 'Verwijderen' }).then(function (ok) {
+            window.showAdminConfirm({ title: title, message: message, confirmLabel: @json(__('Verwijderen')) }).then(function (ok) {
                 if (ok) {
                     form.adminConfirmAccepted = true;
                     form.submit();

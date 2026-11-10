@@ -8,7 +8,11 @@
 (function () {
     try {
         var stored = localStorage.getItem('nexa-taxi-pwa-theme');
-        var theme = (stored === 'light' || stored === 'dark') ? stored : 'dark';
+        var pref = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'dark';
+        var theme = pref === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : pref;
+        document.documentElement.setAttribute('data-theme-pref', pref);
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme;
     } catch (e) {
@@ -190,27 +194,50 @@
         return t === 'light' ? 'light' : 'dark';
     }
 
-    function applyTheme(theme) {
-        theme = theme === 'light' ? 'light' : 'dark';
+    function currentPref() {
+        var pref = document.documentElement.getAttribute('data-theme-pref');
+        if (pref === 'light' || pref === 'dark' || pref === 'system') return pref;
+        return currentTheme();
+    }
+
+    function resolveTheme(pref) {
+        if (pref === 'system') {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        return pref === 'light' ? 'light' : 'dark';
+    }
+
+    function applyTheme(pref) {
+        if (pref !== 'light' && pref !== 'dark' && pref !== 'system') pref = 'dark';
+        var theme = resolveTheme(pref);
+        document.documentElement.setAttribute('data-theme-pref', pref);
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme;
-        try { localStorage.setItem(KEY, theme); } catch (e) {}
+        try { localStorage.setItem(KEY, pref); } catch (e) {}
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) {
             meta.setAttribute('content', theme === 'light' ? '#f1f5f9' : (meta.getAttribute('data-nexa-dark-theme-color') || '#0f172a'));
         }
         btn.setAttribute('aria-label', theme === 'dark' ? 'Schakel naar licht thema' : 'Schakel naar donker thema');
         try {
-            window.dispatchEvent(new CustomEvent('nexa-pwa-theme-change', { detail: { theme: theme } }));
+            window.dispatchEvent(new CustomEvent('nexa-pwa-theme-change', { detail: { theme: theme, pref: pref } }));
         } catch (e) {}
     }
+
+    window.nexaPwaSetTheme = applyTheme;
+    window.nexaPwaThemePref = currentPref;
 
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta && !meta.getAttribute('data-nexa-dark-theme-color')) {
         meta.setAttribute('data-nexa-dark-theme-color', meta.getAttribute('content') || '#0f172a');
     }
 
-    applyTheme(currentTheme());
+    applyTheme(currentPref());
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+            if (currentPref() === 'system') applyTheme('system');
+        });
+    } catch (e) {}
     btn.addEventListener('click', function () {
         applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
     });

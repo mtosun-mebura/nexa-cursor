@@ -24,6 +24,27 @@ class TaxiAppLauncherController extends Controller
             'customerUrl' => SameOriginPath::namedRoute('taxi.klant.index', '/taxi/klant'),
             'driverUrl' => SameOriginPath::namedRoute('taxi.chauffeur.index', '/taxi/chauffeur'),
             'contractUrl' => SameOriginPath::namedRoute('taxi.contract.index', '/taxi/contract'),
+            'appLoginUrl' => url('/api/taxi/v1/app/login'),
+            'appCodeRequestUrl' => url('/api/taxi/v1/app/login-code/request'),
+            'appCodeVerifyUrl' => url('/api/taxi/v1/app/login-code/verify'),
+        ]);
+    }
+
+    public function marketplace(TaxiAppLogoService $logos): View
+    {
+        $meta = app(WebsiteBuilderService::class)->publicFaviconMeta();
+        $meta['url'] = SameOriginPath::fromUrl($meta['url']);
+        $logoUrls = $logos->nexaTaxiLogoUrls();
+
+        return view('taxi::app-launcher.marketplace', [
+            'faviconUrl' => $meta['url'],
+            'faviconType' => $meta['type'],
+            'logoLightUrl' => SameOriginPath::fromUrl($logoUrls['light']),
+            'logoDarkUrl' => SameOriginPath::fromUrl($logoUrls['dark']),
+            'backUrl' => SameOriginPath::namedRoute('taxi.app.index', '/taxi/app'),
+            'registerUrl' => SameOriginPath::namedRoute('admin.login.marketplace-register', '/admin/login/marketplace-register'),
+            'codeUrl' => SameOriginPath::namedRoute('admin.login.marketplace-code', '/admin/login/marketplace-code'),
+            'verifyUrl' => SameOriginPath::namedRoute('admin.login.first-verify', '/admin/login/first-verify'),
         ]);
     }
 }

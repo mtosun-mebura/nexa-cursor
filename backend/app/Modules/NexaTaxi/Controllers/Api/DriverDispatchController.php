@@ -8,14 +8,18 @@ use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideDispatchOffer;
 use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Services\DriverCompletedRideArchiveService;
+use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiNetworkPartnershipService;
 use App\Modules\NexaTaxi\Services\TaxiPickupProposalService;
+use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\Payout\DriverRidePayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -40,8 +44,13 @@ class DriverDispatchController extends Controller
             $dispatch->expireStaleOffers($conn);
             if (TaxiDispatchSchema::tablesExist($conn)) {
                 $dispatch->expireOffersForPastPickups($conn, $companyId);
-                $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
             }
+        }
+        // Elke inbox-pull vult een gemist aanbod aan. De 12s-cache gold ook hiervoor,
+        // waardoor een rit die net geboekt was pas na de volgende cache-ronde verscheen
+        // — of helemaal niet als de app daarna op standby ging.
+        if (TaxiDispatchSchema::tablesExist($conn)) {
+            $dispatch->syncPendingOffersForDriver($conn, $companyId, (int) $user->id);
         }
 
         if (TaxiDispatchSchema::driverAvailabilityExists($conn)) {
@@ -89,6 +98,19 @@ class DriverDispatchController extends Controller
             ->with('rideRequest')
             ->declinedForDriver($user->id, $pickupCutoff)
             ->whereNotIn('id', $overdueReleasedOfferIds)
+            ->get()
+            ->sortByDesc(function (RideDispatchOffer $offer) {
+                return $offer->responded_at?->timestamp ?? 0;
+            })
+            ->values();
+
+        $recentlyCancelledMinutes = max(
+            1,
+            min(60, (int) config('taxi-dispatch.recently_cancelled_offer_minutes', 5))
+        );
+        $cancelledOffers = RideDispatchOffer::on($conn)
+            ->with('rideRequest')
+            ->recentlyCancelledForDriver((int) $user->id, $recentlyCancelledMinutes)
             ->get()
             ->sortByDesc(function (RideDispatchOffer $offer) {
                 return $offer->responded_at?->timestamp ?? 0;
@@ -169,13 +191,59 @@ class DriverDispatchController extends Controller
             ->filter(fn (RideRequest $ride) => ! $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
             ->values();
 
-        $overdueScheduledRides = $acceptedRides
+        $overdueAll = $acceptedRides
             ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsOverdue($ride, $companyId))
             ->sortByDesc(fn (RideRequest $ride) => $ride->pickup_at?->getTimestamp() ?? 0)
             ->values();
 
+        // Een open marktplaatsrit blijft bij de chauffeur staan. Auto-archiveren
+        // stopte die rit in een lijst die de app niet tekent, terwijl de klant
+        // hem nog als geboekte rit ziet.
+        $archivedOverdueScheduledRides = $overdueAll
+            ->filter(fn (RideRequest $ride) => $dispatchSettings->scheduledRideIsAutoArchived($ride, $companyId)
+                && ! $ride->isNexaSuiteBooking()
+                && ! $ride->isCustomerAppMarketplaceBooking())
+            ->values();
+
+        $archivedIds = $archivedOverdueScheduledRides->pluck('id')->all();
+        $overdueScheduledRides = $overdueAll
+            ->reject(fn (RideRequest $ride) => in_array((int) $ride->id, $archivedIds, true))
+            ->values();
+
+        $completedAll = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id, $vehicleId)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->where(function ($q) {
+                $q->where('updated_at', '>=', now()->subDays(14))
+                    ->orWhere('pickup_at', '>=', now()->subDays(14));
+            })
+            ->orderByDesc('updated_at')
+            ->limit(80)
+            ->get();
+
+        $completedArchive = app(DriverCompletedRideArchiveService::class);
+        $driverId = (int) $user->id;
+        $completedVisible = $completedAll
+            ->reject(fn (RideRequest $ride) => $completedArchive->isArchived($ride, $driverId)
+                || $completedArchive->isDeleted($ride, $driverId))
+            ->take(40)
+            ->values();
+        $archivedCompletedRides = $completedAll
+            ->filter(fn (RideRequest $ride) => $completedArchive->isArchived($ride, $driverId)
+                && ! $completedArchive->isDeleted($ride, $driverId))
+            ->take(40)
+            ->values();
+
+        $payoutNotices = [];
+        try {
+            $payoutNotices = app(DriverRidePayoutService::class)->noticesForDriver((int) $user->id);
+        } catch (\Throwable) {
+            $payoutNotices = [];
+        }
+
         $absenceAlert = Cache::pull('taxi_driver_absence_alert:'.(int) $user->id);
         $pickupProposalAlert = Cache::pull('taxi_driver_pickup_proposal_alert:'.(int) $user->id);
+        $pickupDeniedAlert = Cache::get(MarketplacePickupConfirmationService::DRIVER_DENIED_ALERT_PREFIX.(int) $user->id);
 
         $waitingRideIds = $offers
             ->concat($pendingApprovalOffers)
@@ -183,6 +251,7 @@ class DriverDispatchController extends Controller
             ->concat($customerDeclinedProposalOffers)
             ->concat($overdueReleasedOffers)
             ->concat($archivedOffers)
+            ->concat($cancelledOffers)
             ->map(fn (RideDispatchOffer $offer) => $offer->rideRequest)
             ->filter(fn ($ride) => $ride && ! $ride->driver_id)
             ->map(fn (RideRequest $ride) => (int) $ride->id)
@@ -204,6 +273,15 @@ class DriverDispatchController extends Controller
                         ->concat($customerDeclinedProposalOffers)
                         ->map(fn (RideDispatchOffer $o) => TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest))
                         ->values(),
+                    'cancelled_offers' => $cancelledOffers
+                        ->map(function (RideDispatchOffer $o) {
+                            $data = TaxiDispatchOfferResource::fromOffer($o, $o->rideRequest);
+                            $data['closed_at'] = $o->responded_at?->toIso8601String();
+                            $data['ui_cancelled'] = true;
+
+                            return $data;
+                        })
+                        ->values(),
                     'active_ride' => $activeRide
                         ? TaxiDispatchOfferResource::rideSummary($activeRide)
                         : null,
@@ -216,14 +294,25 @@ class DriverDispatchController extends Controller
                     'overdue_scheduled_rides' => $overdueScheduledRides
                         ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
                         ->values(),
+                    'archived_overdue_scheduled_rides' => $archivedOverdueScheduledRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, true, false))
+                        ->values(),
+                    'completed_rides' => $completedVisible
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
+                        ->values(),
+                    'archived_completed_rides' => $archivedCompletedRides
+                        ->map(fn (RideRequest $ride) => TaxiDispatchOfferResource::rideSummary($ride, false, false))
+                        ->values(),
                     'overdue_released_offers' => $overdueReleasedOffers
                         ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))
                         ->values(),
                     'archived_offers' => $archivedOffers
                         ->map(fn (RideDispatchOffer $offer) => TaxiDispatchOfferResource::fromOffer($offer, $offer->rideRequest, true))
                         ->values(),
+                    'payout_notices' => $payoutNotices,
                     'absence_alert' => is_array($absenceAlert) ? $absenceAlert : null,
                     'pickup_proposal_alert' => is_array($pickupProposalAlert) ? $pickupProposalAlert : null,
+                    'pickup_denied_alert' => is_array($pickupDeniedAlert) ? $pickupDeniedAlert : null,
                 ],
                 'meta' => array_merge(
                     [
@@ -232,9 +321,12 @@ class DriverDispatchController extends Controller
                         'offer_ttl_seconds' => $dispatchSettings->offerTtlSeconds($companyId),
                         'past_pickup_grace_minutes' => $dispatchSettings->pastPickupGraceMinutes($companyId),
                         'past_pickup_grace_hours' => $dispatchSettings->pastPickupGraceHours($companyId),
+                        'overdue_auto_archive_days' => $dispatchSettings->overdueAutoArchiveDays($companyId),
+                        'require_en_route_before_start' => $dispatchSettings->requireEnRouteBeforeStart($companyId),
                         'unclaimed_rides' => $unclaimedRides,
                         'network' => $networkMeta,
                         'requires_vehicle_to_accept' => true,
+                        'driver_cancel_reasons' => TaxiRideCancellationService::driverCancelReasons(),
                     ],
                     $dispatchSettings->paymentOptionsForTenant($companyId)
                 ),
@@ -271,8 +363,12 @@ class DriverDispatchController extends Controller
             ], 409);
         }
 
-        $message = ! empty($result['pickup_proposed'])
-            ? 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.'
+        $proposed = ! empty($result['pickup_proposed']);
+        $viaApp = $proposed && ($result['ride']->isNexaSuiteBooking() ?? false);
+        $message = $proposed
+            ? ($viaApp
+                ? 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant in de app.'
+                : 'Rit geaccepteerd. Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.')
             : 'Rit geaccepteerd.';
 
         return response()->json([
@@ -285,7 +381,7 @@ class DriverDispatchController extends Controller
         ]);
     }
 
-    public function start(
+    public function enRoute(
         Request $request,
         int $ride,
         ModuleDatabaseService $moduleDb,
@@ -294,7 +390,79 @@ class DriverDispatchController extends Controller
         $conn = $moduleDb->getModuleConnectionName('taxi');
 
         try {
-            $started = $claim->startRide($conn, $request->user(), $ride);
+            $updated = $claim->markEnRouteToPickup($conn, $request->user(), $ride);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan status niet bijwerken.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Klant is geïnformeerd: chauffeur onderweg.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($updated),
+            ],
+        ]);
+    }
+
+    public function start(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideClaimService $claim
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+
+        $existing = RideRequest::on($conn)->find($ride);
+        $driver = $request->user();
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        $pickup = app(MarketplacePickupConfirmationService::class);
+        $dispatchSettings = app(TaxiDispatchSettingsService::class);
+        $driverCompanyId = (int) ($driver->company_id ?? 0) ?: null;
+
+        if ($existing) {
+            try {
+                $dispatchSettings->assertCanStartAcceptedRide($existing, $driverCompanyId);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Tik eerst op Ophalen.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+        }
+
+        // Marktplaats: ophaal-PIN verplicht (Uber-achtig) vóór actieve rit.
+        if (
+            $existing
+            && $existing->isVisibleToDriver((int) $driver->id, $vehicleId)
+            && $pickup->appliesTo($existing)
+            && $existing->status === RideRequest::STATUS_ACCEPTED
+        ) {
+            $validated = $request->validate([
+                'pin' => ['required', 'string', 'regex:/^\d{4}$/'],
+            ]);
+
+            try {
+                $started = $pickup->startWithPin($conn, $existing, $driver, $validated['pin']);
+            } catch (ValidationException $e) {
+                return response()->json([
+                    'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+
+            return response()->json([
+                'message' => 'Rit gestart.',
+                'pickup_warning' => $started['warning'],
+                'data' => [
+                    'ride' => TaxiDispatchOfferResource::rideSummary($started['ride']),
+                ],
+            ]);
+        }
+
+        try {
+            $started = $claim->startRide($conn, $driver, $ride);
         } catch (ValidationException $e) {
             return response()->json([
                 'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet starten.',
@@ -329,6 +497,42 @@ class DriverDispatchController extends Controller
 
         return response()->json([
             'message' => 'Rit vrijgegeven. Andere chauffeurs kunnen deze nu overnemen.',
+        ]);
+    }
+
+    public function cancel(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        TaxiRideCancellationService $cancellation
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $allowed = array_column(TaxiRideCancellationService::driverCancelReasons(), 'code');
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'in:'.implode(',', $allowed)],
+        ]);
+
+        try {
+            $result = $cancellation->cancelAcceptedByDriver(
+                $conn,
+                $request->user(),
+                $ride,
+                (string) $validated['reason_code']
+            );
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first() ?: 'Kan rit niet annuleren.',
+                'errors' => $e->errors(),
+            ], 409);
+        }
+
+        return response()->json([
+            'message' => 'Rit geannuleerd. De klant ziet de gekozen reden.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($result['ride']),
+                'cancellation_message' => $result['message'],
+                'refunded' => $result['refunded'],
+            ],
         ]);
     }
 
@@ -492,6 +696,7 @@ class DriverDispatchController extends Controller
 
         return response()->json([
             'message' => $message,
+            'dropoff_warning' => data_get($completed->booking_payload, 'dropoff_location_check.warning'),
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($completed),
                 'outbound_completed' => $isOutboundOnlyComplete,
@@ -527,7 +732,9 @@ class DriverDispatchController extends Controller
         }
 
         return response()->json([
-            'message' => 'Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.',
+            'message' => $updated->isNexaSuiteBooking()
+                ? 'Nieuw ophaalmoment voorgesteld aan de klant in de app.'
+                : 'Nieuw ophaalmoment voorgesteld aan de klant via WhatsApp.',
             'data' => [
                 'ride' => TaxiDispatchOfferResource::rideSummary($updated, true),
             ],
@@ -674,6 +881,113 @@ class DriverDispatchController extends Controller
             ->whereIn('status', [RideDispatchOffer::STATUS_DECLINED, RideDispatchOffer::STATUS_EXPIRED])
             ->whereIn('id', $ids)
             ->delete();
+
+        if ($deleted < 1) {
+            return response()->json(['message' => 'Geen gearchiveerde ritten gevonden om te verwijderen.'], 404);
+        }
+
+        return response()->json([
+            'message' => $deleted === 1
+                ? '1 rit verwijderd uit archief.'
+                : $deleted.' ritten verwijderd uit archief.',
+            'data' => [
+                'deleted' => $deleted,
+            ],
+        ]);
+    }
+
+    public function archiveCompletedRide(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Archiveren is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $row = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->whereKey($ride)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Afgeronde rit niet gevonden.'], 404);
+        }
+
+        $fresh = $archive->archive($row, (int) $user->id);
+
+        return response()->json([
+            'message' => 'Rit naar archief verplaatst.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($fresh, false, false),
+            ],
+        ]);
+    }
+
+    public function unarchiveCompletedRide(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Archiveren is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $row = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->whereKey($ride)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->first();
+
+        if (! $row) {
+            return response()->json(['message' => 'Afgeronde rit niet gevonden.'], 404);
+        }
+
+        $fresh = $archive->unarchive($row, (int) $user->id);
+
+        return response()->json([
+            'message' => 'Rit teruggezet onder Ritten.',
+            'data' => [
+                'ride' => TaxiDispatchOfferResource::rideSummary($fresh, false, false),
+            ],
+        ]);
+    }
+
+    public function deleteArchivedCompletedRides(
+        Request $request,
+        ModuleDatabaseService $moduleDb,
+        DriverCompletedRideArchiveService $archive,
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        if (! $archive->supportsPayload($conn)) {
+            return response()->json(['message' => 'Verwijderen uit archief is hier niet beschikbaar.'], 422);
+        }
+
+        $user = $request->user();
+        $data = $request->validate([
+            'ride_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ride_ids.*' => ['integer', 'min:1'],
+        ]);
+        $ids = array_values(array_unique(array_map('intval', $data['ride_ids'])));
+
+        $rides = RideRequest::on($conn)
+            ->visibleToDriver((int) $user->id)
+            ->where('status', RideRequest::STATUS_COMPLETED)
+            ->whereIn('id', $ids)
+            ->get();
+
+        $deleted = 0;
+        foreach ($rides as $ride) {
+            $archive->markDeleted($ride, (int) $user->id);
+            $deleted++;
+        }
 
         if ($deleted < 1) {
             return response()->json(['message' => 'Geen gearchiveerde ritten gevonden om te verwijderen.'], 404);

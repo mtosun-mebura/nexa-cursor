@@ -4,7 +4,7 @@
             <div class="flex flex-col gap-1 min-w-0 flex-1" data-domain-view>
                 <span class="font-mono text-sm text-foreground break-all" data-domain-host-label>{{ $d->host }}</span>
                 @if($d->is_primary)
-                    <span class="kt-badge kt-badge-sm kt-badge-success w-fit">Primair</span>
+                    <span class="kt-badge kt-badge-sm kt-badge-success w-fit">{{ __('Primair') }}</span>
                 @endif
             </div>
             @can('edit-companies')
@@ -19,21 +19,21 @@
                         @if($d->is_primary)
                             <input type="hidden" name="clear" value="1">
                         @endif
-                        <label class="kt-label mb-0 inline-flex items-center gap-2 cursor-pointer" title="{{ $d->is_primary ? 'Primair uitzetten (ander domein wordt primair)' : 'Instellen als primair tenantdomein' }}">
-                            <span class="text-xs text-muted-foreground whitespace-nowrap">Primair</span>
+                        <label class="kt-label mb-0 inline-flex items-center gap-2 cursor-pointer" title="{{ $d->is_primary ? __('Primair uitzetten (ander domein wordt primair)') : __('Instellen als primair tenantdomein') }}">
+                            <span class="text-xs text-muted-foreground whitespace-nowrap">{{ __('Primair') }}</span>
                             <input
                                 type="checkbox"
                                 class="kt-switch kt-switch-sm shrink-0 js-domain-primary-switch"
                                 {{ $d->is_primary ? 'checked' : '' }}
-                                aria-label="{{ $d->is_primary ? 'Primair uitzetten' : 'Primair aanzetten' }}"
+                                aria-label="{{ $d->is_primary ? __('Primair uitzetten') : __('Primair aanzetten') }}"
                             >
                         </label>
                     </form>
                     <button
                         type="button"
                         class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0 text-foreground hover:bg-muted js-domain-edit-toggle"
-                        title="Domein wijzigen"
-                        aria-label="Domein wijzigen"
+                        title="{{ __('Domein wijzigen') }}"
+                        aria-label="{{ __('Domein wijzigen') }}"
                         aria-expanded="false"
                     >
                         <i class="ki-filled ki-pencil text-base"></i>
@@ -41,7 +41,7 @@
                     <form action="{{ route('admin.companies.domains.destroy', [$company, $d]) }}" method="post" class="js-company-domain-action m-0 inline" data-domain-destroy="1">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0 text-red-600 hover:text-red-700 hover:bg-red-500/10 dark:text-red-500 dark:hover:text-red-400 dark:hover:bg-red-500/10" title="Domein verwijderen" aria-label="Domein verwijderen">
+                        <button type="submit" class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost shrink-0 text-red-600 hover:text-red-700 hover:bg-red-500/10 dark:text-red-500 dark:hover:text-red-400 dark:hover:bg-red-500/10" title="{{ __('Domein verwijderen') }}" aria-label="{{ __('Domein verwijderen') }}">
                             <i class="ki-filled ki-trash text-base"></i>
                         </button>
                     </form>
@@ -58,7 +58,7 @@
                 @csrf
                 @method('PUT')
                 <div class="flex flex-col gap-1.5 min-w-0 flex-1">
-                    <label class="text-xs font-medium text-muted-foreground" for="domain-host-edit-{{ $d->id }}">Hostnaam</label>
+                    <label class="text-xs font-medium text-muted-foreground" for="domain-host-edit-{{ $d->id }}">{{ __('Hostnaam') }}</label>
                     <input
                         type="text"
                         name="host"
@@ -71,8 +71,8 @@
                     <div class="text-xs text-destructive hidden" data-domain-edit-error role="alert"></div>
                 </div>
                 <div class="inline-flex items-center gap-2 shrink-0">
-                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">Opslaan</button>
-                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline js-domain-edit-cancel">Annuleren</button>
+                    <button type="submit" class="kt-btn kt-btn-sm kt-btn-primary">{{ __('Opslaan') }}</button>
+                    <button type="button" class="kt-btn kt-btn-sm kt-btn-outline js-domain-edit-cancel">{{ __('Annuleren') }}</button>
                 </div>
             </form>
         @endcan

@@ -16,23 +16,57 @@ class TarievenController extends Controller
 
     public function edit()
     {
+        $this->abortIfMarketplace();
         $this->authorizeOrPermissionAny(['rates.view', 'vehicles.view']);
 
         $conn = $this->moduleConnection();
         $scopeCompanyId = app(AdminTenantScope::class)->selectedTenantId();
         $rates = DefaultRate::getRatesForEdit($conn, $scopeCompanyId);
         $eveningNight = DefaultRate::eveningNightSettings($rates->first());
+        $platformRatesForImport = $this->platformRatesForImport($conn, $scopeCompanyId);
 
         return view('taxi::admin.tarieven.edit', [
             'rates' => $rates,
             'eveningNight' => $eveningNight,
             'scopeCompanyId' => $scopeCompanyId,
             'scopeCompanyName' => $this->scopeCompanyName($scopeCompanyId),
+            'platformRatesForImport' => $platformRatesForImport,
         ]);
+    }
+
+    /**
+     * NEXA Suite (company_id null) rate rows for tenant import UI. Empty when already on platform scope.
+     *
+     * @return list<array{person_range: string, base_fare: mixed, min_fare: mixed, price_per_km: mixed, price_per_min: mixed, cleaning_costs: mixed}>
+     */
+    private function platformRatesForImport(string $conn, ?int $scopeCompanyId): array
+    {
+        if ($scopeCompanyId === null || ! DefaultRate::hasCompanyIdColumn($conn)) {
+            return [];
+        }
+
+        return DefaultRate::queryForCompany($conn, null)
+            ->get()
+            ->sortBy(function (DefaultRate $rate) {
+                [$start, $end] = DefaultRate::parseRangeBounds((string) $rate->person_range);
+
+                return ($start * 1000) + $end;
+            })
+            ->values()
+            ->map(fn (DefaultRate $rate) => [
+                'person_range' => (string) $rate->person_range,
+                'base_fare' => $rate->base_fare,
+                'min_fare' => $rate->min_fare,
+                'price_per_km' => $rate->price_per_km,
+                'price_per_min' => $rate->price_per_min,
+                'cleaning_costs' => $rate->cleaning_costs,
+            ])
+            ->all();
     }
 
     public function update(Request $request)
     {
+        $this->abortIfMarketplace();
         $this->authorizeOrPermissionAny(['rates.update', 'vehicles.update']);
 
         $conn = $this->moduleConnection();
@@ -93,7 +127,7 @@ class TarievenController extends Controller
             $normalized[$normalizedRange] = $payload;
         }
         if (empty($normalized)) {
-            return back()->withErrors(['rates' => 'Voeg minimaal 1 geldig personenbereik toe.'])->withInput();
+            return back()->withErrors(['rates' => __('Voeg minimaal 1 geldig personenbereik toe.')])->withInput();
         }
 
         $existing = DefaultRate::queryForCompany($conn, $scopeCompanyId)->get()->keyBy('person_range');
@@ -114,7 +148,7 @@ class TarievenController extends Controller
             \App\Support\TenantPublicCache::bump($scopeCompanyId);
         }
 
-        return redirect()->route('admin.taxi.tarieven.edit')->with('success', 'Tarieven zijn bijgewerkt.');
+        return redirect()->route('admin.taxi.tarieven.edit')->with('success', __('Tarieven zijn bijgewerkt.'));
     }
 
     private function scopeCompanyName(?int $scopeCompanyId): ?string
@@ -124,6 +158,20 @@ class TarievenController extends Controller
         }
 
         return Company::query()->whereKey($scopeCompanyId)->value('name');
+    }
+
+    private function abortIfMarketplace(): void
+    {
+        $user = auth()->user();
+        if ($user && ($user->isSuperAdmin() || $user->hasRole('super-admin'))) {
+            return;
+        }
+        $companyId = app(AdminTenantScope::class)->selectedTenantId();
+        $company = $companyId ? Company::query()->find($companyId) : null;
+        $package = strcasecmp((string) ($company->package_key ?? ''), \App\Services\MarketplaceCompanyRegistrationService::PACKAGE_KEY) === 0;
+        if ($package || ($user && $user->hasRole('marketplace'))) {
+            abort(403, __('Tarieven zijn niet beschikbaar voor marketplace-bedrijven.'));
+        }
     }
 
     private function authorizeOrPermissionAny(array $abilities): void
@@ -136,6 +184,6 @@ class TarievenController extends Controller
                 return;
             }
         }
-        abort(403, 'Geen rechten voor deze actie.');
+        abort(403, __('Geen rechten voor deze actie.'));
     }
 }

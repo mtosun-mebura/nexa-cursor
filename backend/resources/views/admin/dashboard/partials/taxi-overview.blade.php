@@ -3,7 +3,7 @@
     <div class="kt-card w-full">
         <div class="kt-card-body flex items-start justify-between gap-4 p-6">
             <div class="space-y-1 flex-1 min-w-0">
-                <div class="text-sm text-secondary-foreground">Ritten totaal</div>
+                <div class="text-sm text-secondary-foreground">{{ __('Ritten totaal') }}</div>
                 <div class="text-2xl font-semibold text-mono">{{ $taxiStats['total_rides'] ?? 0 }}</div>
             </div>
             <span class="size-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -14,7 +14,7 @@
     <div class="kt-card w-full">
         <div class="kt-card-body flex items-start justify-between gap-4 p-6">
             <div class="space-y-1 flex-1 min-w-0">
-                <div class="text-sm text-secondary-foreground">Open / wachtend</div>
+                <div class="text-sm text-secondary-foreground">{{ __('Open / wachtend') }}</div>
                 <div class="text-2xl font-semibold text-mono">{{ $taxiStats['pending_rides'] ?? 0 }}</div>
             </div>
             <span class="size-12 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
@@ -25,7 +25,7 @@
     <div class="kt-card w-full">
         <div class="kt-card-body flex items-start justify-between gap-4 p-6">
             <div class="space-y-1 flex-1 min-w-0">
-                <div class="text-sm text-secondary-foreground">Actieve ritten</div>
+                <div class="text-sm text-secondary-foreground">{{ __('Actieve ritten') }}</div>
                 <div class="text-2xl font-semibold text-mono">{{ $taxiStats['active_rides'] ?? 0 }}</div>
             </div>
             <span class="size-12 rounded-full bg-info/10 flex items-center justify-center shrink-0">
@@ -36,7 +36,7 @@
     <div class="kt-card w-full">
         <div class="kt-card-body flex items-start justify-between gap-4 p-6">
             <div class="space-y-1 flex-1 min-w-0">
-                <div class="text-sm text-secondary-foreground">Afgerond</div>
+                <div class="text-sm text-secondary-foreground">{{ __('Afgerond') }}</div>
                 <div class="text-2xl font-semibold text-mono">{{ $taxiStats['completed_rides'] ?? 0 }}</div>
             </div>
             <span class="size-12 rounded-full bg-success/10 flex items-center justify-center shrink-0">
@@ -50,10 +50,10 @@
     <div class="kt-card-header flex-wrap gap-3">
         <h3 class="kt-card-title">
             <i class="ki-filled ki-calendar me-2"></i>
-            Recente ritten
+            {{ __('Recente ritten') }}
         </h3>
         @if(Route::has('admin.taxi.ride_requests.index'))
-            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">Alle ritten</a>
+            <a href="{{ route('admin.taxi.ride_requests.index') }}" class="kt-btn kt-btn-sm kt-btn-outline">{{ __('Alle ritten') }}</a>
         @endif
     </div>
     <div class="kt-card-content p-0 min-w-0">
@@ -63,7 +63,7 @@
                     <tr>
                         <th>Route</th>
                         <th class="whitespace-nowrap">Status</th>
-                        <th class="whitespace-nowrap">Datum</th>
+                        <th class="whitespace-nowrap">{{ __('Datum') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -92,7 +92,7 @@
                     @empty
                         <tr>
                             <td colspan="3" class="text-center text-muted-foreground py-5">
-                                Geen recente ritten
+                                {{ __('Geen recente ritten') }}
                             </td>
                         </tr>
                     @endforelse

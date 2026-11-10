@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
 use App\Modules\NexaTaxi\Services\TaxiContractvervoerSchemaService;
 use App\Modules\NexaTaxi\Support\PwaAccent;
+use App\Modules\NexaTaxi\Support\TaxiDemoRole;
 use App\Modules\NexaTaxi\Services\TaxiAppLogoService;
 use App\Services\CompanyEntitlementService;
 use App\Services\ModuleDatabaseService;
@@ -76,21 +77,31 @@ class ContractPortalAuthController extends Controller
         $data = $request->validate([
             'email' => 'required|email',
             'code' => 'required|string',
-            'password' => 'required|string|min:8|max:255',
+            'password' => 'nullable|string|min:8|max:255',
+            'skip_password' => 'nullable|boolean',
         ], [
             'email.required' => 'Vul je e-mailadres in.',
             'code.required' => 'Vul de code uit je e-mail in.',
-            'password.required' => 'Kies een wachtwoord.',
             'password.min' => 'Kies een wachtwoord van minimaal 8 tekens.',
         ]);
 
-        $result = $firstLogin->verifyAndSetPassword(
-            $data['email'],
-            $data['code'],
-            $data['password'],
-            TaxiAppFirstLoginService::CHANNEL_CONTRACT,
-            (string) $request->ip()
-        );
+        $skipPassword = $request->boolean('skip_password')
+            || trim((string) ($data['password'] ?? '')) === '';
+
+        $result = $skipPassword
+            ? $firstLogin->verifyAndLoginWithCode(
+                $data['email'],
+                $data['code'],
+                TaxiAppFirstLoginService::CHANNEL_CONTRACT,
+                (string) $request->ip()
+            )
+            : $firstLogin->verifyAndSetPassword(
+                $data['email'],
+                $data['code'],
+                (string) $data['password'],
+                TaxiAppFirstLoginService::CHANNEL_CONTRACT,
+                (string) $request->ip()
+            );
 
         if (! $result['ok'] || ! ($result['user'] ?? null) instanceof User) {
             return $this->firstLoginJson($result);
@@ -155,6 +166,13 @@ class ContractPortalAuthController extends Controller
         app(TaxiContractvervoerSchemaService::class)->ensureContractPortalTables($conn);
 
         $context = $access->resolveContext($conn, $user);
+        if ($context === null && $user->isSuperAdmin()) {
+            $context = [
+                'company_id' => (int) ($user->company_id ?? 0),
+                'transport_customer_id' => 0,
+                'portal_role' => TransportCustomerPortalUser::ROLE_CONTRACTANT,
+            ];
+        }
         if ($context === null) {
             return response()->json([
                 'message' => 'Dit account heeft geen toegang tot het contractportaal.',
@@ -196,6 +214,7 @@ class ContractPortalAuthController extends Controller
     private function userPayload(User $user, array $context): array
     {
         $role = (string) ($context['portal_role'] ?? '');
+        $isDemo = TaxiDemoRole::userHas($user);
         $roleLabel = $role === TransportCustomerPortalUser::ROLE_CONTRACTANT
             ? 'Contractant'
             : 'Contractouder';
@@ -216,6 +235,8 @@ class ContractPortalAuthController extends Controller
             'portal_role' => $role,
             'portal_role_label' => $roleLabel,
             'is_contractant' => $role === TransportCustomerPortalUser::ROLE_CONTRACTANT,
+            'is_demo' => $isDemo,
+            'can_simulate_rides' => $role === TransportCustomerPortalUser::ROLE_CONTRACTANT || $isDemo,
             'pwa_accent' => PwaAccent::fromUser($user),
         ];
     }

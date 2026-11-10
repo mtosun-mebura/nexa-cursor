@@ -16,7 +16,7 @@ class PipelineTemplateController extends Controller
     protected function authorizeSkillmatchingModule(Company $company): void
     {
         if (! $company->hasSkillmatchingModule()) {
-            abort(403, 'Pipeline templates zijn alleen beschikbaar voor tenants met de module Nexa Skillmatching.');
+            abort(403, __('Pipeline templates zijn alleen beschikbaar voor tenants met de module Nexa Skillmatching.'));
         }
     }
 
@@ -119,7 +119,7 @@ class PipelineTemplateController extends Controller
         }
 
         return redirect()->route('admin.companies.pipeline-templates.index', $company)
-            ->with('success', 'Pipeline template bijgewerkt.');
+            ->with('success', __('Pipeline template bijgewerkt.'));
     }
 
     /**
@@ -135,7 +135,7 @@ class PipelineTemplateController extends Controller
 
         if (! $defaultTemplate) {
             return redirect()->route('admin.companies.pipeline-templates.index', $company)
-                ->with('error', 'Standaard template niet gevonden.');
+                ->with('error', __('Standaard template niet gevonden.'));
         }
 
         $pipelineTemplate = PipelineTemplate::create([
@@ -151,6 +151,6 @@ class PipelineTemplateController extends Controller
         ]);
 
         return redirect()->route('admin.companies.pipeline-templates.edit', [$company, $pipelineTemplate])
-            ->with('success', 'Template gekopieerd. Pas deze aan naar wens.');
+            ->with('success', __('Template gekopieerd. Pas deze aan naar wens.'));
     }
 }

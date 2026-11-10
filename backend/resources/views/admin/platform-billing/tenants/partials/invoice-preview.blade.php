@@ -74,12 +74,12 @@
 
     @if(($preview['extra_lines_one_time'] ?? false) && !empty($preview['extra_lines_applied_at']))
         <div class="kt-alert kt-alert-warning py-3 mb-5" role="status">
-            Eenmalige extra regels zijn al op een eerdere factuur toegepast ({{ $preview['extra_lines_applied_at']->format('d-m-Y H:i') }}).
-            Pas de regelselectie aan om opnieuw eenmalige regels te plannen.
+            {{ __('Eenmalige extra regels zijn al op een eerdere factuur toegepast (:date).', ['date' => $preview['extra_lines_applied_at']->format('d-m-Y H:i')]) }}
+            {{ __('Pas de regelselectie aan om opnieuw eenmalige regels te plannen.') }}
         </div>
     @elseif(($preview['extra_lines_one_time'] ?? false) && ($preview['includes_extra_lines'] ?? false))
         <div class="kt-alert kt-alert-info py-3 mb-5" role="status">
-            Extra regels staan op <strong>eenmalig</strong> en worden meegenomen op de volgende factuur.
+            {!! __('Extra regels staan op :once en worden meegenomen op de volgende factuur.', ['once' => '<strong>'.e(__('eenmalig')).'</strong>']) !!}
         </div>
     @endif
 

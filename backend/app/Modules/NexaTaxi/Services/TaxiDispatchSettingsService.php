@@ -27,9 +27,17 @@ class TaxiDispatchSettingsService
 
     public const KEY_PAST_PICKUP_GRACE_MINUTES = 'taxi_dispatch_past_pickup_grace_minutes';
 
+    public const KEY_OVERDUE_AUTO_ARCHIVE_DAYS = 'taxi_dispatch_overdue_auto_archive_days';
+
     public const KEY_UNACCEPTED_AUTO_CANCEL_MINUTES = 'taxi_dispatch_unaccepted_auto_cancel_minutes';
 
     public const KEY_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 'taxi_dispatch_customer_unaccepted_decision_minutes';
+
+    /** Marktplaats: max. wachten na “blijven wachten” vóór auto-annulering (minuten). */
+    public const KEY_MARKETPLACE_MAX_WAIT_MINUTES = 'taxi_dispatch_marketplace_max_wait_minutes';
+
+    /** Blokkeer “Klant opgehaald” tot chauffeur op Ophalen (en_route) heeft getikt. */
+    public const KEY_REQUIRE_EN_ROUTE_BEFORE_START = 'taxi_dispatch_require_en_route_before_start';
 
     public const KEY_BOOKING_WHATSAPP_ENABLED = 'taxi_dispatch_booking_whatsapp_enabled';
 
@@ -106,6 +114,11 @@ class TaxiDispatchSettingsService
 
     public const MAX_PAST_PICKUP_GRACE_MINUTES = 4320; // 72 uur
 
+    /** 0 = nooit automatisch archiveren */
+    public const MIN_OVERDUE_AUTO_ARCHIVE_DAYS = 0;
+
+    public const MAX_OVERDUE_AUTO_ARCHIVE_DAYS = 90;
+
     /** 0 = automatische annulering uit */
     public const MIN_UNACCEPTED_AUTO_CANCEL_MINUTES = 0;
 
@@ -113,6 +126,10 @@ class TaxiDispatchSettingsService
 
     /** 0 = geen auto-annulering na de klantprompt */
     public const MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 0;
+
+    public const MIN_MARKETPLACE_MAX_WAIT_MINUTES = 0;
+
+    public const MAX_MARKETPLACE_MAX_WAIT_MINUTES = 1440; // 24 uur
 
     public const MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES = 180;
 
@@ -199,9 +216,42 @@ class TaxiDispatchSettingsService
         return max(self::MIN_PAST_PICKUP_GRACE_MINUTES, min(self::MAX_PAST_PICKUP_GRACE_MINUTES, $minutes));
     }
 
+    public function overdueAutoArchiveDays(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.overdue_auto_archive_days', 2);
+        // Alleen tenant-override; geen Nexa Suite-platformfallback (company_id null).
+        if ($companyId !== null && $companyId > 0) {
+            $raw = $this->companyScopedSetting(self::KEY_OVERDUE_AUTO_ARCHIVE_DAYS, $companyId);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampOverdueAutoArchiveDays((int) $raw);
+            }
+        }
+
+        return $this->clampOverdueAutoArchiveDays($default);
+    }
+
+    public function setOverdueAutoArchiveDays(int $days, ?int $companyId = null): void
+    {
+        // Alleen per tenant opslaan — nooit als platformdefault voor alle tenants.
+        if ($companyId === null || $companyId <= 0) {
+            return;
+        }
+
+        GeneralSetting::set(
+            self::KEY_OVERDUE_AUTO_ARCHIVE_DAYS,
+            (string) $this->clampOverdueAutoArchiveDays($days),
+            $companyId
+        );
+    }
+
+    public function clampOverdueAutoArchiveDays(int $days): int
+    {
+        return max(self::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, min(self::MAX_OVERDUE_AUTO_ARCHIVE_DAYS, $days));
+    }
+
     public function unacceptedAutoCancelMinutes(?int $companyId = null): int
     {
-        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 30);
+        $default = (int) config('taxi-dispatch.unaccepted_auto_cancel_minutes', 20);
         $raw = GeneralSetting::get(self::KEY_UNACCEPTED_AUTO_CANCEL_MINUTES, null, $companyId);
         if ($raw === null || $raw === '') {
             return $this->clampUnacceptedAutoCancelMinutes($default);
@@ -373,6 +423,146 @@ class TaxiDispatchSettingsService
         );
     }
 
+    public function marketplaceMaxWaitMinutes(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30);
+        $raw = GeneralSetting::get(self::KEY_MARKETPLACE_MAX_WAIT_MINUTES, null, $companyId);
+        if ($raw === null || $raw === '') {
+            return $this->clampMarketplaceMaxWaitMinutes($default);
+        }
+
+        return $this->clampMarketplaceMaxWaitMinutes((int) $raw);
+    }
+
+    /**
+     * @param  list<int>  $companyIds
+     */
+    public function marketplaceMaxWaitMinutesForCompanies(array $companyIds, ?int $fallbackCompanyId = null): int
+    {
+        foreach ($companyIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid <= 0) {
+                continue;
+            }
+            $raw = $this->companyScopedSetting(self::KEY_MARKETPLACE_MAX_WAIT_MINUTES, $cid);
+            if ($raw !== null && $raw !== '') {
+                return $this->clampMarketplaceMaxWaitMinutes((int) $raw);
+            }
+        }
+
+        return $this->marketplaceMaxWaitMinutes($fallbackCompanyId);
+    }
+
+    public function marketplaceMaxWaitMinutesForRide(RideRequest $ride, ?int $companyId = null): int
+    {
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $snap = $payload['dispatch_timers']['marketplace_max_wait_minutes'] ?? null;
+        if ($snap !== null && $snap !== '') {
+            return $this->clampMarketplaceMaxWaitMinutes((int) $snap);
+        }
+
+        return $this->marketplaceMaxWaitMinutesForCompanies(
+            $this->dispatchSettingsCompanyIdsForRide($ride, $companyId),
+            $companyId
+        );
+    }
+
+    public function setMarketplaceMaxWaitMinutes(int $minutes, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_MARKETPLACE_MAX_WAIT_MINUTES,
+            (string) $this->clampMarketplaceMaxWaitMinutes($minutes),
+            $companyId
+        );
+    }
+
+    public function requireEnRouteBeforeStart(?int $companyId = null): bool
+    {
+        $stored = GeneralSetting::get(self::KEY_REQUIRE_EN_ROUTE_BEFORE_START, null, $companyId);
+        if ($stored !== null && $stored !== '') {
+            return $stored === '1';
+        }
+
+        return (bool) config('taxi-dispatch.require_en_route_before_start', true);
+    }
+
+    public function setRequireEnRouteBeforeStart(bool $enabled, ?int $companyId = null): void
+    {
+        GeneralSetting::set(self::KEY_REQUIRE_EN_ROUTE_BEFORE_START, $enabled ? '1' : '0', $companyId);
+    }
+
+    public function rideHasEnRouteToPickup(RideRequest $ride): bool
+    {
+        return data_get($ride->booking_payload, 'customer_status.event')
+            === WhatsAppBookingMessageComposer::EVENT_EN_ROUTE;
+    }
+
+    /**
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function assertCanStartAcceptedRide(RideRequest $ride, ?int $companyId = null): void
+    {
+        if (! in_array($ride->status, [
+            RideRequest::STATUS_ACCEPTED,
+            RideRequest::STATUS_ASSIGNED,
+        ], true)) {
+            return;
+        }
+
+        $cid = $companyId;
+        if ($cid === null && $ride->company_id) {
+            $cid = (int) $ride->company_id;
+        }
+
+        if (! $this->requireEnRouteBeforeStart($cid)) {
+            return;
+        }
+
+        if ($this->rideHasEnRouteToPickup($ride)) {
+            return;
+        }
+
+        throw \Illuminate\Validation\ValidationException::withMessages([
+            'ride' => ['Tik eerst op Ophalen voordat je de rit start.'],
+        ]);
+    }
+
+    public function clampMarketplaceMaxWaitMinutes(int $minutes): int
+    {
+        return max(
+            self::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
+            min(self::MAX_MARKETPLACE_MAX_WAIT_MINUTES, $minutes)
+        );
+    }
+
+    /**
+     * Deadline na “blijven wachten” (marktplaats max. wacht). Null = uit of geen startpunt.
+     */
+    public function marketplaceMaxWaitAt(RideRequest $ride, ?int $companyId = null): ?CarbonInterface
+    {
+        $minutes = $this->marketplaceMaxWaitMinutesForRide($ride, $companyId);
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        $payload = is_array($ride->booking_payload) ? $ride->booking_payload : [];
+        $decision = is_array($payload['unaccepted_customer_decision'] ?? null)
+            ? $payload['unaccepted_customer_decision']
+            : [];
+        // Alleen ná “blijven wachten”: tellen vanaf keuze-moment (niet vanaf ophaal/prompt).
+        $choiceAt = $decision['choice_at'] ?? null;
+        if (! is_string($choiceAt) || $choiceAt === '') {
+            return null;
+        }
+        try {
+            return Carbon::parse($choiceAt)
+                ->timezone(ContractTransportTimezone::TIMEZONE)
+                ->addMinutes($minutes);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     /**
      * Ophaalmoment dat geldt voor grace / auto-annuleren.
      * Bij een openstaand voorstel van de chauffeur telt de nieuwe tijd, niet de oude.
@@ -462,6 +652,34 @@ class TaxiDispatchSettingsService
         }
 
         return $dueAt->copy()->addSeconds($ttl)->lte($base);
+    }
+
+    /**
+     * Verlopen geaccepteerde rit hoort in het archief: ophaalmoment + N dagen is voorbij.
+     * 0 dagen in de instelling = nooit automatisch archiveren.
+     */
+    public function scheduledRideIsAutoArchived(RideRequest $ride, ?int $companyId = null, ?CarbonInterface $now = null): bool
+    {
+        $companyId = $companyId ?? (int) ($ride->company_id ?? 0);
+        $days = $this->overdueAutoArchiveDays($companyId > 0 ? $companyId : null);
+        if ($days <= 0) {
+            return false;
+        }
+
+        if (! $this->scheduledRideIsOverdue($ride, $companyId > 0 ? $companyId : null, $now)) {
+            return false;
+        }
+
+        $dueAt = $this->effectiveDispatchDueAt($ride);
+        if (! $dueAt) {
+            return false;
+        }
+
+        $base = $now
+            ? Carbon::parse($now)->timezone(ContractTransportTimezone::TIMEZONE)
+            : now(ContractTransportTimezone::TIMEZONE);
+
+        return $dueAt->copy()->addDays($days)->lte($base);
     }
 
     private function scheduledRideDueAt(RideRequest $ride): ?CarbonInterface
@@ -833,22 +1051,32 @@ class TaxiDispatchSettingsService
     {
         $stored = GeneralSetting::get(self::KEY_CUSTOMER_WHATSAPP_STATUS_EVENTS, null, $companyId);
         if ($stored !== null && $stored !== '') {
-            return $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+            $events = $this->normalizeCustomerWhatsappStatusEvents($stored, allowEmpty: true);
+        } else {
+            $fallback = $this->normalizeCustomerWhatsappStatusEvents(
+                app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
+                allowEmpty: false
+            );
+
+            $events = array_values(array_filter(
+                $fallback,
+                fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
+            ));
         }
 
-        $fallback = $this->normalizeCustomerWhatsappStatusEvents(
-            app(WhatsAppBookingMessageComposer::class)->selectedStatusEvents(),
-            allowEmpty: false
-        );
-
-        return array_values(array_filter(
-            $fallback,
-            fn (string $event): bool => $event !== WhatsAppBookingMessageComposer::EVENT_COMPLETED
-        ));
+        // Verplichte events (accepted / en_route / started) altijd meenemen.
+        return array_values(array_unique(array_merge(
+            WhatsAppBookingMessageComposer::requiredStatusEvents(),
+            $events
+        )));
     }
 
     public function customerWhatsappStatusEventEnabled(string $event, ?int $companyId = null): bool
     {
+        if (in_array($event, WhatsAppBookingMessageComposer::requiredStatusEvents(), true)) {
+            return true;
+        }
+
         return in_array($event, $this->customerWhatsappStatusEvents($companyId), true);
     }
 

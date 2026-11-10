@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Permissies Bulk Bewerken')
+@section('title', __('Permissies Bulk Bewerken'))
 
 @push('scripts')
 <script src="{{ asset('assets/js/form-validation.js') }}"></script>
@@ -169,13 +169,13 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="flex flex-col gap-5 pb-7.5">
         <div class="flex flex-wrap items-center justify-between gap-5">
             <h1 class="text-xl font-medium leading-none text-mono">
-                Permissies Bulk Bewerken
+                {{ __('Permissies Bulk Bewerken') }}
             </h1>
         </div>
         <div class="flex items-center">
             <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
                 <i class="ki-filled ki-arrow-left me-2"></i>
-                Terug
+                {{ __('Terug') }}
             </a>
         </div>
     </div>
@@ -194,9 +194,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <x-heroicon-s-information-circle class="w-6 h-6 flex-shrink-0" style="color: rgb(59, 130, 246);" />
                         </div>
                         <p class="text-base text-foreground dark:text-white flex-1 min-w-0">
-                            Bewerk permissies door modules en acties te selecteren. 
-                            Permissies die niet geselecteerd zijn worden verwijderd (tenzij ze toegewezen zijn aan rollen).
-                            Permissies die wel geselecteerd zijn maar nog niet bestaan worden aangemaakt.
+                            {{ __('Bewerk permissies door modules en acties te selecteren.') }}
+                            {{ __('Permissies die niet geselecteerd zijn worden verwijderd (tenzij ze toegewezen zijn aan rollen).') }}
+                            {{ __('Permissies die wel geselecteerd zijn maar nog niet bestaan worden aangemaakt.') }}
                         </p>
                     </div>
                 </div>
@@ -205,21 +205,21 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Basis Informatie -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Basis Informatie</h3>
+                    <h3 class="kt-card-title">{{ __('Basis Informatie') }}</h3>
                 </div>
                 
                 <!-- Validatiemelding voor Modules - Cyan balk -->
                 <div class="field-feedback-modules-wrapper mb-4 hidden" id="modules-validation-wrapper">
                     <div class="flex items-center gap-2 px-4 py-3 rounded-lg mx-5 mt-4" style="background-color: rgba(60, 219, 251, 0.1); border: 1px solid rgba(60, 219, 251, 0.3);">
                         <i class="ki-filled ki-information-5" style="font-size: 20px; color: rgb(234, 88, 12);"></i>
-                        <div class="field-feedback text-sm font-medium" data-field="modules[]" style="display: block; color: white;">Selecteer minimaal één module.</div>
+                        <div class="field-feedback text-sm font-medium" data-field="modules[]" style="display: block; color: white;">{{ __('Selecteer minimaal één module.') }}</div>
                     </div>
                 </div>
                 
                 <div class="kt-card-table pb-3">
                     <table class="kt-table kt-table-border-dashed align-middle text-sm text-muted-foreground">
                         <tr>
-                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">Modules *</td>
+                            <td class="min-w-56 text-secondary-foreground font-normal align-top pt-3">{{ __('Modules *') }}</td>
                             <td class="min-w-48 w-full">
                                 @php
                                     $oldModules = old('modules', $selectedModules ?? []);
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         $modulesToShow = [$selectedModule => ($moduleNames[$selectedModule] ?? ucfirst(str_replace(['-', '_'], ' ', $selectedModule)))];
                                     } else {
                                         // Show all modules (including "Algemeen")
-                                        $modulesToShow = ['algemeen' => 'Algemeen'] + ($moduleNames ?? []);
+                                        $modulesToShow = ['algemeen' => __('Algemeen')] + ($moduleNames ?? []);
                                     }
                                     
                                     // Split modules into two columns (only if more than one module)
@@ -262,9 +262,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 
                                 <div class="field-feedback text-xs mt-1 hidden" data-field="modules[]"></div>
                                 @if(!isset($selectedModule) || !$selectedModule)
-                                <div class="text-xs text-muted-foreground mt-2">Selecteer één of meerdere modules. "Algemeen" geldt voor alle modules.</div>
+                                <div class="text-xs text-muted-foreground mt-2">{!! __('Selecteer één of meerdere modules. "Algemeen" geldt voor alle modules.') !!}</div>
                                 @else
-                                <div class="text-xs text-muted-foreground mt-2">Module: {{ $moduleNames[$selectedModule] ?? ucfirst(str_replace(['-', '_'], ' ', $selectedModule)) }}</div>
+                                <div class="text-xs text-muted-foreground mt-2">{{ __('Module') }}: {{ $moduleNames[$selectedModule] ?? ucfirst(str_replace(['-', '_'], ' ', $selectedModule)) }}</div>
                                 @endif
                                 @error('modules')
                                     <div class="text-xs text-destructive mt-1">{{ $message }}</div>
@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Acties -->
             <div class="kt-card min-w-full" data-required-checkbox-group="actions[]">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Acties *</h3>
+                    <h3 class="kt-card-title">{{ __('Acties *') }}</h3>
                 </div>
                 <div class="kt-card-content">
                     @error('actions')
@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- Basis CRUD Acties -->
                         <div class="kt-card">
                             <div class="kt-card-header">
-                                <h4 class="kt-card-title text-sm">Basis CRUD Acties</h4>
+                                <h4 class="kt-card-title text-sm">{{ __('Basis CRUD Acties') }}</h4>
                             </div>
                             <div class="kt-card-content">
                                 <div class="flex flex-col gap-3">
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('view', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>View</strong> - Bekijken van items
+                                            <strong>{{ __('View') }}</strong> - {{ __('Bekijken van items') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('create', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Create</strong> - Nieuwe items aanmaken
+                                            <strong>{{ __('Create') }}</strong> - {{ __('Nieuwe items aanmaken') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('edit', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Edit</strong> - Bestaande items bewerken
+                                            <strong>{{ __('Edit') }}</strong> - {{ __('Bestaande items bewerken') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('delete', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Delete</strong> - Items verwijderen
+                                            <strong>{{ __('Delete') }}</strong> - {{ __('Items verwijderen') }}
                                         </span>
                                     </label>
                                 </div>
@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <!-- Specifieke Acties -->
                         <div class="kt-card">
                             <div class="kt-card-header">
-                                <h4 class="kt-card-title text-sm">Specifieke Acties</h4>
+                                <h4 class="kt-card-title text-sm">{{ __('Specifieke Acties') }}</h4>
                             </div>
                             <div class="kt-card-content">
                                 <div class="flex flex-col gap-3">
@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('approve', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Approve</strong> - Items goedkeuren
+                                            <strong>{{ __('Approve') }}</strong> - {{ __('Items goedkeuren') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('assign', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Assign</strong> - Items toewijzen
+                                            <strong>{{ __('Assign') }}</strong> - {{ __('Items toewijzen') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('publish', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Publish</strong> - Items publiceren
+                                            <strong>{{ __('Publish') }}</strong> - {{ __('Items publiceren') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -411,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('schedule', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Schedule</strong> - Items inplannen
+                                            <strong>{{ __('Schedule') }}</strong> - {{ __('Items inplannen') }}
                                         </span>
                                     </label>
                                     <label class="kt-label flex items-center cursor-pointer">
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                data-checkbox-group="actions[]"
                                                {{ in_array('send', old('actions', $selectedActions ?? [])) ? 'checked' : '' }}>
                                         <span class="ms-2">
-                                            <strong>Send</strong> - Items versturen
+                                            <strong>{{ __('Send') }}</strong> - {{ __('Items versturen') }}
                                         </span>
                                     </label>
                                 </div>
@@ -436,12 +436,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- Voorbeeld Preview -->
             <div class="kt-card min-w-full">
                 <div class="kt-card-header">
-                    <h3 class="kt-card-title">Voorbeeld Permissies die worden bewerkt</h3>
+                    <h3 class="kt-card-title">{{ __('Voorbeeld Permissies die worden bewerkt') }}</h3>
                 </div>
                 <div class="kt-card-content">
                     <div class="kt-alert kt-alert-secondary">
                         <div id="permission-preview" class="text-sm">
-                            <em>Selecteer modules en acties om een voorbeeld te zien...</em>
+                            <em>{{ __('Selecteer modules en acties om een voorbeeld te zien...') }}</em>
                         </div>
                     </div>
                 </div>
@@ -449,11 +449,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             <div class="flex items-center justify-end gap-2.5">
                 <a href="{{ route('admin.permissions.index') }}" class="kt-btn kt-btn-outline">
-                    Annuleren
+                    {{ __('Annuleren') }}
                 </a>
                 <button type="submit" id="submit-permissions-btn" class="kt-btn kt-btn-primary" disabled>
                     <i class="ki-filled ki-check me-2"></i>
-                    Permissies Bijwerken
+                    {{ __('Permissies Bijwerken') }}
                 </button>
             </div>
         </div>
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Module display names - dynamically loaded from server
     const moduleNames = @json($moduleNames ?? []);
-    moduleNames['algemeen'] = 'Algemeen';
+    moduleNames['algemeen'] = @json(__('Algemeen'));
 
     function updatePreview() {
         const selectedModules = Array.from(moduleCheckboxes)
@@ -494,11 +494,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             preview.innerHTML = permissions.join('<br>');
         } else if (modulesToShow.length > 0 && selectedActions.length === 0) {
-            preview.innerHTML = '<em>Selecteer minimaal één actie...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer minimaal één actie...')) + '</em>';
         } else if (modulesToShow.length === 0 && selectedActions.length > 0) {
-            preview.innerHTML = '<em>Selecteer minimaal één module...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer minimaal één module...')) + '</em>';
         } else {
-            preview.innerHTML = '<em>Selecteer modules en acties om een voorbeeld te zien...</em>';
+            preview.innerHTML = '<em>' + @json(__('Selecteer modules en acties om een voorbeeld te zien...')) + '</em>';
         }
     }
 
@@ -521,7 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkedCount === 0) {
                 // Geen modules geselecteerd - toon cyan balk
                 if (feedbackElement) {
-                    feedbackElement.textContent = 'Selecteer minimaal één module.';
+                    feedbackElement.textContent = @json(__('Selecteer minimaal één module.'));
                 }
                 validationWrapper.classList.remove('hidden');
                 validationWrapper.style.display = 'block';
@@ -546,7 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (checkedCount === 0) {
                 // Geen acties geselecteerd - toon cyan balk
                 if (feedbackElement) {
-                    feedbackElement.textContent = 'Selecteer minimaal één recht.';
+                    feedbackElement.textContent = @json(__('Selecteer minimaal één recht.'));
                 }
                 validationWrapper.classList.remove('hidden');
                 validationWrapper.style.display = 'block';

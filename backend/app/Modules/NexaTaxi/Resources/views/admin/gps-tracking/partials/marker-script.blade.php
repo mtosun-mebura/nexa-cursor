@@ -204,14 +204,14 @@ window.NexaGpsMarker = (function () {
         appearance = appearance || {};
         var wrap = document.createElement('div');
         wrap.className = 'nexa-gps-marker' + (item.is_online ? '' : ' is-offline');
-        wrap.title = (item.license_plate || 'Geen kenteken') + ' · ' + (item.driver_name || '');
+        wrap.title = (item.license_plate || @json(__('Geen kenteken'))) + ' · ' + (item.driver_name || '');
         if (item.id) wrap.setAttribute('data-gps-marker-id', item.id);
 
         var plate = document.createElement('div');
         plate.className = 'nexa-gps-plate';
-        plate.style.background = appearance.plate_background || '#f7e125';
-        plate.style.color = appearance.plate_text_color || '#111827';
-        plate.style.borderColor = appearance.plate_border_color || '#111827';
+        plate.style.background = appearance.plate_background || '#003399';
+        plate.style.color = appearance.plate_text_color || '#ffffff';
+        plate.style.borderColor = appearance.plate_border_color || '#001a66';
         plate.textContent = item.license_plate || item.driver_name || '—';
 
         var rot = document.createElement('div');

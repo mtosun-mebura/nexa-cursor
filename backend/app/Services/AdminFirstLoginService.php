@@ -25,6 +25,7 @@ class AdminFirstLoginService
 
     public function __construct(
         protected AdminFirstLoginCodeEmailTemplateService $codeTemplates,
+        protected AdminBankAccountChangeCodeEmailTemplateService $bankAccountChangeCodeTemplates,
         protected EmailTemplateService $parser,
         protected CompanyEmailLogoService $logos,
         protected TenantCustomerMailService $customerMail,
@@ -62,7 +63,7 @@ class AdminFirstLoginService
     /**
      * @return array{ok: bool, status: int, message: string, retry_after?: int}
      */
-    public function requestCode(string $email, string $ip): array
+    public function requestCode(string $email, string $ip, bool $registrationActivation = false): array
     {
         $email = strtolower(trim($email));
         $ipKey = 'admin-first-login-ip:'.$ip;
@@ -140,7 +141,7 @@ class AdminFirstLoginService
             'expires_at' => now()->addMinutes(self::EXPIRES_MINUTES),
         ]);
 
-        if (! $this->sendCodeMail($user, $code)) {
+        if (! $this->sendCodeMail($user, $code, $registrationActivation)) {
             return [
                 'ok' => false,
                 'status' => 503,
@@ -375,10 +376,129 @@ class AdminFirstLoginService
             'status' => 200,
             'message' => 'U bent ingelogd. U blijft ingelogd op dit apparaat.',
             'user' => $user->fresh(),
+            'auth_via_code' => true,
         ];
     }
 
-    private function sendCodeMail(User $user, string $code): bool
+    /**
+     * Eenmalige bevestigingscode voor step-up (bijv. bankrekening wijzigen) — voor wie zonder wachtwoord inlogt.
+     *
+     * @return array{ok: bool, status: int, message: string, retry_after?: int}
+     */
+    public function requestStepUpCode(User $user, string $ip): array
+    {
+        $email = strtolower(trim((string) $user->email));
+        $ipKey = 'admin-step-up-ip:'.$ip;
+        $emailKey = 'admin-step-up-email:'.$email;
+
+        if (RateLimiter::tooManyAttempts($ipKey, 8)) {
+            return $this->tooMany($ipKey);
+        }
+        if (RateLimiter::tooManyAttempts($emailKey, 5)) {
+            return $this->tooMany($emailKey);
+        }
+
+        RateLimiter::hit($ipKey, 60);
+        RateLimiter::hit($emailKey, 3600);
+
+        if (Schema::hasColumn('users', 'is_active') && $user->is_active === false) {
+            return [
+                'ok' => false,
+                'status' => 403,
+                'message' => 'Dit account is uitgeschakeld.',
+            ];
+        }
+
+        $recent = CustomerLoginCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', CustomerLoginCode::PURPOSE_ADMIN_STEP_UP)
+            ->whereNull('consumed_at')
+            ->where('created_at', '>=', now()->subSeconds(self::COOLDOWN_SECONDS))
+            ->latest('id')
+            ->first();
+
+        if ($recent) {
+            $elapsed = max(0, (int) $recent->created_at->diffInSeconds(now()));
+            $wait = max(1, self::COOLDOWN_SECONDS - $elapsed);
+
+            return [
+                'ok' => false,
+                'status' => 429,
+                'message' => 'Er is zojuist een code verstuurd. Kijk in je inbox of vraag over '.$wait.' seconde(n) een nieuwe aan.',
+                'retry_after' => $wait,
+            ];
+        }
+
+        $this->invalidateOpenStepUpCodes($user);
+
+        $code = str_pad((string) random_int(0, (10 ** self::CODE_LENGTH) - 1), self::CODE_LENGTH, '0', STR_PAD_LEFT);
+
+        CustomerLoginCode::query()->create([
+            'user_id' => $user->id,
+            'purpose' => CustomerLoginCode::PURPOSE_ADMIN_STEP_UP,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(self::EXPIRES_MINUTES),
+        ]);
+
+        if (! $this->sendBankAccountChangeCodeMail($user, $code)) {
+            return [
+                'ok' => false,
+                'status' => 503,
+                'message' => 'De code kon nu niet per e-mail worden verstuurd. Probeer het zo opnieuw.',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'status' => 200,
+            'message' => 'We hebben een bevestigingscode gestuurd naar '.$this->maskEmail($email).'. Die is '.self::EXPIRES_MINUTES.' minuten geldig.',
+        ];
+    }
+
+    /**
+     * Consumeer een geldige step-up code. Geeft true bij succes.
+     */
+    public function consumeStepUpCode(User $user, string $code): bool
+    {
+        $code = preg_replace('/\s+/', '', $code) ?? '';
+        if (strlen($code) !== self::CODE_LENGTH || ! ctype_digit($code)) {
+            return false;
+        }
+
+        $openCodes = CustomerLoginCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', CustomerLoginCode::PURPOSE_ADMIN_STEP_UP)
+            ->whereNull('consumed_at')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
+        $validCodes = $openCodes->filter(
+            fn (CustomerLoginCode $record) => $record->expires_at && $record->expires_at->isFuture()
+        );
+
+        foreach ($validCodes as $record) {
+            if (Hash::check($code, $record->code_hash)) {
+                $record->update(['consumed_at' => now()]);
+                $this->invalidateOpenStepUpCodes($user);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function invalidateOpenStepUpCodes(User $user): void
+    {
+        CustomerLoginCode::query()
+            ->where('user_id', $user->id)
+            ->where('purpose', CustomerLoginCode::PURPOSE_ADMIN_STEP_UP)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => now()]);
+    }
+
+    private function sendCodeMail(User $user, string $code, bool $registrationActivation = false): bool
     {
         $companyId = (int) ($user->company_id ?? 0);
         $company = $companyId > 0 ? Company::query()->find($companyId) : null;
@@ -398,7 +518,62 @@ class AdminFirstLoginService
             NexaBranding::emailLogoTemplateVariable()
         );
 
-        $template = $this->codeTemplates->resolveActive();
+        if ($registrationActivation) {
+            $subject = $this->parser->parseTemplateVariables($this->codeTemplates->registrationSubject(), $variables);
+            $html = $this->parser->parseTemplateVariables($this->codeTemplates->registrationHtml(), $variables);
+            $text = $this->parser->parseTemplateVariables($this->codeTemplates->registrationText(), $variables);
+        } else {
+            $template = $this->codeTemplates->resolveActive();
+            $subject = $this->parser->parseTemplateVariables((string) $template->subject, $variables);
+            $html = $this->parser->parseTemplateVariables((string) ($template->html_content ?? ''), $variables);
+            $text = $template->text_content
+                ? $this->parser->parseTemplateVariables((string) $template->text_content, $variables)
+                : trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+
+        $record = $this->customerMail->send([
+            'company_id' => $companyId > 0 ? $companyId : null,
+            'type' => TenantCustomerEmail::TYPE_LOGIN_CODE,
+            'to_email' => $user->email,
+            'to_name' => $toName,
+            'subject' => $subject !== '' ? $subject : ($registrationActivation ? 'Activeer uw NEXA Taxi-account' : 'Je inlogcode voor NEXA Suite'),
+            'html' => $html,
+            'text' => $text,
+            'related_type' => 'user',
+            'related_id' => $user->id,
+            'meta' => [
+                'kind' => 'admin_first_login_code',
+                'registration_activation' => $registrationActivation,
+            ],
+            'throw' => false,
+        ]);
+
+        return $record && $record->status === TenantCustomerEmail::STATUS_SENT;
+    }
+
+    private function sendBankAccountChangeCodeMail(User $user, string $code): bool
+    {
+        $companyId = (int) ($user->company_id ?? 0);
+        $company = $companyId > 0 ? Company::query()->find($companyId) : null;
+        $companyName = $company?->name ?: 'NEXA Suite';
+        $toName = trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: (string) $user->email;
+        $waitHours = (string) max(1, (int) config('nexa_payout.destination_change_cooling_off_hours', 48));
+
+        $variables = array_merge(
+            [
+                'USER_NAME' => $toName,
+                'USER_EMAIL' => (string) $user->email,
+                'COMPANY_NAME' => e($companyName),
+                'LOGIN_CODE' => $code,
+                'BANK_ACCOUNT_URL' => $this->bankAccountChangeCodeTemplates->bankAccountUrl(),
+                'CODE_EXPIRES_MINUTES' => (string) self::EXPIRES_MINUTES,
+                'WAIT_HOURS' => $waitHours,
+            ],
+            $this->logos->templateVariable($companyId > 0 ? $companyId : null, $companyName),
+            NexaBranding::emailLogoTemplateVariable()
+        );
+
+        $template = $this->bankAccountChangeCodeTemplates->resolveActive();
         $subject = $this->parser->parseTemplateVariables((string) $template->subject, $variables);
         $html = $this->parser->parseTemplateVariables((string) ($template->html_content ?? ''), $variables);
         $text = $template->text_content
@@ -410,12 +585,12 @@ class AdminFirstLoginService
             'type' => TenantCustomerEmail::TYPE_LOGIN_CODE,
             'to_email' => $user->email,
             'to_name' => $toName,
-            'subject' => $subject !== '' ? $subject : 'Je inlogcode voor NEXA Suite',
+            'subject' => $subject !== '' ? $subject : 'Bevestig je nieuwe rekeningnummer',
             'html' => $html,
             'text' => $text,
             'related_type' => 'user',
             'related_id' => $user->id,
-            'meta' => ['kind' => 'admin_first_login_code'],
+            'meta' => ['kind' => 'admin_bank_account_change_code'],
             'throw' => false,
         ]);
 

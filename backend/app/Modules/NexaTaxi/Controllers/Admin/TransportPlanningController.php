@@ -82,7 +82,7 @@ class TransportPlanningController extends Controller
 
             return [
                 'date' => $date,
-                'label' => $date->locale('nl')->translatedFormat('D d-m'),
+                'label' => $date->locale(app()->getLocale())->translatedFormat('D d-m'),
                 'isToday' => $date->toDateString() === $todayDate,
                 'occurrences' => $occurrences->filter(
                     fn (TransportOccurrence $item) => $item->scheduled_date?->toDateString() === $date->toDateString()
