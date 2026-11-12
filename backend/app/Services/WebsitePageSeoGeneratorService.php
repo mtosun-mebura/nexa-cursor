@@ -428,7 +428,7 @@ PROMPT;
         return [
             "Zet het zoekwoord ({$topic}) in de eerste 40 tekens van de Google-titel: zo ziet Google meteen waar de pagina over gaat.",
             'De meta-omschrijving is uw snippet in Google: wie u bent, wat u biedt, en welke actie de bezoeker kan nemen. Uniek per pagina, geen knopteksten.',
-            'Op de live pagina staat automatisch structured data (Organization + WebPage) voor Google Zoeken.',
+            'Op de live pagina staat automatisch structured data (Organization/LocalBusiness, WebPage, en bij taxi ook TaxiService) plus /llms.txt voor AI-zoekresultaten.',
         ];
     }
 
@@ -545,7 +545,15 @@ PROMPT;
             (string) ($context['title'] ?? ''),
             (string) ($context['brand'] ?? ''),
             (string) ($context['slug'] ?? ''),
+            (string) ($context['module_name'] ?? ''),
+            (string) ($context['site_description'] ?? ''),
         ])));
+        $pageType = (string) ($context['page_type'] ?? 'custom');
+        $isTaxi = str_contains($blob, 'taxi') || strtolower((string) ($context['module_name'] ?? '')) === 'taxi';
+
+        if ($isTaxi && $pageType === 'home') {
+            return 'Taxi boeken & bestellen';
+        }
         if (str_contains($blob, 'boek') && (str_contains($blob, 'taxi') || str_contains($blob, 'rit'))) {
             $title = str_contains($blob, 'taxi') ? 'Taxi online laten boeken' : 'Ritten online laten boeken';
             if (str_contains($blob, 'rit') && ! str_contains(mb_strtolower($title), 'ritten')) {
@@ -564,7 +572,6 @@ PROMPT;
             return $title;
         }
 
-        $pageType = (string) ($context['page_type'] ?? 'custom');
         $collocations = $this->collocationsInContent((string) ($context['page_content'] ?? ''));
         $keywords = $this->keywordsFromContext($context);
         $seed = $collocations[0] ?? ($keywords[0] ?? '');
@@ -572,9 +579,9 @@ PROMPT;
 
         if ($seed === '') {
             return match ($pageType) {
-                'home' => 'Diensten, werkwijze en contact',
+                'home' => $isTaxi ? 'Taxi boeken & bestellen' : 'Diensten, werkwijze en contact',
                 'about' => 'Over ons: team en werkwijze',
-                'contact' => 'Contact, offerte of afspraak',
+                'contact' => $isTaxi ? 'Contact taxi centrale' : 'Contact, offerte of afspraak',
                 default => (string) ($context['page_type_label'] ?? 'Pagina'),
             };
         }

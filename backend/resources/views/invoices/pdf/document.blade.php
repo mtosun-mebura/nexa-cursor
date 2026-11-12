@@ -62,18 +62,26 @@
             color: #166534;
             letter-spacing: normal;
         }
+        .paid-summary-wrap {
+            margin-top: 14px;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            overflow: hidden;
+        }
         .paid-summary {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 14px;
+            margin: 0;
         }
         .paid-summary td {
             padding: 8px 10px;
             background: #f0fdf4;
-            border: 1px solid #86efac;
+            border: none;
+            border-right: 1px solid #86efac;
             font-size: 12px;
             color: #14532d;
         }
+        .paid-summary td:last-child { border-right: none; }
         .paid-summary .paid-summary-label { font-weight: bold; }
         .paid-summary .paid-summary-amount { text-align: right; font-weight: bold; white-space: nowrap; }
     </style>
@@ -192,12 +200,14 @@
 </table>
 
 @if($isPaid)
+<div class="paid-summary-wrap">
 <table class="paid-summary" cellpadding="0" cellspacing="0">
     <tr>
         <td class="paid-summary-label">Openstaand bedrag</td>
         <td class="paid-summary-amount">€ 0,00 — volledig voldaan</td>
     </tr>
 </table>
+</div>
 @endif
 
 @if(!empty($details['footer_text']))

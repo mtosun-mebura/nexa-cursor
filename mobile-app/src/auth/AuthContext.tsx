@@ -15,8 +15,8 @@ type AuthState = {
   setSession: (session: BootstrapSession | null) => Promise<void>;
   setActiveScreen: (key: string | null) => void;
   logout: () => Promise<void>;
-  /** Sessie wissen en volgende scherm = login (verlopen token). */
-  forceReLogin: () => Promise<void>;
+  /** Sessie wissen en volgende scherm = login (verlopen token / blokkade). */
+  forceReLogin: (blockedMessage?: string) => Promise<void>;
   driverToken: string | null;
   contractToken: string | null;
   capabilities: Capabilities | null;
@@ -100,10 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await secureSet(SESSION_KEY, JSON.stringify({ ...next, activeScreen: nextScreen }));
   }, []);
 
-  const forceReLogin = useCallback(async () => {
+  const forceReLogin = useCallback(async (blockedMessage?: string) => {
     const current = sessionRef.current;
     if (!current) return;
     const driverTok = current.tokens?.driver?.token;
+    if (blockedMessage) {
+      await AsyncStorage.setItem('nexa_taxi_login_error', blockedMessage).catch(() => undefined);
+    }
     await AsyncStorage.setItem(GUEST_ROUTE_KEY, 'login').catch(() => undefined);
     await setSession(null);
     cleanupDriverSideEffects(driverTok);
@@ -164,8 +167,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUnauthorizedHandler(() => {
       void forceReLogin();
     });
-    setDriverBlockedHandler(() => {
-      void forceReLogin();
+    setDriverBlockedHandler((message) => {
+      void forceReLogin(
+        message ||
+          'Je account is geblokkeerd vanwege een klacht. Neem contact op via info@nexasuite.nl.'
+      );
     });
     return () => {
       setUnauthorizedHandler(null);

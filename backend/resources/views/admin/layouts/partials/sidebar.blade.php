@@ -358,6 +358,13 @@
                                 <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
                                     {{ __($menuItem['title']) }}
                                 </span>
+                                @if(($menuItem['key'] ?? '') === 'complaints')
+                                    @php $complaintsBadgeCount = (int) ($adminOpenTaxiComplaints ?? 0); @endphp
+                                    <span id="admin-taxi-complaints-badge"
+                                          class="kt-badge kt-badge-sm kt-badge-danger ms-auto{{ $complaintsBadgeCount > 0 ? '' : ' hidden' }}"
+                                          @if($complaintsBadgeCount < 1) hidden @endif
+                                          data-admin-complaints-badge="1">{{ $complaintsBadgeCount > 99 ? '99+' : $complaintsBadgeCount }}</span>
+                                @endif
                                 <span class="kt-menu-arrow text-muted-foreground w-[20px] shrink-0 justify-end ms-1 me-[-10px]">
                                     <span class="inline-flex kt-menu-item-show:hidden"><i class="ki-filled ki-plus text-[11px]"></i></span>
                                     <span class="hidden kt-menu-item-show:inline-flex"><i class="ki-filled ki-minus text-[11px]"></i></span>
@@ -390,6 +397,13 @@
                                 <span class="kt-menu-title kt-menu-item-active:text-primary kt-menu-link-hover:!text-primary text-sm font-medium text-foreground">
                                     {{ __($menuItem['title']) }}
                                 </span>
+                                @if(($menuItem['key'] ?? '') === 'complaints')
+                                    @php $complaintsBadgeCount = (int) ($adminOpenTaxiComplaints ?? 0); @endphp
+                                    <span id="admin-taxi-complaints-badge"
+                                          class="kt-badge kt-badge-sm kt-badge-danger ms-auto{{ $complaintsBadgeCount > 0 ? '' : ' hidden' }}"
+                                          @if($complaintsBadgeCount < 1) hidden @endif
+                                          data-admin-complaints-badge="1">{{ $complaintsBadgeCount > 99 ? '99+' : $complaintsBadgeCount }}</span>
+                                @endif
                             </a>
                         </div>
                         @endif

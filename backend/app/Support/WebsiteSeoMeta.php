@@ -131,10 +131,59 @@ final class WebsiteSeoMeta
 
         $brand = trim((string) $fallbackBrand);
         if ($brand !== '') {
+            if (self::looksLikeTaxiBrand($brand)) {
+                return self::limit('Taxi bestellen bij '.$brand.'. Boek direct online of bel de taxicentrale — snel, betrouwbaar vervoer.');
+            }
+
             return self::limit($brand.' — betrouwbaar taxivervoer. Boek online of bel de centrale.');
         }
 
-        return 'Boek eenvoudig een taxirit online.';
+        return 'Taxi bestellen of boeken: snel en betrouwbaar taxivervoer online.';
+    }
+
+    /**
+     * Google-titel: merk + pagina, met “Taxi” vroeg in de string bij taxi-merken.
+     */
+    public static function resolveTitle(
+        ?string $pageTitle,
+        ?string $brand = null,
+        ?string $pageType = null,
+    ): string {
+        $brand = trim((string) $brand);
+        $pageTitle = trim((string) $pageTitle);
+        $pageType = strtolower(trim((string) $pageType));
+        $isHome = $pageType === 'home' || $pageTitle === '' || strcasecmp($pageTitle, $brand) === 0
+            || in_array(mb_strtolower($pageTitle), ['home', 'homepage', 'welkom'], true);
+
+        if ($brand !== '' && self::looksLikeTaxiBrand($brand)) {
+            if ($isHome) {
+                // “Taxi” eerst → sterker signaal voor zoekwoord + AI-overviews.
+                if (preg_match('/\btaxi\b/iu', $brand) === 1) {
+                    return self::limit($brand.' | Taxi boeken & bestellen', 60);
+                }
+
+                return self::limit('Taxi boeken | '.$brand, 60);
+            }
+
+            if ($pageTitle !== '' && strcasecmp($pageTitle, $brand) !== 0) {
+                return self::limit($pageTitle.' | '.$brand, 60);
+            }
+        }
+
+        if ($pageTitle !== '' && $brand !== '' && strcasecmp($pageTitle, $brand) !== 0) {
+            return self::limit($pageTitle.' - '.$brand, 60);
+        }
+
+        if ($brand !== '') {
+            return self::limit($brand, 60);
+        }
+
+        return self::limit($pageTitle !== '' ? $pageTitle : (string) config('app.name', 'Nexa'), 60);
+    }
+
+    public static function looksLikeTaxiBrand(string $text): bool
+    {
+        return str_contains(mb_strtolower($text), 'taxi');
     }
 
     public static function looksLikeEditorJs(string $text): bool

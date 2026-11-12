@@ -3,9 +3,11 @@
 @php
     $seoBrand = \App\Support\WebsiteSeoMeta::brandLabel($branding ?? []);
     $seoTitleBase = filled(trim((string) ($page->title ?? ''))) ? trim($page->title) : $seoBrand;
-    $seoTitle = ($seoTitleBase !== '' && strcasecmp($seoTitleBase, $seoBrand) !== 0)
-        ? $seoTitleBase.' - '.$seoBrand
-        : ($seoBrand !== '' ? $seoBrand : config('app.name'));
+    $seoTitle = \App\Support\WebsiteSeoMeta::resolveTitle(
+        $seoTitleBase,
+        $seoBrand,
+        (string) ($page->page_type ?? ''),
+    );
     $seoDescription = \App\Support\WebsiteSeoMeta::resolveDescription(
         $page->meta_description ?? null,
         $page->content ?? null,

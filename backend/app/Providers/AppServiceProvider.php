@@ -90,9 +90,29 @@ class AppServiceProvider extends ServiceProvider
             $hideContent = $data['adminHideContentWithoutTenant'] ?? $scope->shouldHideContent();
 
             $unresolvedMonitoringErrors = 0;
+            $openTaxiComplaints = 0;
+            $canViewTaxiComplaints = false;
             if ($user = auth()->user()) {
                 if ($user instanceof User && $user->isSuperAdmin()) {
                     $unresolvedMonitoringErrors = app(\App\Services\Monitoring\MonitoringErrorLogger::class)->unresolvedCount();
+                }
+                $canViewTaxiComplaints = $user->hasRole('super-admin')
+                    || $user->can('complaints.view')
+                    || $user->can('complaints.manage');
+                if ($canViewTaxiComplaints) {
+                    try {
+                        $conn = app(\App\Services\ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+                        $companyId = null;
+                        if ($user->hasRole('super-admin')) {
+                            $companyId = $scope->selectedTenantId();
+                        } elseif (! empty($user->company_id)) {
+                            $companyId = (int) $user->company_id;
+                        }
+                        $openTaxiComplaints = app(\App\Modules\NexaTaxi\Services\TaxiRideComplaintService::class)
+                            ->adminPulse($conn, $companyId)['open_count'];
+                    } catch (\Throwable) {
+                        $openTaxiComplaints = 0;
+                    }
                 }
             }
 
@@ -102,6 +122,8 @@ class AppServiceProvider extends ServiceProvider
                 'adminHideContentWithoutTenant' => $hideContent,
                 'adminTenantScopeVariant' => $data['adminTenantScopeVariant'] ?? $scope->noticeVariant(),
                 'adminMonitoringUnresolvedErrors' => $unresolvedMonitoringErrors,
+                'adminOpenTaxiComplaints' => $openTaxiComplaints,
+                'adminCanViewTaxiComplaints' => $canViewTaxiComplaints,
             ]);
         });
 

@@ -52,21 +52,27 @@ class WebsiteStructuredDataServiceTest extends TestCase
         );
 
         $this->assertSame('https://schema.org', $graph['@context']);
-        $this->assertCount(3, $graph['@graph']);
+        $this->assertCount(4, $graph['@graph']);
 
         $types = array_column($graph['@graph'], '@type');
         $this->assertContains('LocalBusiness', $types);
         $this->assertContains('WebSite', $types);
         $this->assertContains('WebPage', $types);
+        $this->assertContains('TaxiService', $types);
 
         $org = collect($graph['@graph'])->firstWhere('@type', 'LocalBusiness');
         $this->assertSame('Demo Taxi BV', $org['name']);
         $this->assertSame('info@demo.nl', $org['email']);
         $this->assertArrayHasKey('address', $org);
+        $this->assertContains('Taxi', $org['knowsAbout'] ?? []);
 
         $webPage = collect($graph['@graph'])->firstWhere('@type', 'WebPage');
         $this->assertSame('Over ons', $webPage['name']);
         $this->assertSame('Leer ons team kennen.', $webPage['description']);
+
+        $taxi = collect($graph['@graph'])->firstWhere('@type', 'TaxiService');
+        $this->assertNotNull($taxi);
+        $this->assertSame('https://demo.test/#taxiservice', $taxi['@id']);
     }
 
     #[Test]
