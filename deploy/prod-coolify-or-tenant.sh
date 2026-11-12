@@ -42,10 +42,24 @@ trigger_coolify_webhook() {
       url="${url}?force=true"
     fi
   fi
-  echo "==> Coolify deploy webhook…"
-  curl --fail --show-error --silent --request GET "$url" \
-    --header "Authorization: Bearer ${COOLIFY_TOKEN}"
+  echo "==> Coolify deploy webhook (POST)…"
+  # Coolify v4: /api/v1/deploy is POST-only; GET → 403/405.
+  local body code
+  body="$(mktemp)"
+  code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+    --request POST "$url" \
+    --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+    --header "Accept: application/json" \
+    --header "Content-Type: application/json" \
+    || true)"
+  echo "HTTP ${code}"
+  head -c 2000 "$body" || true
   echo
+  rm -f "$body"
+  if [[ "$code" != "200" && "$code" != "201" ]]; then
+    echo "ERROR: Coolify webhook faalde (HTTP ${code})." >&2
+    return 1
+  fi
   echo "=== Coolify webhook geaccepteerd ==="
   return 0
 }
