@@ -74,6 +74,7 @@ class RefreshTaxiWebsiteSeoCommand extends Command
                     'site_name' => $branding['site_name'] ?? $company->name,
                     'site_description' => $branding['site_description'] ?? '',
                     'company_name' => $company->name,
+                    'company_city' => (string) ($company->city ?? ''),
                     'include_sections' => false,
                     'page_content' => $pageContent,
                     'home_sections' => $homeSections,
