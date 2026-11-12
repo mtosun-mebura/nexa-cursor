@@ -194,11 +194,34 @@ jobs:
           if [[ "$url" != *force=* ]]; then
             if [[ "$url" == *\?* ]]; then url="${url}&force=true"; else url="${url}?force=true"; fi
           fi
-          echo "Coolify deploy webhook…"
-          curl --fail --show-error --silent --request GET "$url" \
-            --header "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo "Coolify deploy webhook (POST)…"
+          # Coolify v4: /api/v1/deploy is POST-only; GET → 403/405.
+          body="$(mktemp)"
+          code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+            --request POST "$url" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            || true)"
+          echo "HTTP ${code}"
+          resp="$(sed 's/'"${COOLIFY_TOKEN}"'/***TOKEN***/g' "$body" | head -c 2000 || true)"
+          echo "$resp"
           echo
-          echo "used=true" >> "$GITHUB_OUTPUT"
+          if [[ "$code" == "200" || "$code" == "201" ]]; then
+            rm -f "$body"
+            echo "used=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          rm -f "$body"
+          # API Access uit → val terug op SSH i.p.v. harde fail.
+          if echo "$resp" | grep -qi 'API is disabled'; then
+            echo "::warning::Coolify API Access staat UIT. Zet Settings → Advanced → API Access = Enabled, daarna Deploy PROD opnieuw."
+            echo "used=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ERROR: Coolify webhook faalde (HTTP ${code})." >&2
+          echo "Controleer: API Access aan, token met Deploy, webhook = Deploy Webhook (auth required), Allowed IPs." >&2
+          exit 1
 
       - name: Preflight SSH naar PROD (poort bereikbaar?)
         if: steps.coolify.outputs.used != 'true'
