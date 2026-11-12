@@ -204,16 +204,24 @@ jobs:
             --header "Content-Type: application/json" \
             || true)"
           echo "HTTP ${code}"
-          sed 's/'"${COOLIFY_TOKEN}"'/***TOKEN***/g' "$body" | head -c 2000 || true
+          resp="$(sed 's/'"${COOLIFY_TOKEN}"'/***TOKEN***/g' "$body" | head -c 2000 || true)"
+          echo "$resp"
           echo
-          if [[ "$code" != "200" && "$code" != "201" ]]; then
-            echo "ERROR: Coolify webhook faalde (HTTP ${code})." >&2
-            echo "Controleer: API Access aan in Coolify, token met Deploy, webhook = Deploy Webhook (auth required)." >&2
+          if [[ "$code" == "200" || "$code" == "201" ]]; then
             rm -f "$body"
-            exit 1
+            echo "used=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           rm -f "$body"
-          echo "used=true" >> "$GITHUB_OUTPUT"
+          # API Access uit → val terug op SSH i.p.v. harde fail.
+          if echo "$resp" | grep -qi 'API is disabled'; then
+            echo "::warning::Coolify API Access staat UIT. Zet Settings → Advanced → API Access = Enabled, daarna Deploy PROD opnieuw."
+            echo "used=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ERROR: Coolify webhook faalde (HTTP ${code})." >&2
+          echo "Controleer: API Access aan, token met Deploy, webhook = Deploy Webhook (auth required), Allowed IPs." >&2
+          exit 1
 
       - name: Preflight SSH naar PROD (poort bereikbaar?)
         if: steps.coolify.outputs.used != 'true'
