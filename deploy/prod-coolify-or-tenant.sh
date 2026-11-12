@@ -92,19 +92,51 @@ fi
 
 if [[ "$coolify_up" == true || "$port_5432_busy" == true ]]; then
   echo "==> Coolify/legacy-poortconflict: géén tweede compose-stack op 5432."
-  echo "    Zet GitHub secrets COOLIFY_WEBHOOK + COOLIFY_TOKEN voor automatische Coolify-deploy,"
+  echo "    Zet Coolify Settings → Advanced → API Access = Enabled + secrets COOLIFY_WEBHOOK/TOKEN,"
   echo "    of klik Redeploy in Coolify (panel) op branch main / tag ${GIT_REF}."
+
+  # Herstel 503: herstart backend-containers die Traefik als 'no available server' ziet.
+  backends="$(docker ps -a --format '{{.Names}}' | grep -E 'backend-' | grep -vi coolify || true)"
+  if [[ -n "$backends" ]]; then
+    echo "==> Backend containers:"
+    echo "$backends"
+    while IFS= read -r name; do
+      [[ -z "$name" ]] && continue
+      status="$(docker inspect -f '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}nohealth{{end}}' "$name" 2>/dev/null || echo 'missing')"
+      echo "    $name → $status"
+      echo "==> docker restart $name"
+      docker restart "$name" || true
+    done <<< "$backends"
+    echo "==> Wacht 20s op Traefik/backend…"
+    sleep 20
+    for host in nexasuite.nl nexataxi.nl; do
+      code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "https://${host}/" || echo '000')"
+      echo "    https://${host}/ → HTTP ${code}"
+    done
+  else
+    echo "Geen backend-* containers gevonden (docker ps -a)."
+  fi
+
   if verify_whatsapp_fix_in_backend; then
-    echo "=== PROD lijkt al de WhatsApp-fix te draaien ==="
+    echo "=== PROD backend draait (WhatsApp-fix aanwezig) ==="
     exit 0
   fi
-  # Laatste redmiddel: forceer Coolify rebuild door application-UUID uit containernaam.
-  uuid="$(docker ps --format '{{.Names}}' | grep -E 'backend-' | grep -vi coolify | head -1 | grep -oE '[a-z0-9]{20,}' | head -1 || true)"
+
+  uuid="$(docker ps -a --format '{{.Names}}' | grep -E 'backend-' | grep -vi coolify | head -1 | grep -oE '[a-z0-9]{20,}' | head -1 || true)"
   echo "Afgeleide resource uuid: ${uuid:-<geen>}"
   if [[ -n "$uuid" && -d "/data/coolify/applications/${uuid}" ]]; then
     echo "==> Coolify application dir: /data/coolify/applications/${uuid}"
     ls -la "/data/coolify/applications/${uuid}" | head -20 || true
   fi
+
+  # Als sites weer 2xx/3xx geven: behandel herstart als geslaagd herstel (API nog uit).
+  ns="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://nexasuite.nl/ || echo '000')"
+  if [[ "$ns" =~ ^(200|301|302)$ ]]; then
+    echo "=== PROD bereikbaar na container-restart (HTTP ${ns}); zet API Access aan voor echte deploys ==="
+    exit 0
+  fi
+
+  echo "ERROR: Coolify API webhook faalde en sites blijven onbereikbaar (nexasuite.nl HTTP ${ns})." >&2
   exit 1
 fi
 
