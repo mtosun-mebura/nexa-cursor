@@ -89,3 +89,17 @@ jobs:
             fi
             echo "=== coolify-proxy recent ACME/ERR ==="
             docker logs --tail 40 coolify-proxy 2>&1 | grep -E 'ERR|ACME|nexasuite|No available' || true
+
+            echo "=== refresh taxi website SEO (Royaal + tenants) ==="
+            if [[ -n "$name" ]]; then
+              docker exec "$name" php artisan nexa:refresh-taxi-website-seo 2>&1 | tail -80 || true
+            fi
+
+            echo "=== SEO probes after refresh ==="
+            for h in nexasuite.nl nexataxi.nl royaaltaxi.nl; do
+              echo "-- $h --"
+              curl -sS --max-time 15 "https://${h}/" | tr '\n' ' ' | grep -oE '<title>[^<]+</title>|<link rel="canonical"[^>]+>|llms\.txt|TaxiService' | head -10 || true
+              curl -sS -o /dev/null -w "llms=%{http_code} robots=%{http_code}\n" --max-time 10 "https://${h}/llms.txt" "https://${h}/robots.txt" || true
+              curl -sS -o /dev/null -w "llms=%{http_code}\n" --max-time 10 "https://${h}/llms.txt" || true
+              curl -sS --max-time 10 "https://${h}/llms.txt" | head -12 || true
+            done
