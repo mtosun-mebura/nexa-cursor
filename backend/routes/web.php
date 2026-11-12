@@ -1143,6 +1143,7 @@ Route::get('/starten/video', [\App\Http\Controllers\Frontend\LegalPagesControlle
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 Route::get('/robots.txt', RobotsTxtController::class)->name('robots');
+Route::get('/llms.txt', \App\Http\Controllers\LlmsTxtController::class)->name('llms.txt');
 
 // Interne marketing / sales preview (centraal host: localhost, nexasuite.nl)
 // Let op: geen public/marketing/ map — die botst met php artisan serve / static files.

@@ -83,6 +83,10 @@ class WebsiteStructuredDataService
             ? \App\Support\WebsiteSeoMeta::resolveDescription($siteDescRaw)
             : null;
 
+        $isTaxi = $this->isTaxiContext($company, $branding, $websiteName);
+        $isHome = in_array(strtolower(trim((string) ($page->slug ?? ''))), ['', 'home'], true)
+            || ($page->page_type ?? '') === 'home';
+
         $website = $this->compactNode([
             '@type' => 'WebSite',
             '@id' => $websiteId,
@@ -91,10 +95,28 @@ class WebsiteStructuredDataService
             'description' => $websiteDescription,
             'publisher' => ['@id' => $orgId],
             'inLanguage' => $this->localeTag(),
+            'potentialAction' => $this->compactNode([
+                '@type' => 'ReserveAction',
+                'target' => $this->compactNode([
+                    '@type' => 'EntryPoint',
+                    'urlTemplate' => $baseUrl.'/',
+                    'inLanguage' => $this->localeTag(),
+                    'actionPlatform' => [
+                        'http://schema.org/DesktopWebPlatform',
+                        'http://schema.org/MobileWebPlatform',
+                    ],
+                ]),
+                'name' => $isTaxi ? 'Taxi boeken' : 'Start',
+            ]),
         ]);
 
+        $webPageTypes = ['WebPage'];
+        if ($isHome && $isTaxi) {
+            $webPageTypes[] = 'CollectionPage';
+        }
+
         $webPage = $this->compactNode([
-            '@type' => 'WebPage',
+            '@type' => count($webPageTypes) === 1 ? $webPageTypes[0] : $webPageTypes,
             '@id' => $webPageId,
             'url' => $pageUrl,
             'name' => $this->cleanText($pageTitle),
@@ -103,11 +125,36 @@ class WebsiteStructuredDataService
             'about' => ['@id' => $orgId],
             'inLanguage' => $this->localeTag(),
             'dateModified' => optional($page->updated_at)->toAtomString(),
+            'primaryImageOfPage' => $this->primaryImage($branding, $homeSections),
         ]);
+
+        $graph = [$organization, $website, $webPage];
+
+        if ($isTaxi) {
+            $graph[] = $this->compactNode([
+                '@type' => 'TaxiService',
+                '@id' => $baseUrl.'/#taxiservice',
+                'name' => $websiteName !== '' ? $websiteName : 'Taxi',
+                'url' => $baseUrl.'/',
+                'description' => $websiteDescription
+                    ?: $this->cleanText($pageDescription)
+                    ?: 'Taxi boeken en bestellen via de website.',
+                'provider' => ['@id' => $orgId],
+                'areaServed' => $this->compactNode([
+                    '@type' => 'Country',
+                    'name' => 'Netherlands',
+                ]),
+                'availableChannel' => $this->compactNode([
+                    '@type' => 'ServiceChannel',
+                    'serviceUrl' => $baseUrl.'/',
+                    'availableLanguage' => 'Dutch',
+                ]),
+            ]);
+        }
 
         return [
             '@context' => 'https://schema.org',
-            '@graph' => array_values(array_filter([$organization, $website, $webPage])),
+            '@graph' => array_values(array_filter($graph)),
         ];
     }
 
@@ -150,6 +197,7 @@ class WebsiteStructuredDataService
         ]);
 
         $address = $this->resolvePostalAddress($company, $homeSections);
+        $isTaxi = $this->isTaxiContext($company, $branding, (string) $name);
         $type = $address !== null ? 'LocalBusiness' : 'Organization';
 
         $node = [
@@ -159,8 +207,15 @@ class WebsiteStructuredDataService
             'url' => $website,
             'description' => $description !== null ? $this->cleanText($description) : null,
             'logo' => $logo,
+            'image' => $logo,
             'email' => $email,
             'telephone' => $phone ? $this->cleanText($phone) : null,
+            'knowsAbout' => $isTaxi ? ['Taxi', 'Taxivervoer', 'Taxi boeken', 'Taxi bestellen'] : null,
+            'areaServed' => $isTaxi ? $this->compactNode([
+                '@type' => 'Country',
+                'name' => 'Netherlands',
+            ]) : null,
+            'additionalType' => $isTaxi ? 'https://schema.org/TaxiService' : null,
         ];
 
         if ($address !== null) {
@@ -175,6 +230,52 @@ class WebsiteStructuredDataService
         }
 
         return $this->compactNode($node);
+    }
+
+    /**
+     * @param  array<string, mixed>  $branding
+     */
+    private function isTaxiContext(?Company $company, array $branding, string $nameHint = ''): bool
+    {
+        if ($company !== null) {
+            try {
+                if ($company->hasTaxiModule()) {
+                    return true;
+                }
+            } catch (\Throwable) {
+                // Module-relatie niet beschikbaar in unit tests zonder DB.
+            }
+        }
+
+        $blob = mb_strtolower(implode(' ', array_filter([
+            $nameHint,
+            (string) ($branding['site_name'] ?? ''),
+            (string) ($branding['logo_alt'] ?? ''),
+            (string) ($branding['site_description'] ?? ''),
+            (string) ($company?->name ?? ''),
+        ])));
+
+        return str_contains($blob, 'taxi');
+    }
+
+    /**
+     * @param  array<string, mixed>  $branding
+     * @param  array<string, mixed>|null  $homeSections
+     */
+    private function primaryImage(array $branding, ?array $homeSections): ?array
+    {
+        $url = $this->firstNonEmpty([
+            $branding['logo_url'] ?? null,
+            $this->footerLogo($homeSections),
+        ]);
+        if ($url === null) {
+            return null;
+        }
+
+        return $this->compactNode([
+            '@type' => 'ImageObject',
+            'url' => $url,
+        ]);
     }
 
     /**

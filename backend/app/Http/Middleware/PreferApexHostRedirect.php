@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Tenant custom domains: www → apex (301), zodat Google één canonieke host indexeert.
+ * www → apex (301) voor centrale hosts én tenant-domeinen, zodat Google één canonieke host indexeert.
  */
 class PreferApexHostRedirect
 {
@@ -25,11 +25,16 @@ class PreferApexHostRedirect
         }
 
         $apex = substr($host, 4);
-        if ($apex === '' || CentralDomains::isCentral($host) || CentralDomains::isCentral($apex)) {
+        if ($apex === '') {
             return $next($request);
         }
 
-        // Alleen redirecten als apex een bekende company-domain is (of www zelf).
+        // Centrale platformhosts (nexasuite.nl): altijd www → apex.
+        if (CentralDomains::isCentral($host) || CentralDomains::isCentral($apex)) {
+            return $this->redirectToApex($request, $apex);
+        }
+
+        // Tenant custom domains: alleen als apex (of www) bekend is.
         $known = CompanyDomain::query()
             ->whereIn('host', [$apex, $host])
             ->exists();
@@ -37,7 +42,13 @@ class PreferApexHostRedirect
             return $next($request);
         }
 
-        $target = $request->getScheme().'://'.$apex.$request->getRequestUri();
+        return $this->redirectToApex($request, $apex);
+    }
+
+    private function redirectToApex(Request $request, string $apex): Response
+    {
+        $scheme = $request->secure() ? 'https' : $request->getScheme();
+        $target = $scheme.'://'.$apex.$request->getRequestUri();
 
         return redirect()->away($target, 301);
     }

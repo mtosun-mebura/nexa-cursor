@@ -95,8 +95,9 @@ class PublicSitemapBuilder
         ];
 
         foreach ($this->urls($companyId) as $entry) {
+            $loc = $this->absoluteHttpsLoc((string) $entry['loc']);
             $lines[] = '  <url>';
-            $lines[] = '    <loc>'.$this->escape((string) $entry['loc']).'</loc>';
+            $lines[] = '    <loc>'.$this->escape($loc).'</loc>';
             if (! empty($entry['lastmod'])) {
                 $lines[] = '    <lastmod>'.$this->escape((string) $entry['lastmod']).'</lastmod>';
             }
@@ -219,6 +220,28 @@ class PublicSitemapBuilder
         }
 
         return '0.6';
+    }
+
+    /**
+     * Op publieke hosts: forceer HTTPS in sitemap (voorkomt http/https-duplicaten in GSC).
+     * Lokaal (localhost/127.*) blijft http voor tests en artisan serve.
+     */
+    private function absoluteHttpsLoc(string $loc): string
+    {
+        $loc = trim($loc);
+        if ($loc === '') {
+            return rtrim(url('/'), '/').'/';
+        }
+        if (! str_starts_with($loc, 'http://')) {
+            return $loc;
+        }
+
+        $host = strtolower((string) (parse_url($loc, PHP_URL_HOST) ?: ''));
+        if ($host === '' || $host === 'localhost' || str_starts_with($host, '127.') || $host === '::1') {
+            return $loc;
+        }
+
+        return 'https://'.substr($loc, 7);
     }
 
     private function escape(string $value): string
