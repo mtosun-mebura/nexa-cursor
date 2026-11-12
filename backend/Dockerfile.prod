@@ -49,8 +49,18 @@ COPY php-upload.ini /usr/local/etc/php/conf.d/99-upload.ini
 # 2) Dan pas alle code
 COPY . .
 
+# Nooit host-cache meenemen: packages.php kan laravel/pail (require-dev) bevatten → crash in PROD.
+RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+ && mkdir -p bootstrap/cache \
+ && APP_ENV=production APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    php artisan package:discover --ansi \
+ || true
+
 # 3) Nu artisan bestaat: optimaliseer autoload (scripts mogen nu desnoods draaien)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction \
+ && rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+ && APP_ENV=production APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    php artisan package:discover --ansi
 
 # Entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh

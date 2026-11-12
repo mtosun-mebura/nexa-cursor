@@ -38,6 +38,9 @@ storage/framework/sessions/*
 storage/framework/views/*
 !storage/framework/views/.gitignore
 
+# Nooit lokale package discovery meenemen (bevat o.a. laravel/pail uit require-dev).
+bootstrap/cache/*.php
+
 # NPM/Vite
 npm-debug.log
 yarn-error.log
