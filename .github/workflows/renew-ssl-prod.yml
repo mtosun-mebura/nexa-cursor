@@ -1,4 +1,4 @@
-# Vernieuw SSL op PROD (Hostinger) via self-hosted runner.
+# Vernieuw SSL op PROD (Hostinger / nexasuite.online) via self-hosted runner.
 name: Renew SSL PROD
 
 on:
@@ -51,10 +51,12 @@ jobs:
           port="${SSH_PORT:-22}"
           timeout 25 bash -c "echo >/dev/tcp/${SSH_HOST}/${port}"
 
+      # script_stop:true breekt multiline/|| scripts (DRONE_SSH_PREV_COMMAND_EXIT_CODE).
       - name: Renew Let's Encrypt + reload nginx
         uses: appleboy/ssh-action@v1.2.0
         env:
           APP_DIR: ${{ vars.APP_DIR }}
+          FORCE_RENEW: ${{ inputs.force }}
         with:
           host: ${{ steps.ssh.outputs.host }}
           username: ${{ steps.ssh.outputs.user }}
@@ -62,71 +64,61 @@ jobs:
           port: ${{ steps.ssh.outputs.port }}
           timeout: 60s
           command_timeout: 25m
-          script_stop: true
-          envs: APP_DIR
+          script_stop: false
+          envs: APP_DIR,FORCE_RENEW
           script: |
             set -euo pipefail
             echo "=== Diagnose ==="
-            whoami; id
-            sudo -n true 2>/dev/null && echo "sudo -n: OK" || echo "sudo -n: FAIL"
+            whoami
+            id
             docker info >/dev/null 2>&1 && echo "docker: OK" || echo "docker: FAIL"
-            echo | openssl s_client -connect nexasuite.online:443 -servername nexasuite.online 2>/dev/null \
-              | openssl x509 -noout -dates -subject || true
+            openssl s_client -connect www.nexasuite.online:443 -servername www.nexasuite.online </dev/null 2>/dev/null | openssl x509 -noout -dates -subject || true
 
             FORCE_FLAG=""
-            if [ "${{ inputs.force }}" = "true" ]; then
+            if [ "${FORCE_RENEW:-false}" = "true" ]; then
               FORCE_FLAG="--force-renewal"
             fi
 
-            # Zoek een public webroot die via HTTPS bereikbaar is (Laravel public).
-            CANDIDATES=()
-            if [ -n "${APP_DIR:-}" ]; then
-              CANDIDATES+=("${APP_DIR}/backend/public" "${APP_DIR}/public" "${APP_DIR}")
-            fi
-            CANDIDATES+=(
-              /home/ubuntu/nexasuite/backend/public
-              /home/ubuntu/nexa-cursor/backend/public
-              /var/www/html/public
-              /var/www/certbot
-            )
             WEBROOT=""
-            for d in "${CANDIDATES[@]}"; do
-              if [ -d "$d" ]; then
+            for d in ${APP_DIR:+"${APP_DIR}/backend/public" "${APP_DIR}/public" "${APP_DIR}"} \
+              /home/ubuntu/nexasuite/backend/public \
+              /home/ubuntu/nexa-cursor/backend/public \
+              /var/www/html/public \
+              /var/www/certbot
+            do
+              if [ -n "$d" ] && [ -d "$d" ]; then
                 WEBROOT="$d"
                 break
               fi
             done
-            if [ -z "$WEBROOT" ]; then
-              # Docker kan als root alsnog /var/www/certbot aanmaken
-              WEBROOT=/var/www/certbot
-            fi
+            WEBROOT="${WEBROOT:-/var/www/certbot}"
+            mkdir -p "${WEBROOT}/.well-known/acme-challenge"
             echo "WEBROOT=$WEBROOT"
 
-            echo "=== docker certbot HTTP-01 ==="
+            echo "=== docker certbot HTTP-01 (www + app; apex zit achter Cloudflare) ==="
             docker run --rm \
               -v /etc/letsencrypt:/etc/letsencrypt \
               -v /var/log/letsencrypt:/var/log/letsencrypt \
               -v "${WEBROOT}:/webroot" \
               certbot/certbot certonly --webroot -w /webroot \
-              -d nexasuite.online -d www.nexasuite.online -d app.nexasuite.online \
+              -d www.nexasuite.online -d app.nexasuite.online -d nexasuite.online \
               --agree-tos --non-interactive --expand ${FORCE_FLAG} \
               --cert-name nexasuite.online \
               -m admin@nexasuite.online
 
-            # Reload nginx: sudo -n of nginx-container
             if sudo -n true 2>/dev/null; then
               sudo -n nginx -t
               sudo -n systemctl reload nginx
-            elif docker ps --format '{{.Names}}' | grep -qiE 'nginx|coolify-proxy|traefik'; then
-              name=$(docker ps --format '{{.Names}}' | grep -iE 'nginx|coolify-proxy|traefik' | head -1)
-              echo "Reload container: $name"
-              docker exec "$name" nginx -s reload 2>/dev/null \
-                || docker kill -s HUP "$name" 2>/dev/null \
-                || true
             else
-              echo "WARN: cert OK, reload nginx handmatig: sudo systemctl reload nginx"
+              name=$(docker ps --format '{{.Names}}' | grep -iE 'nginx|coolify-proxy|traefik' | head -1 || true)
+              if [ -n "${name:-}" ]; then
+                echo "Reload container: $name"
+                docker exec "$name" nginx -s reload 2>/dev/null || docker kill -s HUP "$name" 2>/dev/null || true
+              else
+                echo "WARN: cert OK, reload nginx handmatig: sudo systemctl reload nginx"
+              fi
             fi
 
             echo "=== Na renew ==="
-            echo | openssl s_client -connect nexasuite.online:443 -servername nexasuite.online 2>/dev/null \
-              | openssl x509 -noout -dates -subject || true
+            openssl s_client -connect www.nexasuite.online:443 -servername www.nexasuite.online </dev/null 2>/dev/null | openssl x509 -noout -dates -subject || true
+            openssl s_client -connect app.nexasuite.online:443 -servername app.nexasuite.online </dev/null 2>/dev/null | openssl x509 -noout -dates -subject || true
