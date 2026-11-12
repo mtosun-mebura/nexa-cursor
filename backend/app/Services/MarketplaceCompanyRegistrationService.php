@@ -37,6 +37,7 @@ class MarketplaceCompanyRegistrationService
      *   phone: string,
      *   city: string,
      *   iban: string,
+     *   kvk_number?: string|null,
      *   contact_first_name?: string|null,
      *   contact_last_name?: string|null
      * }  $data
@@ -86,22 +87,17 @@ class MarketplaceCompanyRegistrationService
             ]);
         }
 
-        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
-        if ($existingUser) {
+        $kvkNumber = $this->normalizeKvkNumber($data['kvk_number'] ?? null);
+        if (array_key_exists('kvk_number', $data) && trim((string) ($data['kvk_number'] ?? '')) !== '' && $kvkNumber === null) {
             throw ValidationException::withMessages([
-                'email' => ['Dit e-mailadres is al in gebruik. Log in met een code of wachtwoord.'],
+                'kvk_number' => ['KVK-nummer moet 8 cijfers bevatten (bijv. 12345678).'],
             ]);
         }
 
-        $existingCompany = Company::query()->whereRaw('LOWER(email) = ?', [$email])->first();
-        if ($existingCompany) {
-            throw ValidationException::withMessages([
-                'email' => ['Er bestaat al een bedrijf met dit e-mailadres. Log in of neem contact op met NEXA.'],
-            ]);
-        }
+        $this->assertNotDuplicateRegistration($email, $companyName, $city, $kvkNumber);
 
-        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $iban, $ip, $sendLoginCode) {
-            $company = Company::query()->create([
+        return DB::transaction(function () use ($data, $email, $companyName, $city, $phone, $iban, $kvkNumber, $ip, $sendLoginCode) {
+            $attributes = [
                 'name' => $companyName,
                 'email' => $email,
                 'phone' => $phone,
@@ -117,7 +113,12 @@ class MarketplaceCompanyRegistrationService
                 'accepts_nexa_suite_bookings' => true,
                 'package_key' => self::PACKAGE_KEY,
                 'industry' => 'Taxi',
-            ]);
+            ];
+            if ($kvkNumber !== null) {
+                $attributes['kvk_number'] = $kvkNumber;
+            }
+
+            $company = Company::query()->create($attributes);
 
             $this->attachTaxiModule($company);
             $this->subscriptions->syncBillingPackageFromCompany($company, true);
@@ -164,5 +165,99 @@ class MarketplaceCompanyRegistrationService
         if (! $company->modules()->where('modules.id', $module->id)->exists()) {
             $company->modules()->attach($module->id);
         }
+    }
+
+    /**
+     * Hard-block bij duidelijk duplicaat: zelfde e-mail, zelfde KvK, ofzelfde genormaliseerde naam+plaats.
+     */
+    private function assertNotDuplicateRegistration(
+        string $email,
+        string $companyName,
+        string $city,
+        ?string $kvkNumber
+    ): void {
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($existingUser) {
+            throw ValidationException::withMessages([
+                'email' => ['Dit e-mailadres is al in gebruik. Log in met een code of wachtwoord.'],
+            ]);
+        }
+
+        $existingCompany = Company::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if ($existingCompany) {
+            throw ValidationException::withMessages([
+                'email' => ['Er bestaat al een bedrijf met dit e-mailadres. Log in of neem contact op met NEXA.'],
+            ]);
+        }
+
+        if ($kvkNumber !== null) {
+            $existingKvk = Company::query()->where('kvk_number', $kvkNumber)->exists();
+            if ($existingKvk) {
+                throw ValidationException::withMessages([
+                    'kvk_number' => ['Er bestaat al een bedrijf met dit KVK-nummer. Log in of neem contact op met NEXA.'],
+                ]);
+            }
+        }
+
+        $nameKey = $this->normalizeCompanyName($companyName);
+        $cityKey = $this->normalizePlace($city);
+        if ($nameKey === '' || $cityKey === '') {
+            return;
+        }
+
+        $cityCompact = str_replace(' ', '', $cityKey);
+        $candidates = Company::query()
+            ->select(['id', 'name', 'city'])
+            ->whereNotNull('name')
+            ->whereNotNull('city')
+            ->whereRaw('LOWER(REPLACE(TRIM(city), ?, ?)) = ?', [' ', '', $cityCompact])
+            ->get();
+
+        foreach ($candidates as $candidate) {
+            if ($this->normalizeCompanyName((string) $candidate->name) !== $nameKey) {
+                continue;
+            }
+            if ($this->normalizePlace((string) $candidate->city) !== $cityKey) {
+                continue;
+            }
+
+            throw ValidationException::withMessages([
+                'company_name' => ['Er is al een bedrijf geregistreerd met deze naam in deze plaats. Log in of neem contact op met NEXA.'],
+                'city' => ['Er is al een bedrijf geregistreerd met deze naam in deze plaats.'],
+            ]);
+        }
+    }
+
+    /** Lowercase, witruimte inklappen, juridische suffixen (BV/NV/VOF/Ltd) strippen. */
+    private function normalizeCompanyName(string $name): string
+    {
+        $name = mb_strtolower(trim($name));
+        $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+        $name = preg_replace(
+            '/\b(b\.?\s*v\.?|n\.?\s*v\.?|v\.?\s*o\.?\s*f\.?|ltd\.?|inc\.?|eenmanszaak)\b/u',
+            '',
+            $name
+        ) ?? $name;
+        $name = preg_replace('/[^\p{L}\p{N}\s]/u', '', $name) ?? $name;
+
+        return trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+    }
+
+    /** Lowercase + witruimte inklappen. */
+    private function normalizePlace(string $place): string
+    {
+        $place = mb_strtolower(trim($place));
+
+        return trim(preg_replace('/\s+/u', ' ', $place) ?? $place);
+    }
+
+    private function normalizeKvkNumber(mixed $kvk): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $kvk) ?? '';
+        if (strlen($digits) !== 8) {
+            return null;
+        }
+
+        return $digits;
     }
 }

@@ -57,7 +57,7 @@ class EnsureTaxiDriver
             $user->tokens()->where('name', 'taxi-driver')->delete();
 
             return response()->json([
-                'message' => 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+                'message' => $blocks->loginDeniedMessage(),
                 'error' => 'driver_blocked',
                 'blocked' => $blocks->blockedPayload($conn, (int) $user->id),
             ], 403);

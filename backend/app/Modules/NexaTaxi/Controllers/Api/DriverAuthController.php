@@ -287,7 +287,7 @@ class DriverAuthController extends Controller
         $blocks = app(\App\Modules\NexaTaxi\Services\TaxiDriverBlockService::class);
         if ($blocks->isBlocked($conn, (int) $user->id)) {
             return response()->json([
-                'message' => 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+                'message' => $blocks->loginDeniedMessage(),
                 'error' => 'driver_blocked',
                 'blocked' => $blocks->blockedPayload($conn, (int) $user->id),
             ], 403);

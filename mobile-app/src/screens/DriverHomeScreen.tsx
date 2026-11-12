@@ -130,6 +130,8 @@ import { AppearanceControls } from '../ui/AppearanceControls';
 import { DemoModeRow } from '../ui/DemoModeRow';
 import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
+import { ArchiveMotion, type ArchiveMotionMode } from '../ui/ArchiveMotion';
+import { DriverNotificationsModal } from '../ui/DriverNotificationsModal';
 import { LimitedPhotoPickerModal, loadMediaLibrary, PickedLibraryImage } from '../ui/LimitedPhotoPickerModal';
 import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import { DutchPlateInput } from '../ui/DutchPlateInput';
@@ -609,6 +611,11 @@ export function DriverHomeScreen() {
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [archivingRideId, setArchivingRideId] = useState<number | null>(null);
+  const [archiveRowMotion, setArchiveRowMotion] = useState<{
+    key: string;
+    mode: Exclude<ArchiveMotionMode, 'idle'>;
+  } | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
   const [limitedPickerOpen, setLimitedPickerOpen] = useState(false);
   const limitedPickResolve = useRef<((r: { uri: string; mime: string | null } | null) => void) | null>(null);
@@ -2825,13 +2832,27 @@ export function DriverHomeScreen() {
               <Text style={styles.sectionLabel}>{t("Afgerond")}</Text>
               {visibleCompletedRides.map((ride) => (
                 <View key={`done-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
-                  <DriverTripCard
-                    ride={ride}
-                    variant="completed"
-                    highlighted={focusRideId === ride.id}
-                    onHighlightEnd={() => setFocusRideId(null)}
-                    onArchive={() => toggleCompletedArchive(ride.id)}
-                  />
+                  <ArchiveMotion
+                    mode={archivingRideId === ride.id ? 'archive-out' : 'idle'}
+                    accentColor={accentHex(accent)}
+                    onFinished={() => {
+                      if (archivingRideId !== ride.id) return;
+                      void toggleCompletedArchive(ride.id).finally(() => {
+                        setArchivingRideId(null);
+                      });
+                    }}
+                  >
+                    <DriverTripCard
+                      ride={ride}
+                      variant="completed"
+                      highlighted={focusRideId === ride.id}
+                      onHighlightEnd={() => setFocusRideId(null)}
+                      onArchive={() => {
+                        if (archivingRideId != null) return;
+                        setArchivingRideId(ride.id);
+                      }}
+                    />
+                  </ArchiveMotion>
                 </View>
               ))}
             </>
@@ -2997,28 +3018,22 @@ export function DriverHomeScreen() {
           )
         );
       }
-      Alert.alert(item.title, item.body, [
-        { text: t('Sluiten'), style: 'cancel' },
-        {
-          text: t('Archiveren'),
-          onPress: () => {
-            void (async () => {
-              try {
-                const res = await closeDriverNotification(driverToken, item.id);
-                if (typeof res.unread_count === 'number') setInboxUnreadCount(res.unread_count);
-                setInboxNotifications((current) => current.filter((row) => row.id !== item.id));
-                if (item.type === 'new_rating') {
-                  void openReviews();
-                }
-              } catch {
-                /* ignore */
-              }
-            })();
-          },
-        },
-      ]);
     } catch (e) {
       Alert.alert(t('Melding'), e instanceof ApiError ? e.message : t('Kon melding niet openen.'));
+    }
+  }
+
+  async function onArchiveNotification(item: DriverInboxNotification) {
+    if (!driverToken) return;
+    try {
+      const res = await closeDriverNotification(driverToken, item.id);
+      if (typeof res.unread_count === 'number') setInboxUnreadCount(res.unread_count);
+      setInboxNotifications((current) => current.filter((row) => row.id !== item.id));
+      if (item.type === 'new_rating') {
+        void openReviews();
+      }
+    } catch {
+      /* ignore */
     }
   }
 
@@ -3856,8 +3871,86 @@ export function DriverHomeScreen() {
     });
   }, [archiveSelectableKeys]);
 
+  const archiveRestorableCount = useMemo(() => {
+    let n = 0;
+    for (const key of archiveSelectedKeys) {
+      if (key.startsWith('done:') || key.startsWith('overdue:')) n += 1;
+    }
+    return n;
+  }, [archiveSelectedKeys]);
+
+  const performDeleteSelectedArchiveItems = useCallback(async () => {
+    const offerIds = archiveOfferKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('offer:'.length)))
+      .filter((id) => id > 0);
+    const doneIds = archiveDoneKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('done:'.length)))
+      .filter((id) => id > 0);
+    const overdueIds = archiveOverdueKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('overdue:'.length)))
+      .filter((id) => id > 0);
+
+    setArchiveDeleteBusy(true);
+    try {
+      if (offerIds.length > 0 && driverToken) {
+        await deleteArchivedOffers(driverToken, offerIds);
+        const gone = new Set(offerIds);
+        setArchivedOffers((current) => current.filter((o) => !gone.has(Number(o.id))));
+        setDeclinedOffers((current) => current.filter((o) => !gone.has(Number(o.id))));
+      }
+      if (doneIds.length > 0) {
+        if (driverToken) {
+          await deleteArchivedCompletedRides(driverToken, doneIds);
+        }
+        const goneDone = new Set(doneIds);
+        setArchivedCompletedIds((prev) => {
+          const next = prev.filter((id) => !goneDone.has(id));
+          persistArchivedCompletedIds(next);
+          return next;
+        });
+        setArchivedCompletedRidesList((prev) => prev.filter((r) => !goneDone.has(Number(r.id))));
+        setCompletedRides((current) => current.filter((r) => !goneDone.has(Number(r.id))));
+      }
+      if (overdueIds.length > 0) {
+        const goneOverdue = new Set(overdueIds);
+        setDismissedOverdueArchiveIds((prev) => {
+          const next = [...new Set([...prev, ...overdueIds])];
+          persistDismissedOverdueIds(next);
+          return next;
+        });
+        setOverdueScheduledRides((current) =>
+          current.filter((r) => !goneOverdue.has(Number(r.id)))
+        );
+        setArchivedOverdueScheduledRides((current) =>
+          current.filter((r) => !goneOverdue.has(Number(r.id)))
+        );
+      }
+      setArchiveSelectedKeys(new Set());
+      setArchiveRowMotion(null);
+      if (offerIds.length > 0) await refresh();
+    } catch (e) {
+      const raw = e instanceof Error ? e.message.trim() : '';
+      Alert.alert(
+        t('Verwijderen mislukt'),
+        raw && !/^HTTP \d+$/.test(raw) ? raw : t('Verwijderen mislukt.')
+      );
+    } finally {
+      setArchiveDeleteBusy(false);
+    }
+  }, [
+    archiveOfferKeys,
+    archiveDoneKeys,
+    archiveOverdueKeys,
+    archiveSelectedKeys,
+    driverToken,
+    refresh,
+  ]);
+
   const deleteSelectedArchiveItems = useCallback(() => {
-    if (archiveDeleteBusy) return;
+    if (archiveDeleteBusy || archiveRowMotion) return;
     const offerIds = archiveOfferKeys
       .filter((key) => archiveSelectedKeys.has(key))
       .map((key) => Number(key.slice('offer:'.length)))
@@ -3885,68 +3978,125 @@ export function DriverHomeScreen() {
           text: t('Verwijderen'),
           style: 'destructive',
           onPress: () => {
-            void (async () => {
-              setArchiveDeleteBusy(true);
-              try {
-                if (offerIds.length > 0 && driverToken) {
-                  await deleteArchivedOffers(driverToken, offerIds);
-                  const gone = new Set(offerIds);
-                  setArchivedOffers((current) => current.filter((o) => !gone.has(Number(o.id))));
-                  setDeclinedOffers((current) => current.filter((o) => !gone.has(Number(o.id))));
-                }
-                if (doneIds.length > 0) {
-                  if (driverToken) {
-                    await deleteArchivedCompletedRides(driverToken, doneIds);
-                  }
-                  const goneDone = new Set(doneIds);
-                  setArchivedCompletedIds((prev) => {
-                    const next = prev.filter((id) => !goneDone.has(id));
-                    persistArchivedCompletedIds(next);
-                    return next;
-                  });
-                  setArchivedCompletedRidesList((prev) =>
-                    prev.filter((r) => !goneDone.has(Number(r.id)))
-                  );
-                  setCompletedRides((current) => current.filter((r) => !goneDone.has(Number(r.id))));
-                }
-                if (overdueIds.length > 0) {
-                  const goneOverdue = new Set(overdueIds);
-                  setDismissedOverdueArchiveIds((prev) => {
-                    const next = [...new Set([...prev, ...overdueIds])];
-                    persistDismissedOverdueIds(next);
-                    return next;
-                  });
-                  setOverdueScheduledRides((current) =>
-                    current.filter((r) => !goneOverdue.has(Number(r.id)))
-                  );
-                  setArchivedOverdueScheduledRides((current) =>
-                    current.filter((r) => !goneOverdue.has(Number(r.id)))
-                  );
-                }
-                setArchiveSelectedKeys(new Set());
-                if (offerIds.length > 0) await refresh();
-              } catch (e) {
-                const raw = e instanceof Error ? e.message.trim() : '';
-                Alert.alert(
-                  t('Verwijderen mislukt'),
-                  raw && !/^HTTP \d+$/.test(raw) ? raw : t('Verwijderen mislukt.')
-                );
-              } finally {
-                setArchiveDeleteBusy(false);
-              }
-            })();
+            const firstKey =
+              archiveDoneKeys.find((key) => archiveSelectedKeys.has(key)) ||
+              archiveOverdueKeys.find((key) => archiveSelectedKeys.has(key)) ||
+              null;
+            if (firstKey) {
+              setArchiveRowMotion({ key: firstKey, mode: 'delete-out' });
+              return;
+            }
+            void performDeleteSelectedArchiveItems();
           },
         },
       ]
     );
   }, [
     archiveDeleteBusy,
+    archiveRowMotion,
     archiveOfferKeys,
     archiveDoneKeys,
     archiveOverdueKeys,
     archiveSelectedKeys,
     driverToken,
-    refresh,
+    performDeleteSelectedArchiveItems,
+  ]);
+
+  const restoreSelectedArchiveItems = useCallback(async () => {
+    if (archiveDeleteBusy || archiveRowMotion) return;
+    const doneIds = archiveDoneKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('done:'.length)))
+      .filter((id) => id > 0);
+    const overdueIds = archiveOverdueKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('overdue:'.length)))
+      .filter((id) => id > 0);
+    if (doneIds.length + overdueIds.length < 1) return;
+
+    const firstKey =
+      archiveDoneKeys.find((key) => archiveSelectedKeys.has(key)) ||
+      archiveOverdueKeys.find((key) => archiveSelectedKeys.has(key)) ||
+      null;
+    if (firstKey) {
+      setArchiveRowMotion({ key: firstKey, mode: 'restore-out' });
+      return;
+    }
+
+    setArchiveDeleteBusy(true);
+    try {
+      for (const rideId of doneIds) {
+        await toggleCompletedArchive(rideId);
+      }
+      if (overdueIds.length > 0) {
+        const restoreSet = new Set(overdueIds);
+        setDismissedOverdueArchiveIds((prev) => {
+          const next = prev.filter((id) => !restoreSet.has(id));
+          persistDismissedOverdueIds(next);
+          return next;
+        });
+        setArchivedOverdueScheduledRides((current) =>
+          current.filter((r) => !restoreSet.has(Number(r.id)))
+        );
+      }
+      setArchiveSelectedKeys(new Set());
+    } finally {
+      setArchiveDeleteBusy(false);
+    }
+  }, [
+    archiveDeleteBusy,
+    archiveRowMotion,
+    archiveDoneKeys,
+    archiveOverdueKeys,
+    archiveSelectedKeys,
+  ]);
+
+  const finishArchiveRowMotion = useCallback(() => {
+    const motion = archiveRowMotion;
+    if (!motion) return;
+    setArchiveRowMotion(null);
+    if (motion.mode === 'delete-out') {
+      void performDeleteSelectedArchiveItems();
+      return;
+    }
+    if (motion.mode === 'restore-out') {
+      void (async () => {
+        setArchiveDeleteBusy(true);
+        try {
+          const doneIds = archiveDoneKeys
+            .filter((key) => archiveSelectedKeys.has(key))
+            .map((key) => Number(key.slice('done:'.length)))
+            .filter((id) => id > 0);
+          const overdueIds = archiveOverdueKeys
+            .filter((key) => archiveSelectedKeys.has(key))
+            .map((key) => Number(key.slice('overdue:'.length)))
+            .filter((id) => id > 0);
+          for (const rideId of doneIds) {
+            await toggleCompletedArchive(rideId);
+          }
+          if (overdueIds.length > 0) {
+            const restoreSet = new Set(overdueIds);
+            setDismissedOverdueArchiveIds((prev) => {
+              const next = prev.filter((id) => !restoreSet.has(id));
+              persistDismissedOverdueIds(next);
+              return next;
+            });
+            setArchivedOverdueScheduledRides((current) =>
+              current.filter((r) => !restoreSet.has(Number(r.id)))
+            );
+          }
+          setArchiveSelectedKeys(new Set());
+        } finally {
+          setArchiveDeleteBusy(false);
+        }
+      })();
+    }
+  }, [
+    archiveRowMotion,
+    performDeleteSelectedArchiveItems,
+    archiveDoneKeys,
+    archiveOverdueKeys,
+    archiveSelectedKeys,
   ]);
 
   const renderArchiveCheckbox = (key: string) => {
@@ -3970,25 +4120,33 @@ export function DriverHomeScreen() {
   const renderArchiveCompactRide = (ride: DriverActiveRide, key: string) => {
     const selected = archiveSelectedKeys.has(key);
     const when = archiveRideWhenLabel(ride.pickup_at) || t('Gearchiveerd');
+    const motionMode =
+      archiveRowMotion?.key === key ? archiveRowMotion.mode : ('idle' as const);
     return (
-      <Pressable
+      <ArchiveMotion
         key={key}
-        onPress={() => toggleArchiveKey(key)}
+        mode={motionMode}
+        accentColor={accentHex(accent)}
         style={[styles.archiveSelectRow, selected && styles.archiveSelectRowOn]}
+        onFinished={
+          archiveRowMotion?.key === key ? finishArchiveRowMotion : undefined
+        }
       >
-        <Card>
-          <View style={styles.archiveSelectInner}>
-            {renderArchiveCheckbox(key)}
-            <View style={styles.archiveSelectBody}>
-              <Text style={styles.archivedMeta}>{when}</Text>
-              <Text style={styles.hint}>{archiveRideRouteLabel(ride)}</Text>
-              {ride.customer_name ? (
-                <Text style={styles.hint}>{ride.customer_name}</Text>
-              ) : null}
+        <Pressable onPress={() => toggleArchiveKey(key)}>
+          <Card>
+            <View style={styles.archiveSelectInner}>
+              {renderArchiveCheckbox(key)}
+              <View style={styles.archiveSelectBody}>
+                <Text style={styles.archivedMeta}>{when}</Text>
+                <Text style={styles.hint}>{archiveRideRouteLabel(ride)}</Text>
+                {ride.customer_name ? (
+                  <Text style={styles.hint}>{ride.customer_name}</Text>
+                ) : null}
+              </View>
             </View>
-          </View>
-        </Card>
-      </Pressable>
+          </Card>
+        </Pressable>
+      </ArchiveMotion>
     );
   };
 
@@ -4065,29 +4223,86 @@ export function DriverHomeScreen() {
                 {` (${archiveSelectableKeys.length})`}
               </Text>
             </Pressable>
-            <Pressable
-              onPress={deleteSelectedArchiveItems}
-              disabled={archiveSelectedCount < 1 || archiveDeleteBusy}
-              style={[
-                styles.archiveBulkTrash,
-                (archiveSelectedCount < 1 || archiveDeleteBusy) && styles.archiveBulkTrashDisabled,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={
-                archiveSelectedCount < 1
-                  ? t('Verwijderen')
-                  : t('{n} verwijderen', { n: archiveSelectedCount })
-              }
-            >
-              <Ionicons
-                name="trash-outline"
-                size={22}
-                color={archiveSelectedCount < 1 ? colors.muted : colors.danger}
-              />
-              {archiveSelectedCount > 0 ? (
-                <Text style={styles.archiveBulkTrashCount}>{archiveSelectedCount}</Text>
-              ) : null}
-            </Pressable>
+            <View style={styles.archiveBulkActions}>
+              <Pressable
+                onPress={() => {
+                  void restoreSelectedArchiveItems();
+                }}
+                disabled={archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
+                style={[
+                  styles.archiveBulkAction,
+                  (archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
+                    styles.archiveBulkActionDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  archiveRestorableCount < 1
+                    ? t('Terugzetten')
+                    : t('{n} terugzetten', { n: archiveRestorableCount })
+                }
+              >
+                <View style={styles.archiveBulkActionIconWrap}>
+                  <Ionicons
+                    name="arrow-undo-outline"
+                    size={22}
+                    color={archiveRestorableCount < 1 ? colors.muted : accentHex(accent)}
+                  />
+                  {archiveRestorableCount > 0 ? (
+                    <Text style={[styles.archiveBulkActionCount, { color: accentHex(accent) }]}>
+                      {archiveRestorableCount}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.archiveBulkActionLabel,
+                    archiveRestorableCount < 1
+                      ? styles.archiveBulkActionLabelMuted
+                      : { color: accentHex(accent) },
+                  ]}
+                >
+                  {t('Terugzetten')}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={deleteSelectedArchiveItems}
+                disabled={archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
+                style={[
+                  styles.archiveBulkAction,
+                  (archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
+                    styles.archiveBulkActionDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  archiveSelectedCount < 1
+                    ? t('Verwijderen')
+                    : t('{n} verwijderen', { n: archiveSelectedCount })
+                }
+              >
+                <View style={styles.archiveBulkActionIconWrap}>
+                  <Ionicons
+                    name="trash-outline"
+                    size={22}
+                    color={archiveSelectedCount < 1 ? colors.muted : colors.danger}
+                  />
+                  {archiveSelectedCount > 0 ? (
+                    <Text style={[styles.archiveBulkActionCount, { color: colors.danger }]}>
+                      {archiveSelectedCount}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.archiveBulkActionLabel,
+                    archiveSelectedCount < 1
+                      ? styles.archiveBulkActionLabelMuted
+                      : { color: colors.danger },
+                  ]}
+                >
+                  {t('Verwijderen')}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </Card>
       ) : null}
@@ -4376,43 +4591,16 @@ export function DriverHomeScreen() {
         accent={accentHex(accent)}
       />
 
-      <AppModal
+      <DriverNotificationsModal
         visible={notificationsOpen}
+        busy={notificationsBusy}
+        notifications={inboxNotifications}
+        accentColor={accentHex(accent)}
         onRequestClose={() => setNotificationsOpen(false)}
-        panelStyle={styles.reviewsModal}
-      >
-        <Text style={styles.pickerTitle}>{t('Meldingen')}</Text>
-        {notificationsBusy ? <Text style={styles.hint}>{t('Laden…')}</Text> : null}
-        {!notificationsBusy && inboxNotifications.length === 0 ? (
-          <Text style={styles.hint}>{t('Geen openstaande meldingen.')}</Text>
-        ) : null}
-        <ScrollView
-          style={styles.reviewsScroll}
-          contentContainerStyle={styles.reviewsScrollContent}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="handled"
-        >
-          {inboxNotifications.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => void onOpenNotification(item)}
-              style={[styles.reviewItem, !item.is_read ? { borderColor: accentHex(accent) } : null]}
-            >
-              <View style={styles.reviewHead}>
-                <Text style={styles.reviewName}>{item.title}</Text>
-                <Text style={styles.reviewDate}>{reviewDateLabel(item.created_at)}</Text>
-              </View>
-              <Text style={styles.reviewComment} numberOfLines={3}>
-                {item.body}
-              </Text>
-              {!item.is_read ? (
-                <Text style={[styles.hint, { marginTop: 6 }]}>{t('Ongelezen')}</Text>
-              ) : null}
-            </Pressable>
-          ))}
-        </ScrollView>
-        <GhostButton title={t('Sluiten')} onPress={() => setNotificationsOpen(false)} />
-      </AppModal>
+        onOpen={onOpenNotification}
+        onArchive={onArchiveNotification}
+        dateLabel={reviewDateLabel}
+      />
 
       <AppModal
         visible={reviewsOpen}
@@ -5168,26 +5356,44 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       fontSize: 14,
       fontWeight: '600',
     },
-    archiveBulkTrash: {
+    archiveBulkActions: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 14,
+      flexShrink: 0,
+    },
+    archiveBulkAction: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 64,
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+    },
+    archiveBulkActionDisabled: {
+      opacity: 0.4,
+    },
+    archiveBulkActionIconWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
-      paddingVertical: 8,
-      paddingHorizontal: 10,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.danger,
+      justifyContent: 'center',
+      gap: 3,
+      minHeight: 24,
     },
-    archiveBulkTrashDisabled: {
-      opacity: 0.4,
-      borderColor: colors.border,
-    },
-    archiveBulkTrashCount: {
-      color: colors.danger,
-      fontSize: 13,
+    archiveBulkActionCount: {
+      fontSize: 12,
       fontWeight: '800',
-      minWidth: 14,
+      minWidth: 12,
       textAlign: 'center',
+    },
+    archiveBulkActionLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      textAlign: 'center',
+      lineHeight: 14,
+    },
+    archiveBulkActionLabelMuted: {
+      color: colors.muted,
     },
     archiveSelectRow: {
       marginBottom: 10,

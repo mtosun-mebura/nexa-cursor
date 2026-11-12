@@ -22,7 +22,7 @@ class DriverNotificationController extends Controller
 
         if ($blocks->isBlocked($conn, $driverId)) {
             return response()->json([
-                'message' => 'Je chauffeuraccount is geblokkeerd.',
+                'message' => $blocks->loginDeniedMessage(),
                 'error' => 'driver_blocked',
                 'blocked' => $blocks->blockedPayload($conn, $driverId),
             ], 403);

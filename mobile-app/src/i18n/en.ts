@@ -570,6 +570,7 @@ export const EN: Record<string, string> = {
   Terugbetaling: 'Refund',
   Terugweg: 'Return trip',
   Terugzetten: 'Restore',
+  '{n} terugzetten': 'Restore {n}',
   'Terugzetten uit archief': 'Restore from archive',
   Thema: 'Theme',
   Themakleur: 'Theme colour',

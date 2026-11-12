@@ -13,9 +13,18 @@ use Illuminate\Validation\ValidationException;
 
 class TaxiDriverBlockService
 {
+    public const LOGIN_DENIED_MESSAGE = 'Je account is geblokkeerd vanwege een klacht. Neem contact op via info@nexasuite.nl.';
+
+    public const SUPPORT_EMAIL = 'info@nexasuite.nl';
+
     public function __construct(
         protected TaxiDriverNotificationService $notifications
     ) {}
+
+    public function loginDeniedMessage(): string
+    {
+        return self::LOGIN_DENIED_MESSAGE;
+    }
 
     public function isBlocked(string $conn, int $driverId): bool
     {
@@ -26,6 +35,24 @@ class TaxiDriverBlockService
         $profile = TaxiDriverProfile::on($conn)->find($driverId);
 
         return $profile && $profile->app_blocked_at !== null;
+    }
+
+    /**
+     * Of deze gebruiker (chauffeur) geblokkeerd is — veilig bij ontbrekende taxi-module.
+     */
+    public function isUserBlocked(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        try {
+            $conn = app(\App\Services\ModuleDatabaseService::class)->getModuleConnectionName('taxi');
+
+            return $this->isBlocked($conn, $userId);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -100,7 +127,7 @@ class TaxiDriverBlockService
         $this->notifications->notify($conn, $driverId, [
             'type' => TaxiDriverNotification::TYPE_BLOCKED,
             'title' => 'Account geblokkeerd',
-            'body' => $profile->app_blocked_reason ?: 'Je chauffeuraccount is geblokkeerd. Neem contact op met de beheerder.',
+            'body' => self::LOGIN_DENIED_MESSAGE,
             'company_id' => $companyId,
             'related_complaint_id' => $complaintId,
             'created_by' => $byUserId,

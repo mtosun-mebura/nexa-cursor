@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { loginWithPassword, requestLoginCode, verifyLoginCode } from '../api/auth';
 import { ApiError } from '../api/client';
@@ -27,6 +28,8 @@ import {
   Subtitle,
   SuccessText,
 } from '../ui/components';
+
+const LOGIN_ERROR_KEY = 'nexa_taxi_login_error';
 
 const CODE_LENGTH = 6;
 
@@ -133,6 +136,23 @@ export function LoginScreen({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const pending = await AsyncStorage.getItem(LOGIN_ERROR_KEY);
+        if (cancelled || !pending) return;
+        setError(pending);
+        await AsyncStorage.removeItem(LOGIN_ERROR_KEY);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onRequestCode() {
     setError(null);
