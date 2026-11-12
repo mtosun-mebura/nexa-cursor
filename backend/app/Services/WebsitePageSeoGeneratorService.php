@@ -552,7 +552,7 @@ PROMPT;
         $isTaxi = str_contains($blob, 'taxi') || strtolower((string) ($context['module_name'] ?? '')) === 'taxi';
 
         if ($isTaxi && $pageType === 'home') {
-            return 'Taxi boeken & bestellen';
+            return 'Taxi boeken en bestellen';
         }
         if (str_contains($blob, 'boek') && (str_contains($blob, 'taxi') || str_contains($blob, 'rit'))) {
             $title = str_contains($blob, 'taxi') ? 'Taxi online laten boeken' : 'Ritten online laten boeken';
@@ -579,7 +579,7 @@ PROMPT;
 
         if ($seed === '') {
             return match ($pageType) {
-                'home' => $isTaxi ? 'Taxi boeken & bestellen' : 'Diensten, werkwijze en contact',
+                'home' => $isTaxi ? 'Taxi boeken en bestellen' : 'Diensten, werkwijze en contact',
                 'about' => 'Over ons: team en werkwijze',
                 'contact' => $isTaxi ? 'Contact taxi centrale' : 'Contact, offerte of afspraak',
                 default => (string) ($context['page_type_label'] ?? 'Pagina'),
