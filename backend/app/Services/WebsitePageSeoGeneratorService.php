@@ -24,6 +24,7 @@ class WebsitePageSeoGeneratorService
      *     site_name?: string,
      *     site_description?: string,
      *     company_name?: string|null,
+     *     company_city?: string|null,
      *     include_sections?: bool,
      *     page_content?: string,
      *     home_sections?: array<string, mixed>,
@@ -127,6 +128,7 @@ class WebsitePageSeoGeneratorService
         $siteDescription = trim((string) ($input['site_description'] ?? ''));
         $moduleDisplay = trim((string) ($input['module_display_name'] ?? $input['module_name'] ?? ''));
         $companyName = trim((string) ($input['company_name'] ?? ''));
+        $companyCity = trim((string) ($input['company_city'] ?? ''));
 
         $brand = $companyName !== '' ? $companyName : $siteName;
         if ($moduleDisplay !== '' && $moduleDisplay !== $brand) {
@@ -145,6 +147,7 @@ class WebsitePageSeoGeneratorService
             'module_name' => trim((string) ($input['module_name'] ?? '')),
             'module_display_name' => $moduleDisplay,
             'company_name' => $companyName,
+            'company_city' => $companyCity,
             'brand' => $brand,
             'include_sections' => (bool) ($input['include_sections'] ?? true),
             'page_content' => $pageContent,
@@ -267,6 +270,7 @@ class WebsitePageSeoGeneratorService
         $payload = json_encode([
             'merk' => $context['brand'],
             'site_naam' => $context['site_name'],
+            'vestigingsplaats' => $context['company_city'] ?? '',
             'paginatype' => $context['page_type_label'],
             'huidige_titel' => $context['title'],
             'site_omschrijving' => $context['site_description'],
@@ -279,6 +283,7 @@ class WebsitePageSeoGeneratorService
 Schrijf de Google-snippet voor deze Nederlandse websitepagina. Doel: hoge vindbaarheid op wat bezoekers intypen (dienst, product, plaats, merkprobleem).
 
 Haal zoekwoorden uit pagina_inhoud (diensten, doelgroep, plaats, productnamen). Verzin geen extra diensten. Schrijf WEL nieuwe SEO-zinnen: niet knippen-plakken.
+Als vestigingsplaats gevuld is: noem ALLEEN die plaats (geen andere steden verzinnen).
 
 HTML-title in Google wordt: "{title} - {site_naam}".
 Dus: title 40–55 tekens, zoekwoord vooraan, GEEN merk/sitenaam erachter, GEEN …, geen hero-vraag letterlijk.
@@ -467,6 +472,7 @@ PROMPT;
         if ($this->looksLikeContentDump($meta)) {
             $meta = $this->fitMetaDescription($this->composeSeoMeta($context), $context);
         }
+        $meta = $this->alignMetaToCompanyCity($meta, $context);
 
         $sections = [];
         if ($context['include_sections'] && isset($raw['sections']) && is_array($raw['sections'])) {
@@ -611,6 +617,7 @@ PROMPT;
     private function composeSeoMeta(array $context): string
     {
         $brand = trim((string) ($context['brand'] ?? ''));
+        $city = trim((string) ($context['company_city'] ?? ''));
         $keywords = $this->keywordsFromContext($context);
         $lines = $this->seoSourceLines((string) ($context['page_content'] ?? ''));
         $topic = $this->seoTitleFromContext($context, (string) ($context['page_type_label'] ?? 'Deze pagina'));
@@ -619,14 +626,51 @@ PROMPT;
             $promise = $this->seoPromiseAlternate($keywords, $lines, $context);
         }
         $pageType = (string) ($context['page_type'] ?? 'custom');
+        $isTaxi = str_contains(mb_strtolower((string) ($context['module_name'] ?? '').' '.$brand), 'taxi');
 
         $lead = match ($pageType) {
             'contact' => ($brand !== '' ? "Neem contact op met {$brand}" : 'Neem contact op')
+                .($city !== '' ? " in {$city}" : '')
                 .'. Stel uw vraag, vraag een offerte of plan een afspraak: wij reageren snel en duidelijk.',
+            'home' => $isTaxi && $brand !== ''
+                ? "{$brand} biedt betrouwbaar taxivervoer".($city !== '' ? " in {$city}" : '')
+                    .'. Boek of bestel eenvoudig online een taxi, 24/7.'
+                : $this->seoLead($topic, $brand, $promise),
             default => $this->seoLead($topic, $brand, $promise),
         };
 
         return $this->fitMetaDescription($lead, $context);
+    }
+
+    /**
+     * Vervang verzonnen NL-steden in meta door de echte vestigingsplaats.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function alignMetaToCompanyCity(string $meta, array $context): string
+    {
+        $city = trim((string) ($context['company_city'] ?? ''));
+        if ($city === '' || $meta === '') {
+            return $meta;
+        }
+
+        $knownCities = [
+            'Amsterdam', 'Rotterdam', 'Den Haag', '\'s-Gravenhage', 'Utrecht', 'Eindhoven',
+            'Groningen', 'Tilburg', 'Almere', 'Breda', 'Nijmegen', 'Apeldoorn', 'Haarlem',
+            'Arnhem', 'Amersfoort', 'Zaanstad', 'Haarlemmermeer', 'Zwolle', 'Leiden',
+            'Maastricht', 'Dordrecht', 'Zoetermeer', 'Leeuwarden', 'Enschede', 'Hengelo',
+            'Deventer', 'Venlo', 'Delft', 'Heerlen', 'Helmond', 'Hilversum',
+        ];
+
+        $cityLower = mb_strtolower($city);
+        foreach ($knownCities as $candidate) {
+            if (mb_strtolower($candidate) === $cityLower) {
+                continue;
+            }
+            $meta = preg_replace('/\b'.preg_quote($candidate, '/').'\b/u', $city, $meta) ?? $meta;
+        }
+
+        return $meta;
     }
 
     private function seoLead(string $topic, string $brand, string $promise): string
