@@ -194,10 +194,25 @@ jobs:
           if [[ "$url" != *force=* ]]; then
             if [[ "$url" == *\?* ]]; then url="${url}&force=true"; else url="${url}?force=true"; fi
           fi
-          echo "Coolify deploy webhook…"
-          curl --fail --show-error --silent --request GET "$url" \
-            --header "Authorization: Bearer ${COOLIFY_TOKEN}"
+          echo "Coolify deploy webhook (POST)…"
+          # Coolify v4: /api/v1/deploy is POST-only; GET → 403/405.
+          body="$(mktemp)"
+          code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+            --request POST "$url" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/json" \
+            || true)"
+          echo "HTTP ${code}"
+          sed 's/'"${COOLIFY_TOKEN}"'/***TOKEN***/g' "$body" | head -c 2000 || true
           echo
+          if [[ "$code" != "200" && "$code" != "201" ]]; then
+            echo "ERROR: Coolify webhook faalde (HTTP ${code})." >&2
+            echo "Controleer: API Access aan in Coolify, token met Deploy, webhook = Deploy Webhook (auth required)." >&2
+            rm -f "$body"
+            exit 1
+          fi
+          rm -f "$body"
           echo "used=true" >> "$GITHUB_OUTPUT"
 
       - name: Preflight SSH naar PROD (poort bereikbaar?)
