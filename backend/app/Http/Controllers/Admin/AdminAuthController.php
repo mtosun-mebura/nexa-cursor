@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
+use App\Modules\NexaTaxi\Services\TaxiDriverBlockService;
 use App\Services\AdminFirstLoginService;
 use App\Services\CompanyEmailLogoService;
 use App\Services\EnvService;
@@ -136,6 +137,12 @@ class AdminAuthController extends Controller
             }
         }
 
+        if (! $user->hasRole('super-admin') && app(TaxiDriverBlockService::class)->isUserBlocked((int) $user->id)) {
+            return back()->withErrors([
+                'email' => TaxiDriverBlockService::LOGIN_DENIED_MESSAGE,
+            ])->withInput($withInput);
+        }
+
         // Manual login
         // Use Laravel's built-in "remember me" mechanism (secure persistent login cookie)
         Auth::guard('web')->login($user, $remember);
@@ -254,6 +261,14 @@ class AdminAuthController extends Controller
             if ($billingAccess->isFullyBlocked($company) && ! $user->hasRole('super-admin')) {
                 return response()->json(['message' => $billingAccess->fullBlockMessage()], 403);
             }
+        }
+
+        if (! $user->hasRole('super-admin') && app(TaxiDriverBlockService::class)->isUserBlocked((int) $user->id)) {
+            return response()->json([
+                'message' => TaxiDriverBlockService::LOGIN_DENIED_MESSAGE,
+                'error' => 'driver_blocked',
+                'errors' => ['email' => [TaxiDriverBlockService::LOGIN_DENIED_MESSAGE]],
+            ], 403);
         }
 
         // Blijf ingelogd op dit apparaat (remember cookie).

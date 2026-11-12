@@ -28,12 +28,29 @@
     <title>{{ $seoPageTitle }}</title>
     <meta name="description" content="{{ $seoPageDescription }}">
     <meta name="robots" content="{{ $seoRobots }}">
+    <meta name="googlebot" content="{{ $seoRobots }}, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <link rel="canonical" href="{{ $seoCanonical }}">
+    <link rel="alternate" type="text/plain" title="LLMs.txt" href="{{ url('/llms.txt') }}">
     <meta property="og:type" content="website">
+    <meta property="og:locale" content="{{ str_replace('_', '-', app()->getLocale()) }}">
     <meta property="og:site_name" content="{{ $seoBrandName !== '' ? $seoBrandName : ($branding['site_name'] ?? config('app.name')) }}">
     <meta property="og:url" content="{{ $seoCanonical }}">
     <meta property="og:title" content="{{ $seoPageTitle }}">
     <meta property="og:description" content="{{ $seoPageDescription }}">
+    @php
+        $seoOgImage = trim((string) ($branding['logo_url'] ?? ''));
+        if ($seoOgImage === '' && ! empty($homeSections['hero']['background_image_url'])) {
+            $seoOgImage = trim((string) $homeSections['hero']['background_image_url']);
+        }
+        if ($seoOgImage === '') {
+            $seoOgImage = asset('images/og-image.jpg');
+        }
+    @endphp
+    <meta property="og:image" content="{{ $seoOgImage }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $seoPageTitle }}">
+    <meta name="twitter:description" content="{{ $seoPageDescription }}">
+    <meta name="twitter:image" content="{{ $seoOgImage }}">
     @php $seoTracking = $seoTracking ?? []; @endphp
     @include('frontend.layouts.partials.google-seo-tracking')
     @include('frontend.layouts.partials.website-structured-data')

@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { ColorPalette } from '../config';
-import { defaultPickupDate, formatPickupAtLabel } from '../geo/route';
+import { defaultPickupDate, formatOverMinutesLabel, formatPickupAtLabel } from '../geo/route';
 import { useTheme } from '../theme/ThemeContext';
 import { AppModal } from './AppModal';
 
@@ -29,11 +29,15 @@ function startOfDay(d: Date) {
 }
 
 function clampToFuture(d: Date): Date {
-  const min = new Date(Date.now() + 5 * 60_000);
-  min.setSeconds(0, 0);
-  const rem = min.getMinutes() % 5;
-  if (rem !== 0) min.setMinutes(min.getMinutes() + (5 - rem));
+  const min = defaultPickupDate(5);
   return d.getTime() < min.getTime() ? min : d;
+}
+
+function pickupTriggerLabel(value: Date, nowMs: number): string {
+  const absolute = formatPickupAtLabel(value);
+  const mins = Math.round((value.getTime() - nowMs) / 60_000);
+  if (mins < 0 || mins > 120) return absolute;
+  return `${formatOverMinutesLabel(value, nowMs)} · ${absolute}`;
 }
 
 function snapMinutes(m: number) {
@@ -67,9 +71,15 @@ export function PickupAtField({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
   const dayScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   const quickOptions = useMemo(
     () =>
@@ -77,7 +87,7 @@ export function PickupAtField({
         ...p,
         at: defaultPickupDate(p.minutes),
       })),
-    [open]
+    [open, nowTick]
   );
   const selectedQuick = quickOptions.find((p) => sameMinute(draft, p.at)) ?? null;
 
@@ -144,9 +154,6 @@ export function PickupAtField({
     onChange(clampToFuture(draft));
     setOpen(false);
   }
-
-  const valueQuickLabel =
-    QUICK_PRESETS.find((p) => sameMinute(value, defaultPickupDate(p.minutes)))?.label ?? null;
 
   const sheet = (
     <>
@@ -279,11 +286,7 @@ export function PickupAtField({
         </ScrollView>
       </View>
 
-      <Text style={styles.preview}>
-        {selectedQuick
-          ? `${selectedQuick.label} · ${formatPickupAtLabel(draft)}`
-          : formatPickupAtLabel(draft)}
-      </Text>
+      <Text style={styles.preview}>{pickupTriggerLabel(draft, nowTick)}</Text>
       <Pressable onPress={confirm} style={styles.confirmBtn}>
         <Text style={styles.confirmText}>{t("Bevestigen")}</Text>
       </Pressable>
@@ -299,11 +302,7 @@ export function PickupAtField({
         accessibilityRole="button"
         accessibilityLabel={t("Kies ophaaldatum en -tijd")}
       >
-        <Text style={styles.triggerText}>
-          {valueQuickLabel
-            ? `${valueQuickLabel} · ${formatPickupAtLabel(value)}`
-            : formatPickupAtLabel(value)}
-        </Text>
+        <Text style={styles.triggerText}>{pickupTriggerLabel(value, nowTick)}</Text>
         <Text style={styles.chevron}>▼</Text>
       </Pressable>
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}

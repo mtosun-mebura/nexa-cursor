@@ -1,6 +1,9 @@
-import React, { ReactNode, useEffect, useId, useMemo, useState, type RefObject } from 'react';
+import React, { ReactNode, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
   BackHandler,
+  Easing,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -17,6 +20,8 @@ import { ColorPalette } from '../config';
 import { useThemeColors } from '../theme/ThemeContext';
 import { useAndroidKeyboardOverlap } from './androidText';
 import { useModalBlurHost } from './ModalBlurHost';
+
+const MODAL_FADE_MS = 220;
 
 type AppModalProps = {
   visible: boolean;
@@ -47,6 +52,7 @@ type OverlayBodyProps = AppModalProps & {
   backdropArmed: boolean;
   blurTargetRef?: RefObject<View | null> | null;
   colors: ColorPalette;
+  fadeOpacity: Animated.Value;
 };
 
 function ModalOverlayBody({
@@ -63,6 +69,7 @@ function ModalOverlayBody({
   backdropArmed,
   blurTargetRef,
   colors,
+  fadeOpacity,
 }: OverlayBodyProps) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const androidKeyboardOverlap = useAndroidKeyboardOverlap();
@@ -92,11 +99,12 @@ function ModalOverlayBody({
   }, [useAndroidBlur, blurTargetRef]);
 
   const body = (
-    <View
+    <Animated.View
       style={[
         styles.root,
         isSheet ? styles.rootSheet : styles.rootCenter,
         androidKeyboardOverlap > 0 ? { paddingBottom: androidKeyboardOverlap } : null,
+        { opacity: fadeOpacity },
       ]}
       pointerEvents="box-none"
     >
@@ -153,7 +161,7 @@ function ModalOverlayBody({
           </ScrollView>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 
   const modalBody = wrapKeyboard ? (
@@ -194,6 +202,47 @@ export function AppModal(props: AppModalProps) {
   const overlayKey = useId();
   /** Voorkom dat de openingstik meteen de backdrop raakt. */
   const [backdropArmed, setBackdropArmed] = useState(false);
+  const [rendered, setRendered] = useState(visible);
+  const fadeOpacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const reduceMotionRef = useRef(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((v) => {
+        reduceMotionRef.current = !!v;
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (visible) {
+      setRendered(true);
+      const duration = reduceMotionRef.current ? 0 : MODAL_FADE_MS;
+      fadeOpacity.setValue(0);
+      Animated.timing(fadeOpacity, {
+        toValue: 1,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      return () => {
+        cancelled = true;
+      };
+    }
+    const duration = reduceMotionRef.current ? 0 : MODAL_FADE_MS;
+    Animated.timing(fadeOpacity, {
+      toValue: 0,
+      duration,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !cancelled) setRendered(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, fadeOpacity]);
 
   useEffect(() => {
     if (!visible) {
@@ -206,17 +255,17 @@ export function AppModal(props: AppModalProps) {
 
   // Android terug-knop bij portal-overlay (geen native Modal).
   useEffect(() => {
-    if (!host || !visible || dismissDisabled) return;
+    if (!host || !rendered || dismissDisabled) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       onRequestClose();
       return true;
     });
     return () => sub.remove();
-  }, [host, visible, dismissDisabled, onRequestClose]);
+  }, [host, rendered, dismissDisabled, onRequestClose]);
 
   useEffect(() => {
     if (!host) return;
-    if (!visible) {
+    if (!rendered) {
       host.hideOverlay(overlayKey);
       return;
     }
@@ -228,15 +277,17 @@ export function AppModal(props: AppModalProps) {
         backdropArmed={backdropArmed}
         blurTargetRef={host.blurTargetRef}
         colors={colors}
+        fadeOpacity={fadeOpacity}
       />
     );
     return () => host.hideOverlay(overlayKey);
   }, [
     host,
     overlayKey,
-    visible,
+    rendered,
     backdropArmed,
     colors,
+    fadeOpacity,
     props.children,
     props.placement,
     props.dismissDisabled,
@@ -253,13 +304,13 @@ export function AppModal(props: AppModalProps) {
   if (host) return null;
 
   // Fallback (geen ModalBlurHost): native Modal.
-  if (!visible) return null;
+  if (!rendered) return null;
 
   return (
     <Modal
       visible
       transparent
-      animationType="fade"
+      animationType="none"
       presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={() => {
@@ -272,6 +323,7 @@ export function AppModal(props: AppModalProps) {
         backdropArmed={backdropArmed}
         blurTargetRef={null}
         colors={colors}
+        fadeOpacity={fadeOpacity}
       />
     </Modal>
   );

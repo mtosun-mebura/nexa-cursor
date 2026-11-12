@@ -63,4 +63,16 @@ class PublicSeoCanonicalTest extends TestCase
         $this->get('http://localhost:8085/contact?pakket=Business&utm_source=ads')
             ->assertRedirect('http://localhost:8085/contact');
     }
+
+    #[Test]
+    public function www_central_host_redirects_to_apex(): void
+    {
+        config([
+            'app.url' => 'https://nexasuite.nl',
+            'tenancy.central_domains' => ['nexasuite.nl', 'www.nexasuite.nl'],
+        ]);
+
+        $this->get('https://www.nexasuite.nl/contact')
+            ->assertRedirect('https://nexasuite.nl/contact');
+    }
 }

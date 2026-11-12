@@ -421,7 +421,14 @@ function makeStyles(colors: ColorPalette) {
       color: colors.danger,
       fontWeight: '700',
     },
-    error: { color: colors.danger, marginTop: 8, marginBottom: 4, fontSize: 14 },
+    error: {
+      color: colors.danger,
+      marginTop: 8,
+      marginBottom: 4,
+      fontSize: 14,
+      fontWeight: '600',
+      lineHeight: 20,
+    },
     success: {
       color: colors.success,
       fontSize: 15,

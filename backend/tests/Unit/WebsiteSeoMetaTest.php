@@ -68,4 +68,19 @@ class WebsiteSeoMetaTest extends TestCase
         $request = \Illuminate\Http\Request::create('https://example.test/contact?pakket=Pro&utm_source=mail', 'GET');
         $this->assertSame('https://example.test/contact', WebsiteSeoMeta::canonicalUrl($request));
     }
+
+    public function test_resolve_title_puts_taxi_keyword_early_for_taxi_home(): void
+    {
+        $title = WebsiteSeoMeta::resolveTitle('NexaTaxi', 'NexaTaxi', 'home');
+        $this->assertStringContainsString('Taxi', $title);
+        $this->assertStringContainsString('NexaTaxi', $title);
+        $this->assertLessThanOrEqual(60, mb_strlen($title));
+    }
+
+    public function test_taxi_fallback_description_mentions_bestellen(): void
+    {
+        $desc = WebsiteSeoMeta::resolveDescription(null, null, null, 'NexaTaxi');
+        $this->assertStringContainsString('Taxi', $desc);
+        $this->assertStringContainsString('NexaTaxi', $desc);
+    }
 }

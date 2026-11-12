@@ -93,6 +93,10 @@ class TaxiRideComplaintServiceTest extends TestCase
         $blocks->block('taxi', (int) $driver->id, (int) $admin->id, 'Testblokkade', null, (int) $company->id);
 
         $this->assertTrue($blocks->isBlocked('taxi', (int) $driver->id));
+        $this->assertSame(
+            TaxiDriverBlockService::LOGIN_DENIED_MESSAGE,
+            $blocks->loginDeniedMessage()
+        );
         $this->assertTrue(
             TaxiDriverNotification::on('taxi')
                 ->where('driver_id', $driver->id)

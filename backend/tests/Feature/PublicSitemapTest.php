@@ -65,7 +65,37 @@ class PublicSitemapTest extends TestCase
         $body = $response->getContent();
         $this->assertStringContainsString('User-agent: *', $body);
         $this->assertStringContainsString('Disallow: /admin', $body);
-        $this->assertStringContainsString('Sitemap: '.url('/sitemap.xml'), $body);
+        $this->assertStringContainsString('Sitemap:', $body);
+        $this->assertStringContainsString('/sitemap.xml', $body);
+        $this->assertStringContainsString('LLMs-Txt:', $body);
+        $this->assertStringContainsString('/llms.txt', $body);
+        $this->assertStringContainsString('User-agent: GPTBot', $body);
+        $this->assertStringContainsString('User-agent: Google-Extended', $body);
+    }
+
+    #[Test]
+    public function llms_txt_is_plain_text_with_site_pages(): void
+    {
+        $this->mock(WebsiteBuilderService::class, function ($mock): void {
+            $mock->shouldReceive('loadAllPagesForAdminIndex')->andReturn(collect());
+            $mock->shouldReceive('publicAboutUrl')->andReturn(null);
+            $mock->shouldReceive('getContactPage')->andReturn(null);
+            $mock->shouldReceive('getSiteBranding')->andReturn([
+                'site_name' => 'NexaTaxi',
+                'logo_alt' => 'NexaTaxi',
+                'site_description' => 'Taxi boeken en bestellen in Nederland.',
+                'logo_url' => null,
+            ]);
+        });
+
+        $response = $this->get('/llms.txt');
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+        $body = $response->getContent();
+        $this->assertStringContainsString('# NexaTaxi', $body);
+        $this->assertStringContainsString('## Taxi', $body);
+        $this->assertStringContainsString('/sitemap.xml', $body);
     }
 
     #[Test]

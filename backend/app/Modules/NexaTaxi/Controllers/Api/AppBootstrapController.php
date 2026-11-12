@@ -8,6 +8,7 @@ use App\Services\NexaSuitePublicHost;
 use App\Modules\NexaTaxi\Services\TaxiAppCapabilitiesService;
 use App\Modules\NexaTaxi\Services\TaxiAppFirstLoginService;
 use App\Modules\NexaTaxi\Services\TaxiContractPortalAccessService;
+use App\Modules\NexaTaxi\Services\TaxiDriverBlockService;
 use App\Modules\NexaTaxi\Services\TaxiDriverEligibilityService;
 use App\Services\MarketplaceCompanyRegistrationService;
 use App\Services\ModuleDatabaseService;
@@ -57,6 +58,10 @@ class AppBootstrapController extends Controller
 
         if (! $user || ! Hash::check($data['password'], (string) $user->password)) {
             return response()->json(['message' => 'Onjuiste e-mail of wachtwoord.'], 401);
+        }
+
+        if ($denied = $this->blockedDriverResponse($user)) {
+            return $denied;
         }
 
         return $this->sessionPayload($user, $capabilities, $drivers, $contractAccess, $moduleDb);
@@ -195,6 +200,10 @@ class AppBootstrapController extends Controller
             }
 
             if (($result['ok'] ?? false) && isset($result['user'])) {
+                if ($denied = $this->blockedDriverResponse($result['user'])) {
+                    return $denied;
+                }
+
                 return $this->sessionPayload($result['user'], $capabilities, $drivers, $contractAccess, $moduleDb);
             }
             $lastFail = $result;
@@ -206,6 +215,20 @@ class AppBootstrapController extends Controller
         ], (int) ($lastFail['status'] ?? 422));
     }
 
+    private function blockedDriverResponse(User $user): ?JsonResponse
+    {
+        $blocks = app(TaxiDriverBlockService::class);
+        if (! $blocks->isUserBlocked((int) $user->id)) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => $blocks->loginDeniedMessage(),
+            'error' => 'driver_blocked',
+            'blocked' => true,
+        ], 403);
+    }
+
     private function sessionPayload(
         User $user,
         TaxiAppCapabilitiesService $capabilities,
@@ -215,8 +238,10 @@ class AppBootstrapController extends Controller
     ): JsonResponse {
         $caps = $capabilities->forUser($user);
         $tokens = [];
+        $blocks = app(TaxiDriverBlockService::class);
+        $driverBlocked = $blocks->isUserBlocked((int) $user->id);
 
-        if ($caps['modes']['chauffeur']) {
+        if ($caps['modes']['chauffeur'] && ! $driverBlocked) {
             $user->tokens()->where('name', 'taxi-driver')->delete();
             $token = $user->createToken('taxi-driver', ['taxi:driver']);
             $tokens['driver'] = [

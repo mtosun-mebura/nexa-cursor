@@ -755,13 +755,47 @@ export async function peekCurrentCoords(): Promise<{ lat: number; lng: number } 
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** Rond af naar volgende 5-minuten (minstens `minutesFromNow` vanaf nu). */
+/**
+ * Boekbare ophaaltijd op het 5-minutenraster:
+ * rond de huidige klok omhoog naar :00/:05/:10/… en tel daarna exact `minutesFromNow` op.
+ * Voorbeeld: 09:55 + 10 → 10:05; 09:51 → eerst 09:55, daarna 10:05.
+ */
 export function defaultPickupDate(minutesFromNow = 10): Date {
-  const d = new Date(Date.now() + minutesFromNow * 60_000);
+  const d = new Date();
   d.setSeconds(0, 0);
   const rem = d.getMinutes() % 5;
-  if (rem !== 0) d.setMinutes(d.getMinutes() + (5 - rem));
+  if (rem !== 0) {
+    d.setMinutes(d.getMinutes() + (5 - rem));
+  }
+  d.setMinutes(d.getMinutes() + minutesFromNow);
   return d;
+}
+
+/** Relatief label met echte minuten tot ophaaltijd (geen vaste "Over 10 min" bij afronding). */
+export function formatOverMinutesLabel(target: Date, nowMs: number = Date.now()): string {
+  const mins = Math.max(0, Math.round((target.getTime() - nowMs) / 60_000));
+  return t('Over {n} min').replace('{n}', String(mins));
+}
+
+/**
+ * Houdt de dichtstbijzijnde boekbare ophaaltijd bij terwijl het scherm open blijft.
+ * Latere handmatige keuzes (verder in de toekomst dan de default) blijven staan.
+ */
+export function followNearestPickupDate(current: Date, minutesFromNow = 10): Date {
+  const next = defaultPickupDate(minutesFromNow);
+  if (current.getTime() > next.getTime()) {
+    return current;
+  }
+  if (
+    current.getFullYear() === next.getFullYear() &&
+    current.getMonth() === next.getMonth() &&
+    current.getDate() === next.getDate() &&
+    current.getHours() === next.getHours() &&
+    current.getMinutes() === next.getMinutes()
+  ) {
+    return current;
+  }
+  return next;
 }
 
 /** Clock-skew grace: "nu" / net-gekozen tijden mogen niet false-failen. */
