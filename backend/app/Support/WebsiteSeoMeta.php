@@ -159,7 +159,7 @@ final class WebsiteSeoMeta
             if ($isHome) {
                 // “Taxi” eerst → sterker signaal voor zoekwoord + AI-overviews.
                 if (preg_match('/\btaxi\b/iu', $brand) === 1) {
-                    return self::limit($brand.' | Taxi boeken & bestellen', 60);
+                    return self::limit($brand.' | Taxi boeken en bestellen', 60);
                 }
 
                 return self::limit('Taxi boeken | '.$brand, 60);
