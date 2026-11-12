@@ -1,0 +1,91 @@
+# Eenmalige PROD-diagnose via Coolify API + SSH (geen deploy).
+name: Diagnose PROD Coolify
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-production
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Coolify API — app + latest deployment
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          token="${COOLIFY_TOKEN:?}"
+          base="https://panel.nexasuite.nl/api/v1"
+          uuid="$(echo "$COOLIFY_WEBHOOK" | sed -n 's/.*[?&]uuid=\([^&]*\).*/\1/p')"
+          echo "resource_uuid=${uuid:-<uit webhook>}"
+          echo "=== /applications/${uuid} ==="
+          curl -sS --max-time 30 -H "Authorization: Bearer ${token}" -H "Accept: application/json" \
+            "${base}/applications/${uuid}" | head -c 8000 || true
+          echo
+          echo "=== /deployments?application_uuid=${uuid} (laatste) ==="
+          curl -sS --max-time 30 -H "Authorization: Bearer ${token}" -H "Accept: application/json" \
+            "${base}/deployments?application_uuid=${uuid}" | head -c 8000 || true
+          echo
+          echo "=== site probes ==="
+          for h in nexasuite.nl www.nexasuite.nl nexataxi.nl; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://${h}/" || echo 000)"
+            echo "https://${h}/ → ${code}"
+          done
+
+      - name: Resolve SSH
+        id: ssh
+        run: |
+          set -euo pipefail
+          host="${{ secrets.HOSTINGER_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.AWS_HOST }}"
+          [[ -z "$host" ]] && host="${{ secrets.DEPLOY_HOST }}"
+          user="${{ secrets.HOSTINGER_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.AWS_USER }}"
+          [[ -z "$user" ]] && user="${{ secrets.DEPLOY_USER }}"
+          port="${{ secrets.HOSTINGER_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.AWS_SSH_PORT }}"
+          [[ -z "$port" ]] && port="${{ secrets.DEPLOY_PORT }}"
+          port="${port:-22}"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: SSH — container status + logs
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ steps.ssh.outputs.host }}
+          username: ${{ steps.ssh.outputs.user }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY || secrets.AWS_SSH_KEY || secrets.DEPLOY_KEY }}
+          port: ${{ steps.ssh.outputs.port }}
+          timeout: 60s
+          command_timeout: 5m
+          script_stop: false
+          script: |
+            set -euo pipefail
+            echo "=== docker ps (backend/proxy) ==="
+            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | head -40
+            name="$(docker ps -a --format '{{.Names}}' | grep -E '^backend-[a-z0-9]+-' | head -1 || true)"
+            echo "primary=$name"
+            if [[ -n "$name" ]]; then
+              echo "=== inspect health/networks ==="
+              docker inspect -f 'status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} exit={{.State.ExitCode}} err={{.State.Error}}' "$name" || true
+              docker inspect -f 'networks={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$name" || true
+              echo "=== traefik labels (filtered) ==="
+              docker inspect -f '{{range $k,$v := .Config.Labels}}{{println $k $v}}{{end}}' "$name" | grep -E 'traefik|coolify.fqdn|coolify.service' | head -60 || true
+              echo "=== logs (tail 80) ==="
+              docker logs --tail 80 "$name" 2>&1 || true
+              echo "=== local :8085 ==="
+              curl -sS -o /dev/null -w '8085/up=%{http_code}\n' --max-time 5 http://127.0.0.1:8085/up || echo '8085/up=fail'
+              curl -sS -o /dev/null -w '8085/=%{http_code}\n' --max-time 5 http://127.0.0.1:8085/ || echo '8085/=fail'
+            fi
+            echo "=== coolify-proxy recent ACME/ERR ==="
+            docker logs --tail 40 coolify-proxy 2>&1 | grep -E 'ERR|ACME|nexasuite|No available' || true
