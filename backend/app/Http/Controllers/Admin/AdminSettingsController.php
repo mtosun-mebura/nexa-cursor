@@ -20,6 +20,7 @@ use App\Services\TenantCompanyDataPushService;
 use App\Services\TenantStorageBundleService;
 use App\Services\TenantSyncSettingsService;
 use App\Services\TenantWebsiteBundleService;
+use App\Services\VehicleDummyImageService;
 use App\Services\WebsiteBuilderService;
 use App\Services\WhatsAppBookingMessageComposer;
 use App\Support\DutchPhoneNumber;
@@ -1828,6 +1829,7 @@ class AdminSettingsController extends Controller
             ->samplePickupProposalPreview();
 
         $mapsSettings = $this->envService->mapsFormSettings();
+        $vehicleDummySettings = app(VehicleDummyImageService::class)->settingsPayload();
 
         $whatsappConnectionStatus = null;
         if (session()->has('whatsapp_connection_test') && is_array(session('whatsapp_connection_test'))) {
@@ -1841,7 +1843,7 @@ class AdminSettingsController extends Controller
             }
         }
 
-        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'nexaSuiteAvatar', 'nexaSuiteAvatarUrl', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
+        return view('admin.settings.general', compact('logo', 'favicon', 'faviconDisplayUrl', 'logoSize', 'logoMode', 'logoDark', 'nexaSuiteAvatar', 'nexaSuiteAvatarUrl', 'siteName', 'siteDescription', 'aiChatEnabled', 'aiChatModules', 'aiChatModuleWebhooks', 'aiChatModuleWebhookDefaults', 'adminFooterBrand', 'infoRequestSuccessTitle', 'infoRequestSuccessSubtitle', 'infoRequestSuccessFooter', 'infoRequestSuccessTextsEnabled', 'infoRequestSuccessImage', 'infoRequestSuccessIcon', 'infoRequestSuccessSize', 'infoRequestSuccessImageSizePercent', 'infoRequestFormPreviewContexts', 'infoRequestFormPreviewContext', 'settingsCompanyId', 'tenantScopedSettingsActive', 'mapsSettings', 'vehicleDummySettings', 'whatsappPlatformSettings', 'whatsappConnectionStatus', 'whatsappBookingMetaBodies', 'whatsappBookingDetailFieldOptions', 'whatsappBookingSamplePreview', 'whatsappRideStatusEventOptions', 'whatsappStatusSamplePreview', 'whatsappPickupProposalSamplePreview'));
     }
 
     /**
@@ -2592,5 +2594,117 @@ class AdminSettingsController extends Controller
                 'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
             ], 500);
         }
+    }
+
+    /**
+     * Upload dummy voertuigafbeelding (AJAX) — type: car|van|bus.
+     */
+    public function uploadVehicleDummyImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'type' => 'required|in:car,van,bus',
+        ], [
+            'image.required' => __('Selecteer een afbeelding.'),
+            'image.mimes' => __('Alleen JPEG, PNG, JPG, GIF en WebP bestanden zijn toegestaan.'),
+            'image.max' => __('Het bestand mag maximaal 5MB groot zijn.'),
+            'type.required' => __('Kies een type (Auto, Busje of Bus).'),
+            'type.in' => __('Ongeldig voertuigtype.'),
+        ]);
+
+        try {
+            $item = app(VehicleDummyImageService::class)->addUpload(
+                $request->file('image'),
+                (string) $request->input('type')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Dummy afbeelding geüpload.'),
+                'item' => $item,
+                'settings' => app(VehicleDummyImageService::class)->settingsPayload(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Error uploading vehicle dummy image', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => __('Er is een fout opgetreden: :error', ['error' => $e->getMessage()]),
+            ], 500);
+        }
+    }
+
+    public function selectVehicleDummyImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'type' => 'required|in:car,van,bus',
+            'id' => 'required|string|max:64',
+        ]);
+
+        $ok = app(VehicleDummyImageService::class)->select(
+            (string) $request->input('type'),
+            (string) $request->input('id')
+        );
+
+        if (! $ok) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Selectie mislukt. Controleer type en afbeelding.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Dummy geselecteerd.'),
+            'settings' => app(VehicleDummyImageService::class)->settingsPayload(),
+        ]);
+    }
+
+    public function removeVehicleDummyImage(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'id' => 'required|string|max:64',
+        ]);
+
+        $ok = app(VehicleDummyImageService::class)->remove((string) $request->input('id'));
+        if (! $ok) {
+            return response()->json([
+                'success' => false,
+                'message' => __('Verwijderen mislukt. Standaardafbeeldingen kunnen niet worden verwijderd.'),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Dummy afbeelding verwijderd.'),
+            'settings' => app(VehicleDummyImageService::class)->settingsPayload(),
+        ]);
+    }
+
+    public function updateVehicleDummyBackground(Request $request)
+    {
+        $this->ensureSuperAdmin();
+
+        $request->validate([
+            'background_color' => ['nullable', 'string', 'max:32', 'regex:/^(transparent|#?[A-Fa-f0-9]{3}|#?[A-Fa-f0-9]{6})?$/'],
+        ], [
+            'background_color.regex' => __('Ongeldige kleur. Gebruik hex (#RGB/#RRGGBB) of laat leeg voor transparant.'),
+        ]);
+
+        $service = app(VehicleDummyImageService::class);
+        $service->setBackgroundColor($request->input('background_color'));
+
+        return response()->json([
+            'success' => true,
+            'message' => __('Achtergrondkleur opgeslagen.'),
+            'background_color' => $service->backgroundColor(),
+            'settings' => $service->settingsPayload(),
+        ]);
     }
 }

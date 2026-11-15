@@ -438,7 +438,7 @@ function AcceptedRideIdentity({
               <Image
                 source={{ uri: carPhoto! }}
                 style={styles.acceptedVehicleThumb}
-                resizeMode="cover"
+                resizeMode="contain"
                 onError={() => setCarPhotoFailed(true)}
               />
             ) : (

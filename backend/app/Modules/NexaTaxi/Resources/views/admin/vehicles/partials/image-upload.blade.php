@@ -1,7 +1,11 @@
 @php
-    $placeholderUrl = $placeholderUrl ?? asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset(null));
-    $placeholderCarUrl = asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset('1-4'));
-    $placeholderVanUrl = asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset('5-8'));
+    $dummyService = app(\App\Services\VehicleDummyImageService::class);
+    $placeholderUrl = $placeholderUrl ?? $dummyService->publicUrlForType(null, null);
+    $placeholderCarUrl = $dummyService->publicUrlForType(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_CAR);
+    $placeholderVanUrl = $dummyService->publicUrlForType(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_VAN);
+    $placeholderBusUrl = $dummyService->publicUrlForType(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_BUS);
+    $dummyBg = $dummyService->backgroundColor();
+    $dummyBgStyle = $dummyBg ? 'background-color: '.$dummyBg.';' : 'background-color: transparent;';
     $imgUrl = trim((string) ($imgUrl ?? ''));
     $imgDisplayUrl = $imgUrl !== ''
         ? (app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imgUrl) ?: $imgUrl)
@@ -11,15 +15,16 @@
 <div class="text-xs text-muted-foreground mb-2">{{ __('Optioneel. JPG, PNG of WebP, max. 5MB.') }}</div>
 <div id="vehicle-image-client-msg" class="text-xs text-destructive mt-1 mb-2 hidden" role="status" aria-live="polite"></div>
 <div class="vehicle-image-upload-area relative flex flex-col items-center justify-center gap-1.5 p-2.5 border border-input rounded-xl border-dashed bg-muted/30 cursor-pointer hover:border-primary/50 transition-colors w-full max-w-md" data-section-key="vehicle" data-field="image">
-    <div class="inline-flex max-w-full overflow-hidden rounded-2xl leading-none">
+    <div class="inline-flex max-w-full overflow-hidden rounded-2xl leading-none" style="{{ $hasCustomImage ? '' : $dummyBgStyle }}">
         <img
             alt="{{ __('Voertuig') }}"
             id="vehicle-image-preview"
-            class="block max-h-[200px] max-w-full h-auto w-auto rounded-2xl"
+            class="block max-h-[200px] max-w-full h-auto w-auto rounded-2xl object-contain"
             src="{{ $imgDisplayUrl }}"
             data-default-src="{{ $placeholderUrl }}"
             data-placeholder-car="{{ $placeholderCarUrl }}"
             data-placeholder-van="{{ $placeholderVanUrl }}"
+            data-placeholder-bus="{{ $placeholderBusUrl }}"
             width="360"
             height="200"
         >
@@ -71,20 +76,36 @@
         preview.src = src || placeholderSrc();
         preview.classList.remove('hidden');
         if (removeBtn) removeBtn.classList.toggle('hidden', !custom);
+        var wrap = preview.parentElement;
+        if (wrap) {
+            if (custom) {
+                wrap.style.backgroundColor = '';
+            } else {
+                wrap.style.backgroundColor = @json($dummyBg ?: 'transparent');
+            }
+        }
+    }
+    function syncPlaceholderFromForm() {
+        if (!preview || !urlInput || urlInput.value) return;
+        var typeSelect = document.querySelector('select[name="type"]');
+        var rangeSelect = document.querySelector('select[name="person_range"]');
+        var type = typeSelect ? typeSelect.value : '';
+        var next = preview.getAttribute('data-placeholder-car') || '';
+        if (type === 'van' || (!type && rangeSelect && rangeSelect.value === '5-8')) {
+            next = preview.getAttribute('data-placeholder-van') || next;
+        } else if (type === 'bus' || (!type && rangeSelect && rangeSelect.value === '9+')) {
+            next = preview.getAttribute('data-placeholder-bus') || preview.getAttribute('data-placeholder-van') || next;
+        } else if (!type && rangeSelect && rangeSelect.value === '5-8') {
+            next = preview.getAttribute('data-placeholder-van') || next;
+        }
+        if (!next) return;
+        preview.setAttribute('data-default-src', next);
+        showPreview(next, false);
     }
     var rangeSelect = document.querySelector('select[name="person_range"]');
-    if (rangeSelect && preview) {
-        rangeSelect.addEventListener('change', function () {
-            var van = preview.getAttribute('data-placeholder-van') || '';
-            var car = preview.getAttribute('data-placeholder-car') || '';
-            var next = rangeSelect.value === '5-8' ? van : car;
-            if (!next) return;
-            preview.setAttribute('data-default-src', next);
-            if (!urlInput.value) {
-                showPreview(next, false);
-            }
-        });
-    }
+    var typeSelect = document.querySelector('select[name="type"]');
+    if (rangeSelect) rangeSelect.addEventListener('change', syncPlaceholderFromForm);
+    if (typeSelect) typeSelect.addEventListener('change', syncPlaceholderFromForm);
     function handleFile(file) {
         showVehicleImageMsg('');
         if (!file || !file.type || !file.type.match(/^image\/(jpeg|png|gif|webp)$/i)) { showVehicleImageMsg(@json(__('Alleen JPG, PNG, GIF of WebP (max. 5MB).'))); return; }

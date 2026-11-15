@@ -1055,6 +1055,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::post('settings/upload-coming-soon-image', [AdminSettingsController::class, 'uploadComingSoonImage'])->name('settings.upload-coming-soon-image');
         Route::post('settings/remove-coming-soon-image', [AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
         Route::get('settings/coming-soon-image', [AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
+        Route::post('settings/vehicle-dummies/upload', [AdminSettingsController::class, 'uploadVehicleDummyImage'])->name('settings.vehicle-dummies.upload');
+        Route::post('settings/vehicle-dummies/select', [AdminSettingsController::class, 'selectVehicleDummyImage'])->name('settings.vehicle-dummies.select');
+        Route::post('settings/vehicle-dummies/remove', [AdminSettingsController::class, 'removeVehicleDummyImage'])->name('settings.vehicle-dummies.remove');
+        Route::post('settings/vehicle-dummies/background', [AdminSettingsController::class, 'updateVehicleDummyBackground'])->name('settings.vehicle-dummies.background');
 
         // Welkom-pagina editor (Super Admin only)
         Route::get('welcome-page', [AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');

@@ -115,10 +115,12 @@ class NexaDemoAccountService
                 'description' => 'Open demo-omgeving van Nexa Taxi. Speel met ritten, voertuigen en dispatch.',
             ]
         );
-        $company->name = $companyName;
-        $company->slug = $companySlug;
-        $company->is_active = true;
-        $company->save();
+        // Na aanmaken: admin-wijzigingen (naam, beschrijving, …) niet terugzetten.
+        // Alleen inactief → actief houden zodat de demo-tenant bereikbaar blijft.
+        if (! $company->is_active) {
+            $company->is_active = true;
+            $company->save();
+        }
 
         $this->attachConfiguredModules($company);
         $this->ensureDemoRole();
@@ -336,7 +338,7 @@ class NexaDemoAccountService
         ];
 
         foreach ($samples as $sample) {
-            Vehicle::on($conn)->updateOrCreate(
+            Vehicle::on($conn)->firstOrCreate(
                 [
                     'company_id' => $company->id,
                     'license_plate' => $sample['license_plate'],

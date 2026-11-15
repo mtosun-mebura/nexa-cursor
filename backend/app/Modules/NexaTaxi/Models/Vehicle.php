@@ -101,11 +101,25 @@ class Vehicle extends Model
         return $range === self::PERSON_RANGE_OVER_8;
     }
 
-    public static function placeholderAsset(?string $personRange): string
+    /**
+     * Relatief pad of absolute URL van de gekozen dummy voor dit type/range.
+     * Prefer {@see placeholderUrl()} voor weergave.
+     */
+    public static function placeholderAsset(?string $personRange, ?string $type = null): string
     {
-        return $personRange === self::PERSON_RANGE_5_8
-            ? 'modules/nexa-taxi/vehicle-placeholder-van.png'
-            : 'modules/nexa-taxi/vehicle-placeholder.png';
+        return app(\App\Services\VehicleDummyImageService::class)
+            ->relativeAssetForType($type, $personRange);
+    }
+
+    public static function placeholderUrl(?string $type = null, ?string $personRange = null): string
+    {
+        return app(\App\Services\VehicleDummyImageService::class)
+            ->publicUrlForType($type, $personRange);
+    }
+
+    public static function placeholderBackgroundColor(): ?string
+    {
+        return app(\App\Services\VehicleDummyImageService::class)->backgroundColor();
     }
 
     public function company(): BelongsTo

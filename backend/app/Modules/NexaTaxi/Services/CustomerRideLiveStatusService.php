@@ -598,12 +598,28 @@ class CustomerRideLiveStatusService
     private function vehiclePhotoUrl(string $conn, Vehicle $vehicle): ?string
     {
         TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
-        if (! Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
-            return null;
+        if (Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
+            $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+            $driverPhoto = app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+            if (is_string($driverPhoto) && $driverPhoto !== '') {
+                return $driverPhoto;
+            }
         }
 
-        $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+        $imageUrl = trim((string) ($vehicle->image_url ?? ''));
+        if ($imageUrl !== '') {
+            try {
+                $display = app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrl);
 
-        return app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+                return is_string($display) && $display !== '' ? $display : $imageUrl;
+            } catch (\Throwable) {
+                return $imageUrl;
+            }
+        }
+
+        return app(\App\Services\VehicleDummyImageService::class)->publicUrlForType(
+            is_string($vehicle->type ?? null) ? $vehicle->type : null,
+            is_string($vehicle->person_range ?? null) ? $vehicle->person_range : null
+        );
     }
 }

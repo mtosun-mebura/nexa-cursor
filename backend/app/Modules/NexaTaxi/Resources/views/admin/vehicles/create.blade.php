@@ -48,7 +48,10 @@
                             <td class="min-w-48 w-full">
                                 @include('taxi::admin.vehicles.partials.image-upload', [
                                     'imgUrl' => old('image_url'),
-                                    'placeholderUrl' => asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset(old('person_range', '1-4'))),
+                                    'placeholderUrl' => \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(
+                                        \App\Modules\NexaTaxi\Models\Vehicle::typeForPersonRange(old('person_range', '1-4')),
+                                        old('person_range', '1-4')
+                                    ),
                                 ])
                             </td>
                         </tr>

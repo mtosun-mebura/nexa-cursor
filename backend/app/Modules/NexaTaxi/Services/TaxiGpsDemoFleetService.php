@@ -246,25 +246,46 @@ class TaxiGpsDemoFleetService
 
     private function ensureCompany(): Company
     {
-        $company = Company::query()->firstOrNew(['slug' => self::COMPANY_SLUG]);
-        $company->name = self::COMPANY_NAME;
-        $company->slug = self::COMPANY_SLUG;
-        $company->is_active = true;
-        $company->industry = 'Logistiek & Transport';
-        $company->city = 'Amsterdam';
-        $company->latitude = '52.3728';
-        $company->longitude = '4.8936';
-        $company->email = self::ADMIN_EMAIL;
-        $company->package_key = 'pro';
-        $company->package_addons = [
-            TenantPackageAddon::GPS_TRACKING => 1,
-            TenantPackageAddon::EXTRA_CLIENTS => 0,
-            TenantPackageAddon::FLEET => 0,
-        ];
-        $company->description = 'QA-omgeving om live GPS-trackers te beoordelen. Vier voertuigen rijden in Amsterdam.';
-        $company->save();
+        $company = Company::query()->firstOrCreate(
+            ['slug' => self::COMPANY_SLUG],
+            [
+                'name' => self::COMPANY_NAME,
+                'is_active' => true,
+                'industry' => 'Logistiek & Transport',
+                'city' => 'Amsterdam',
+                'latitude' => '52.3728',
+                'longitude' => '4.8936',
+                'email' => self::ADMIN_EMAIL,
+                'package_key' => 'pro',
+                'package_addons' => [
+                    TenantPackageAddon::GPS_TRACKING => 1,
+                    TenantPackageAddon::EXTRA_CLIENTS => 0,
+                    TenantPackageAddon::FLEET => 0,
+                ],
+                'description' => 'QA-omgeving om live GPS-trackers te beoordelen. Vier voertuigen rijden in Amsterdam.',
+            ]
+        );
+        // Bestaand bedrijf: admin-naam e.d. behouden; alleen actief houden + GPS-addon garanderen.
+        $dirty = false;
+        if (! $company->is_active) {
+            $company->is_active = true;
+            $dirty = true;
+        }
+        $addons = is_array($company->package_addons) ? $company->package_addons : [];
+        if ((int) ($addons[TenantPackageAddon::GPS_TRACKING] ?? 0) !== 1) {
+            $addons[TenantPackageAddon::GPS_TRACKING] = 1;
+            $company->package_addons = $addons;
+            $dirty = true;
+        }
+        if ($company->package_key !== 'pro' && $company->package_key !== 'enterprise') {
+            $company->package_key = 'pro';
+            $dirty = true;
+        }
+        if ($dirty) {
+            $company->save();
+        }
 
-        return $company->fresh();
+        return $company->fresh() ?? $company;
     }
 
     private function attachTaxiModule(Company $company): void
@@ -321,7 +342,8 @@ class TaxiGpsDemoFleetService
             ]);
             $this->roles->syncWebRoles($driver, ['chauffeur']);
 
-            $vehicle = Vehicle::on($conn)->updateOrCreate(
+            // firstOrCreate: admin-wijzigingen (type, naam, …) niet overschrijven bij herhaalde ensure.
+            $vehicle = Vehicle::on($conn)->firstOrCreate(
                 [
                     'company_id' => $company->id,
                     'license_plate' => $def['license_plate'],

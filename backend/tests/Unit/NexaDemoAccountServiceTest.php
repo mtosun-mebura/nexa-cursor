@@ -105,6 +105,32 @@ class NexaDemoAccountServiceTest extends TestCase
     }
 
     #[Test]
+    public function ensure_does_not_reset_admin_edited_company_name(): void
+    {
+        Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);
+        Module::query()->create([
+            'name' => 'taxi',
+            'display_name' => 'Nexa Taxi',
+            'version' => '1.0.0',
+            'installed' => true,
+            'active' => true,
+        ]);
+
+        $result = app(NexaDemoAccountService::class)->ensure();
+        $this->assertNotNull($result['company']);
+        $result['company']->update([
+            'name' => 'Nexa Taxi',
+            'description' => 'Aangepaste omschrijving',
+        ]);
+
+        $again = app(NexaDemoAccountService::class)->ensure();
+
+        $this->assertSame('Nexa Taxi', $again['company']->fresh()->name);
+        $this->assertSame('Aangepaste omschrijving', $again['company']->fresh()->description);
+        $this->assertTrue((bool) $again['company']->fresh()->is_active);
+    }
+
+    #[Test]
     public function reset_removes_extra_users_and_restores_password(): void
     {
         Role::firstOrCreate(['name' => 'demo', 'guard_name' => 'web']);

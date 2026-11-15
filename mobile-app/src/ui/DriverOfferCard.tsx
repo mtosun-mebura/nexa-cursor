@@ -409,6 +409,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
     !!ride?.can_cancel_with_reason &&
     !!props.onCancel &&
     !isCompletedTrip;
+  // Afgeronde ritten: archiefknop hieronder. Verlopen/teruggezet: in overdue-actieblok.
   const canArchive = isCompletedTrip && !!props.onArchive;
   const canOpenMaps = !!props.onOpenMaps && !isCompletedTrip && !freezeTripActions;
   const fee = ride?.fee_breakdown;
@@ -774,7 +775,7 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
             {freezeTripActions ? (
               <View style={styles.cancelledActions}>
-                {showOverdueUi && (props.onProposePickup || props.onRelease) ? (
+                {showOverdueUi && (props.onProposePickup || props.onRelease || props.onArchive) ? (
                   <>
                     {props.onProposePickup ? (
                       <Pressable
@@ -792,6 +793,15 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                         onPress={props.onRelease}
                       >
                         <Text style={styles.btnGhostText}>{t('Vrijgeven')}</Text>
+                      </Pressable>
+                    ) : null}
+                    {props.onArchive ? (
+                      <Pressable
+                        style={[styles.btn, styles.btnGhost, styles.btnFull, busy && styles.btnDisabled]}
+                        disabled={busy}
+                        onPress={props.onArchive}
+                      >
+                        <Text style={styles.btnGhostText}>{t('Naar archief')}</Text>
                       </Pressable>
                     ) : null}
                   </>

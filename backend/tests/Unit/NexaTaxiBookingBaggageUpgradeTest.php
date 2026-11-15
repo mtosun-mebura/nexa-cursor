@@ -129,7 +129,7 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
         $this->assertSame('person_range', $quotes['offer_display_mode']);
         $this->assertCount(1, $quotes['offers']);
         $this->assertStringStartsWith('person_range_', (string) $quotes['offers'][0]['id']);
-        $this->assertStringContainsString('vehicle-placeholder.png', (string) $quotes['offers'][0]['image_url']);
+        $this->assertStringContainsString('vehicle-dummy-car-yellow.png', (string) $quotes['offers'][0]['image_url']);
     }
 
     public function test_person_range_quote_uses_van_placeholder_for_bus_range(): void
@@ -150,6 +150,6 @@ class NexaTaxiBookingBaggageUpgradeTest extends TestCase
         ]);
 
         $this->assertSame('5-8', $quotes['person_range']);
-        $this->assertStringContainsString('vehicle-placeholder-van.png', (string) $quotes['offers'][0]['image_url']);
+        $this->assertStringContainsString('vehicle-dummy-van-yellow.png', (string) $quotes['offers'][0]['image_url']);
     }
 }

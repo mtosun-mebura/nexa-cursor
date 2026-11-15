@@ -166,6 +166,10 @@ const DRIVER_ARCHIVE_SEEN_KEY = 'nexa.driver.archive.seen';
 const DRIVER_ACCENT_KEY = 'nexa.driver.accent';
 const DRIVER_DISMISSED_CANCELLED_KEY = 'nexa.driver.dismissed_cancelled';
 const DRIVER_DISMISSED_OVERDUE_KEY = 'nexa.driver.dismissed_overdue_archive';
+/** Verlopen ritten die de chauffeur terugzette onder Ritten (niet opnieuw naar archief UI). */
+const DRIVER_RESTORED_OVERDUE_KEY = 'nexa.driver.restored_overdue_archive';
+/** Ritten die na terugzetten zichtbaar blijven ondanks Dag/Week-filter. */
+const DRIVER_RESTORED_TRIPS_KEY = 'nexa.driver.restored_trips_visible';
 const DRIVER_RIDE_KIND_KEY = 'nexa.driver.ride_kind';
 const DRIVER_RIDE_PERIOD_KEY = 'nexa.driver.ride_period';
 const REVIEW_STAR = '#F5B301';
@@ -186,6 +190,56 @@ function persistDismissedOverdueIds(ids: number[]) {
   AsyncStorage.setItem(DRIVER_DISMISSED_OVERDUE_KEY, JSON.stringify(ids.slice(-200))).catch(
     () => undefined
   );
+}
+
+function persistRestoredOverdueIds(ids: number[]) {
+  AsyncStorage.setItem(DRIVER_RESTORED_OVERDUE_KEY, JSON.stringify(ids.slice(-200))).catch(
+    () => undefined
+  );
+}
+
+function persistRestoredTripsVisibleIds(ids: number[]) {
+  AsyncStorage.setItem(DRIVER_RESTORED_TRIPS_KEY, JSON.stringify(ids.slice(-200))).catch(
+    () => undefined
+  );
+}
+
+function parseStoredIdList(raw: string | null): number[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Teruggezette verlopen ritten horen onder Ritten, niet opnieuw in archief-UI. */
+function splitOverdueInboxLists(
+  overdueScheduled: DriverActiveRide[],
+  archivedOverdue: DriverActiveRide[],
+  restoredIds: number[],
+  dismissedIds: number[]
+): { overdue: DriverActiveRide[]; archived: DriverActiveRide[] } {
+  const restored = new Set(restoredIds);
+  const dismissed = new Set(dismissedIds);
+  const restoredFromArchive = archivedOverdue.filter(
+    (ride) => restored.has(Number(ride.id)) && !dismissed.has(Number(ride.id))
+  );
+  const stillArchived = archivedOverdue.filter(
+    (ride) => !restored.has(Number(ride.id)) && !dismissed.has(Number(ride.id))
+  );
+  const overdueById = new Map<number, DriverActiveRide>();
+  for (const ride of overdueScheduled) {
+    const id = Number(ride.id);
+    if (id > 0 && !dismissed.has(id)) overdueById.set(id, ride);
+  }
+  for (const ride of restoredFromArchive) {
+    const id = Number(ride.id);
+    if (id > 0) overdueById.set(id, ride);
+  }
+  return { overdue: [...overdueById.values()], archived: stillArchived };
 }
 
 type RideKindFilter = 'all' | 'taxi' | 'contract';
@@ -613,7 +667,7 @@ export function DriverHomeScreen() {
   const [notificationsBusy, setNotificationsBusy] = useState(false);
   const [archivingRideId, setArchivingRideId] = useState<number | null>(null);
   const [archiveRowMotion, setArchiveRowMotion] = useState<{
-    key: string;
+    keys: string[];
     mode: Exclude<ArchiveMotionMode, 'idle'>;
   } | null>(null);
   const [mediaBusy, setMediaBusy] = useState(false);
@@ -656,6 +710,8 @@ export function DriverHomeScreen() {
   /** Lokale archief-ids (pre-server) eenmalig migreren naar de API. */
   const pendingLocalCompletedArchiveRef = useRef<number[] | null>(null);
   const [dismissedOverdueArchiveIds, setDismissedOverdueArchiveIds] = useState<number[]>([]);
+  const [restoredOverdueArchiveIds, setRestoredOverdueArchiveIds] = useState<number[]>([]);
+  const [restoredTripsVisibleIds, setRestoredTripsVisibleIds] = useState<number[]>([]);
   const [pastPickupGraceMinutes, setPastPickupGraceMinutes] = useState(120);
   const [archiveSeenKeys, setArchiveSeenKeys] = useState<string[]>([]);
   const [cancelReasons, setCancelReasons] = useState<DriverCancelReason[]>([]);
@@ -738,6 +794,8 @@ export function DriverHomeScreen() {
           savedRidePeriod,
           savedDismissedCancelled,
           savedDismissedOverdue,
+          savedRestoredOverdue,
+          savedRestoredTrips,
         ] = await Promise.all([
           AsyncStorage.getItem(DRIVER_ARCHIVE_KEY),
           AsyncStorage.getItem(DRIVER_ACCENT_KEY),
@@ -747,6 +805,8 @@ export function DriverHomeScreen() {
           AsyncStorage.getItem(DRIVER_RIDE_PERIOD_KEY),
           AsyncStorage.getItem(DRIVER_DISMISSED_CANCELLED_KEY),
           AsyncStorage.getItem(DRIVER_DISMISSED_OVERDUE_KEY),
+          AsyncStorage.getItem(DRIVER_RESTORED_OVERDUE_KEY),
+          AsyncStorage.getItem(DRIVER_RESTORED_TRIPS_KEY),
         ]);
         AsyncStorage.removeItem(DRIVER_TAB_KEY).catch(() => undefined);
         if (savedArchive === '1') setShowArchived(true);
@@ -792,17 +852,10 @@ export function DriverHomeScreen() {
           }
         }
         if (savedDismissedOverdue) {
-          try {
-            const parsed = JSON.parse(savedDismissedOverdue);
-            if (Array.isArray(parsed)) {
-              setDismissedOverdueArchiveIds(
-                parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
-              );
-            }
-          } catch {
-            /* ignore */
-          }
+          setDismissedOverdueArchiveIds(parseStoredIdList(savedDismissedOverdue));
         }
+        setRestoredOverdueArchiveIds(parseStoredIdList(savedRestoredOverdue));
+        setRestoredTripsVisibleIds(parseStoredIdList(savedRestoredTrips));
       } catch {
         /* ignore */
       }
@@ -1085,8 +1138,16 @@ export function DriverHomeScreen() {
       setActiveRide(inboxData.activeRide);
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
-      setOverdueScheduledRides(inboxData.overdueScheduledRides);
-      setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
+      {
+        const split = splitOverdueInboxLists(
+          inboxData.overdueScheduledRides,
+          inboxData.archivedOverdueScheduledRides,
+          restoredOverdueArchiveIds,
+          dismissedOverdueArchiveIds
+        );
+        setOverdueScheduledRides(split.overdue);
+        setArchivedOverdueScheduledRides(split.archived);
+      }
       setPastPickupGraceMinutes(inboxData.pastPickupGraceMinutes);
       setCancelReasons(inboxData.cancelReasons);
       // Planning en meldingen mogen de volgende inbox niet tegenhouden.
@@ -1179,7 +1240,14 @@ export function DriverHomeScreen() {
         }, 0);
       }
     }
-  }, [driverToken, handleNewOffers, selectedVehicleId, syncCompletedArchiveFromInbox]);
+  }, [
+    driverToken,
+    handleNewOffers,
+    selectedVehicleId,
+    syncCompletedArchiveFromInbox,
+    restoredOverdueArchiveIds,
+    dismissedOverdueArchiveIds,
+  ]);
   refreshFn.current = refresh;
 
   /** Alleen inbox — eigen lock, mag nooit door zware refresh geblokkeerd worden (presence/last_seen). */
@@ -1212,8 +1280,16 @@ export function DriverHomeScreen() {
       setActiveRide(inboxData.activeRide);
       setParkedRides(inboxData.parkedAssignedRides);
       setScheduledRides(inboxData.scheduledRides);
-      setOverdueScheduledRides(inboxData.overdueScheduledRides);
-      setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
+      {
+        const split = splitOverdueInboxLists(
+          inboxData.overdueScheduledRides,
+          inboxData.archivedOverdueScheduledRides,
+          restoredOverdueArchiveIds,
+          dismissedOverdueArchiveIds
+        );
+        setOverdueScheduledRides(split.overdue);
+        setArchivedOverdueScheduledRides(split.archived);
+      }
       setPastPickupGraceMinutes(inboxData.pastPickupGraceMinutes);
       setCancelReasons(inboxData.cancelReasons);
       await syncCompletedArchiveFromInbox(inboxData);
@@ -1229,7 +1305,13 @@ export function DriverHomeScreen() {
     } finally {
       inboxInFlight.current = false;
     }
-  }, [driverToken, handleNewOffers, syncCompletedArchiveFromInbox]);
+  }, [
+    driverToken,
+    handleNewOffers,
+    syncCompletedArchiveFromInbox,
+    restoredOverdueArchiveIds,
+    dismissedOverdueArchiveIds,
+  ]);
 
   useEffect(() => {
     if (!contractToken) {
@@ -1419,8 +1501,16 @@ export function DriverHomeScreen() {
           setActiveRide(inboxData.activeRide);
           setParkedRides(inboxData.parkedAssignedRides);
           setScheduledRides(inboxData.scheduledRides);
-          setOverdueScheduledRides(inboxData.overdueScheduledRides);
-          setArchivedOverdueScheduledRides(inboxData.archivedOverdueScheduledRides);
+          {
+            const split = splitOverdueInboxLists(
+              inboxData.overdueScheduledRides,
+              inboxData.archivedOverdueScheduledRides,
+              restoredOverdueArchiveIds,
+              dismissedOverdueArchiveIds
+            );
+            setOverdueScheduledRides(split.overdue);
+            setArchivedOverdueScheduledRides(split.archived);
+          }
           setPastPickupGraceMinutes(inboxData.pastPickupGraceMinutes);
           setCancelReasons(inboxData.cancelReasons);
           const match = liveOffers.find(
@@ -1438,7 +1528,13 @@ export function DriverHomeScreen() {
         }
       }
     },
-    [driverToken, handleNewOffers, revealNotifiedOffer]
+    [
+      driverToken,
+      handleNewOffers,
+      revealNotifiedOffer,
+      restoredOverdueArchiveIds,
+      dismissedOverdueArchiveIds,
+    ]
   );
 
   const openOfferFromNotification = useCallback(
@@ -2365,25 +2461,35 @@ export function DriverHomeScreen() {
 
   // Marketplace-ritten: nooit in "verlopen ophaalmoment" (geen overdue-UI).
   const ownOverdueScheduledRides = overdueForTrips.filter((r) => !isMarketplaceRide(r));
-  // Binnen grace: nieuw tijdstip voorstellen. Daarna → archief (compact, verwijderbaar).
+  const dismissedOverdueSet = new Set(dismissedOverdueArchiveIds);
+  const restoredOverdueSet = new Set(restoredOverdueArchiveIds);
+  const restoredTripsVisibleSet = new Set(restoredTripsVisibleIds);
+  // Binnen grace óf teruggezet: onder Ritten. Daarna → archief (compact, verwijderbaar).
   const overdueWithinGrace = ownOverdueScheduledRides.filter(
-    (r) => !ridePickupPastGrace(r, pastPickupGraceMinutes)
+    (r) =>
+      restoredOverdueSet.has(Number(r.id)) || !ridePickupPastGrace(r, pastPickupGraceMinutes)
   );
-  const overduePastGrace = ownOverdueScheduledRides.filter((r) =>
-    ridePickupPastGrace(r, pastPickupGraceMinutes)
+  const overduePastGrace = ownOverdueScheduledRides.filter(
+    (r) =>
+      !restoredOverdueSet.has(Number(r.id)) && ridePickupPastGrace(r, pastPickupGraceMinutes)
   );
   const overdueContractRides = overdueWithinGrace.filter((r) => isContractRide(r));
   const overdueNonContractRidesAll = overdueWithinGrace.filter((r) => !isContractRide(r));
   const marketplaceOverdueAsScheduled = overdueForTrips.filter((r) => isMarketplaceRide(r));
-  const dismissedOverdueSet = new Set(dismissedOverdueArchiveIds);
   const ownArchivedOverdueRides = (() => {
     const byId = new Map<number, DriverActiveRide>();
     for (const ride of archivedOverdueForTrips) {
-      if (isMarketplaceRide(ride) || dismissedOverdueSet.has(ride.id)) continue;
+      if (
+        isMarketplaceRide(ride) ||
+        dismissedOverdueSet.has(ride.id) ||
+        restoredOverdueSet.has(Number(ride.id))
+      ) {
+        continue;
+      }
       byId.set(ride.id, ride);
     }
     for (const ride of overduePastGrace) {
-      if (dismissedOverdueSet.has(ride.id)) continue;
+      if (dismissedOverdueSet.has(ride.id) || restoredOverdueSet.has(Number(ride.id))) continue;
       byId.set(ride.id, ride);
     }
     return [...byId.values()];
@@ -2433,6 +2539,8 @@ export function DriverHomeScreen() {
   function matchesTripFilters(ride: DriverActiveRide | null | undefined): boolean {
     if (!rideMatchesKindFilter(ride, effectiveRideKind)) return false;
     if (isOutstandingMarketplaceRide(ride)) return true;
+    // Net teruggezet uit archief: altijd tonen, ook als Dag-filter die dag niet dekt.
+    if (ride && restoredTripsVisibleSet.has(Number(ride.id))) return true;
     return rideMatchesPeriodFilter(ride, ridePeriodFilter, todayIso, weekFromIso, weekToIso);
   }
 
@@ -2536,39 +2644,134 @@ export function DriverHomeScreen() {
     persistRidePeriodFilter(period);
   }
 
+  function markCompletedRideVisibleOnTrips(ride: DriverActiveRide, rideId: number) {
+    setCompletedRides((prev) => {
+      const id = Number(ride.id) || rideId;
+      const without = prev.filter((row) => Number(row.id) !== id);
+      return [{ ...ride, id, status: ride.status || 'completed' }, ...without].slice(0, 80);
+    });
+    setRestoredTripsVisibleIds((prev) => {
+      const next = [...new Set([...prev, rideId])];
+      persistRestoredTripsVisibleIds(next);
+      return next;
+    });
+  }
+
+  async function restoreCompletedFromArchive(rideId: number) {
+    if (!driverToken || rideId <= 0) return;
+    const ride =
+      archivedCompletedRidesList.find((row) => Number(row.id) === rideId) ||
+      completedRides.find((row) => Number(row.id) === rideId) ||
+      null;
+
+    setArchivedCompletedIds((prev) => {
+      const next = prev.filter((id) => id !== rideId);
+      persistArchivedCompletedIds(next);
+      return next;
+    });
+    setArchivedCompletedRidesList((prev) => prev.filter((row) => Number(row.id) !== rideId));
+    if (ride) markCompletedRideVisibleOnTrips(ride, rideId);
+
+    try {
+      const res = await unarchiveCompletedRide(driverToken, rideId);
+      const fromApi = res.data?.ride;
+      if (fromApi && Number(fromApi.id) > 0) {
+        markCompletedRideVisibleOnTrips(
+          { ...fromApi, id: Number(fromApi.id), status: fromApi.status || 'completed' },
+          Number(fromApi.id)
+        );
+      }
+    } catch (e) {
+      const status = apiErrorStatus(e);
+      if (status === 404 || status === 405) {
+        return;
+      }
+      setArchivedCompletedIds((prev) => {
+        const next = [...new Set([...prev, rideId])];
+        persistArchivedCompletedIds(next);
+        return next;
+      });
+      if (ride) {
+        setArchivedCompletedRidesList((prev) => {
+          if (prev.some((row) => Number(row.id) === rideId)) return prev;
+          return [...prev, ride];
+        });
+        setCompletedRides((prev) => prev.filter((row) => Number(row.id) !== rideId));
+      }
+      setRestoredTripsVisibleIds((prev) => {
+        const next = prev.filter((id) => id !== rideId);
+        persistRestoredTripsVisibleIds(next);
+        return next;
+      });
+      Alert.alert(
+        t('Archiveren mislukt'),
+        e instanceof ApiError ? e.message : t('Kon de rit niet archiveren. Probeer opnieuw.')
+      );
+    }
+  }
+
+  function archiveRestoredOverdueRide(rideId: number) {
+    if (rideId <= 0) return;
+    const ride =
+      overdueScheduledRides.find((row) => Number(row.id) === rideId) ||
+      archivedOverdueScheduledRides.find((row) => Number(row.id) === rideId) ||
+      null;
+
+    setRestoredOverdueArchiveIds((prev) => {
+      const next = prev.filter((id) => id !== rideId);
+      persistRestoredOverdueIds(next);
+      return next;
+    });
+    setRestoredTripsVisibleIds((prev) => {
+      const next = prev.filter((id) => id !== rideId);
+      persistRestoredTripsVisibleIds(next);
+      return next;
+    });
+    if (ride) {
+      setArchivedOverdueScheduledRides((prev) => {
+        if (prev.some((row) => Number(row.id) === rideId)) return prev;
+        return [...prev, ride];
+      });
+    }
+  }
+
   async function toggleCompletedArchive(rideId: number) {
     if (!driverToken) return;
     const wasArchived = archivedCompletedSet.has(rideId);
+    if (wasArchived) {
+      await restoreCompletedFromArchive(rideId);
+      return;
+    }
     const ride =
       completedRides.find((row) => Number(row.id) === rideId) ||
       archivedCompletedRidesList.find((row) => Number(row.id) === rideId) ||
       null;
 
     setArchivedCompletedIds((prev) => {
-      const next = wasArchived ? prev.filter((id) => id !== rideId) : [...prev, rideId];
+      const next = [...prev, rideId];
       persistArchivedCompletedIds(next);
       return next;
     });
     setArchivedCompletedRidesList((prev) => {
-      if (wasArchived) return prev.filter((row) => Number(row.id) !== rideId);
       if (!ride) return prev;
       if (prev.some((row) => Number(row.id) === rideId)) return prev;
       return [...prev, ride];
     });
+    setRestoredTripsVisibleIds((prev) => {
+      const next = prev.filter((id) => id !== rideId);
+      persistRestoredTripsVisibleIds(next);
+      return next;
+    });
 
     try {
-      if (wasArchived) {
-        await unarchiveCompletedRide(driverToken, rideId);
-      } else {
-        const res = await archiveCompletedRide(driverToken, rideId);
-        const fromApi = res.data?.ride;
-        if (fromApi && Number(fromApi.id) > 0) {
-          setArchivedCompletedRidesList((prev) => {
-            const id = Number(fromApi.id);
-            const next = prev.filter((row) => Number(row.id) !== id);
-            return [...next, { ...fromApi, id, status: fromApi.status || 'completed' }];
-          });
-        }
+      const res = await archiveCompletedRide(driverToken, rideId);
+      const fromApi = res.data?.ride;
+      if (fromApi && Number(fromApi.id) > 0) {
+        setArchivedCompletedRidesList((prev) => {
+          const id = Number(fromApi.id);
+          const next = prev.filter((row) => Number(row.id) !== id);
+          return [...next, { ...fromApi, id, status: fromApi.status || 'completed' }];
+        });
       }
     } catch (e) {
       const status = apiErrorStatus(e);
@@ -2577,16 +2780,11 @@ export function DriverHomeScreen() {
         return;
       }
       setArchivedCompletedIds((prev) => {
-        const next = wasArchived ? [...prev, rideId] : prev.filter((id) => id !== rideId);
+        const next = prev.filter((id) => id !== rideId);
         persistArchivedCompletedIds(next);
         return next;
       });
-      setArchivedCompletedRidesList((prev) => {
-        if (!wasArchived) return prev.filter((row) => Number(row.id) !== rideId);
-        if (!ride) return prev;
-        if (prev.some((row) => Number(row.id) === rideId)) return prev;
-        return [...prev, ride];
-      });
+      setArchivedCompletedRidesList((prev) => prev.filter((row) => Number(row.id) !== rideId));
       Alert.alert(
         t('Archiveren mislukt'),
         e instanceof ApiError ? e.message : t('Kon de rit niet archiveren. Probeer opnieuw.')
@@ -2766,65 +2964,107 @@ export function DriverHomeScreen() {
           {overdueContractRidesOnTrips.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>{t("Verlopen contractritten")}</Text>
-              {overdueContractRidesOnTrips.map((ride) => (
+              {overdueContractRidesOnTrips.map((ride) => {
+                const canRearchive = restoredOverdueSet.has(Number(ride.id));
+                return (
                 <View key={`overdue-contract-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
-                  <DriverTripCard
-                    ride={ride}
-                    variant="overdue"
-                    busy={busyRideId === ride.id}
-                    highlighted={focusRideId === ride.id}
-                    onHighlightEnd={() => setFocusRideId(null)}
-                    onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() =>
-                      void openPickupMapsAndNotify(driverToken, ride).then((next) => {
-                        if (next) patchTripRide(next);
-                      })
-                    }
-                    onProposePickup={() => openProposePickup(ride)}
-                    onRelease={() => requestReleaseRide(ride.id)}
-                    onCancel={
-                      ride.can_cancel_with_reason
-                        ? () => {
-                            setSelectedCancelReason(null);
-                            setCancelRideId(ride.id);
-                          }
-                        : undefined
-                    }
-                  />
+                  <ArchiveMotion
+                    mode={archivingRideId === ride.id ? 'archive-out' : 'idle'}
+                    accentColor={accentHex(accent)}
+                    onFinished={() => {
+                      if (archivingRideId !== ride.id) return;
+                      archiveRestoredOverdueRide(ride.id);
+                      setArchivingRideId(null);
+                    }}
+                  >
+                    <DriverTripCard
+                      ride={ride}
+                      variant="overdue"
+                      busy={busyRideId === ride.id}
+                      highlighted={focusRideId === ride.id}
+                      onHighlightEnd={() => setFocusRideId(null)}
+                      onStart={() => onStartRide(ride.id)}
+                      onOpenMaps={() =>
+                        void openPickupMapsAndNotify(driverToken, ride).then((next) => {
+                          if (next) patchTripRide(next);
+                        })
+                      }
+                      onProposePickup={() => openProposePickup(ride)}
+                      onRelease={() => requestReleaseRide(ride.id)}
+                      onArchive={
+                        canRearchive
+                          ? () => {
+                              if (archivingRideId != null) return;
+                              setArchivingRideId(ride.id);
+                            }
+                          : undefined
+                      }
+                      onCancel={
+                        ride.can_cancel_with_reason
+                          ? () => {
+                              setSelectedCancelReason(null);
+                              setCancelRideId(ride.id);
+                            }
+                          : undefined
+                      }
+                    />
+                  </ArchiveMotion>
                 </View>
-              ))}
+                );
+              })}
             </>
           ) : null}
           {overdueNonContractRides.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>{t("Verlopen ophaalmoment")}</Text>
-              {overdueNonContractRides.map((ride) => (
+              {overdueNonContractRides.map((ride) => {
+                const canRearchive = restoredOverdueSet.has(Number(ride.id));
+                return (
                 <View key={`overdue-${ride.id}`} onLayout={bindRideOffset(ride.id)}>
-                  <DriverTripCard
-                    ride={ride}
-                    variant="overdue"
-                    busy={busyRideId === ride.id}
-                    highlighted={focusRideId === ride.id}
-                    onHighlightEnd={() => setFocusRideId(null)}
-                    onStart={() => onStartRide(ride.id)}
-                    onOpenMaps={() =>
-                      void openPickupMapsAndNotify(driverToken, ride).then((next) => {
-                        if (next) patchTripRide(next);
-                      })
-                    }
-                    onProposePickup={() => openProposePickup(ride)}
-                    onRelease={() => requestReleaseRide(ride.id)}
-                    onCancel={
-                      ride.can_cancel_with_reason
-                        ? () => {
-                            setSelectedCancelReason(null);
-                            setCancelRideId(ride.id);
-                          }
-                        : undefined
-                    }
-                  />
+                  <ArchiveMotion
+                    mode={archivingRideId === ride.id ? 'archive-out' : 'idle'}
+                    accentColor={accentHex(accent)}
+                    onFinished={() => {
+                      if (archivingRideId !== ride.id) return;
+                      archiveRestoredOverdueRide(ride.id);
+                      setArchivingRideId(null);
+                    }}
+                  >
+                    <DriverTripCard
+                      ride={ride}
+                      variant="overdue"
+                      busy={busyRideId === ride.id}
+                      highlighted={focusRideId === ride.id}
+                      onHighlightEnd={() => setFocusRideId(null)}
+                      onStart={() => onStartRide(ride.id)}
+                      onOpenMaps={() =>
+                        void openPickupMapsAndNotify(driverToken, ride).then((next) => {
+                          if (next) patchTripRide(next);
+                        })
+                      }
+                      onProposePickup={() => openProposePickup(ride)}
+                      onRelease={() => requestReleaseRide(ride.id)}
+                      onArchive={
+                        canRearchive
+                          ? () => {
+                              if (archivingRideId != null) return;
+                              setArchivingRideId(ride.id);
+                            }
+                          : undefined
+                      }
+                      onCancel={
+                        ride.can_cancel_with_reason
+                          ? () => {
+                              setSelectedCancelReason(null);
+                              setCancelRideId(ride.id);
+                            }
+                          : undefined
+                      }
+                    />
+                  </ArchiveMotion>
                 </View>
-              ))}
+                );
+              })}
             </>
           ) : null}
           {visibleCompletedRides.length > 0 ? (
@@ -3921,12 +4161,30 @@ export function DriverHomeScreen() {
           persistDismissedOverdueIds(next);
           return next;
         });
+        setRestoredOverdueArchiveIds((prev) => {
+          const next = prev.filter((id) => !goneOverdue.has(id));
+          persistRestoredOverdueIds(next);
+          return next;
+        });
+        setRestoredTripsVisibleIds((prev) => {
+          const next = prev.filter((id) => !goneOverdue.has(id));
+          persistRestoredTripsVisibleIds(next);
+          return next;
+        });
         setOverdueScheduledRides((current) =>
           current.filter((r) => !goneOverdue.has(Number(r.id)))
         );
         setArchivedOverdueScheduledRides((current) =>
           current.filter((r) => !goneOverdue.has(Number(r.id)))
         );
+      }
+      if (doneIds.length > 0) {
+        const goneDone = new Set(doneIds);
+        setRestoredTripsVisibleIds((prev) => {
+          const next = prev.filter((id) => !goneDone.has(id));
+          persistRestoredTripsVisibleIds(next);
+          return next;
+        });
       }
       setArchiveSelectedKeys(new Set());
       setArchiveRowMotion(null);
@@ -3978,12 +4236,13 @@ export function DriverHomeScreen() {
           text: t('Verwijderen'),
           style: 'destructive',
           onPress: () => {
-            const firstKey =
-              archiveDoneKeys.find((key) => archiveSelectedKeys.has(key)) ||
-              archiveOverdueKeys.find((key) => archiveSelectedKeys.has(key)) ||
-              null;
-            if (firstKey) {
-              setArchiveRowMotion({ key: firstKey, mode: 'delete-out' });
+            const motionKeys = [
+              ...archiveDoneKeys.filter((key) => archiveSelectedKeys.has(key)),
+              ...archiveOverdueKeys.filter((key) => archiveSelectedKeys.has(key)),
+              ...archiveOfferKeys.filter((key) => archiveSelectedKeys.has(key)),
+            ];
+            if (motionKeys.length > 0) {
+              setArchiveRowMotion({ keys: motionKeys, mode: 'delete-out' });
               return;
             }
             void performDeleteSelectedArchiveItems();
@@ -4002,6 +4261,78 @@ export function DriverHomeScreen() {
     performDeleteSelectedArchiveItems,
   ]);
 
+  const performRestoreSelectedArchiveItems = useCallback(async () => {
+    const doneIds = archiveDoneKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('done:'.length)))
+      .filter((id) => id > 0);
+    const overdueIds = archiveOverdueKeys
+      .filter((key) => archiveSelectedKeys.has(key))
+      .map((key) => Number(key.slice('overdue:'.length)))
+      .filter((id) => id > 0);
+    if (doneIds.length + overdueIds.length < 1) return;
+
+    setArchiveDeleteBusy(true);
+    try {
+      for (const rideId of doneIds) {
+        await restoreCompletedFromArchive(rideId);
+      }
+      if (overdueIds.length > 0) {
+        const restoreSet = new Set(overdueIds);
+        const ridesToRestore: DriverActiveRide[] = [];
+        for (const ride of [...archivedOverdueScheduledRides, ...overdueScheduledRides]) {
+          const id = Number(ride.id);
+          if (restoreSet.has(id) && !ridesToRestore.some((row) => Number(row.id) === id)) {
+            ridesToRestore.push(ride);
+          }
+        }
+
+        setDismissedOverdueArchiveIds((prev) => {
+          const next = prev.filter((id) => !restoreSet.has(id));
+          persistDismissedOverdueIds(next);
+          return next;
+        });
+        setRestoredOverdueArchiveIds((prev) => {
+          const next = [...new Set([...prev, ...overdueIds])];
+          persistRestoredOverdueIds(next);
+          return next;
+        });
+        setRestoredTripsVisibleIds((prev) => {
+          const next = [...new Set([...prev, ...overdueIds])];
+          persistRestoredTripsVisibleIds(next);
+          return next;
+        });
+        setArchivedOverdueScheduledRides((current) =>
+          current.filter((r) => !restoreSet.has(Number(r.id)))
+        );
+        setOverdueScheduledRides((current) => {
+          const byId = new Map<number, DriverActiveRide>();
+          for (const ride of current) {
+            const id = Number(ride.id);
+            if (id > 0) byId.set(id, ride);
+          }
+          for (const ride of ridesToRestore) {
+            const id = Number(ride.id);
+            if (id > 0) byId.set(id, ride);
+          }
+          return [...byId.values()];
+        });
+      }
+      setArchiveSelectedKeys(new Set());
+      // Blijf in Archief; gebruiker navigeert zelf terug naar Ritten.
+      await refresh();
+    } finally {
+      setArchiveDeleteBusy(false);
+    }
+  }, [
+    archiveDoneKeys,
+    archiveOverdueKeys,
+    archiveSelectedKeys,
+    archivedOverdueScheduledRides,
+    overdueScheduledRides,
+    refresh,
+  ]);
+
   const restoreSelectedArchiveItems = useCallback(async () => {
     if (archiveDeleteBusy || archiveRowMotion) return;
     const doneIds = archiveDoneKeys
@@ -4014,41 +4345,23 @@ export function DriverHomeScreen() {
       .filter((id) => id > 0);
     if (doneIds.length + overdueIds.length < 1) return;
 
-    const firstKey =
-      archiveDoneKeys.find((key) => archiveSelectedKeys.has(key)) ||
-      archiveOverdueKeys.find((key) => archiveSelectedKeys.has(key)) ||
-      null;
-    if (firstKey) {
-      setArchiveRowMotion({ key: firstKey, mode: 'restore-out' });
+    const motionKeys = [
+      ...archiveDoneKeys.filter((key) => archiveSelectedKeys.has(key)),
+      ...archiveOverdueKeys.filter((key) => archiveSelectedKeys.has(key)),
+    ];
+    if (motionKeys.length > 0) {
+      setArchiveRowMotion({ keys: motionKeys, mode: 'restore-out' });
       return;
     }
 
-    setArchiveDeleteBusy(true);
-    try {
-      for (const rideId of doneIds) {
-        await toggleCompletedArchive(rideId);
-      }
-      if (overdueIds.length > 0) {
-        const restoreSet = new Set(overdueIds);
-        setDismissedOverdueArchiveIds((prev) => {
-          const next = prev.filter((id) => !restoreSet.has(id));
-          persistDismissedOverdueIds(next);
-          return next;
-        });
-        setArchivedOverdueScheduledRides((current) =>
-          current.filter((r) => !restoreSet.has(Number(r.id)))
-        );
-      }
-      setArchiveSelectedKeys(new Set());
-    } finally {
-      setArchiveDeleteBusy(false);
-    }
+    await performRestoreSelectedArchiveItems();
   }, [
     archiveDeleteBusy,
     archiveRowMotion,
     archiveDoneKeys,
     archiveOverdueKeys,
     archiveSelectedKeys,
+    performRestoreSelectedArchiveItems,
   ]);
 
   const finishArchiveRowMotion = useCallback(() => {
@@ -4060,43 +4373,12 @@ export function DriverHomeScreen() {
       return;
     }
     if (motion.mode === 'restore-out') {
-      void (async () => {
-        setArchiveDeleteBusy(true);
-        try {
-          const doneIds = archiveDoneKeys
-            .filter((key) => archiveSelectedKeys.has(key))
-            .map((key) => Number(key.slice('done:'.length)))
-            .filter((id) => id > 0);
-          const overdueIds = archiveOverdueKeys
-            .filter((key) => archiveSelectedKeys.has(key))
-            .map((key) => Number(key.slice('overdue:'.length)))
-            .filter((id) => id > 0);
-          for (const rideId of doneIds) {
-            await toggleCompletedArchive(rideId);
-          }
-          if (overdueIds.length > 0) {
-            const restoreSet = new Set(overdueIds);
-            setDismissedOverdueArchiveIds((prev) => {
-              const next = prev.filter((id) => !restoreSet.has(id));
-              persistDismissedOverdueIds(next);
-              return next;
-            });
-            setArchivedOverdueScheduledRides((current) =>
-              current.filter((r) => !restoreSet.has(Number(r.id)))
-            );
-          }
-          setArchiveSelectedKeys(new Set());
-        } finally {
-          setArchiveDeleteBusy(false);
-        }
-      })();
+      void performRestoreSelectedArchiveItems();
     }
   }, [
     archiveRowMotion,
     performDeleteSelectedArchiveItems,
-    archiveDoneKeys,
-    archiveOverdueKeys,
-    archiveSelectedKeys,
+    performRestoreSelectedArchiveItems,
   ]);
 
   const renderArchiveCheckbox = (key: string) => {
@@ -4117,11 +4399,16 @@ export function DriverHomeScreen() {
     );
   };
 
+  const archiveMotionKeys = archiveRowMotion?.keys ?? [];
+  const archiveMotionLeadKey = archiveMotionKeys[0] ?? null;
+
   const renderArchiveCompactRide = (ride: DriverActiveRide, key: string) => {
     const selected = archiveSelectedKeys.has(key);
     const when = archiveRideWhenLabel(ride.pickup_at) || t('Gearchiveerd');
     const motionMode =
-      archiveRowMotion?.key === key ? archiveRowMotion.mode : ('idle' as const);
+      archiveMotionKeys.includes(key) && archiveRowMotion
+        ? archiveRowMotion.mode
+        : ('idle' as const);
     return (
       <ArchiveMotion
         key={key}
@@ -4129,7 +4416,7 @@ export function DriverHomeScreen() {
         accentColor={accentHex(accent)}
         style={[styles.archiveSelectRow, selected && styles.archiveSelectRowOn]}
         onFinished={
-          archiveRowMotion?.key === key ? finishArchiveRowMotion : undefined
+          archiveMotionLeadKey === key ? finishArchiveRowMotion : undefined
         }
       >
         <Pressable onPress={() => toggleArchiveKey(key)}>
@@ -4150,192 +4437,222 @@ export function DriverHomeScreen() {
     );
   };
 
-  const archivePanel = (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={styles.scroll}
-      keyboardShouldPersistTaps="handled"
-      nestedScrollEnabled
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={async () => {
-            setRefreshing(true);
-            await refresh();
-            setRefreshing(false);
-          }}
-          tintColor={colors.text}
-        />
-      }
-    >
-      <ErrorText>{shownError}</ErrorText>
-      <ScreenHeader title={t("Archief")} />
-      <View style={styles.archiveSectionRow}>
-        <Text style={styles.archiveSectionTitle}>{t("Gearchiveerde ritten")}</Text>
-        <Pressable
-          onPress={() => {
-            setArchiveSelectedKeys(new Set());
-            goToArchive(false);
-          }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("Terug naar ritten")}
-          style={styles.archiveBackLinkPress}
-        >
-          <Text style={styles.archiveBackLink}>{t("Ritten →")}</Text>
-        </Pressable>
-      </View>
-      {showRideKindFilter ? (
-        <View style={styles.rideKindRow}>
-          {RIDE_KIND_OPTIONS.map((opt) => {
-            const active = rideKindFilter === opt.key;
-            return (
-              <Pressable
-                key={opt.key}
-                style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
-                onPress={() => chooseRideKind(opt.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
-                  {t(opt.label)}
+  const renderArchiveOfferRow = (
+    offer: DispatchOffer,
+    key: string,
+    metaFallback: string,
+    listKey: string
+  ) => {
+    const selected = archiveSelectedKeys.has(key);
+    const motionMode =
+      archiveMotionKeys.includes(key) && archiveRowMotion
+        ? archiveRowMotion.mode
+        : ('idle' as const);
+    return (
+      <ArchiveMotion
+        key={listKey}
+        mode={motionMode}
+        accentColor={accentHex(accent)}
+        style={[styles.archiveSelectRow, selected && styles.archiveSelectRowOn]}
+        onFinished={
+          archiveMotionLeadKey === key ? finishArchiveRowMotion : undefined
+        }
+      >
+        <Pressable onPress={() => toggleArchiveKey(key)}>
+          <Card>
+            <View style={styles.archiveSelectInner}>
+              {renderArchiveCheckbox(key)}
+              <View style={styles.archiveSelectBody}>
+                <Text style={styles.archivedMeta}>
+                  {archiveRideWhenLabel(offer.ride?.pickup_at) || metaFallback}
                 </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-      {archiveSelectableKeys.length > 0 ? (
-        <Card>
-          <View style={styles.archiveBulkBar}>
-            <Pressable
-              onPress={toggleArchiveSelectAll}
-              style={styles.archiveBulkSelect}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: archiveAllSelected }}
-              accessibilityLabel={t('Alles selecteren')}
-            >
-              <View style={[styles.archiveCheckBox, archiveAllSelected && styles.archiveCheckBoxOn]}>
-                {archiveAllSelected ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+                <Text style={styles.hint}>{archiveRideRouteLabel(offer.ride)}</Text>
+                {offer.ride?.customer_name ? (
+                  <Text style={styles.hint}>{offer.ride.customer_name}</Text>
+                ) : null}
               </View>
-              <Text style={styles.archiveBulkSelectText}>
-                {archiveAllSelected ? t('Alles deselecteren') : t('Alles selecteren')}
-                {` (${archiveSelectableKeys.length})`}
+            </View>
+          </Card>
+        </Pressable>
+      </ArchiveMotion>
+    );
+  };
+
+  const archiveBulkBar =
+    archiveSelectableKeys.length > 0 ? (
+      <Card>
+        <View style={styles.archiveBulkBar}>
+          <Pressable
+            onPress={toggleArchiveSelectAll}
+            style={styles.archiveBulkSelect}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: archiveAllSelected }}
+            accessibilityLabel={t('Alles selecteren')}
+          >
+            <View style={[styles.archiveCheckBox, archiveAllSelected && styles.archiveCheckBoxOn]}>
+              {archiveAllSelected ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+            </View>
+            <Text style={styles.archiveBulkSelectText}>
+              {archiveAllSelected ? t('Alles deselecteren') : t('Alles selecteren')}
+              {` (${archiveSelectableKeys.length})`}
+            </Text>
+          </Pressable>
+          <View style={styles.archiveBulkActions}>
+            <Pressable
+              onPress={() => {
+                void restoreSelectedArchiveItems();
+              }}
+              disabled={archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
+              style={[
+                styles.archiveBulkAction,
+                (archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
+                  styles.archiveBulkActionDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                archiveRestorableCount < 1
+                  ? t('Terugzetten')
+                  : t('{n} terugzetten', { n: archiveRestorableCount })
+              }
+            >
+              <View style={styles.archiveBulkActionIconWrap}>
+                <Ionicons
+                  name="arrow-undo-outline"
+                  size={22}
+                  color={archiveRestorableCount < 1 ? colors.muted : accentHex(accent)}
+                />
+                {archiveRestorableCount > 0 ? (
+                  <Text style={[styles.archiveBulkActionCount, { color: accentHex(accent) }]}>
+                    {archiveRestorableCount}
+                  </Text>
+                ) : null}
+              </View>
+              <Text
+                style={[
+                  styles.archiveBulkActionLabel,
+                  archiveRestorableCount < 1
+                    ? styles.archiveBulkActionLabelMuted
+                    : { color: accentHex(accent) },
+                ]}
+              >
+                {t('Terugzetten')}
               </Text>
             </Pressable>
-            <View style={styles.archiveBulkActions}>
-              <Pressable
-                onPress={() => {
-                  void restoreSelectedArchiveItems();
-                }}
-                disabled={archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
+            <Pressable
+              onPress={deleteSelectedArchiveItems}
+              disabled={archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
+              style={[
+                styles.archiveBulkAction,
+                (archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
+                  styles.archiveBulkActionDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                archiveSelectedCount < 1
+                  ? t('Verwijderen')
+                  : t('{n} verwijderen', { n: archiveSelectedCount })
+              }
+            >
+              <View style={styles.archiveBulkActionIconWrap}>
+                <Ionicons
+                  name="trash-outline"
+                  size={22}
+                  color={archiveSelectedCount < 1 ? colors.muted : colors.danger}
+                />
+                {archiveSelectedCount > 0 ? (
+                  <Text style={[styles.archiveBulkActionCount, { color: colors.danger }]}>
+                    {archiveSelectedCount}
+                  </Text>
+                ) : null}
+              </View>
+              <Text
                 style={[
-                  styles.archiveBulkAction,
-                  (archiveRestorableCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
-                    styles.archiveBulkActionDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  archiveRestorableCount < 1
-                    ? t('Terugzetten')
-                    : t('{n} terugzetten', { n: archiveRestorableCount })
-                }
-              >
-                <View style={styles.archiveBulkActionIconWrap}>
-                  <Ionicons
-                    name="arrow-undo-outline"
-                    size={22}
-                    color={archiveRestorableCount < 1 ? colors.muted : accentHex(accent)}
-                  />
-                  {archiveRestorableCount > 0 ? (
-                    <Text style={[styles.archiveBulkActionCount, { color: accentHex(accent) }]}>
-                      {archiveRestorableCount}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text
-                  style={[
-                    styles.archiveBulkActionLabel,
-                    archiveRestorableCount < 1
-                      ? styles.archiveBulkActionLabelMuted
-                      : { color: accentHex(accent) },
-                  ]}
-                >
-                  {t('Terugzetten')}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={deleteSelectedArchiveItems}
-                disabled={archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion}
-                style={[
-                  styles.archiveBulkAction,
-                  (archiveSelectedCount < 1 || archiveDeleteBusy || !!archiveRowMotion) &&
-                    styles.archiveBulkActionDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={
+                  styles.archiveBulkActionLabel,
                   archiveSelectedCount < 1
-                    ? t('Verwijderen')
-                    : t('{n} verwijderen', { n: archiveSelectedCount })
-                }
+                    ? styles.archiveBulkActionLabelMuted
+                    : { color: colors.danger },
+                ]}
               >
-                <View style={styles.archiveBulkActionIconWrap}>
-                  <Ionicons
-                    name="trash-outline"
-                    size={22}
-                    color={archiveSelectedCount < 1 ? colors.muted : colors.danger}
-                  />
-                  {archiveSelectedCount > 0 ? (
-                    <Text style={[styles.archiveBulkActionCount, { color: colors.danger }]}>
-                      {archiveSelectedCount}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text
-                  style={[
-                    styles.archiveBulkActionLabel,
-                    archiveSelectedCount < 1
-                      ? styles.archiveBulkActionLabelMuted
-                      : { color: colors.danger },
-                  ]}
-                >
-                  {t('Verwijderen')}
-                </Text>
-              </Pressable>
-            </View>
+                {t('Verwijderen')}
+              </Text>
+            </Pressable>
           </View>
-        </Card>
-      ) : null}
+        </View>
+      </Card>
+    ) : null;
+
+  const archivePanel = (
+    <View style={styles.archivePanel}>
+      <View style={styles.archiveStickyHeader}>
+        <ErrorText>{shownError}</ErrorText>
+        <ScreenHeader title={t("Archief")} />
+        <View style={styles.archiveSectionRow}>
+          <Text style={styles.archiveSectionTitle}>{t("Gearchiveerde ritten")}</Text>
+          <Pressable
+            onPress={() => {
+              setArchiveSelectedKeys(new Set());
+              goToArchive(false);
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("Terug naar ritten")}
+            style={styles.archiveBackLinkPress}
+          >
+            <Text style={styles.archiveBackLink}>{t("Ritten →")}</Text>
+          </Pressable>
+        </View>
+        {showRideKindFilter ? (
+          <View style={styles.rideKindRow}>
+            {RIDE_KIND_OPTIONS.map((opt) => {
+              const active = rideKindFilter === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  style={[styles.rideKindBtn, active && styles.rideKindBtnActive]}
+                  onPress={() => chooseRideKind(opt.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.rideKindText, active && styles.rideKindTextActive]}>
+                    {t(opt.label)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {archiveBulkBar}
+      </View>
+      <ScrollView
+        style={styles.archiveListScroll}
+        contentContainerStyle={styles.archiveListContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await refresh();
+              setRefreshing(false);
+            }}
+            tintColor={colors.text}
+          />
+        }
+      >
       {archiveHasItems ? (
         <>
           {declinedOffersFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>{t("Afgewezen / geannuleerd")}</Text>
-              {declinedOffersFiltered.map((offer) => {
-                const oid = Number(offer.id);
-                const key = `offer:${oid}`;
-                const selected = archiveSelectedKeys.has(key);
-                return (
-                  <Pressable
-                    key={`declined-${offer.id}`}
-                    onPress={() => toggleArchiveKey(key)}
-                    style={[styles.archiveSelectRow, selected && styles.archiveSelectRowOn]}
-                  >
-                    <Card>
-                      <View style={styles.archiveSelectInner}>
-                        {renderArchiveCheckbox(key)}
-                        <View style={styles.archiveSelectBody}>
-                          <Text style={styles.archivedMeta}>
-                            {archiveRideWhenLabel(offer.ride?.pickup_at) ||
-                              t('Afgewezen / geannuleerd')}
-                          </Text>
-                          <Text style={styles.hint}>{archiveRideRouteLabel(offer.ride)}</Text>
-                        </View>
-                      </View>
-                    </Card>
-                  </Pressable>
-                );
-              })}
+              {declinedOffersFiltered.map((offer) =>
+                renderArchiveOfferRow(
+                  offer,
+                  `offer:${Number(offer.id)}`,
+                  t('Afgewezen / geannuleerd'),
+                  `declined-${offer.id}`
+                )
+              )}
             </>
           ) : null}
           {ownArchivedOverdueRidesFiltered.length > 0 ? (
@@ -4357,33 +4674,14 @@ export function DriverHomeScreen() {
           {archivedOffersFiltered.length > 0 ? (
             <>
               <Text style={styles.sectionLabel}>{t("Archief")}</Text>
-              {archivedOffersFiltered.map((offer) => {
-                const oid = Number(offer.id);
-                const key = `offer:${oid}`;
-                const selected = archiveSelectedKeys.has(key);
-                return (
-                  <Pressable
-                    key={`archived-${offer.id}`}
-                    onPress={() => toggleArchiveKey(key)}
-                    style={[styles.archiveSelectRow, selected && styles.archiveSelectRowOn]}
-                  >
-                    <Card>
-                      <View style={styles.archiveSelectInner}>
-                        {renderArchiveCheckbox(key)}
-                        <View style={styles.archiveSelectBody}>
-                          <Text style={styles.archivedMeta}>
-                            {archiveRideWhenLabel(offer.ride?.pickup_at) || t('Gearchiveerd')}
-                          </Text>
-                          <Text style={styles.hint}>{archiveRideRouteLabel(offer.ride)}</Text>
-                          {offer.ride?.customer_name ? (
-                            <Text style={styles.hint}>{offer.ride.customer_name}</Text>
-                          ) : null}
-                        </View>
-                      </View>
-                    </Card>
-                  </Pressable>
-                );
-              })}
+              {archivedOffersFiltered.map((offer) =>
+                renderArchiveOfferRow(
+                  offer,
+                  `offer:${Number(offer.id)}`,
+                  t('Gearchiveerd'),
+                  `archived-${offer.id}`
+                )
+              )}
             </>
           ) : null}
         </>
@@ -4392,7 +4690,8 @@ export function DriverHomeScreen() {
           <Text style={styles.hint}>{t("Geen gearchiveerde of afgewezen ritten.")}</Text>
         </Card>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 
   let body: React.ReactNode = tripsPanel;
@@ -4480,30 +4779,32 @@ export function DriverHomeScreen() {
         </View>
 
         <View style={styles.headerIcons}>
-          <Pressable
-            style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
-            onPress={() => {
-              void openNotifications();
-            }}
-            accessibilityLabel={
-              inboxUnreadCount > 0
-                ? t('Meldingen ({count})', { count: inboxUnreadCount })
-                : t('Meldingen')
-            }
-          >
-            {inboxUnreadCount > 0 ? (
-              <View style={styles.headerBadge}>
-                <Text style={styles.headerBadgeText}>
-                  {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
-                </Text>
-              </View>
-            ) : null}
-            <Ionicons
-              name="notifications-outline"
-              size={22}
-              color={notificationsOpen ? accentHex(accent) : colors.muted}
-            />
-          </Pressable>
+          {inboxUnreadCount > 0 || notificationsOpen ? (
+            <Pressable
+              style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
+              onPress={() => {
+                void openNotifications();
+              }}
+              accessibilityLabel={
+                inboxUnreadCount > 0
+                  ? t('Meldingen ({count})', { count: inboxUnreadCount })
+                  : t('Meldingen')
+              }
+            >
+              {inboxUnreadCount > 0 ? (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>
+                    {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
+                  </Text>
+                </View>
+              ) : null}
+              <Ionicons
+                name="notifications-outline"
+                size={22}
+                color={notificationsOpen ? accentHex(accent) : colors.muted}
+              />
+            </Pressable>
+          ) : null}
           <Pressable
             style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
             onPress={() => goToArchive(!showArchived)}
@@ -5337,6 +5638,28 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: colors.primary,
       fontSize: 13,
       fontWeight: '700',
+    },
+    archivePanel: {
+      flex: 1,
+      minHeight: 0,
+    },
+    archiveStickyHeader: {
+      paddingHorizontal: 20,
+      paddingTop: 4,
+      paddingBottom: 10,
+      backgroundColor: colors.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      zIndex: 2,
+    },
+    archiveListScroll: {
+      flex: 1,
+      minHeight: 0,
+    },
+    archiveListContent: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 32,
     },
     archiveBulkBar: {
       flexDirection: 'row',
