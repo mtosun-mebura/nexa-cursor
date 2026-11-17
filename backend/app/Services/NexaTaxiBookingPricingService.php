@@ -523,11 +523,10 @@ class NexaTaxiBookingPricingService
     {
         $normalized = $this->normalizePersonRange($range);
 
-        if ($normalized === '5-8') {
-            return asset('modules/nexa-taxi/vehicle-placeholder-van.png');
-        }
-
-        return asset('modules/nexa-taxi/vehicle-placeholder.png');
+        return app(VehicleDummyImageService::class)->publicUrlForType(
+            Vehicle::typeForPersonRange($normalized ?: '1-4'),
+            $normalized ?: '1-4'
+        );
     }
 
     private function higherPersonRange(string $a, string $b): string

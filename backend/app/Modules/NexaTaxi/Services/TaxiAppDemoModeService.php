@@ -38,7 +38,11 @@ class TaxiAppDemoModeService
         protected ModuleDatabaseService $moduleDb,
         protected NexaDemoAccountService $demoAccount,
         protected UserRoleAssignmentService $roles,
+        protected TaxiGpsRoadPathService $roads,
     ) {}
+
+    /** @var array<int, list<array{0: float, 1: float}>> */
+    private array $roadPaths = [];
 
     public function environmentAllowed(?string $host = null): bool
     {
@@ -305,7 +309,9 @@ class TaxiAppDemoModeService
             $this->roles->syncWebRoles($user, ['chauffeur']);
 
             $plate = sprintf('D-%02d-NEX', $i);
-            $vehicle = Vehicle::on($conn)->updateOrCreate(
+            // firstOrCreate: admin-wijzigingen (type, naam, tarieven, …) niet terugzetten
+            // bij elke nearby-poll / ensureFleet.
+            $vehicle = Vehicle::on($conn)->firstOrCreate(
                 [
                     'company_id' => $company->id,
                     'license_plate' => $plate,
@@ -324,11 +330,12 @@ class TaxiAppDemoModeService
             );
 
             $existing = DriverAvailability::on($conn)->where('driver_id', (int) $user->id)->first();
-            $pos = ($existing && $existing->lat !== null && $existing->lng !== null)
+            $hasPos = $existing && $existing->lat !== null && $existing->lng !== null;
+            $pos = $hasPos
                 ? [
                     'lat' => (float) $existing->lat,
                     'lng' => (float) $existing->lng,
-                    'heading' => 0.0,
+                    'heading' => null,
                 ]
                 : $this->spawnPoint($i, null, null);
             DriverAvailability::on($conn)->updateOrCreate(
@@ -343,11 +350,14 @@ class TaxiAppDemoModeService
                     'last_seen_at' => now(),
                 ]
             );
-            Cache::put(
-                'taxi-gps-heading:'.(int) $company->id.':'.(int) $user->id,
-                $pos['heading'],
-                now()->addMinutes(10)
-            );
+            // Heading alleen zetten bij spawn — niet elke nearby-poll naar 0 resetten.
+            if ($pos['heading'] !== null) {
+                Cache::put(
+                    'taxi-gps-heading:'.(int) $company->id.':'.(int) $user->id,
+                    $pos['heading'],
+                    now()->addMinutes(10)
+                );
+            }
         }
     }
 
@@ -446,29 +456,23 @@ class TaxiAppDemoModeService
      */
     private function spawnPoint(int $index, ?float $aroundLat, ?float $aroundLng): array
     {
-        $anchorLat = $aroundLat ?? 52.2215;
-        $anchorLng = $aroundLng ?? 6.8936;
-        $hubs = [
-            [52.2215, 6.8936], // Enschede
-            [52.2658, 6.7931], // Hengelo
-            [52.3570, 6.6626], // Almelo
-            [52.3134, 6.9292], // Oldenzaal
-            [52.3014, 6.7550], // Borne
-            [52.1567, 6.7389], // Haaksbergen
+        $drive = $this->driveForIndex($index, $aroundLat, $aroundLng);
+        $path = $this->pathFor($index, $drive['route']);
+        $point = $this->roads->pointAndHeading(
+            $path,
+            ($index * 320.0) + ($drive['speed_mps'] * 12.0)
+        );
+
+        return [
+            'lat' => $point[0],
+            'lng' => $point[1],
+            'heading' => fmod((float) $point[2] + 360.0, 360.0),
         ];
-
-        if ($index <= self::NEARBY_COUNT) {
-            return $this->offset($anchorLat, $anchorLng, 200 + $index * 180, ($index * 57) % 360);
-        }
-        if ($index <= self::NEARBY_COUNT + self::MID_COUNT) {
-            return $this->offset($anchorLat, $anchorLng, 1600 + ($index * 220), ($index * 41) % 360);
-        }
-        $hub = $hubs[($index - 1) % count($hubs)];
-
-        return $this->offset((float) $hub[0], (float) $hub[1], 300 + ($index * 70), ($index * 33) % 360);
     }
 
     /**
+     * Schuif langs weg-lussen tussen Twente-steden (of rond de klant voor nabije taxi’s).
+     *
      * @return array{lat: float, lng: float, heading: float}
      */
     private function stepPoint(
@@ -482,35 +486,125 @@ class TaxiAppDemoModeService
             return $this->spawnPoint($index, $aroundLat, $aroundLng);
         }
 
-        $heading = (float) (($index * 47 + (int) floor(microtime(true)) * 3) % 360);
-        // ~18 m/s * 2s tick ≈ 36 m per refresh
-        $meters = 28 + ($index % 5) * 6;
-        $next = $this->offset($fromLat, $fromLng, $meters, $heading);
+        $drive = $this->driveForIndex($index, $aroundLat, $aroundLng);
+        $path = $this->pathFor($index, $drive['route']);
+        // Tijd × snelheid: elke poll een stuk verder; index-offset spreidt de vloot.
+        $point = $this->roads->pointAndHeading(
+            $path,
+            (microtime(true) * $drive['speed_mps']) + ($index * 420.0)
+        );
 
-        // Houd nabije taxi’s in de buurt van de klant.
-        if ($index <= self::NEARBY_COUNT && $aroundLat !== null && $aroundLng !== null) {
-            $dist = GeoHelper::calculateDistance($aroundLat, $aroundLng, $next['lat'], $next['lng']);
-            if ($dist > 2.2) {
-                return $this->spawnPoint($index, $aroundLat, $aroundLng);
-            }
-        }
-
-        return $next;
+        return [
+            'lat' => $point[0],
+            'lng' => $point[1],
+            'heading' => fmod((float) $point[2] + 360.0, 360.0),
+        ];
     }
 
     /**
-     * @return array{lat: float, lng: float, heading: float}
+     * @return array{speed_mps: float, route: list<array{0: float, 1: float}>}
      */
-    private function offset(float $lat, float $lng, float $meters, float $bearingDeg): array
+    private function driveForIndex(int $index, ?float $aroundLat, ?float $aroundLng): array
     {
-        $rad = deg2rad($bearingDeg);
-        $dLat = ($meters * cos($rad)) / 111320.0;
-        $dLng = ($meters * sin($rad)) / (111320.0 * max(0.2, cos(deg2rad($lat))));
+        $anchorLat = $aroundLat ?? 52.2215;
+        $anchorLng = $aroundLng ?? 6.8936;
+        $hubs = self::twenteHubs();
+        $speed = 16.0 + ($index % 5);
+
+        if ($index <= self::NEARBY_COUNT) {
+            return [
+                'speed_mps' => $speed,
+                'route' => $this->localLoopAround($anchorLat, $anchorLng, $index),
+            ];
+        }
+
+        if ($index <= self::NEARBY_COUNT + self::MID_COUNT) {
+            // Mid: kortere stadsritten Enschede ↔ Hengelo / Borne.
+            $a = $hubs[$index % 3];
+            $b = $hubs[($index + 1) % 3];
+            $c = $hubs[($index + 2) % 4];
+
+            return [
+                'speed_mps' => $speed + 2.0,
+                'route' => [
+                    [(float) $a[0], (float) $a[1]],
+                    [(float) $b[0], (float) $b[1]],
+                    [(float) $c[0], (float) $c[1]],
+                    [$anchorLat, $anchorLng],
+                ],
+            ];
+        }
+
+        // Far: volle Twente-lus (Enschede → Hengelo → Almelo → …).
+        $shift = ($index - 1) % count($hubs);
+        $route = array_merge(array_slice($hubs, $shift), array_slice($hubs, 0, $shift));
 
         return [
-            'lat' => $lat + $dLat,
-            'lng' => $lng + $dLng,
-            'heading' => fmod($bearingDeg + 360.0, 360.0),
+            'speed_mps' => $speed + 4.0,
+            'route' => array_map(
+                static fn (array $hub): array => [(float) $hub[0], (float) $hub[1]],
+                $route
+            ),
         ];
+    }
+
+    /**
+     * @return list<array{0: float, 1: float}>
+     */
+    private function localLoopAround(float $lat, float $lng, int $index): array
+    {
+        // ~1.5–2.5 km doorsnede — zichtbaar op stadszoom, blijft bij de klant.
+        $scale = 0.012 + (($index % 3) * 0.003);
+        $pattern = [
+            [0.010, 0.002],
+            [0.006, 0.012],
+            [-0.004, 0.014],
+            [-0.012, 0.004],
+            [-0.006, -0.010],
+            [0.005, -0.012],
+        ];
+        $shift = $index % count($pattern);
+        $rotated = array_merge(array_slice($pattern, $shift), array_slice($pattern, 0, $shift));
+        $points = [];
+        foreach ($rotated as $off) {
+            $points[] = [$lat + ($off[0] * $scale / 0.012), $lng + ($off[1] * $scale / 0.012)];
+        }
+
+        return $points;
+    }
+
+    /**
+     * @return list<array{0: float, 1: float}>
+     */
+    private static function twenteHubs(): array
+    {
+        return [
+            [52.2215, 6.8936], // Enschede
+            [52.2658, 6.7931], // Hengelo
+            [52.3014, 6.7550], // Borne
+            [52.3570, 6.6626], // Almelo
+            [52.3134, 6.9292], // Oldenzaal
+            [52.1567, 6.7389], // Haaksbergen
+            [52.2150, 6.9700], // Glanerbrug
+            [52.2608, 7.0056], // Losser
+        ];
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $waypoints
+     * @return list<array{0: float, 1: float}>
+     */
+    private function pathFor(int $index, array $waypoints): array
+    {
+        $key = $index.'|'.md5((string) json_encode($waypoints));
+        if (! isset($this->roadPaths[$key])) {
+            $this->roadPaths[$key] = $this->roads->loopPoints(
+                $waypoints,
+                ! app()->runningUnitTests(),
+                8.0
+            );
+        }
+
+        return $this->roadPaths[$key];
     }
 }

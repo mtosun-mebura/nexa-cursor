@@ -401,6 +401,11 @@ window.initGpsTrackingMap = function () {
     var mapThemeUserOverride = false;
     var mapDark = false;
     var themeObs = null;
+    /** Demo: snellere poll + rAF langs wegroute (niet afhankelijk van refresh_seconds ≥ 10). */
+    var DEMO_POLL_MS = 1000;
+    var liveDemoActive = false;
+    var demoDrivers = {};
+    var demoPathCache = {};
 
     var GPS_MAP_DARK_STYLES = [
         { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
@@ -710,7 +715,162 @@ window.initGpsTrackingMap = function () {
         if (rot) rot.style.transform = 'rotate(' + heading + 'deg)';
     }
 
+    function activePollMs() {
+        return liveDemoActive ? DEMO_POLL_MS : cfg.pollMs;
+    }
+
+    function restartPositionPolling() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(loadPositions, activePollMs());
+    }
+
+    function decodeDemoPolyline(encoded) {
+        if (!encoded || typeof encoded !== 'string') return [];
+        if (demoPathCache[encoded]) return demoPathCache[encoded];
+        var index = 0;
+        var lat = 0;
+        var lng = 0;
+        var length = encoded.length;
+        var points = [];
+        while (index < length) {
+            var result = 0;
+            var shift = 0;
+            var b;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20 && index < length);
+            var dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+            lat += dlat;
+            result = 0;
+            shift = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20 && index < length);
+            var dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+            lng += dlng;
+            points.push([lat / 1e5, lng / 1e5]);
+        }
+        demoPathCache[encoded] = points;
+        return points;
+    }
+
+    function bearingDegreesDemo(lat1, lng1, lat2, lng2) {
+        var φ1 = lat1 * Math.PI / 180;
+        var φ2 = lat2 * Math.PI / 180;
+        var Δλ = (lng2 - lng1) * Math.PI / 180;
+        var y = Math.sin(Δλ) * Math.cos(φ2);
+        var x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    /** Zelfde idee als TaxiGpsRoadPathService::pointAndHeading — lus over densified weg-punten. */
+    function pointAlongDemoPath(path, distanceMeters) {
+        var count = path.length;
+        if (!count) return [52.2215, 6.8937, 0];
+        if (count === 1) return [path[0][0], path[0][1], 0];
+        var segments = [];
+        var total = 0;
+        for (var i = 0; i < count; i++) {
+            var from = path[i];
+            var to = path[(i + 1) % count];
+            var len = metersBetween(from[0], from[1], to[0], to[1]);
+            segments.push(len);
+            total += len;
+        }
+        if (total <= 0) return [path[0][0], path[0][1], 0];
+        var travel = distanceMeters % total;
+        if (travel < 0) travel += total;
+        for (var j = 0; j < count; j++) {
+            var segLen = segments[j];
+            if (travel <= segLen || j === count - 1) {
+                var t = segLen > 0 ? Math.min(1, travel / segLen) : 0;
+                var a = path[j];
+                var b = path[(j + 1) % count];
+                return [
+                    a[0] + (b[0] - a[0]) * t,
+                    a[1] + (b[1] - a[1]) * t,
+                    bearingDegreesDemo(a[0], a[1], b[0], b[1])
+                ];
+            }
+            travel -= segLen;
+        }
+        return [path[0][0], path[0][1], 0];
+    }
+
+    function stopDemoDriver(id) {
+        var driver = demoDrivers[id];
+        if (!driver) return;
+        if (driver.raf) cancelAnimationFrame(driver.raf);
+        delete demoDrivers[id];
+    }
+
+    function stopAllDemoDrivers() {
+        Object.keys(demoDrivers).forEach(stopDemoDriver);
+    }
+
+    function syncDemoDriver(item, marker) {
+        var encoded = item && item.demo_path ? String(item.demo_path) : '';
+        if (!encoded) return false;
+        var path = decodeDemoPolyline(encoded);
+        if (path.length < 2) return false;
+        var speed = Number(item.demo_speed_mps);
+        if (!isFinite(speed) || speed <= 0) speed = 14;
+        var serverDist = Number(item.demo_distance_m);
+        if (!isFinite(serverDist)) serverDist = 0;
+        var now = performance.now();
+        var existing = demoDrivers[item.id];
+        if (existing && existing.pathKey === encoded) {
+            var clientDist = existing.distance0 + existing.speed * ((now - existing.t0) / 1000);
+            if (Math.abs(clientDist - serverDist) > 45) {
+                existing.distance0 = serverDist;
+                existing.t0 = now;
+            }
+            existing.speed = speed;
+            return true;
+        }
+        stopDemoDriver(item.id);
+        if (animations[item.id]) {
+            cancelAnimationFrame(animations[item.id]);
+            delete animations[item.id];
+        }
+        var driver = {
+            path: path,
+            pathKey: encoded,
+            speed: speed,
+            distance0: serverDist,
+            t0: now,
+            raf: 0,
+            prevLat: null,
+            prevLng: null
+        };
+        function tick(ts) {
+            if (!markers[item.id] || !demoDrivers[item.id]) return;
+            var dist = driver.distance0 + driver.speed * ((ts - driver.t0) / 1000);
+            var pt = pointAlongDemoPath(driver.path, dist);
+            var m = markers[item.id];
+            var prevLat = driver.prevLat != null ? driver.prevLat : pt[0];
+            var prevLng = driver.prevLng != null ? driver.prevLng : pt[1];
+            m.setPosition({ lat: pt[0], lng: pt[1] });
+            applyMarkerHeading(m, pt[2]);
+            lastPos[item.id] = { lat: pt[0], lng: pt[1] };
+            if (followVehicleId && String(followVehicleId) === String(item.id)) {
+                nudgeFollowCamera(prevLat, prevLng, pt[0], pt[1]);
+            }
+            driver.prevLat = pt[0];
+            driver.prevLng = pt[1];
+            driver.raf = requestAnimationFrame(tick);
+        }
+        demoDrivers[item.id] = driver;
+        driver.raf = requestAnimationFrame(tick);
+        return true;
+    }
+
     function animateTo(key, marker, lat, lng, heading, fromHeading) {
+        if (demoDrivers[key]) return;
         if (animations[key]) cancelAnimationFrame(animations[key]);
         var start = markerLatLng(marker);
         var fromLat = start.lat();
@@ -727,7 +887,11 @@ window.initGpsTrackingMap = function () {
             if (following) nudgeFollowCamera(fromLat, fromLng, lat, lng);
             return;
         }
-        var duration = Math.max(280, Math.min(cfg.pollMs * 0.98, Math.max(dist * 22, cfg.pollMs * 0.85), 1400));
+        var pollGap = activePollMs();
+        // Demo: vul bijna de hele poll zodat er geen stilstand tussen updates is.
+        var duration = liveDemoActive
+            ? Math.max(400, Math.min(pollGap * 0.98, Math.max(dist * 18, pollGap * 0.9)))
+            : Math.max(280, Math.min(pollGap * 0.98, Math.max(dist * 22, pollGap * 0.85), 1400));
         var started = performance.now();
         var prevEase = 0;
         function step(now) {
@@ -758,10 +922,24 @@ window.initGpsTrackingMap = function () {
         var heading = !isNaN(serverHeading)
             ? serverHeading
             : (prev ? headingBetween(prev, pos) : 0);
-        lastPos[item.id] = pos;
+        var isDemoVehicle = !!(item.demo && item.demo_path);
+        if (!isDemoVehicle) {
+            lastPos[item.id] = pos;
+        }
         var content = window.NexaGpsMarker.markerNode(item, appearance, heading);
         var existing = markers[item.id];
         if (existing) {
+            if (isDemoVehicle) {
+                // Geen setContent elke poll — dat breekt vloeiende rAF-animatie.
+                if (!existing._demoBound) {
+                    existing.setContent(content);
+                    existing._demoBound = true;
+                }
+                syncDemoDriver(item, existing);
+                return;
+            }
+            stopDemoDriver(item.id);
+            existing._demoBound = false;
             var fromHeading = parseHeading(existing.div ? existing.div.querySelector('.nexa-gps-car-rot') : null);
             existing.setContent(content);
             animateTo(item.id, existing, pos.lat, pos.lng, heading, fromHeading);
@@ -771,11 +949,20 @@ window.initGpsTrackingMap = function () {
         var overlay = new Overlay(pos, content);
         overlay.setMap(map);
         markers[item.id] = overlay;
+        if (isDemoVehicle) {
+            overlay._demoBound = true;
+            syncDemoDriver(item, overlay);
+        }
     }
 
     function removeMissing(ids) {
         Object.keys(markers).forEach(function (id) {
             if (ids[id]) return;
+            stopDemoDriver(id);
+            if (animations[id]) {
+                cancelAnimationFrame(animations[id]);
+                delete animations[id];
+            }
             markers[id].setMap(null);
             delete markers[id];
             delete lastPos[id];
@@ -1167,6 +1354,14 @@ window.initGpsTrackingMap = function () {
             var items = Array.isArray(data.vehicles) ? data.vehicles : [];
             lastItems = items;
             if (data.view) setViewUi(data.view, !!data.offline_unlocked);
+            var demoOn = !!data.live_demo;
+            if (demoOn !== liveDemoActive) {
+                liveDemoActive = demoOn;
+                if (!liveDemoActive) stopAllDemoDrivers();
+                restartPositionPolling();
+                var demoSwitchEl = $('gps-live-demo');
+                if (demoSwitchEl) demoSwitchEl.checked = liveDemoActive;
+            }
             var keep = {};
             items.forEach(function (item) {
                 keep[item.id] = true;
@@ -1231,8 +1426,7 @@ window.initGpsTrackingMap = function () {
             if (followVehicleId && !followFleet) keepFollowedInView(false);
         });
         loadPositions();
-        if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(loadPositions, cfg.pollMs);
+        restartPositionPolling();
     }
 
     window.__nexaGpsBoot = bootMap;
@@ -1309,6 +1503,7 @@ window.initGpsTrackingMap = function () {
     });
     var demoSwitch = $('gps-live-demo');
     if (demoSwitch && cfg.canUseLiveDemo && cfg.demoUrl) {
+        liveDemoActive = !!demoSwitch.checked;
         demoSwitch.addEventListener('change', async function () {
             var enabled = !!demoSwitch.checked;
             demoSwitch.disabled = true;
@@ -1322,6 +1517,9 @@ window.initGpsTrackingMap = function () {
                 var data = await res.json();
                 if (!res.ok) throw new Error(data.message || T.demoFailed);
                 demoSwitch.checked = !!data.enabled;
+                liveDemoActive = !!data.enabled;
+                if (!liveDemoActive) stopAllDemoDrivers();
+                restartPositionPolling();
                 if (demoSwitch.checked) {
                     fittedOnce = false;
                     setFollowFleet(true, false);
@@ -1329,6 +1527,7 @@ window.initGpsTrackingMap = function () {
                 loadPositions();
             } catch (ex) {
                 demoSwitch.checked = !enabled;
+                liveDemoActive = !!demoSwitch.checked;
             }
             demoSwitch.disabled = false;
         });

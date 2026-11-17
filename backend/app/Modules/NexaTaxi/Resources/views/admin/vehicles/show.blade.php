@@ -18,7 +18,11 @@
             @if($vehicle->image_url)
                 <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($vehicle->image_url) }}" alt="{{ $vehicle->name }}" class="w-full max-w-sm max-h-48 object-contain rounded-lg border border-border bg-white">
             @else
-                <img src="{{ asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset($vehicle->person_range)) }}" alt="" width="384" height="192" class="w-full max-w-sm h-48 rounded-lg object-cover border border-border bg-muted">
+                @php
+                    $__dummyBg = \App\Modules\NexaTaxi\Models\Vehicle::placeholderBackgroundColor();
+                    $__dummyStyle = $__dummyBg ? 'background-color: '.$__dummyBg.';' : 'background-color: transparent;';
+                @endphp
+                <img src="{{ \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl($vehicle->type, $vehicle->person_range) }}" alt="" width="384" height="192" class="w-full max-w-sm h-48 rounded-lg object-contain border border-border" style="{{ $__dummyStyle }}">
             @endif
 
             <div class="text-lg leading-5 font-semibold text-mono text-center">

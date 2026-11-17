@@ -319,3 +319,36 @@ export function complainLive(
     body: { token, ...payload },
   });
 }
+
+export type RideChatMessageDto = {
+  id: string;
+  from: 'customer' | 'driver' | 'system';
+  body: string;
+  at: string;
+};
+
+export function fetchLiveChat(token: string) {
+  return apiRequest<{
+    success?: boolean;
+    data?: { allowed?: boolean; messages?: RideChatMessageDto[] };
+  }>(`/api/taxi/v1/customer/live/chat?token=${encodeURIComponent(token)}`);
+}
+
+export function sendLiveChat(
+  token: string,
+  body: string,
+  clientMessageId?: string
+) {
+  return apiRequest<{
+    success?: boolean;
+    data?: { allowed?: boolean; messages?: RideChatMessageDto[] };
+    message?: string;
+  }>('/api/taxi/v1/customer/live/chat', {
+    method: 'POST',
+    body: {
+      token,
+      body,
+      client_message_id: clientMessageId || undefined,
+    },
+  });
+}

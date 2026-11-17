@@ -23,6 +23,9 @@ class TaxiGpsLiveMapDemoServiceTest extends TestCase
         $this->assertArrayHasKey('heading', $vehicles[0]);
         $this->assertGreaterThanOrEqual(0, $vehicles[0]['heading']);
         $this->assertLessThan(360, $vehicles[0]['heading']);
+        $this->assertNotEmpty($vehicles[0]['demo_path']);
+        $this->assertGreaterThan(0, $vehicles[0]['demo_speed_mps']);
+        $this->assertArrayHasKey('demo_distance_m', $vehicles[0]);
     }
 
     #[Test]
@@ -75,10 +78,26 @@ class TaxiGpsLiveMapDemoServiceTest extends TestCase
         $this->assertSame(['G-123-AB', 'H-456-CD', 'K-789-EF'], array_column($vehicles, 'license_plate'));
         $this->assertTrue($vehicles[0]['demo']);
         $this->assertNotEquals($vehicles[0]['lat'], $vehicles[1]['lat']);
+        // Twente-demo rijdt tussen steden (Enschede–Hengelo–Almelo–…).
         foreach ($vehicles as $vehicle) {
-            $this->assertTrue($vehicle['lat'] > 52.20 && $vehicle['lat'] < 52.24);
-            $this->assertTrue($vehicle['lng'] > 6.88 && $vehicle['lng'] < 6.91);
+            $this->assertTrue($vehicle['lat'] > 52.10 && $vehicle['lat'] < 52.42);
+            $this->assertTrue($vehicle['lng'] > 6.55 && $vehicle['lng'] < 7.10);
         }
+    }
+
+    #[Test]
+    public function enschede_demo_moves_along_twente_city_loop(): void
+    {
+        $service = app(TaxiGpsLiveMapDemoService::class);
+        $base = ['id' => 'vehicle-1', 'license_plate' => 'T-001-XX'];
+        $first = $service->apply([$base], 52.2215, 6.8937, 100.0);
+        $later = $service->apply([$base], 52.2215, 6.8937, 160.0);
+
+        $this->assertNotEquals($first[0]['lat'], $later[0]['lat']);
+        $this->assertNotEquals($first[0]['lng'], $later[0]['lng']);
+        $movedMeters = abs($later[0]['lat'] - $first[0]['lat']) * 111320
+            + abs($later[0]['lng'] - $first[0]['lng']) * 111320 * 0.6;
+        $this->assertGreaterThan(200.0, $movedMeters);
     }
 
     #[Test]

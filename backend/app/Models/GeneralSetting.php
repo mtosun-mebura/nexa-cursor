@@ -80,6 +80,10 @@ class GeneralSetting extends Model
         'nexa_pricing',
         'frontend_component_disabled_overrides',
         'incident_notification_email',
+        // Dummy voertuig-placeholders (Algemene configuraties)
+        'vehicle_dummy_background_color',
+        'vehicle_dummy_selected',
+        'vehicle_dummy_custom_images',
     ];
 
     /** Tenant-mailserver; leeg = NEXA Suite-mailserver (`company_id` null) of `.env`. */

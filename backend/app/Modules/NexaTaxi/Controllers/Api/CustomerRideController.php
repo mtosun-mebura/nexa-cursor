@@ -7,6 +7,7 @@ use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\CustomerMarketplaceBookingService;
 use App\Modules\NexaTaxi\Services\CustomerRideLiveStatusService;
 use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
+use App\Modules\NexaTaxi\Services\RideChatService;
 use App\Modules\NexaTaxi\Services\TaxiCustomerRideCancelledMailer;
 use App\Modules\NexaTaxi\Services\TaxiPortalDataService;
 use App\Modules\NexaTaxi\Services\TaxiRideCancellationService;
@@ -585,6 +586,67 @@ class CustomerRideController extends Controller
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function chatByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        RideChatService $chat,
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'allowed' => $chat->communicationAllowed($ride),
+                'messages' => $chat->messages($ride),
+            ],
+        ]);
+    }
+
+    public function sendChatByToken(
+        Request $request,
+        CustomerRideLiveStatusService $live,
+        RideChatService $chat,
+    ): JsonResponse {
+        $data = $request->validate([
+            'token' => 'required|string|min:24|max:64',
+            'body' => 'required|string|min:1|max:2000',
+            'client_message_id' => 'nullable|uuid',
+        ]);
+
+        $ride = $live->findByTrackToken($data['token']);
+        if (! $ride) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        if (! $chat->communicationAllowed($ride)) {
+            return response()->json([
+                'message' => 'Chat is alleen beschikbaar terwijl een chauffeur aan je rit is gekoppeld.',
+            ], 409);
+        }
+
+        $messages = $chat->append(
+            $ride,
+            'customer',
+            (string) $data['body'],
+            isset($data['client_message_id']) ? (string) $data['client_message_id'] : null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'allowed' => true,
+                'messages' => $messages,
+            ],
         ]);
     }
 }

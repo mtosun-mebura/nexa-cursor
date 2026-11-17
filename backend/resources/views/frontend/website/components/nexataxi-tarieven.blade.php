@@ -137,9 +137,10 @@
                                     $imageUrl = $fallbackVehicleImages->get($itemIndex % $fallbackVehicleImages->count());
                                 }
                                 if (!$imageUrl) {
-                                    $imageUrl = $rateType === '5-8'
-                                        ? asset('modules/nexa-taxi/vehicle-placeholder-van.png')
-                                        : asset('modules/nexa-taxi/vehicle-placeholder.png');
+                                    $imageUrl = \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(
+                                        \App\Modules\NexaTaxi\Models\Vehicle::typeForPersonRange((string) $rateType),
+                                        (string) $rateType
+                                    );
                                 }
                             }
                             $cardSize = isset($item['card_size']) ? (string)$item['card_size'] : 'normal';
@@ -432,8 +433,8 @@
         @else
             @php
                 $formatPrice = fn ($v, $suffix = '') => ($v !== null && $v !== '' && is_numeric($v)) ? ('€ ' . number_format((float) $v, 2, ',', '.') . $suffix) : null;
-                $imgCar = $fallbackVehicleImages->get(0) ?? asset('modules/nexa-taxi/vehicle-placeholder.png');
-                $imgVan = $fallbackVehicleImages->get(1) ?? asset('modules/nexa-taxi/vehicle-placeholder-van.png');
+                $imgCar = $fallbackVehicleImages->get(0) ?? \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_CAR);
+                $imgVan = $fallbackVehicleImages->get(1) ?? \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_VAN);
             @endphp
             @include('frontend.website.partials.nexataxi-pricing-cards', [
                 'rates_1_4' => $ratesData['rates_1_4'],

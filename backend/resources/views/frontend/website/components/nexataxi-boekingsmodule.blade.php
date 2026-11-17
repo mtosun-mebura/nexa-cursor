@@ -3765,8 +3765,10 @@ section#boek-rit[data-nexataxi-booking-module],
     var submitUrl = @json(route('nexataxi.booking.submit'));
     var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
-    var bookingVehiclePlaceholderUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder.png'));
-    var bookingVehiclePlaceholderVanUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder-van.png'));
+    var bookingVehiclePlaceholderUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_CAR));
+    var bookingVehiclePlaceholderVanUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_VAN));
+    var bookingVehiclePlaceholderBusUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_BUS));
+    var bookingVehicleDummyBg = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderBackgroundColor());
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var bookingReturnUrl = @json($bookingReturnUrl !== '' ? $bookingReturnUrl : null);
@@ -6891,9 +6893,14 @@ section#boek-rit[data-nexataxi-booking-module],
     }
 
     function placeholderUrlForPersonRange(range) {
-        return String(range || '') === '5-8'
-            ? String(bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim()
-            : String(bookingVehiclePlaceholderUrl || '').trim();
+        var r = String(range || '').trim();
+        if (r === '5-8') {
+            return String(bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim();
+        }
+        if (r === '9+') {
+            return String(bookingVehiclePlaceholderBusUrl || bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim();
+        }
+        return String(bookingVehiclePlaceholderUrl || '').trim();
     }
 
     function isBookingVehiclePlaceholderUrl(url) {
@@ -6902,16 +6909,26 @@ section#boek-rit[data-nexataxi-booking-module],
         var placeholders = [
             String(bookingVehiclePlaceholderUrl || '').trim(),
             String(bookingVehiclePlaceholderVanUrl || '').trim(),
+            String(bookingVehiclePlaceholderBusUrl || '').trim(),
         ].filter(Boolean);
         if (placeholders.some(function(p) { return src === p || src.indexOf(p) === 0; })) {
             return true;
         }
-        return /\/modules\/nexa-taxi\/vehicle-placeholder(?:-van)?\.png(?:\?|$)/i.test(src);
+        return /\/modules\/nexa-taxi\/vehicle-dummy-[a-z0-9-]+\.png(?:\?|$)/i.test(src)
+            || /\/modules\/nexa-taxi\/vehicle-placeholder(?:-van)?\.png(?:\?|$)/i.test(src)
+            || /\/(?:storage|file)\/settings\/vehicle-dummies\//i.test(src);
     }
 
     function setBookingVehiclePlaceholderBadge(wrapEl, badgeEl, imageUrl, isPlaceholder) {
         if (wrapEl) {
             wrapEl.classList.toggle('is-placeholder', !!isPlaceholder);
+            if (isPlaceholder && bookingVehicleDummyBg) {
+                wrapEl.style.backgroundColor = bookingVehicleDummyBg;
+            } else if (isPlaceholder) {
+                wrapEl.style.backgroundColor = 'transparent';
+            } else {
+                wrapEl.style.backgroundColor = '';
+            }
         }
         if (!badgeEl) return;
         if (isPlaceholder && imageUrl) {

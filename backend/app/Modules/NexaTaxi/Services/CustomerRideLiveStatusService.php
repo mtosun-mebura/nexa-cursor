@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Helpers\GeoHelper;
 use App\Models\Company;
 use App\Models\Invoice;
+use App\Models\InvoiceSetting;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideGpsPoint;
@@ -330,7 +331,11 @@ class CustomerRideLiveStatusService
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => (string) $company->name,
-                'phone' => (string) ($company->phone ?? ''),
+                // Factuurinstelling eerst: company.phone is vaak leeg → Bel-knop deed niets.
+                'phone' => (string) (
+                    InvoiceSetting::getSettingsForCompany($companyId)->company_phone
+                    ?: ($company->phone ?? '')
+                ),
             ] : null,
             'vehicle' => $vehicle ? [
                 'id' => (int) $vehicle->id,
@@ -598,12 +603,28 @@ class CustomerRideLiveStatusService
     private function vehiclePhotoUrl(string $conn, Vehicle $vehicle): ?string
     {
         TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
-        if (! Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
-            return null;
+        if (Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
+            $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+            $driverPhoto = app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+            if (is_string($driverPhoto) && $driverPhoto !== '') {
+                return $driverPhoto;
+            }
         }
 
-        $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+        $imageUrl = trim((string) ($vehicle->image_url ?? ''));
+        if ($imageUrl !== '') {
+            try {
+                $display = app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrl);
 
-        return app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+                return is_string($display) && $display !== '' ? $display : $imageUrl;
+            } catch (\Throwable) {
+                return $imageUrl;
+            }
+        }
+
+        return app(\App\Services\VehicleDummyImageService::class)->publicUrlForType(
+            is_string($vehicle->type ?? null) ? $vehicle->type : null,
+            is_string($vehicle->person_range ?? null) ? $vehicle->person_range : null
+        );
     }
 }

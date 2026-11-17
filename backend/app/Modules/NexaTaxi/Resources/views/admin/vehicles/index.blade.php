@@ -107,7 +107,7 @@
                     <table class="kt-table table-auto kt-table-border">
                         <thead>
                             <tr>
-                                <th class="w-[250px]">{{ __('Foto') }}</th>
+                                <th class="w-[200px]">{{ __('Foto') }}</th>
                                 <th class="min-w-[150px]">{{ __('Naam') }}</th>
                                 <th class="min-w-[100px]">{{ __('Type') }}</th>
                                 <th class="min-w-[120px]">{{ __('Kenteken') }}</th>
@@ -118,11 +118,15 @@
                         <tbody>
                             @foreach($vehicles as $v)
                             <tr class="vehicle-row vehicle-row--clickable" data-vehicle-id="{{ $v->id }}" data-href="{{ route('admin.taxi.vehicles.show', $v) }}">
-                                <td class="w-[300px] text-center align-middle">
+                                <td class="w-[200px] text-center align-middle">
                                     @if($v->image_url)
-                                        <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($v->image_url) }}" alt="" class="w-[220px] h-[120px] rounded-xl object-contain mx-auto block">
+                                        <img src="{{ app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($v->image_url) }}" alt="" class="w-[160px] h-[90px] rounded-xl object-contain mx-auto block">
                                     @else
-                                        <img src="{{ asset(\App\Modules\NexaTaxi\Models\Vehicle::placeholderAsset($v->person_range)) }}" alt="" width="220" height="120" class="w-[220px] h-[120px] rounded-xl object-cover mx-auto block border border-input bg-muted">
+                                        @php
+                                            $__dummyBg = \App\Modules\NexaTaxi\Models\Vehicle::placeholderBackgroundColor();
+                                            $__dummyStyle = $__dummyBg ? 'background-color: '.$__dummyBg.';' : 'background-color: transparent;';
+                                        @endphp
+                                        <img src="{{ \App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl($v->type, $v->person_range) }}" alt="" width="160" height="90" class="w-[160px] h-[90px] rounded-xl object-contain mx-auto block border border-input" style="{{ $__dummyStyle }}">
                                     @endif
                                 </td>
                                 <td class="text-sm font-medium text-mono">{{ $v->name }}</td>

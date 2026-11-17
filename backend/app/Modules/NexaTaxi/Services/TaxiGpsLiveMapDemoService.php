@@ -73,7 +73,10 @@ class TaxiGpsLiveMapDemoService
         }
 
         for ($i = 0; $i < $n; $i++) {
-            $this->pathFor($this->loopWaypointsAround($centerLat, $centerLng, $i));
+            $route = $this->isTwenteCenter($centerLat, $centerLng)
+                ? $this->twenteCityLoop($i)
+                : $this->loopWaypointsAround($centerLat, $centerLng, $i);
+            $this->pathFor($route);
         }
     }
 
@@ -106,16 +109,49 @@ class TaxiGpsLiveMapDemoService
     private function driveVehicle(array $vehicle, int $index, float $centerLat, float $centerLng, float $now): array
     {
         $drive = $this->driveFor($vehicle, $index, $centerLat, $centerLng);
-        $path = $this->pathFor($drive['route']);
-        $point = $this->roads->pointAndHeading($path, ($now * $drive['speed_mps']) + ($index * 220));
+        $path = $this->thinPathForClient($this->pathFor($drive['route']), 28.0);
+        $distance = ($now * $drive['speed_mps']) + ($index * 220);
+        $point = $this->roads->pointAndHeading($path, $distance);
         $vehicle['lat'] = round($point[0], 6);
         $vehicle['lng'] = round($point[1], 6);
         $vehicle['heading'] = round($point[2], 1);
         $vehicle['demo'] = true;
+        // Zelfde polyline voor server-positie én client-rAF (OSRM/Google-weggeometrie).
+        $vehicle['demo_path'] = $this->roads->encodePolyline($path);
+        $vehicle['demo_speed_mps'] = round((float) $drive['speed_mps'], 2);
+        $vehicle['demo_distance_m'] = round($distance, 1);
         $vehicle['location_updated_at'] = now()->toIso8601String();
         $vehicle['last_seen_at'] = now()->toIso8601String();
 
         return $vehicle;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $path
+     * @return list<array{0: float, 1: float}>
+     */
+    private function thinPathForClient(array $path, float $minMeters = 28.0): array
+    {
+        $count = count($path);
+        if ($count <= 2) {
+            return $path;
+        }
+        $out = [$path[0]];
+        $prev = $path[0];
+        for ($i = 1; $i < $count - 1; $i++) {
+            $point = $path[$i];
+            if (GeoHelper::calculateDistance($prev[0], $prev[1], $point[0], $point[1]) * 1000 < $minMeters) {
+                continue;
+            }
+            $out[] = $point;
+            $prev = $point;
+        }
+        $last = $path[$count - 1];
+        if ($out[count($out) - 1] !== $last) {
+            $out[] = $last;
+        }
+
+        return $out;
     }
 
     /**
@@ -158,8 +194,15 @@ class TaxiGpsLiveMapDemoService
             ];
         }
 
+        if ($this->isTwenteCenter($centerLat, $centerLng)) {
+            return [
+                'speed_mps' => 18.0 + ($index % 5),
+                'route' => $this->twenteCityLoop($index),
+            ];
+        }
+
         return [
-            'speed_mps' => 11.0 + ($index % 4),
+            'speed_mps' => 14.0 + ($index % 4),
             'route' => $this->loopWaypointsAround($centerLat, $centerLng, $index),
         ];
     }
@@ -175,7 +218,7 @@ class TaxiGpsLiveMapDemoService
             $this->pathCache[$key] = $this->roads->loopPoints(
                 $waypoints,
                 ! app()->runningUnitTests(),
-                5.0
+                8.0
             );
         }
 
@@ -183,46 +226,48 @@ class TaxiGpsLiveMapDemoService
     }
 
     /**
+     * Grotere stadsritten (~2–4 km) zodat beweging op de live-kaart zichtbaar is.
+     *
      * @return list<array{0: float, 1: float}>
      */
     private function loopWaypointsAround(float $lat, float $lng, int $index): array
     {
         $patterns = [
             [
-                [0.0036, 0.0008],
-                [0.0020, 0.0046],
-                [-0.0014, 0.0050],
-                [-0.0038, 0.0014],
-                [-0.0022, -0.0036],
-                [0.0016, -0.0044],
+                [0.018, 0.004],
+                [0.010, 0.022],
+                [-0.008, 0.024],
+                [-0.020, 0.006],
+                [-0.012, -0.018],
+                [0.008, -0.020],
             ],
             [
-                [0.0014, 0.0054],
-                [-0.0020, 0.0040],
-                [-0.0044, 0.0004],
-                [-0.0016, -0.0042],
-                [0.0026, -0.0030],
-                [0.0042, 0.0016],
+                [0.008, 0.026],
+                [-0.012, 0.018],
+                [-0.022, 0.002],
+                [-0.008, -0.020],
+                [0.014, -0.014],
+                [0.020, 0.008],
             ],
             [
-                [0.0048, -0.0010],
-                [0.0032, 0.0034],
-                [-0.0008, 0.0046],
-                [-0.0042, 0.0018],
-                [-0.0028, -0.0034],
-                [0.0010, -0.0048],
+                [0.024, -0.006],
+                [0.016, 0.016],
+                [-0.004, 0.022],
+                [-0.020, 0.010],
+                [-0.014, -0.016],
+                [0.006, -0.022],
             ],
             [
-                [0.0024, -0.0048],
-                [0.0044, -0.0016],
-                [0.0030, 0.0030],
-                [-0.0012, 0.0044],
-                [-0.0040, 0.0008],
-                [-0.0020, -0.0038],
+                [0.012, -0.022],
+                [0.022, -0.008],
+                [0.014, 0.014],
+                [-0.006, 0.020],
+                [-0.020, 0.004],
+                [-0.010, -0.018],
             ],
         ];
         $pattern = $patterns[$index % count($patterns)];
-        $scale = 1 + (intdiv($index, count($patterns)) * 0.22);
+        $scale = 1 + (intdiv($index, count($patterns)) * 0.28);
         $shift = $index % count($pattern);
         $rotated = array_merge(array_slice($pattern, $shift), array_slice($pattern, 0, $shift));
         $points = [];
@@ -233,8 +278,39 @@ class TaxiGpsLiveMapDemoService
         return $points;
     }
 
+    /**
+     * Lus langs Twente-steden (Enschede, Hengelo, Almelo, …).
+     *
+     * @return list<array{0: float, 1: float}>
+     */
+    private function twenteCityLoop(int $index): array
+    {
+        $hubs = [
+            [52.2215, 6.8936], // Enschede
+            [52.2658, 6.7931], // Hengelo
+            [52.3014, 6.7550], // Borne
+            [52.3570, 6.6626], // Almelo
+            [52.3134, 6.9292], // Oldenzaal
+            [52.1567, 6.7389], // Haaksbergen
+        ];
+        $shift = $index % count($hubs);
+        $rotated = array_merge(array_slice($hubs, $shift), array_slice($hubs, 0, $shift));
+        // Neem 4 hubs per voertuig zodat de rit over meerdere steden gaat.
+        $take = array_slice($rotated, 0, 4);
+
+        return array_map(
+            static fn (array $hub): array => [(float) $hub[0], (float) $hub[1]],
+            $take
+        );
+    }
+
     private function isAmsterdamCenter(float $lat, float $lng): bool
     {
         return abs($lat - 52.3728) < 0.08 && abs($lng - 4.8936) < 0.12;
+    }
+
+    private function isTwenteCenter(float $lat, float $lng): bool
+    {
+        return $lat > 52.10 && $lat < 52.42 && $lng > 6.55 && $lng < 7.10;
     }
 }
