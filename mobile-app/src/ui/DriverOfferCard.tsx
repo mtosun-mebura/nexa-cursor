@@ -20,6 +20,51 @@ import { useThemeColors } from '../theme/ThemeContext';
 
 const OVERDUE_RED = '#EF4444';
 const GREEN = '#22C55E';
+const STOP_BLUE = '#3DB4FF';
+const DROP_ORANGE = '#FF8900';
+
+/** HD blauwe stop-ring (ophalen). */
+function BlueStopIcon({ size = 16 }: { size?: number }) {
+  const ring = Math.max(2.5, size * 0.2);
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: ring,
+        borderColor: STOP_BLUE,
+        backgroundColor: 'transparent',
+        shadowColor: STOP_BLUE,
+        shadowOpacity: 0.85,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 0 },
+      }}
+      accessibilityElementsHidden
+    />
+  );
+}
+
+/** HD oranje druppel/pin (afzetten). */
+function OrangeDropIcon({ size = 18 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: DROP_ORANGE,
+        shadowOpacity: 0.9,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 0 },
+      }}
+      accessibilityElementsHidden
+    >
+      <Ionicons name="location" size={size} color={DROP_ORANGE} />
+    </View>
+  );
+}
 
 /** Flikkerende stip vóór “Ophaalmoment verlopen” (alleen eigen klant). */
 function OverdueFlickerDot() {
@@ -152,6 +197,7 @@ type OfferModeProps = {
   onStart?: never;
   onComplete?: never;
   onOpenMaps?: never;
+  onChat?: never;
   onCancel?: never;
   onArchive?: never;
   onProposePickup?: never;
@@ -174,6 +220,7 @@ type TripModeProps = {
   onStart?: () => void;
   onComplete?: () => void;
   onOpenMaps?: () => void;
+  onChat?: () => void;
   onCancel?: () => void;
   onArchive?: () => void;
   archived?: boolean;
@@ -412,6 +459,16 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   // Afgeronde ritten: archiefknop hieronder. Verlopen/teruggezet: in overdue-actieblok.
   const canArchive = isCompletedTrip && !!props.onArchive;
   const canOpenMaps = !!props.onOpenMaps && !isCompletedTrip && !freezeTripActions;
+  const canChat =
+    isTrip &&
+    !freezeTripActions &&
+    !isCompletedTrip &&
+    !!props.onChat &&
+    (ride?.status === 'accepted' ||
+      ride?.status === 'assigned' ||
+      tripVariant === 'active' ||
+      tripVariant === 'scheduled' ||
+      tripVariant === 'overdue');
   const fee = ride?.fee_breakdown;
   const showFee =
     !!fee &&
@@ -536,29 +593,96 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
               {formatPickupLabel(ride.pickup_at)}
             </Text>
           ) : null}
-          {!expanded && (pickupCompact || dropoffCompact) ? (
+          {!expanded && (pickupCompact || dropoffCompact || pickupPlace || dropoffPlace) ? (
             <View style={styles.collapsedRoute}>
-              {pickupCompact ? (
-                <Text
-                  style={[
-                    styles.collapsedRouteLine,
-                    isCancelledOffer && styles.cancelledMutedText,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {pickupCompact}
-                </Text>
+              {pickupCompact || pickupPlace ? (
+                <View style={styles.collapsedStopRow}>
+                  <View style={styles.collapsedIconCol}>
+                    <BlueStopIcon size={15} />
+                    {dropoffCompact || dropoffPlace ? (
+                      <View style={styles.collapsedRail} />
+                    ) : null}
+                  </View>
+                  <View style={styles.collapsedStopText}>
+                    {pickupPlace ? (
+                      <>
+                        <Text
+                          style={[
+                            styles.collapsedPlace,
+                            isCancelledOffer && styles.cancelledMutedText,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {pickupPlace}
+                        </Text>
+                        {pickupCompact ? (
+                          <Text
+                            style={[
+                              styles.collapsedAddr,
+                              isCancelledOffer && styles.cancelledMutedText,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {pickupCompact}
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.collapsedPlace,
+                          isCancelledOffer && styles.cancelledMutedText,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {pickupCompact}
+                      </Text>
+                    )}
+                  </View>
+                </View>
               ) : null}
-              {dropoffCompact ? (
-                <Text
-                  style={[
-                    styles.collapsedRouteLine,
-                    isCancelledOffer && styles.cancelledMutedText,
-                  ]}
-                  numberOfLines={1}
-                >
-                  →  {dropoffCompact}
-                </Text>
+              {dropoffCompact || dropoffPlace ? (
+                <View style={styles.collapsedStopRow}>
+                  <View style={styles.collapsedIconCol}>
+                    <OrangeDropIcon size={17} />
+                  </View>
+                  <View style={styles.collapsedStopText}>
+                    {dropoffPlace ? (
+                      <>
+                        <Text
+                          style={[
+                            styles.collapsedPlace,
+                            isCancelledOffer && styles.cancelledMutedText,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {dropoffPlace}
+                        </Text>
+                        {dropoffCompact ? (
+                          <Text
+                            style={[
+                              styles.collapsedAddr,
+                              isCancelledOffer && styles.cancelledMutedText,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {dropoffCompact}
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.collapsedPlace,
+                          isCancelledOffer && styles.cancelledMutedText,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {dropoffCompact}
+                      </Text>
+                    )}
+                  </View>
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -610,27 +734,31 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             <View style={styles.routeRail} />
             <View style={[styles.routeStop, styles.routeStopFirst]}>
               <View style={styles.routeHead}>
-                <View style={[styles.dotOuter, styles.dotOuterPickup]}>
-                  <View style={[styles.dot, styles.dotPickup]} />
+                <View style={styles.dotOuter}>
+                  <BlueStopIcon size={18} />
                 </View>
                 <Text style={styles.routeLabel}>{t("Ophalen")}</Text>
               </View>
               <View style={styles.routeAddress}>
                 {pickupPlace ? <Text style={styles.routePlace}>{pickupPlace}</Text> : null}
-                <Text style={styles.routeMain}>{pickup.main}</Text>
+                <Text style={pickupPlace ? styles.routeMainMuted : styles.routeMain}>
+                  {pickup.main}
+                </Text>
                 {pickup.sub ? <Text style={styles.routeSub}>{pickup.sub}</Text> : null}
               </View>
             </View>
             <View style={[styles.routeStop, styles.routeStopLast]}>
               <View style={styles.routeHead}>
-                <View style={[styles.dotOuter, styles.dotOuterDropoff]}>
-                  <View style={[styles.dot, styles.dotDropoff]} />
+                <View style={styles.dotOuter}>
+                  <OrangeDropIcon size={20} />
                 </View>
                 <Text style={styles.routeLabel}>{t("Afzetten")}</Text>
               </View>
               <View style={styles.routeAddress}>
                 {dropoffPlace ? <Text style={styles.routePlace}>{dropoffPlace}</Text> : null}
-                <Text style={styles.routeMain}>{dropoff.main}</Text>
+                <Text style={dropoffPlace ? styles.routeMainMuted : styles.routeMain}>
+                  {dropoff.main}
+                </Text>
                 {dropoff.sub ? <Text style={styles.routeSub}>{dropoff.sub}</Text> : null}
               </View>
             </View>
@@ -845,6 +973,20 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
                   <Text style={styles.btnGhostText}>
                     {tripVariant === 'active' ? t("Afzetten") : t("Ophalen")}
                   </Text>
+                </View>
+              </Pressable>
+            ) : null}
+            {canChat ? (
+              <Pressable
+                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+                disabled={busy}
+                onPress={props.onChat}
+                accessibilityRole="button"
+                accessibilityLabel={t('Chat')}
+              >
+                <View style={styles.btnInner}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
+                  <Text style={styles.btnGhostText}>{t('Chat')}</Text>
                 </View>
               </Pressable>
             ) : null}
@@ -1193,8 +1335,46 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       marginTop: 2,
     },
     collapsedRoute: {
-      marginTop: 4,
-      gap: 2,
+      marginTop: 6,
+      gap: 4,
+    },
+    collapsedStopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      minWidth: 0,
+    },
+    collapsedIconCol: {
+      width: 18,
+      alignItems: 'center',
+      paddingTop: 2,
+      minHeight: 18,
+    },
+    collapsedRail: {
+      width: 2,
+      height: 12,
+      marginTop: 3,
+      marginBottom: -6,
+      borderRadius: 1,
+      backgroundColor: 'rgba(142, 187, 255, 0.4)',
+    },
+    collapsedStopText: {
+      flex: 1,
+      minWidth: 0,
+      gap: 1,
+    },
+    collapsedPlace: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      lineHeight: 17,
+      letterSpacing: -0.15,
+    },
+    collapsedAddr: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 15,
+      fontWeight: '500',
     },
     collapsedRouteLine: {
       color: colors.muted,
@@ -1259,15 +1439,14 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     routeRail: {
       position: 'absolute',
       left: 9,
-      top: 20,
-      bottom: 0,
-      width: 0,
-      borderLeftWidth: 2,
-      borderStyle: 'dashed',
-      borderColor: hexAlpha(accentHex, 0.45),
+      top: 22,
+      bottom: 8,
+      width: 2,
+      borderRadius: 1,
+      backgroundColor: 'rgba(142, 187, 255, 0.4)',
     },
     routeStop: {
-      paddingBottom: 16,
+      paddingBottom: 14,
     },
     routeStopFirst: {},
     routeStopLast: {
@@ -1286,23 +1465,7 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1,
-    },
-    dotOuterPickup: {
-      backgroundColor: 'rgba(34,197,94,0.18)',
-    },
-    dotOuterDropoff: {
-      backgroundColor: hexAlpha(accentHex, 0.18),
-    },
-    dot: {
-      width: 10,
-      height: 10,
-      borderRadius: 999,
-    },
-    dotPickup: {
-      backgroundColor: GREEN,
-    },
-    dotDropoff: {
-      backgroundColor: accentHex,
+      backgroundColor: colors.card,
     },
     routeLabel: {
       color: colors.muted,
@@ -1317,22 +1480,28 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       color: colors.text,
       fontSize: 16,
       fontWeight: '800',
-      lineHeight: 21,
+      lineHeight: 20,
       letterSpacing: -0.2,
-      marginBottom: 2,
+      marginBottom: 1,
     },
     routeMain: {
       color: colors.text,
       fontSize: 16,
       fontWeight: '800',
-      lineHeight: 21,
+      lineHeight: 20,
       letterSpacing: -0.2,
+    },
+    routeMainMuted: {
+      color: colors.muted,
+      fontSize: 14,
+      fontWeight: '600',
+      lineHeight: 18,
     },
     routeSub: {
       color: colors.muted,
       fontSize: 12,
-      marginTop: 2,
-      lineHeight: 16,
+      marginTop: 1,
+      lineHeight: 15,
     },
     contactCard: {
       flexDirection: 'row',

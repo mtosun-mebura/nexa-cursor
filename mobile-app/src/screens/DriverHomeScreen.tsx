@@ -60,6 +60,9 @@ import {
   markRideEnRoute,
   startRide,
   completeRide,
+  fetchDriverRideChat,
+  sendDriverRideChat,
+  type DriverRideChatMessage,
   fetchRideInvoice,
   isContractRide,
   isRidePaid,
@@ -148,6 +151,10 @@ import { DriverTabBar, DriverTabKey } from '../ui/DriverTabBar';
 import { DriverTripCard } from '../ui/DriverTripCard';
 import { PickupAtField } from '../ui/PickupAtPicker';
 import { DriverSettleRideModal } from '../ui/DriverSettleRideModal';
+import {
+  RideChatModal,
+  type RideChatMessage,
+} from '../customer/bookingRedesign/RideChatModal';
 import { useI18n, t, dateLocale } from '../i18n';
 import { ThemePreference, useTheme, useThemeColors } from '../theme/ThemeContext';
 import {
@@ -729,6 +736,11 @@ export function DriverHomeScreen() {
   const [proposePickupAt, setProposePickupAt] = useState(() => defaultPickupDate(10));
   const [proposeBusy, setProposeBusy] = useState(false);
   const [settleRideId, setSettleRideId] = useState<number | null>(null);
+  const [chatRideId, setChatRideId] = useState<number | null>(null);
+  const [chatCustomerName, setChatCustomerName] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<RideChatMessage[]>([]);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatAllowed, setChatAllowed] = useState(true);
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
@@ -2218,6 +2230,77 @@ export function DriverHomeScreen() {
     void submitStartRide(pinRideId, digits);
   }
 
+  const refreshDriverChat = useCallback(
+    async (rideId: number) => {
+      if (!driverToken || rideId <= 0) return;
+      try {
+        const res = await fetchDriverRideChat(driverToken, rideId);
+        const msgs = (res.data?.messages || []) as DriverRideChatMessage[];
+        setChatMessages(
+          msgs.map((m) => ({
+            id: m.id,
+            from: m.from,
+            body: m.body,
+            at: m.at,
+          }))
+        );
+        if (typeof res.data?.allowed === 'boolean') setChatAllowed(res.data.allowed);
+        if (res.data?.customer_name) setChatCustomerName(String(res.data.customer_name));
+      } catch {
+        /* poll best-effort */
+      }
+    },
+    [driverToken]
+  );
+
+  useEffect(() => {
+    if (!chatRideId || !driverToken) return;
+    void refreshDriverChat(chatRideId);
+    const tmr = setInterval(() => {
+      void refreshDriverChat(chatRideId);
+    }, 4000);
+    return () => clearInterval(tmr);
+  }, [chatRideId, driverToken, refreshDriverChat]);
+
+  function openDriverRideChat(ride: { id: number; customer_name?: string | null }) {
+    const id = Number(ride.id);
+    if (!id) return;
+    setChatRideId(id);
+    setChatCustomerName(ride.customer_name ? String(ride.customer_name) : null);
+    setChatMessages([]);
+    setChatAllowed(true);
+    void refreshDriverChat(id);
+  }
+
+  async function sendDriverChatMessage(body: string) {
+    if (!driverToken || !chatRideId) return;
+    setChatSending(true);
+    try {
+      const clientId =
+        typeof globalThis.crypto?.randomUUID === 'function'
+          ? globalThis.crypto.randomUUID()
+          : `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const res = await sendDriverRideChat(driverToken, chatRideId, body, clientId);
+      const msgs = (res.data?.messages || []) as DriverRideChatMessage[];
+      setChatMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          from: m.from,
+          body: m.body,
+          at: m.at,
+        }))
+      );
+      if (typeof res.data?.allowed === 'boolean') setChatAllowed(res.data.allowed);
+    } catch (e) {
+      Alert.alert(
+        t('Chat'),
+        e instanceof ApiError ? e.message : t('Bericht versturen mislukt.')
+      );
+    } finally {
+      setChatSending(false);
+    }
+  }
+
   async function onStartRide(rideId: number) {
     if (!driverToken) return;
     const blocking = blockingAssignedRide(rideId);
@@ -2904,6 +2987,7 @@ export function DriverHomeScreen() {
                   onHighlightEnd={() => setFocusRideId(null)}
                   onStart={() => onStartRide(activeRideFiltered.id)}
                   onOpenMaps={() => openMapsForRide(activeRideFiltered, 'dropoff')}
+                  onChat={() => openDriverRideChat(activeRideFiltered)}
                   onComplete={() => requestCompleteRide(activeRideFiltered)}
                   onCancel={
                     activeRideFiltered.can_cancel_with_reason
@@ -2927,6 +3011,7 @@ export function DriverHomeScreen() {
                 onHighlightEnd={() => setFocusRideId(null)}
                 onStart={() => onStartRide(ride.id)}
                 onOpenMaps={() => openMapsForRide(ride, 'dropoff')}
+                onChat={() => openDriverRideChat(ride)}
                 onComplete={() => requestCompleteRide(ride)}
               />
             </View>
@@ -2948,6 +3033,7 @@ export function DriverHomeScreen() {
                         if (next) patchTripRide(next);
                       })
                     }
+                    onChat={() => openDriverRideChat(ride)}
                     onCancel={
                       ride.can_cancel_with_reason
                         ? () => {
@@ -2989,6 +3075,7 @@ export function DriverHomeScreen() {
                           if (next) patchTripRide(next);
                         })
                       }
+                      onChat={() => openDriverRideChat(ride)}
                       onProposePickup={() => openProposePickup(ride)}
                       onRelease={() => requestReleaseRide(ride.id)}
                       onArchive={
@@ -3042,6 +3129,7 @@ export function DriverHomeScreen() {
                           if (next) patchTripRide(next);
                         })
                       }
+                      onChat={() => openDriverRideChat(ride)}
                       onProposePickup={() => openProposePickup(ride)}
                       onRelease={() => requestReleaseRide(ride.id)}
                       onArchive={
@@ -5478,6 +5566,20 @@ export function DriverHomeScreen() {
           </Pressable>
         </View>
       </AppModal>
+
+      <RideChatModal
+        visible={chatRideId != null}
+        onClose={() => {
+          setChatRideId(null);
+          setChatMessages([]);
+        }}
+        driverName={chatCustomerName}
+        selfFrom="driver"
+        messages={chatMessages}
+        sending={chatSending}
+        readOnly={!chatAllowed}
+        onSend={sendDriverChatMessage}
+      />
 
       <AppModal
         visible={flowMessage != null && pinRideId == null}

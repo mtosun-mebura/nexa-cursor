@@ -3,7 +3,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../theme/ThemeContext';
+import { USE_NEXA_BOOKING_REDESIGN } from '../customer/bookingRedesign/featureFlag';
+import { nexaBookingTheme } from '../customer/bookingRedesign/theme';
+import { useTheme, useThemeColors } from '../theme/ThemeContext';
 import { compactFontProps } from './androidText';
 import { tabBarBottomPadding } from './tabBarSafeArea';
 
@@ -14,8 +16,8 @@ const TABS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'book', label: t("Boeken"), icon: 'book' },
-  { key: 'rides', label: t("Ritten"), icon: 'car-sport' },
+  { key: 'book', label: t("Boeken"), icon: 'car-sport' },
+  { key: 'rides', label: t("Ritten"), icon: 'calendar-outline' },
   { key: 'profile', label: t("Profiel"), icon: 'person' },
 ];
 
@@ -30,6 +32,15 @@ export function CustomerTabBar({
 }) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+  const { colorScheme } = useTheme();
+  const redesign = USE_NEXA_BOOKING_REDESIGN;
+  const redesignDark = redesign && colorScheme === 'dark';
+  const activeTint = redesign ? nexaBookingTheme.color.orangeHot : colors.primary;
+  const mutedTint = redesignDark
+    ? nexaBookingTheme.color.textMuted
+    : redesign
+      ? '#64748B'
+      : colors.muted;
 
   return (
     <View
@@ -37,21 +48,29 @@ export function CustomerTabBar({
         styles.bar,
         {
           paddingBottom: tabBarBottomPadding(insets.bottom),
-          borderTopColor: colors.border,
-          backgroundColor: colors.tabBar,
+          borderTopColor: redesignDark
+            ? nexaBookingTheme.color.border
+            : redesign
+              ? 'rgba(8, 125, 255, 0.2)'
+              : colors.border,
+          backgroundColor: redesignDark
+            ? nexaBookingTheme.color.navy800
+            : redesign
+              ? '#FFFFFF'
+              : colors.tabBar,
         },
       ]}
     >
       {TABS.map((tab) => {
         const isActive = active === tab.key;
-        const tint = isActive ? colors.primary : colors.muted;
+        const tint = isActive ? activeTint : mutedTint;
         return (
           <Pressable
             key={tab.key}
             onPress={() => onChange(tab.key)}
             style={[
               styles.tab,
-              isActive && { backgroundColor: colors.primary + '24' },
+              isActive && { backgroundColor: activeTint + '24' },
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}

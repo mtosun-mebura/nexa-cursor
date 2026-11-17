@@ -33,6 +33,8 @@ type Props = {
   onLogoPress?: () => void;
   /** Extra ruimte onder de titel (startpagina kaarten). Default = titel-padding. */
   titleMarginBottom?: number;
+  /** onDark = witte titel op donkere map-backdrop (ook in light mode). */
+  chrome?: 'theme' | 'onDark';
 };
 
 /**
@@ -48,10 +50,12 @@ export function AppPageHeader({
   style,
   onLogoPress,
   titleMarginBottom,
+  chrome = 'theme',
 }: Props) {
   const colors = useThemeColors();
   useI18n();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const onDark = chrome === 'onDark';
+  const styles = useMemo(() => makeStyles(colors, onDark), [colors, onDark]);
 
   const logo = (
     <AppBrandLogo bare uri={uri} fallbackLabel={fallbackLabel} />
@@ -92,7 +96,7 @@ export function AppPageHeader({
   );
 }
 
-function makeStyles(colors: ColorPalette) {
+function makeStyles(colors: ColorPalette, onDark: boolean) {
   return StyleSheet.create({
     header: {
       paddingHorizontal: APP_PAGE_HEADER_PAD_H,
@@ -127,12 +131,13 @@ function makeStyles(colors: ColorPalette) {
     },
     title: {
       textAlign: 'center',
-      color: colors.text,
+      color: onDark ? '#FFFFFF' : colors.text,
       fontSize: SCREEN_TITLE_FONT_SIZE,
       lineHeight: SCREEN_TITLE_LINE_HEIGHT,
       fontWeight: '700',
-      paddingTop: 4,
-      paddingBottom: 6,
+      // Ruimte boven de titel zodat de map-routelijn in de header-bg zichtbaar blijft
+      paddingTop: 18,
+      paddingBottom: 8,
       marginBottom: 0,
     },
   });

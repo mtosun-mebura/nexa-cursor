@@ -22,6 +22,7 @@ import { useAndroidKeyboardOverlap } from './androidText';
 import { useModalBlurHost } from './ModalBlurHost';
 
 const MODAL_FADE_MS = 220;
+const MODAL_ZOOM_MS = 320;
 
 type AppModalProps = {
   visible: boolean;
@@ -46,6 +47,10 @@ type AppModalProps = {
   showsVerticalScrollIndicator?: boolean;
   /** Buiten de scroll, in de modal (bijv. iOS InputAccessoryView). */
   keyboardAccessory?: ReactNode;
+  /**
+   * fade = standaard; zoom = paneel vliegt naar voren (foto-preview e.d.).
+   */
+  enterAnimation?: 'fade' | 'zoom';
 };
 
 type OverlayBodyProps = AppModalProps & {
@@ -53,6 +58,7 @@ type OverlayBodyProps = AppModalProps & {
   blurTargetRef?: RefObject<View | null> | null;
   colors: ColorPalette;
   fadeOpacity: Animated.Value;
+  panelScale: Animated.Value;
 };
 
 function ModalOverlayBody({
@@ -66,10 +72,12 @@ function ModalOverlayBody({
   dismissOnBackdrop = true,
   showsVerticalScrollIndicator = true,
   keyboardAccessory,
+  enterAnimation = 'fade',
   backdropArmed,
   blurTargetRef,
   colors,
   fadeOpacity,
+  panelScale,
 }: OverlayBodyProps) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const androidKeyboardOverlap = useAndroidKeyboardOverlap();
@@ -79,6 +87,7 @@ function ModalOverlayBody({
   const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
   const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
   const useAndroidBlur = Platform.OS === 'android' && !!blurTargetRef;
+  const zoom = enterAnimation === 'zoom' && !isSheet;
   /** Remount BlurView once so findNodeHandle resolves after BlurTargetView is attached. */
   const [blurEpoch, setBlurEpoch] = useState(0);
 
@@ -144,10 +153,26 @@ function ModalOverlayBody({
           : { accessible: false, importantForAccessibility: 'no' as const })}
       />
       <View pointerEvents="box-none" style={isSheet ? styles.sheetLayer : styles.centerLayer}>
-        <View
+        <Animated.View
           pointerEvents="auto"
           collapsable={false}
-          style={[isSheet ? styles.sheet : styles.panel, panelStyle]}
+          style={[
+            isSheet ? styles.sheet : styles.panel,
+            panelStyle,
+            zoom
+              ? {
+                  transform: [
+                    { scale: panelScale },
+                    {
+                      translateY: panelScale.interpolate({
+                        inputRange: [0.72, 1],
+                        outputRange: [36, 0],
+                      }),
+                    },
+                  ],
+                }
+              : null,
+          ]}
         >
           <ScrollView
             style={{ maxHeight: scrollMaxHeight }}
@@ -159,7 +184,7 @@ function ModalOverlayBody({
           >
             {children}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Animated.View>
   );
@@ -204,7 +229,10 @@ export function AppModal(props: AppModalProps) {
   const [backdropArmed, setBackdropArmed] = useState(false);
   const [rendered, setRendered] = useState(visible);
   const fadeOpacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const panelScale = useRef(new Animated.Value(visible ? 1 : 0.72)).current;
   const reduceMotionRef = useRef(false);
+  const enterAnimation = props.enterAnimation ?? 'fade';
+  const useZoom = enterAnimation === 'zoom';
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
@@ -216,33 +244,64 @@ export function AppModal(props: AppModalProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const reduce = reduceMotionRef.current;
     if (visible) {
       setRendered(true);
-      const duration = reduceMotionRef.current ? 0 : MODAL_FADE_MS;
       fadeOpacity.setValue(0);
-      Animated.timing(fadeOpacity, {
-        toValue: 1,
-        duration,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+      panelScale.setValue(useZoom ? 0.72 : 1);
+      if (reduce) {
+        fadeOpacity.setValue(1);
+        panelScale.setValue(1);
+        return () => {
+          cancelled = true;
+        };
+      }
+      const openMs = useZoom ? MODAL_ZOOM_MS : MODAL_FADE_MS;
+      Animated.parallel([
+        Animated.timing(fadeOpacity, {
+          toValue: 1,
+          duration: openMs,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        useZoom
+          ? Animated.spring(panelScale, {
+              toValue: 1,
+              friction: 7,
+              tension: 68,
+              useNativeDriver: true,
+            })
+          : Animated.timing(panelScale, {
+              toValue: 1,
+              duration: openMs,
+              useNativeDriver: true,
+            }),
+      ]).start();
       return () => {
         cancelled = true;
       };
     }
-    const duration = reduceMotionRef.current ? 0 : MODAL_FADE_MS;
-    Animated.timing(fadeOpacity, {
-      toValue: 0,
-      duration,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    const closeMs = reduce ? 0 : useZoom ? MODAL_ZOOM_MS : MODAL_FADE_MS;
+    Animated.parallel([
+      Animated.timing(fadeOpacity, {
+        toValue: 0,
+        duration: closeMs,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(panelScale, {
+        toValue: useZoom ? 0.72 : 1,
+        duration: closeMs,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
       if (finished && !cancelled) setRendered(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [visible, fadeOpacity]);
+  }, [visible, fadeOpacity, panelScale, useZoom]);
 
   useEffect(() => {
     if (!visible) {
@@ -278,6 +337,7 @@ export function AppModal(props: AppModalProps) {
         blurTargetRef={host.blurTargetRef}
         colors={colors}
         fadeOpacity={fadeOpacity}
+        panelScale={panelScale}
       />
     );
     return () => host.hideOverlay(overlayKey);
@@ -288,6 +348,7 @@ export function AppModal(props: AppModalProps) {
     backdropArmed,
     colors,
     fadeOpacity,
+    panelScale,
     props.children,
     props.placement,
     props.dismissDisabled,
@@ -297,6 +358,7 @@ export function AppModal(props: AppModalProps) {
     props.dismissOnBackdrop,
     props.showsVerticalScrollIndicator,
     props.keyboardAccessory,
+    props.enterAnimation,
     props.onRequestClose,
   ]);
 
@@ -324,6 +386,7 @@ export function AppModal(props: AppModalProps) {
         blurTargetRef={null}
         colors={colors}
         fadeOpacity={fadeOpacity}
+        panelScale={panelScale}
       />
     </Modal>
   );

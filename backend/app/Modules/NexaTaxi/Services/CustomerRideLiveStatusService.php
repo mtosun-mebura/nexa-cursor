@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Helpers\GeoHelper;
 use App\Models\Company;
 use App\Models\Invoice;
+use App\Models\InvoiceSetting;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideGpsPoint;
@@ -330,7 +331,11 @@ class CustomerRideLiveStatusService
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => (string) $company->name,
-                'phone' => (string) ($company->phone ?? ''),
+                // Factuurinstelling eerst: company.phone is vaak leeg → Bel-knop deed niets.
+                'phone' => (string) (
+                    InvoiceSetting::getSettingsForCompany($companyId)->company_phone
+                    ?: ($company->phone ?? '')
+                ),
             ] : null,
             'vehicle' => $vehicle ? [
                 'id' => (int) $vehicle->id,
