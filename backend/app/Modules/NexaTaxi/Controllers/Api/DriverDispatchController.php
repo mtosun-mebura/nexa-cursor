@@ -1091,7 +1091,8 @@ class DriverDispatchController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'body' => 'required|string|min:1|max:2000',
-            'client_message_id' => 'nullable|uuid',
+            // Client mag weglaten; server maakt UUID. Oude apps stuurden soms d-timestamp.
+            'client_message_id' => 'nullable|string|max:64',
         ]);
 
         $conn = $moduleDb->getModuleConnectionName('taxi');

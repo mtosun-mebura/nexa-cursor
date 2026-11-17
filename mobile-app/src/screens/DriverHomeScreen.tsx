@@ -88,6 +88,7 @@ import {
 } from '../audio/rideAlert';
 import { fetchContractMe, userIsContractant } from '../api/contract';
 import { ApiError, apiErrorStatus } from '../api/client';
+import { newUuidV4 } from '../lib/uuid';
 import { useAuth } from '../auth/AuthContext';
 import { DRIVER_BG } from '../debug/driverBgKillSwitch';
 import { getApiBaseUrl, resolveApiBaseUrl, ColorPalette } from '../config';
@@ -2276,11 +2277,7 @@ export function DriverHomeScreen() {
     if (!driverToken || !chatRideId) return;
     setChatSending(true);
     try {
-      const clientId =
-        typeof globalThis.crypto?.randomUUID === 'function'
-          ? globalThis.crypto.randomUUID()
-          : `d-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const res = await sendDriverRideChat(driverToken, chatRideId, body, clientId);
+      const res = await sendDriverRideChat(driverToken, chatRideId, body, newUuidV4());
       const msgs = (res.data?.messages || []) as DriverRideChatMessage[];
       setChatMessages(
         msgs.map((m) => ({
