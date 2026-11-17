@@ -620,7 +620,8 @@ class CustomerRideController extends Controller
         $data = $request->validate([
             'token' => 'required|string|min:24|max:64',
             'body' => 'required|string|min:1|max:2000',
-            'client_message_id' => 'nullable|uuid',
+            // Client mag weglaten; server maakt UUID. Oude apps stuurden soms c-timestamp.
+            'client_message_id' => 'nullable|string|max:64',
         ]);
 
         $ride = $live->findByTrackToken($data['token']);

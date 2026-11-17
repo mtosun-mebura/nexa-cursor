@@ -65,6 +65,7 @@ import { NexaPrimaryButton } from '../customer/bookingRedesign/NexaPrimaryButton
 import { nexaBookingTheme } from '../customer/bookingRedesign/theme';
 import { notifyNewRideStatusUpdates } from '../customer/rideStatusNotifications';
 import { ApiError } from '../api/client';
+import { newUuidV4 } from '../lib/uuid';
 import {
   AddressSuggestion,
   DARK_MAP_STYLE,
@@ -2610,11 +2611,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     if (!trackToken) return;
     setChatSending(true);
     try {
-      const clientId =
-        typeof globalThis.crypto?.randomUUID === 'function'
-          ? globalThis.crypto.randomUUID()
-          : `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const res = await sendLiveChat(trackToken, body, clientId);
+      const res = await sendLiveChat(trackToken, body, newUuidV4());
       const msgs = (res.data?.messages || []) as RideChatMessageDto[];
       setChatMessages(
         msgs.map((m) => ({
