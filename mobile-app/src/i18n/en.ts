@@ -75,6 +75,7 @@ export const EN: Record<string, string> = {
     'Chooses which default fare set is used.',
   Bestanden: 'Files',
   Bestemming: 'Destination',
+  'Bestemming: {destination}': 'Destination: {destination}',
   'Bellen niet beschikbaar': 'Calling unavailable',
   'Dit apparaat kan geen belverbinding openen (bijv. iPad zonder telefoon). Centrale: {phone}':
     'This device cannot place calls (e.g. iPad without Phone). Dispatch: {phone}',
@@ -269,6 +270,10 @@ export const EN: Record<string, string> = {
   Versturen: 'Send',
   Sluiten: 'Close',
   Chat: 'Chat',
+  'Chat — nieuw bericht': 'Chat — new message',
+  'Chat: {name}': 'Chat: {name}',
+  'Nieuw chatbericht': 'New chat message',
+  'Je chauffeur heeft een bericht gestuurd.': 'Your driver sent a message.',
   Geel: 'Yellow',
   Gekoppeld: 'Assigned',
   Geen: 'None',
@@ -466,6 +471,8 @@ export const EN: Record<string, string> = {
     'Online payment is not available right now. Try again later.',
   'Online betalen staat uit omdat de Mollie-koppeling van Nexa Suite niet is ingesteld.':
     'Online payment is off because the Nexa Suite Mollie connection is not set up.',
+  'Om te boeken betaal je eerst. Je wordt doorgestuurd naar een betaalpagina.':
+    'To book, you pay first. You will be redirected to a payment page.',
   'Online zetten mislukt.': 'Could not go online.',
   'Op bestemming': 'At destination',
   'Openen →': 'Open →',

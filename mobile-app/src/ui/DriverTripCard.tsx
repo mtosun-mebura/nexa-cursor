@@ -14,6 +14,7 @@ export function DriverTripCard({
   onCancel,
   onOpenMaps,
   onChat,
+  chatAttention,
   onArchive,
   archived,
   onProposePickup,
@@ -29,6 +30,7 @@ export function DriverTripCard({
   onCancel?: () => void;
   onOpenMaps?: () => void;
   onChat?: () => void;
+  chatAttention?: boolean;
   onArchive?: () => void;
   archived?: boolean;
   onProposePickup?: () => void;
@@ -46,6 +48,7 @@ export function DriverTripCard({
       onCancel={onCancel}
       onOpenMaps={onOpenMaps}
       onChat={onChat}
+      chatAttention={chatAttention}
       onArchive={onArchive}
       archived={archived}
       onProposePickup={onProposePickup}

@@ -135,6 +135,14 @@ export type LiveRide = {
     prompt?: string | null;
     can_answer?: boolean;
   } | null;
+  /** Ongelezen chatberichten van de chauffeur. */
+  chat_unread_count?: number | null;
+  chat_latest?: {
+    id: string;
+    from: 'customer' | 'driver' | 'system';
+    body: string;
+    at: string;
+  } | null;
 };
 
 export type BookResponse = {
@@ -338,7 +346,11 @@ export type RideChatMessageDto = {
 export function fetchLiveChat(token: string) {
   return apiRequest<{
     success?: boolean;
-    data?: { allowed?: boolean; messages?: RideChatMessageDto[] };
+    data?: {
+      allowed?: boolean;
+      messages?: RideChatMessageDto[];
+      unread_count?: number;
+    };
   }>(`/api/taxi/v1/customer/live/chat?token=${encodeURIComponent(token)}`);
 }
 

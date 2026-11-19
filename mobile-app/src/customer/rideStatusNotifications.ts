@@ -179,3 +179,81 @@ export async function notifyNewRideStatusUpdates(ride: LiveRide): Promise<void> 
   seenMap[rideId] = Array.from(seen).slice(-40);
   await saveSeen(seenMap);
 }
+
+const CHAT_SEEN_KEY = 'nexa_taxi_seen_chat_messages';
+
+async function loadChatSeen(): Promise<Record<string, string[]>> {
+  try {
+    const raw = await AsyncStorage.getItem(CHAT_SEEN_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveChatSeen(map: Record<string, string[]>): Promise<void> {
+  await AsyncStorage.setItem(CHAT_SEEN_KEY, JSON.stringify(map));
+}
+
+/**
+ * Lokale melding bij nieuw chatbericht van de chauffeur (via live-poll),
+ * zelfde idee als ritstatus — klanten hebben geen aparte Expo push-tokens.
+ * Retourneert true als er een nieuw bericht was.
+ */
+export async function notifyNewRideChat(ride: LiveRide): Promise<boolean> {
+  const unread = Math.max(0, Number(ride.chat_unread_count || 0));
+  if (unread <= 0) return false;
+
+  const rideId = String(ride.id || '');
+  if (!rideId) return false;
+
+  const latest = ride.chat_latest;
+  const msgId = String(latest?.id || '').trim() || `unread-${unread}`;
+  const seenMap = await loadChatSeen();
+  const seen = new Set(seenMap[rideId] || []);
+  if (seen.has(msgId)) return false;
+
+  seen.add(msgId);
+  seenMap[rideId] = Array.from(seen).slice(-40);
+  await saveChatSeen(seenMap);
+
+  const granted = await ensurePermission();
+  if (!granted) return true;
+
+  const foreground = AppState.currentState === 'active';
+  const preview = String(latest?.body || '').trim();
+  const driverName = String(ride.driver?.name || '').trim();
+  const title = driverName ? t('Chat: {name}', { name: driverName }) : t('Nieuw chatbericht');
+  const body =
+    preview ||
+    t('Je chauffeur heeft een bericht gestuurd.');
+
+  try {
+    await ensureHandler();
+    if (foreground) {
+      await playSystemAttentionSound();
+    }
+    await ensureRideStatusChannel();
+    const Notifications = await notifications();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: {
+          type: 'customer_ride_chat',
+          rideId: ride.id,
+          open_chat: true,
+        },
+        sound: !foreground,
+        ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+        ...(Platform.OS === 'android' ? { channelId: RIDE_STATUS_CHANNEL } : {}),
+      },
+      trigger: null,
+    });
+  } catch {
+    /* ignore */
+  }
+
+  return true;
+}

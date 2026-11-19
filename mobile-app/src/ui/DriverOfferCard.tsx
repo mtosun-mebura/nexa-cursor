@@ -16,7 +16,7 @@ import {
 import { ColorPalette } from '../config';
 import { formatEuroNl, visiblePlaceName } from '../geo/route';
 import { hexAlpha, useDriverAccent } from '../theme/driverAccent';
-import { useThemeColors } from '../theme/ThemeContext';
+import { useTheme, useThemeColors } from '../theme/ThemeContext';
 
 const OVERDUE_RED = '#EF4444';
 const GREEN = '#22C55E';
@@ -221,6 +221,8 @@ type TripModeProps = {
   onComplete?: () => void;
   onOpenMaps?: () => void;
   onChat?: () => void;
+  /** Knipper bij ongelezen chatbericht van de klant. */
+  chatAttention?: boolean;
   onCancel?: () => void;
   onArchive?: () => void;
   archived?: boolean;
@@ -252,8 +254,12 @@ function cardExpandKey(props: DriverOfferCardProps): string {
 
 export function DriverOfferCard(props: DriverOfferCardProps) {
   const colors = useThemeColors();
+  const { colorScheme } = useTheme();
   const accent = useDriverAccent();
-  const styles = useMemo(() => makeStyles(colors, accent.hex), [colors, accent.hex]);
+  const styles = useMemo(
+    () => makeStyles(colors, accent.hex, colorScheme === 'light'),
+    [colors, accent.hex, colorScheme]
+  );
   const expandKey = cardExpandKey(props);
   const expandOnce = !!props.expandOnce;
   const [expanded, setExpanded] = useState(() => {
@@ -353,6 +359,35 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
       anim.stop();
     };
   }, [highlighted, highlightOpacity]);
+
+  const chatAttention = isTrip && !!props.chatAttention;
+  const chatPulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!chatAttention) {
+      chatPulse.stopAnimation();
+      chatPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chatPulse, {
+          toValue: 0.35,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chatPulse, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      chatPulse.setValue(1);
+    };
+  }, [chatAttention, chatPulse]);
 
   const marketplace = isTrip
     ? isMarketplaceRide(props.ride)
@@ -978,16 +1013,35 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
             ) : null}
             {canChat ? (
               <Pressable
-                style={[styles.btn, styles.btnGhost, busy && styles.btnDisabled]}
+                style={[
+                  styles.btn,
+                  chatAttention ? styles.btnChatAttention : styles.btnGhost,
+                  busy && styles.btnDisabled,
+                ]}
                 disabled={busy}
                 onPress={props.onChat}
                 accessibilityRole="button"
-                accessibilityLabel={t('Chat')}
+                accessibilityLabel={
+                  chatAttention ? t('Chat — nieuw bericht') : t('Chat')
+                }
               >
-                <View style={styles.btnInner}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
-                  <Text style={styles.btnGhostText}>{t('Chat')}</Text>
-                </View>
+                <Animated.View
+                  style={[styles.btnInner, { opacity: chatAttention ? chatPulse : 1 }]}
+                >
+                  <Ionicons
+                    name={chatAttention ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
+                    size={16}
+                    color={chatAttention ? '#FFFFFF' : colors.text}
+                  />
+                  <Text
+                    style={
+                      chatAttention ? styles.btnChatAttentionText : styles.btnGhostText
+                    }
+                  >
+                    {t('Chat')}
+                  </Text>
+                  {chatAttention ? <View style={styles.chatDot} /> : null}
+                </Animated.View>
               </Pressable>
             ) : null}
             {canStart ? (
@@ -1088,11 +1142,12 @@ export function DriverOfferCard(props: DriverOfferCardProps) {
   );
 }
 
-function makeStyles(colors: ColorPalette, accentHex: string) {
+function makeStyles(colors: ColorPalette, accentHex: string, light: boolean) {
   return StyleSheet.create({
     card: {
-      borderWidth: 1,
-      borderRadius: 16,
+      borderWidth: 1.5,
+      borderRadius: 18,
+      borderColor: light ? 'rgba(8, 125, 255, 0.28)' : 'rgba(110, 190, 255, 0.42)',
       backgroundColor: colors.card,
       marginBottom: 14,
       paddingTop: 14,
@@ -1100,6 +1155,11 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       paddingBottom: 14,
       overflow: 'hidden',
       position: 'relative',
+      shadowColor: light ? '#087DFF' : '#4DB2FF',
+      shadowOpacity: light ? 0.08 : 0.28,
+      shadowRadius: light ? 8 : 12,
+      shadowOffset: { width: 0, height: light ? 2 : 0 },
+      elevation: light ? 2 : 5,
     },
     cardOverdue: {
       borderWidth: 1.5,
@@ -1779,6 +1839,26 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       textTransform: 'uppercase',
       letterSpacing: 0.3,
       textAlign: 'center',
+    },
+    btnChatAttention: {
+      borderWidth: 1.5,
+      borderColor: '#0F84FF',
+      backgroundColor: '#0F84FF',
+    },
+    btnChatAttentionText: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+      textAlign: 'center',
+    },
+    chatDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: '#FF8A00',
+      marginLeft: 2,
     },
     btnPrimary: {
       backgroundColor: accentHex,

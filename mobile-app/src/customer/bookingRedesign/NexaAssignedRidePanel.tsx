@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
   ImageBackground,
   Pressable,
@@ -39,6 +40,8 @@ type Props = {
   onPreview: (uri: string) => void;
   onCall: () => void;
   onChat: () => void;
+  /** Knipper bij ongelezen chatbericht van de chauffeur. */
+  chatAttention?: boolean;
   onLiveFollow: () => void;
   /** Als true: statusregel zonder eigen achtergrond (scherm heeft al map-header). */
   embedInScreenBackdrop?: boolean;
@@ -51,6 +54,7 @@ export function NexaAssignedRidePanel({
   onPreview,
   onCall,
   onChat,
+  chatAttention,
   onLiveFollow,
   embedInScreenBackdrop = false,
 }: Props) {
@@ -67,6 +71,34 @@ export function NexaAssignedRidePanel({
   const driverName = live.driver?.name || t('Chauffeur');
   const [carFailed, setCarFailed] = useState(false);
   const showCar = Boolean(carPhoto) && !carFailed;
+  const chatPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!chatAttention) {
+      chatPulse.stopAnimation();
+      chatPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chatPulse, {
+          toValue: 0.35,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chatPulse, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      chatPulse.setValue(1);
+    };
+  }, [chatAttention, chatPulse]);
   const canCommunicate = !!(live.driver?.id || live.accepted);
   const etaRaw = String(live.eta_label || '').trim();
   const etaMinutes =
@@ -325,14 +357,25 @@ export function NexaAssignedRidePanel({
           <Text style={styles.contactText}>{t('Bel chauffeur')}</Text>
         </Pressable>
         <Pressable
-          style={[styles.contactBtn, styles.chatBtn, !canCommunicate && styles.disabled]}
+          style={[
+            styles.contactBtn,
+            chatAttention ? styles.chatBtnAttention : styles.chatBtn,
+            !canCommunicate && styles.disabled,
+          ]}
           disabled={!canCommunicate}
           onPress={onChat}
           accessibilityRole="button"
-          accessibilityLabel={t('Chat')}
+          accessibilityLabel={
+            chatAttention ? t('Chat — nieuw bericht') : t('Chat')
+          }
         >
-          <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
-          <Text style={styles.contactText}>{t('Chat')}</Text>
+          <Animated.View
+            style={[styles.contactInner, { opacity: chatAttention ? chatPulse : 1 }]}
+          >
+            <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
+            <Text style={styles.contactText}>{t('Chat')}</Text>
+            {chatAttention ? <View style={styles.chatDot} /> : null}
+          </Animated.View>
         </Pressable>
       </View>
 
@@ -745,6 +788,22 @@ const styles = StyleSheet.create({
   },
   chatBtn: {
     backgroundColor: theme.color.blueBright,
+  },
+  chatBtnAttention: {
+    backgroundColor: '#0F84FF',
+    borderWidth: 1.5,
+    borderColor: '#FF8A00',
+  },
+  contactInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chatDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF8A00',
   },
   contactText: {
     color: '#fff',

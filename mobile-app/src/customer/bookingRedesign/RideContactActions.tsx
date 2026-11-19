@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { t } from '../../i18n';
 import { nexaBookingTheme as theme } from './theme';
 
@@ -10,6 +10,8 @@ type Props = {
   onChat: () => void;
   onShare?: () => void;
   busy?: boolean;
+  /** Knipper bij ongelezen chatbericht van de chauffeur. */
+  chatAttention?: boolean;
 };
 
 /**
@@ -22,8 +24,38 @@ export function RideContactActions({
   onChat,
   onShare,
   busy,
+  chatAttention,
 }: Props) {
   const disabled = !canCommunicate || !!busy;
+  const chatPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!chatAttention) {
+      chatPulse.stopAnimation();
+      chatPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(chatPulse, {
+          toValue: 0.35,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(chatPulse, {
+          toValue: 1,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      chatPulse.setValue(1);
+    };
+  }, [chatAttention, chatPulse]);
+
   return (
     <View style={styles.row}>
       <Pressable
@@ -42,14 +74,25 @@ export function RideContactActions({
         <Text style={styles.btnText}>{t('Bel')}</Text>
       </Pressable>
       <Pressable
-        style={[styles.btn, styles.btnChat, disabled && styles.btnDisabled]}
+        style={[
+          styles.btn,
+          chatAttention ? styles.btnChatAttention : styles.btnChat,
+          disabled && styles.btnDisabled,
+        ]}
         disabled={disabled}
         onPress={onChat}
         accessibilityRole="button"
-        accessibilityLabel={t('Chat')}
+        accessibilityLabel={
+          chatAttention ? t('Chat — nieuw bericht') : t('Chat')
+        }
       >
-        <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
-        <Text style={styles.btnText}>{t('Chat')}</Text>
+        <Animated.View
+          style={[styles.btnInner, { opacity: chatAttention ? chatPulse : 1 }]}
+        >
+          <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
+          <Text style={styles.btnText}>{t('Chat')}</Text>
+          {chatAttention ? <View style={styles.chatDot} /> : null}
+        </Animated.View>
       </Pressable>
       {onShare ? (
         <Pressable
@@ -83,11 +126,27 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
   },
+  btnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   btnCall: {
     backgroundColor: theme.color.orangeHot,
   },
   btnChat: {
     backgroundColor: theme.color.blueBright,
+  },
+  btnChatAttention: {
+    backgroundColor: '#0F84FF',
+    borderWidth: 1.5,
+    borderColor: '#FF8A00',
+  },
+  chatDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF8A00',
   },
   btnShare: {
     backgroundColor: '#E8EEF7',

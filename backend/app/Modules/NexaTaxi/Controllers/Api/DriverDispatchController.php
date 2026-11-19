@@ -1073,12 +1073,16 @@ class DriverDispatchController extends Controller
             return response()->json(['message' => 'Rit niet gevonden.'], 404);
         }
 
+        // Openen van chat = gelezen voor de chauffeur.
+        $chat->markRead($model, 'driver');
+
         return response()->json([
             'success' => true,
             'data' => [
                 'allowed' => $chat->communicationAllowed($model),
                 'messages' => $chat->messages($model),
                 'customer_name' => (string) ($model->customer_name ?? ''),
+                'unread_count' => 0,
             ],
         ]);
     }
