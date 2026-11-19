@@ -6,7 +6,9 @@ use App\Models\Company;
 use App\Models\GeneralSetting;
 use App\Models\User;
 use App\Modules\NexaTaxi\Controllers\Admin\DispatchSettingsController;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Services\WhatsAppBookingMessageComposer;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,6 +24,7 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
         parent::setUp();
         Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         View::addNamespace('taxi', app_path('Modules/NexaTaxi/Resources/views'));
+        $this->withoutMiddleware(ValidateCsrfToken::class);
 
         $namedRoutes = [
             'admin.taxi.dispatch_settings.edit' => ['get', '/admin/taxi/dispatch-instellingen', [DispatchSettingsController::class, 'edit']],
@@ -37,6 +40,27 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
             }
         }
         Route::getRoutes()->refreshNameLookups();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validDispatchSettingsPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'offer_ttl_minutes' => 2,
+            'past_pickup_grace_minutes' => 30,
+            'unaccepted_auto_cancel_minutes' => 15,
+            'customer_unaccepted_decision_minutes' => 10,
+            'marketplace_max_wait_minutes' => 20,
+            'marketplace_map_radius_km' => 42,
+            'booking_discount_percent' => 15,
+            'customer_login_code_expires_minutes' => 15,
+            'customer_accept_sms_provider' => 'off',
+            'network_mode' => 'off',
+            'network_fallback_seconds' => 60,
+            'network_max_radius_km' => 25,
+        ], $overrides);
     }
 
     #[Test]
@@ -98,4 +122,36 @@ class DispatchSettingsWhatsappStatusEventsTest extends TestCase
             $registrar->setPermissionsTeamId($previousTeamId);
         }
     }
+
+    #[Test]
+    public function super_admin_without_tenant_can_save_platform_dispatch_settings(): void
+    {
+        $admin = User::factory()->create(['company_id' => null]);
+        $admin->assignRole('super-admin');
+
+        GeneralSetting::clearRequestCache();
+        session()->forget('selected_tenant');
+        app()->forgetInstance('resolved_tenant_id');
+
+        $this->actingAs($admin, 'web')
+            ->put(route('admin.taxi.dispatch_settings.update'), $this->validDispatchSettingsPayload())
+            ->assertRedirect(route('admin.taxi.dispatch_settings.edit', ['saved' => 1]));
+
+        $this->assertDatabaseHas('general_settings', [
+            'key' => TaxiDispatchSettingsService::KEY_MARKETPLACE_MAP_RADIUS_KM,
+            'company_id' => null,
+            'value' => '42',
+        ]);
+        $this->assertDatabaseHas('general_settings', [
+            'key' => TaxiDispatchSettingsService::KEY_BOOKING_DISCOUNT_PERCENT,
+            'company_id' => null,
+            'value' => '15',
+        ]);
+        $this->assertDatabaseHas('general_settings', [
+            'key' => TaxiDispatchSettingsService::KEY_OFFER_TTL_SECONDS,
+            'company_id' => null,
+            'value' => '120',
+        ]);
+    }
+
 }

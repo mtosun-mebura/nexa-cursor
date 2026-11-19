@@ -194,13 +194,16 @@ class GeneralSetting extends Model
     }
 
     /**
-     * Taxi dispatch/network: platformdefault (company_id = null) die tenants mogen overrulen.
+     * Taxi dispatch/network/marketplace: platformdefault (company_id = null) die tenants mogen overrulen.
      * Niet in GLOBAL_PLATFORM_KEYS zetten — anders verdwijnt tenant-override in get().
+     * Incl. taxi_marketplace_* / taxi_booking_discount_* (zelfde pagina, andere key-prefix).
      */
     public static function isTaxiDispatchPlatformDefaultKey(string $key): bool
     {
         return str_starts_with($key, 'taxi_dispatch_')
-            || str_starts_with($key, 'taxi_network_');
+            || str_starts_with($key, 'taxi_network_')
+            || str_starts_with($key, 'taxi_marketplace_')
+            || str_starts_with($key, 'taxi_booking_discount_');
     }
 
     /**

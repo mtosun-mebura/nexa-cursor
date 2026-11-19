@@ -271,6 +271,7 @@ export const EN: Record<string, string> = {
   Sluiten: 'Close',
   Chat: 'Chat',
   'Chat — nieuw bericht': 'Chat — new message',
+  'Open chat': 'Open chat',
   'Chat: {name}': 'Chat: {name}',
   'Nieuw chatbericht': 'New chat message',
   'Je chauffeur heeft een bericht gestuurd.': 'Your driver sent a message.',

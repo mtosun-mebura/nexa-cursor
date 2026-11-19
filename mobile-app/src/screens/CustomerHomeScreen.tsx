@@ -150,6 +150,7 @@ import {
   nexaHeroSideRight,
   nexaHeroSideSlot,
 } from '../customer/bookingRedesign/nexaHeroLayout';
+import { APP_CHROME_HEIGHT } from '../ui/appChrome';
 import { useAndroidKeyboardOverlap } from '../ui/androidText';
 import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import { DemoModeRow } from '../ui/DemoModeRow';
@@ -259,6 +260,22 @@ const activeTaxiMarkerSource = USE_NEXA_BOOKING_REDESIGN
 const activeTaxiMarkerViewSource = USE_NEXA_BOOKING_REDESIGN
   ? nexaMapCarMarkerHd
   : taxiCarYellow;
+/**
+ * NEXA-marker (isometrisch): voorkant (= bovenkant van de auto / neus) ligt
+ * in de PNG naar linksonder (~225°). Maps/Image 0° = beeld-boven = noord.
+ * Offset 135° → bij heading 0 wijst de voorkant naar boven; daarna meedraaien.
+ * Legacy gele top-down PNG wijst al omhoog → offset 0.
+ */
+const TAXI_MARKER_NOSE_OFFSET_DEG = USE_NEXA_BOOKING_REDESIGN ? 135 : 0;
+
+function taxiMarkerRotationDeg(heading: number): number {
+  const h = Number.isFinite(heading) ? heading : 0;
+  return ((h + TAXI_MARKER_NOSE_OFFSET_DEG) % 360 + 360) % 360;
+}
+
+function headingDeltaDeg(a: number, b: number): number {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
 
 /**
  * Android MapView herkent alleen directe <Marker>-children — een wrapper-
@@ -283,7 +300,7 @@ function androidTaxiMarker(
       }
       anchor={{ x: 0.5, y: 0.5 }}
       image={activeTaxiMarkerSource}
-      rotation={heading}
+      rotation={taxiMarkerRotationDeg(heading)}
       flat
       tracksViewChanges={false}
       zIndex={zIndex}
@@ -338,6 +355,8 @@ function CustomerTaxiMarker({
     };
   }, [taxi.lat, taxi.lng, taxi.heading, smoothMs, stepMs]);
 
+  const rotateDeg = taxiMarkerRotationDeg(heading);
+
   return (
     <Marker
       identifier={`taxi-${taxi.id}`}
@@ -346,6 +365,8 @@ function CustomerTaxiMarker({
       description={taxi.distance_km != null ? `${taxi.distance_km.toFixed(1)} km` : undefined}
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={trackView}
+      flat
+      rotation={0}
       zIndex={20}
     >
       <View style={taxiMarkerFrameStyle} collapsable={false}>
@@ -354,7 +375,7 @@ function CustomerTaxiMarker({
           onLoad={() => {
             setTimeout(() => setTrackView(false), 300);
           }}
-          style={[taxiMarkerImageStyle, { transform: [{ rotate: `${heading}deg` }] }]}
+          style={[taxiMarkerImageStyle, { transform: [{ rotate: `${rotateDeg}deg` }] }]}
           resizeMode="contain"
         />
       </View>
@@ -897,7 +918,11 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const { colors, colorScheme, preference, setPreference } = useTheme();
   useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const bookChromeSolid = useRef(new Animated.Value(0)).current;
+  /** Sticky header-bg: 0 = hero doorzichtig, 1 = solide vlak achter logo/icons. */
+  const [bookChromeOpacity, setBookChromeOpacity] = useState(0);
+  const bookChromeOpacityRef = useRef(0);
+  /** Open ritten waarvan de Ritten-badge al is gezien (klik op tab). */
+  const [ridesBadgeSeenKeys, setRidesBadgeSeenKeys] = useState<string[]>([]);
   const [tab, setTab] = useState<CustomerTabKey | NexaCustomerTabKey>(
     USE_NEXA_BOOKING_REDESIGN ? 'home' : 'book'
   );
@@ -1086,10 +1111,38 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     if (lat === 0 && lng === 0) return null;
     const headingRaw = loc?.heading != null ? Number(loc.heading) : NaN;
+    let heading: number | null =
+      Number.isFinite(headingRaw) && headingRaw >= 0 ? headingRaw : null;
+    // Voorkant (= bovenkant auto) richting reis: bij ontbrekende/suspect GPS-heading
+    // afleiden uit koers naar ophaalpunt (en-route) of bestemming.
+    const pickupLat = live.pickup_lat != null ? Number(live.pickup_lat) : NaN;
+    const pickupLng = live.pickup_lng != null ? Number(live.pickup_lng) : NaN;
+    const dropLat = live.dropoff_lat != null ? Number(live.dropoff_lat) : NaN;
+    const dropLng = live.dropoff_lng != null ? Number(live.dropoff_lng) : NaN;
+    const towardPickup =
+      Number.isFinite(pickupLat) && Number.isFinite(pickupLng)
+        ? { lat: pickupLat, lng: pickupLng }
+        : null;
+    const towardDrop =
+      Number.isFinite(dropLat) && Number.isFinite(dropLng)
+        ? { lat: dropLat, lng: dropLng }
+        : null;
+    const phase = String(live.phase || '');
+    const toward =
+      phase === 'in_progress' || phase === 'arrived_dropoff'
+        ? towardDrop
+        : towardPickup;
+    if (toward) {
+      const routeHeading = (bearingDegrees({ lat, lng }, toward) + 360) % 360;
+      // Altijd met de neus (= bovenkant auto) richting reisdoel — voorkomt “op de kop”.
+      if (heading == null || heading < 0 || headingDeltaDeg(heading, routeHeading) > 45) {
+        heading = routeHeading;
+      }
+    }
     return {
       lat,
       lng,
-      heading: Number.isFinite(headingRaw) ? headingRaw : null,
+      heading,
     };
   }, [
     live,
@@ -2260,11 +2313,54 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     Keyboard.dismiss();
     leaveContactEditModes();
     setBookMountKey((k) => k + 1);
+    bookChromeOpacityRef.current = 0;
+    setBookChromeOpacity(0);
     setTab('book');
     AsyncStorage.setItem(TAB_KEY, 'book').catch(() => undefined);
     setError(null);
     setProfileSaved(false);
     setShowArchivedRides(false);
+  }
+
+  function updateBookChromeFromScrollY(y: number) {
+    const next = y <= 4 ? 0 : Math.min(1, (y - 4) / 20);
+    if (Math.abs(next - bookChromeOpacityRef.current) < 0.04 && next > 0 && next < 1) {
+      return;
+    }
+    bookChromeOpacityRef.current = next;
+    setBookChromeOpacity(next);
+  }
+
+  const openRidesBadgeKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const ride of guestRides) {
+      if (!isRidesTabBadgePhase(ride.phase)) continue;
+      const key = rideArchiveKey(ride);
+      if (key) keys.add(key);
+    }
+    if (hasActiveRide && live && isRidesTabBadgePhase(live.phase)) {
+      const key = rideArchiveKey({ id: live.id, token: trackToken });
+      if (key) keys.add(key);
+    }
+    return keys;
+  }, [guestRides, hasActiveRide, live, trackToken]);
+
+  const ridesBadgeSeenSet = useMemo(() => new Set(ridesBadgeSeenKeys), [ridesBadgeSeenKeys]);
+  const ridesBadgeCount = useMemo(() => {
+    let n = 0;
+    for (const key of openRidesBadgeKeys) {
+      if (!ridesBadgeSeenSet.has(key)) n += 1;
+    }
+    return n;
+  }, [openRidesBadgeKeys, ridesBadgeSeenSet]);
+
+  function acknowledgeRidesBadge() {
+    if (openRidesBadgeKeys.size === 0) return;
+    setRidesBadgeSeenKeys((prev) => {
+      const next = new Set(prev);
+      for (const key of openRidesBadgeKeys) next.add(key);
+      return Array.from(next);
+    });
   }
 
   function scrollToMap() {
@@ -5382,22 +5478,56 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               ? profileContent
               : (
                   <View style={styles.bookPane}>
+                    <ScrollView
+                      key={`book-${bookMountKey}`}
+                      ref={bookScrollRef}
+                      style={styles.formScroll}
+                      contentContainerStyle={[
+                        styles.scroll,
+                        // Zelfde top als Home: geen lege strip boven de hero.
+                        USE_NEXA_BOOKING_REDESIGN ? { paddingTop: 0 } : null,
+                        { paddingBottom: 24 + keyboardOverlap },
+                      ]}
+                      keyboardShouldPersistTaps="handled"
+                      keyboardDismissMode="on-drag"
+                      automaticallyAdjustKeyboardInsets
+                      nestedScrollEnabled
+                      removeClippedSubviews={false}
+                      scrollEventThrottle={8}
+                      onScroll={(e) => {
+                        if (!USE_NEXA_BOOKING_REDESIGN) return;
+                        updateBookChromeFromScrollY(e.nativeEvent.contentOffset.y);
+                      }}
+                    >
+                      {bookContent}
+                    </ScrollView>
                     {USE_NEXA_BOOKING_REDESIGN ? (
-                      <View style={styles.bookStickyChrome} pointerEvents="box-none">
-                        <Animated.View
+                      <View
+                        style={[
+                          styles.bookStickyChrome,
+                          { height: insets.top + APP_CHROME_HEIGHT },
+                        ]}
+                        pointerEvents="box-none"
+                      >
+                        <View
                           pointerEvents="none"
                           style={[
                             styles.bookStickyChromeBg,
                             {
+                              opacity: bookChromeOpacity,
                               backgroundColor:
-                                colorScheme === 'light'
-                                  ? '#FFFFFF'
-                                  : nexaBookingTheme.color.navy900,
-                              opacity: bookChromeSolid,
+                                colorScheme === 'light' ? '#FFFFFF' : '#061329',
                             },
                           ]}
                         />
-                        <View style={{ paddingTop: insets.top }}>
+                        <View
+                          style={{
+                            paddingTop: insets.top,
+                            zIndex: 2,
+                            height: insets.top + APP_CHROME_HEIGHT,
+                          }}
+                          pointerEvents="box-none"
+                        >
                           <View style={nexaHeroChromeRow}>
                             <View style={nexaHeroSideSlot}>
                               <Pressable
@@ -5441,30 +5571,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                         </View>
                       </View>
                     ) : null}
-                    <ScrollView
-                      key={`book-${bookMountKey}`}
-                      ref={bookScrollRef}
-                      style={styles.formScroll}
-                      contentContainerStyle={[
-                        styles.scroll,
-                        // Zelfde top als Home: geen lege strip boven de hero.
-                        USE_NEXA_BOOKING_REDESIGN ? { paddingTop: 0 } : null,
-                        { paddingBottom: 24 + keyboardOverlap },
-                      ]}
-                      keyboardShouldPersistTaps="handled"
-                      keyboardDismissMode="on-drag"
-                      automaticallyAdjustKeyboardInsets
-                      nestedScrollEnabled
-                      removeClippedSubviews={false}
-                      scrollEventThrottle={16}
-                      onScroll={(e) => {
-                        if (!USE_NEXA_BOOKING_REDESIGN) return;
-                        const y = e.nativeEvent.contentOffset.y;
-                        bookChromeSolid.setValue(Math.min(1, Math.max(0, y / 56)));
-                      }}
-                    >
-                      {bookContent}
-                    </ScrollView>
                   </View>
                 )}
       </View>
@@ -5489,6 +5595,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               return;
             }
             leaveContactEditModes();
+            if (key === 'rides') acknowledgeRidesBadge();
             setTab(key);
             AsyncStorage.setItem(TAB_KEY, key).catch(() => undefined);
             setError(null);
@@ -5499,10 +5606,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               setExpandedRideKey(rideArchiveKey(activeBannerRide));
             }
           }}
-          ridesBadge={
-            guestRides.filter((r) => isRidesTabBadgePhase(r.phase)).length ||
-            (hasActiveRide && isRidesTabBadgePhase(live?.phase) ? 1 : 0)
-          }
+          ridesBadge={ridesBadgeCount}
         />
       ) : (
         <CustomerTabBar
@@ -5513,6 +5617,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               return;
             }
             leaveContactEditModes();
+            if (key === 'rides') acknowledgeRidesBadge();
             setTab(key);
             AsyncStorage.setItem(TAB_KEY, key).catch(() => undefined);
             setError(null);
@@ -5523,10 +5628,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               setExpandedRideKey(rideArchiveKey(activeBannerRide));
             }
           }}
-          ridesBadge={
-            guestRides.filter((r) => isRidesTabBadgePhase(r.phase)).length ||
-            (hasActiveRide && isRidesTabBadgePhase(live?.phase) ? 1 : 0)
-          }
+          ridesBadge={ridesBadgeCount}
         />
       )}
 
@@ -6167,16 +6269,21 @@ function makeStyles(colors: ColorPalette) {
     bookPane: {
       flex: 1,
       minHeight: 0,
+      position: 'relative',
+      overflow: 'visible',
     },
     bookStickyChrome: {
       position: 'absolute',
       top: 0,
       left: 0,
       right: 0,
-      zIndex: 30,
+      zIndex: 100,
+      elevation: 24,
+      overflow: 'hidden',
     },
     bookStickyChromeBg: {
       ...StyleSheet.absoluteFillObject,
+      zIndex: 0,
     },
     bookStickyBack: {
       width: 40,
@@ -6197,6 +6304,7 @@ function makeStyles(colors: ColorPalette) {
     formScroll: {
       flex: 1,
       minHeight: 0,
+      zIndex: 0,
     },
     scroll: {
       justifyContent: 'flex-start',

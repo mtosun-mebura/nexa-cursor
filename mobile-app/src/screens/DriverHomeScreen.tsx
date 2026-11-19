@@ -749,6 +749,8 @@ export function DriverHomeScreen() {
   const [chatUnreadByRideId, setChatUnreadByRideId] = useState<Record<number, number>>({});
   const chatRideIdRef = useRef<number | null>(null);
   chatRideIdRef.current = chatRideId;
+  /** Na chat vanaf push/melding: rit opnieuw focussen bij sluiten. */
+  const focusRideAfterChatCloseRef = useRef<number | null>(null);
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
@@ -1826,10 +1828,19 @@ export function DriverHomeScreen() {
         setTab('trips');
         persistDriverTab('trips');
         if (rideId <= 0) return;
+        // Direct naar de rit — ook zichtbaar zodra de chat-modal dichtgaat.
         setFocusRideId(rideId);
+        focusRideAfterChatCloseRef.current = rideId;
+        void refreshInboxOnly();
         if (!target.openChat) return;
+        const ride =
+          (activeRide?.id === rideId ? activeRide : null) ||
+          parkedRides.find((r) => r.id === rideId) ||
+          scheduledRides.find((r) => r.id === rideId) ||
+          overdueScheduledRides.find((r) => r.id === rideId) ||
+          null;
         setChatRideId(rideId);
-        setChatCustomerName(null);
+        setChatCustomerName(ride?.customer_name ? String(ride.customer_name) : null);
         setChatMessages([]);
         setChatAllowed(true);
         setChatUnreadByRideId((prev) => {
@@ -1842,7 +1853,13 @@ export function DriverHomeScreen() {
         /* ignore */
       }
     }, 0);
-  }, []);
+  }, [
+    activeRide,
+    overdueScheduledRides,
+    parkedRides,
+    refreshInboxOnly,
+    scheduledRides,
+  ]);
 
   useEffect(() => {
     return addDriverOfferNotificationResponseListener(
@@ -3447,6 +3464,30 @@ export function DriverHomeScreen() {
     }
   }
 
+  async function onOpenChatFromNotification(item: DriverInboxNotification) {
+    const rideId = Number(item.related_ride_id || 0);
+    setNotificationsOpen(false);
+    try {
+      await onOpenNotification(item);
+    } catch {
+      /* mark-as-read best-effort */
+    }
+    void onArchiveNotification(item);
+    if (rideId <= 0) return;
+    const ride =
+      (activeRide?.id === rideId ? activeRide : null) ||
+      parkedRides.find((r) => r.id === rideId) ||
+      scheduledRides.find((r) => r.id === rideId) ||
+      overdueScheduledRides.find((r) => r.id === rideId) ||
+      null;
+    focusRideAfterChatCloseRef.current = rideId;
+    goToRide(rideId);
+    openDriverRideChat({
+      id: rideId,
+      customer_name: ride?.customer_name || item.title?.replace(/^Chat:\s*/i, '') || null,
+    });
+  }
+
   /**
    * Fotobibliotheek. Bij iOS-beperkte toegang tonen we alleen de toegestane foto's
    * (met "Meer foto's toevoegen"); PHPicker (ImagePicker) negeert die selectie.
@@ -4935,7 +4976,14 @@ export function DriverHomeScreen() {
             <Switch
               value={online}
               onValueChange={toggleOnline}
-              trackColor={{ false: colors.border, true: colors.success }}
+              trackColor={{
+                false: colorScheme === 'light' ? '#94A3B8' : 'rgba(148,163,184,0.55)',
+                true: colors.success,
+              }}
+              thumbColor={online ? '#FFFFFF' : colorScheme === 'light' ? '#F1F5F9' : '#E2E8F0'}
+              ios_backgroundColor={
+                colorScheme === 'light' ? '#94A3B8' : 'rgba(148,163,184,0.55)'
+              }
               style={styles.onlineSwitch}
             />
           </View>
@@ -4950,32 +4998,30 @@ export function DriverHomeScreen() {
           </View>
 
           <View style={styles.headerIcons}>
-            {inboxUnreadCount > 0 || notificationsOpen ? (
-              <Pressable
-                style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
-                onPress={() => {
-                  void openNotifications();
-                }}
-                accessibilityLabel={
-                  inboxUnreadCount > 0
-                    ? t('Meldingen ({count})', { count: inboxUnreadCount })
-                    : t('Meldingen')
-                }
-              >
-                {inboxUnreadCount > 0 ? (
-                  <View style={styles.headerBadge}>
-                    <Text style={styles.headerBadgeText}>
-                      {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
-                    </Text>
-                  </View>
-                ) : null}
-                <Ionicons
-                  name="notifications-outline"
-                  size={22}
-                  color={notificationsOpen ? accentHex(accent) : colors.muted}
-                />
-              </Pressable>
-            ) : null}
+            <Pressable
+              style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
+              onPress={() => {
+                void openNotifications();
+              }}
+              accessibilityLabel={
+                inboxUnreadCount > 0
+                  ? t('Meldingen ({count})', { count: inboxUnreadCount })
+                  : t('Meldingen')
+              }
+            >
+              {inboxUnreadCount > 0 ? (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>
+                    {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
+                  </Text>
+                </View>
+              ) : null}
+              <Ionicons
+                name="notifications-outline"
+                size={22}
+                color={notificationsOpen ? accentHex(accent) : colors.muted}
+              />
+            </Pressable>
             <Pressable
               style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
               onPress={() => goToArchive(!showArchived)}
@@ -5070,6 +5116,7 @@ export function DriverHomeScreen() {
         onRequestClose={() => setNotificationsOpen(false)}
         onOpen={onOpenNotification}
         onArchive={onArchiveNotification}
+        onOpenChat={onOpenChatFromNotification}
         dateLabel={reviewDateLabel}
       />
 
@@ -5652,8 +5699,25 @@ export function DriverHomeScreen() {
       <RideChatModal
         visible={chatRideId != null}
         onClose={() => {
+          const focusId = focusRideAfterChatCloseRef.current;
+          focusRideAfterChatCloseRef.current = null;
           setChatRideId(null);
           setChatMessages([]);
+          if (focusId && focusId > 0) {
+            // Forceer scroll/highlight opnieuw (zelfde id triggert anders geen effect).
+            setFocusRideId(null);
+            setTimeout(() => {
+              if (!mountedRef.current) return;
+              goToRide(focusId);
+              const y = rideOffsets.current[focusId];
+              if (y != null) {
+                tripsScrollRef.current?.scrollTo({
+                  y: Math.max(0, y - 12),
+                  animated: true,
+                });
+              }
+            }, 0);
+          }
         }}
         driverName={chatCustomerName}
         selfFrom="driver"
