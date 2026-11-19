@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ImageBackground,
   Pressable,
@@ -16,6 +16,7 @@ import { t } from '../../i18n';
 import { useTheme } from '../../theme/ThemeContext';
 import { AppBrandLogo } from '../../ui/AppBrandLogo';
 import { AppearanceControls } from '../../ui/AppearanceControls';
+import { APP_CHROME_HEIGHT } from '../../ui/appChrome';
 import { exactHeroHome, exactModeAsset } from './exactAssets';
 import { NexaGlowCard } from './NexaGlowCard';
 import {
@@ -64,6 +65,8 @@ export function NexaHomeScreen({
   const name = String(greetingName || '').trim();
   const [visitedBefore, setVisitedBefore] = useState(false);
   const returning = isReturning || name.length > 0 || visitedBefore;
+  const [chromeOpacity, setChromeOpacity] = useState(0);
+  const chromeOpacityRef = useRef(0);
   const heroSource = exactModeAsset(exactHeroHome, light);
   const heroHeight = useMemo(
     () => nexaHeroContentHeight(width, insets.top, 'home'),
@@ -94,10 +97,21 @@ export function NexaHomeScreen({
   }, []);
 
   return (
+    <View style={[styles.wrap, light && { backgroundColor: '#FFFFFF' }]}>
     <ScrollView
       style={[styles.scroll, light && { backgroundColor: '#FFFFFF' }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={8}
+      onScroll={(e) => {
+        const y = e.nativeEvent.contentOffset.y;
+        const next = y <= 4 ? 0 : Math.min(1, (y - 4) / 20);
+        if (Math.abs(next - chromeOpacityRef.current) < 0.04 && next > 0 && next < 1) {
+          return;
+        }
+        chromeOpacityRef.current = next;
+        setChromeOpacity(next);
+      }}
     >
       <View style={[styles.heroBlock, light && { backgroundColor: '#FFFFFF' }]}>
         <ImageBackground
@@ -126,15 +140,8 @@ export function NexaHomeScreen({
             pointerEvents="none"
           />
 
-          <View style={nexaHeroChromeRow}>
-            <View style={nexaHeroSideSlot} />
-            <View style={styles.logoCenter}>
-              <AppBrandLogo bare />
-            </View>
-            <View style={[nexaHeroSideSlot, nexaHeroSideRight]}>
-              <AppearanceControls tone={light ? 'theme' : 'onDark'} />
-            </View>
-          </View>
+          {/* Ruimte voor sticky chrome — logo/icons zitten erboven. */}
+          <View style={nexaHeroChromeRow} pointerEvents="none" />
 
           <View style={[styles.copy, styles.copyLower]}>
             {returning ? (
@@ -247,6 +254,36 @@ export function NexaHomeScreen({
         </View>
       </NexaGlowCard>
     </ScrollView>
+      <View
+        style={[styles.stickyChrome, { height: insets.top + APP_CHROME_HEIGHT }]}
+        pointerEvents="box-none"
+      >
+        <View
+          pointerEvents="none"
+          style={[
+            styles.stickyChromeBg,
+            {
+              opacity: chromeOpacity,
+              backgroundColor: light ? '#FFFFFF' : '#061329',
+            },
+          ]}
+        />
+        <View
+          style={{ paddingTop: insets.top, zIndex: 2, height: insets.top + APP_CHROME_HEIGHT }}
+          pointerEvents="box-none"
+        >
+          <View style={nexaHeroChromeRow}>
+            <View style={nexaHeroSideSlot} />
+            <View style={styles.logoCenter}>
+              <AppBrandLogo bare />
+            </View>
+            <View style={[nexaHeroSideSlot, nexaHeroSideRight]}>
+              <AppearanceControls tone={light ? 'theme' : 'onDark'} />
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -278,13 +315,31 @@ function Shortcut({
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    flex: 1,
+    backgroundColor: theme.color.navy900,
+  },
   scroll: {
     flex: 1,
     backgroundColor: theme.color.navy900,
+    zIndex: 0,
   },
   content: {
     paddingHorizontal: 12,
     paddingBottom: 28,
+  },
+  stickyChrome: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    elevation: 24,
+    overflow: 'hidden',
+  },
+  stickyChromeBg: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   logoCenter: {
     flex: 1,

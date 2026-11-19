@@ -17,6 +17,10 @@ import { useThemeColors } from '../theme/ThemeContext';
 import { AppModal } from './AppModal';
 import { GhostButton } from './components';
 
+function isRideChatNotification(item: DriverInboxNotification): boolean {
+  return String(item.type || '') === 'ride_chat';
+}
+
 type Props = {
   visible: boolean;
   busy?: boolean;
@@ -25,6 +29,8 @@ type Props = {
   onRequestClose: () => void;
   onOpen: (item: DriverInboxNotification) => void | Promise<void>;
   onArchive: (item: DriverInboxNotification) => void | Promise<void>;
+  /** Chat-melding: open de rit-chat i.p.v. archiveren. */
+  onOpenChat?: (item: DriverInboxNotification) => void | Promise<void>;
   dateLabel: (iso?: string | null) => string;
 };
 
@@ -38,6 +44,7 @@ type RowProps = {
   onPress: () => void;
   onCloseFocus: () => void;
   onArchive: () => void;
+  onOpenChat?: () => void;
   archiving: boolean;
   onArchiveAnimDone: () => void;
 };
@@ -52,10 +59,12 @@ function NotificationRow({
   onPress,
   onCloseFocus,
   onArchive,
+  onOpenChat,
   archiving,
   onArchiveAnimDone,
 }: RowProps) {
   const styles = useMemo(() => makeRowStyles(colors), [colors]);
+  const isChat = isRideChatNotification(item);
   const opacity = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const translateX = useRef(new Animated.Value(0)).current;
@@ -204,10 +213,12 @@ function NotificationRow({
           </View>
           <View style={styles.actionSlot}>
             <Pressable
-              onPress={onArchive}
+              onPress={isChat && onOpenChat ? onOpenChat : onArchive}
               style={[styles.primaryBtn, { backgroundColor: accentColor }]}
             >
-              <Text style={styles.primaryText}>{t('Archiveren')}</Text>
+              <Text style={styles.primaryText}>
+                {isChat ? t('Open chat') : t('Archiveren')}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -224,6 +235,7 @@ export function DriverNotificationsModal({
   onRequestClose,
   onOpen,
   onArchive,
+  onOpenChat,
   dateLabel,
 }: Props) {
   const colors = useThemeColors();
@@ -305,6 +317,19 @@ export function DriverNotificationsModal({
               focusTimer.current = setTimeout(() => setFocusSettled(true), 200);
             }}
             onCloseFocus={clearFocus}
+            onOpenChat={
+              isRideChatNotification(item) && onOpenChat
+                ? () => {
+                    void (async () => {
+                      try {
+                        await onOpenChat(item);
+                      } finally {
+                        clearFocus();
+                      }
+                    })();
+                  }
+                : undefined
+            }
             onArchive={() => {
               if (archivingId) return;
               setArchivingId(item.id);
