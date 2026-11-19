@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\Vehicle;
 use App\Modules\NexaTaxi\Support\TaxiDispatchSchema;
 use App\Modules\NexaTaxi\Support\TaxiDriverProfileSchema;
 use App\Services\ModuleDatabaseService;
+use App\Services\VehiclePhotoCutoutService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -15,7 +16,8 @@ use Illuminate\Validation\ValidationException;
 class TaxiDriverProfileMediaService
 {
     public function __construct(
-        protected ModuleDatabaseService $moduleDb
+        protected ModuleDatabaseService $moduleDb,
+        protected VehiclePhotoCutoutService $vehicleCutout
     ) {}
 
     public function connection(): string
@@ -150,8 +152,9 @@ class TaxiDriverProfileMediaService
 
     /**
      * Foto hoort bij dit kenteken/voertuig, niet bij de chauffeur.
+     * Optioneel cutout via remove.bg (transparante PNG) als REMOVEBG_API_KEY gezet is.
      *
-     * @return array{id: int, photo_url: ?string}
+     * @return array{id: int, photo_url: ?string, cutout: bool}
      */
     public function storeVehiclePhoto(User $driver, UploadedFile $file, int $companyId, int $vehicleId): array
     {
@@ -167,7 +170,8 @@ class TaxiDriverProfileMediaService
             ]);
         }
 
-        $path = $this->storeFile((int) $driver->id, 'vehicle-'.$vehicleId, $file);
+        $processed = $this->vehicleCutout->process($file);
+        $path = $this->storeFile((int) $driver->id, 'vehicle-'.$vehicleId, $processed['file']);
         if (! is_string($path) || $path === '') {
             throw ValidationException::withMessages(['photo' => ['Upload mislukt.']]);
         }
@@ -181,6 +185,7 @@ class TaxiDriverProfileMediaService
         return [
             'id' => (int) $vehicle->id,
             'photo_url' => Storage::disk('public')->url($path),
+            'cutout' => (bool) $processed['cutout'],
         ];
     }
 

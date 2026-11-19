@@ -13,19 +13,19 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal } from '../ui/AppModal';
 import { GhostButton } from '../ui/components';
 import { useI18n, t } from '../i18n';
 import { useThemeColors } from '../theme/ThemeContext';
 import { AppearanceControls } from '../ui/AppearanceControls';
+import { AppPageHeader } from '../ui/AppPageHeader';
 import { fitLineFontProps } from '../ui/androidText';
 
 const HELP_EMAIL = 'info@nexasuite.nl';
 const HELP_SUBJECT = 'Help bij de NEXA Taxi app';
 const HELP_URL = `mailto:${HELP_EMAIL}?subject=${encodeURIComponent(HELP_SUBJECT)}`;
 
-/** Hero is altijd donker → witte TAXI-variant. */
-const logo = require('../../assets/nexa-taxi-logo-dark.png');
 const mapHeader = require('../../assets/map-header-background.png');
 const bookingArt = require('../../assets/taxi-booking-background.png');
 
@@ -40,12 +40,12 @@ export function WelcomeScreen({
 }) {
   const colors = useThemeColors();
   useI18n();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(), []);
   const { width: windowWidth } = useWindowDimensions();
   const heroWidth = Math.min(windowWidth, 640);
-  const mapHeight = heroWidth * (1024 / 1536) * 1.2;
-  const routeBottom = mapHeight * 0.4;
-  const logoMarginBottom = Math.max(24, Math.round(routeBottom + 12 - 70));
+  // Compacte map-decoratie — zelfde chrome-hoogte als Ritten, geen oversized hero.
+  const mapHeight = Math.round(heroWidth * (420 / 1536));
   const [helpOpen, setHelpOpen] = useState(false);
 
   async function openHelp() {
@@ -59,18 +59,16 @@ export function WelcomeScreen({
   return (
     <View style={styles.screen}>
       {Platform.OS === 'ios' ? <StatusBar barStyle="light-content" /> : null}
-      <View style={styles.prefs} pointerEvents="box-none">
-        <AppearanceControls tone="onDark" />
-      </View>
+      <AppPageHeader chrome="onDark" right={<AppearanceControls tone="onDark" />} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
+        <View style={[styles.hero, { width: heroWidth }]}>
           <Image
             source={mapHeader}
-            style={[styles.mapHeader, { width: heroWidth, height: mapHeight, top: 0 }]}
+            style={[styles.mapHeader, { width: heroWidth, height: mapHeight }]}
             resizeMode="cover"
             accessible={false}
           />
@@ -80,12 +78,6 @@ export function WelcomeScreen({
             pointerEvents="none"
           />
           <View style={styles.heroCopy}>
-            <Image
-              source={logo}
-              style={[styles.logo, { marginBottom: logoMarginBottom }]}
-              resizeMode="contain"
-              accessibilityLabel="NEXA Taxi"
-            />
             <Text
               style={styles.title}
               accessibilityRole="header"
@@ -93,16 +85,26 @@ export function WelcomeScreen({
               adjustsFontSizeToFit
               {...fitLineFontProps}
               minimumFontScale={0.7}
-            >{t("Welkom bij NEXA Taxi")}</Text>
-            <Text style={styles.lead}>{t("Hoe wil je verder?")}</Text>
+            >
+              {t('Welkom bij NEXA Taxi')}
+            </Text>
+            <Text style={styles.lead}>{t('Hoe wil je verder?')}</Text>
           </View>
         </View>
         <View style={styles.column}>
-
           <View style={styles.booking}>
-            <Image source={bookingArt} style={styles.bookingArt} resizeMode="cover" accessible={false} />
+            <Image
+              source={bookingArt}
+              style={styles.bookingArt}
+              resizeMode="cover"
+              accessible={false}
+            />
             <LinearGradient
-              colors={['rgba(0,40,115,0.96)', 'rgba(0,42,115,0.82)', 'rgba(0,42,115,0.08)']}
+              colors={[
+                'rgba(0,40,115,0.96)',
+                'rgba(0,42,115,0.82)',
+                'rgba(0,42,115,0.08)',
+              ]}
               locations={[0, 0.46, 0.78]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
@@ -111,21 +113,23 @@ export function WelcomeScreen({
             />
             <View style={styles.bookingCopy}>
               <MaterialCommunityIcons name="taxi" size={40} color="#ffffff" />
-              <Text style={styles.bookingTitle}>{t("Taxi boeken")}</Text>
+              <Text style={styles.bookingTitle}>{t('Taxi boeken')}</Text>
               <Text
                 style={styles.bookingBody}
                 numberOfLines={1}
                 adjustsFontSizeToFit
-              {...fitLineFontProps}
+                {...fitLineFontProps}
                 minimumFontScale={0.75}
-              >{t("Plan je rit en volg je taxi live.")}</Text>
+              >
+                {t('Plan je rit en volg je taxi live.')}
+              </Text>
               <Pressable
                 onPress={onCustomer}
                 accessibilityRole="button"
-                accessibilityLabel={t("Taxi boeken")}
+                accessibilityLabel={t('Taxi boeken')}
                 style={({ pressed }) => [styles.bookAction, pressed && styles.pressed]}
               >
-                <Text style={styles.bookActionText}>{t("Taxi boeken")}</Text>
+                <Text style={styles.bookActionText}>{t('Taxi boeken')}</Text>
                 <Ionicons name="chevron-forward" size={22} color="#071323" />
               </Pressable>
             </View>
@@ -134,15 +138,17 @@ export function WelcomeScreen({
           <Pressable
             onPress={onLogin}
             accessibilityRole="button"
-            accessibilityLabel={t("Inloggen")}
+            accessibilityLabel={t('Inloggen')}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <View style={styles.tile}>
               <MaterialCommunityIcons name="steering" size={40} color="#8eb6ff" />
             </View>
             <View style={styles.rowCopy}>
-              <Text style={styles.rowTitle}>{t("Inloggen")}</Text>
-              <Text style={styles.rowBody}>{t("Voor chauffeurs en zakelijke gebruikers.")}</Text>
+              <Text style={styles.rowTitle}>{t('Inloggen')}</Text>
+              <Text style={styles.rowBody}>
+                {t('Voor chauffeurs en zakelijke gebruikers.')}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#8eb6ff" />
           </Pressable>
@@ -150,49 +156,55 @@ export function WelcomeScreen({
           <Pressable
             onPress={onMarketplaceRegister}
             accessibilityRole="button"
-            accessibilityLabel={t("Taxibedrijf registreren")}
+            accessibilityLabel={t('Taxibedrijf registreren')}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <View style={styles.tile}>
               <MaterialCommunityIcons name="office-building" size={40} color="#8eb6ff" />
             </View>
             <View style={styles.rowCopy}>
-              <Text style={styles.rowTitle}>{t("Taxibedrijf registreren")}</Text>
+              <Text style={styles.rowTitle}>{t('Taxibedrijf registreren')}</Text>
               <Text
                 style={styles.rowBody}
                 numberOfLines={1}
                 adjustsFontSizeToFit
-              {...fitLineFontProps}
+                {...fitLineFontProps}
                 minimumFontScale={0.75}
-              >{t("Sluit je aan bij het NEXA-netwerk.")}</Text>
+              >
+                {t('Sluit je aan bij het NEXA-netwerk.')}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color="#8eb6ff" />
           </Pressable>
 
-          <View style={styles.help}>
+          <View style={[styles.help, { paddingBottom: Math.max(12, insets.bottom) }]}>
             <Pressable
               onPress={() => void openHelp()}
               accessibilityRole="link"
-              accessibilityLabel={t("Hulp nodig? Stuur een e-mail naar info@nexasuite.nl")}
+              accessibilityLabel={t(
+                'Hulp nodig? Stuur een e-mail naar info@nexasuite.nl'
+              )}
               style={({ pressed }) => [styles.helpLink, pressed && styles.pressed]}
             >
               <Ionicons name="help-circle-outline" size={28} color="#80b8ff" />
-              <Text style={styles.helpText}>{t("Hulp nodig?")}</Text>
+              <Text style={styles.helpText}>{t('Hulp nodig?')}</Text>
             </Pressable>
           </View>
         </View>
       </ScrollView>
 
       <AppModal visible={helpOpen} onRequestClose={() => setHelpOpen(false)}>
-        <Text style={[styles.helpModalTitle, { color: colors.text }]}>{t("Hulp nodig?")}</Text>
+        <Text style={[styles.helpModalTitle, { color: colors.text }]}>
+          {t('Hulp nodig?')}
+        </Text>
         <Text style={[styles.helpModalBody, { color: colors.muted }]}>
-          Er is geen mailapp beschikbaar. Stuur zelf een bericht naar {HELP_EMAIL} met als onderwerp
-          “{HELP_SUBJECT}”.
+          Er is geen mailapp beschikbaar. Stuur zelf een bericht naar {HELP_EMAIL} met als
+          onderwerp “{HELP_SUBJECT}”.
         </Text>
         <Text style={[styles.helpModalAddress, { color: colors.text }]} selectable>
           {HELP_EMAIL}
         </Text>
-        <GhostButton title={t("Sluiten")} onPress={() => setHelpOpen(false)} />
+        <GhostButton title={t('Sluiten')} onPress={() => setHelpOpen(false)} />
       </AppModal>
     </View>
   );
@@ -204,12 +216,6 @@ function makeStyles() {
       flex: 1,
       backgroundColor: '#071323',
     },
-    prefs: {
-      position: 'absolute',
-      top: 8,
-      right: 12,
-      zIndex: 5,
-    },
     scroll: {
       flex: 1,
     },
@@ -217,26 +223,27 @@ function makeStyles() {
       paddingBottom: 28,
     },
     hero: {
-      width: '100%',
-      maxWidth: 640,
       alignSelf: 'center',
       overflow: 'hidden',
+      minHeight: 120,
     },
     mapHeader: {
       position: 'absolute',
       left: 0,
+      top: 0,
+      opacity: 0.9,
     },
     mapFade: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      height: 40,
+      height: 56,
     },
     heroCopy: {
-      paddingTop: 28,
+      paddingTop: 8,
       paddingHorizontal: 20,
-      paddingBottom: 28,
+      paddingBottom: 20,
     },
     column: {
       width: '100%',
@@ -244,12 +251,6 @@ function makeStyles() {
       alignSelf: 'center',
       marginTop: 0,
       paddingHorizontal: 20,
-    },
-    logo: {
-      width: 168,
-      height: 42,
-      alignSelf: 'center',
-      marginBottom: 24,
     },
     title: {
       color: '#ffffff',
@@ -270,14 +271,15 @@ function makeStyles() {
       borderColor: '#388bff',
       borderRadius: 24,
       marginBottom: 0,
+      minHeight: 168,
     },
+    /** Schaal op kaarthoogte zodat de hele taxi rechts in beeld blijft. */
     bookingArt: {
       position: 'absolute',
       top: 0,
       right: 0,
-      bottom: 0,
-      width: '100%',
       height: '100%',
+      aspectRatio: 1536 / 1024,
     },
     bookingCopy: {
       paddingHorizontal: 20,

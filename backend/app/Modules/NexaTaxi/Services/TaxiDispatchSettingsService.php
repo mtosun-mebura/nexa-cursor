@@ -81,6 +81,12 @@ class TaxiDispatchSettingsService
 
     public const KEY_NETWORK_MAX_RADIUS_KM = 'taxi_network_max_radius_km';
 
+    /** Marktplaats live-kaart: straal rond klant voor zichtbare online taxi’s. */
+    public const KEY_MARKETPLACE_MAP_RADIUS_KM = 'taxi_marketplace_map_radius_km';
+
+    /** Standaard korting (%) op boekingsprijzen t.o.v. tarieven. */
+    public const KEY_BOOKING_DISCOUNT_PERCENT = 'taxi_booking_discount_percent';
+
     public const KEY_NETWORK_PARTNER_COMPANY_IDS = 'taxi_network_partner_company_ids';
 
     /** Super-admin handmatige IDs (gemerged met accepted invite-partnerships). */
@@ -1256,6 +1262,50 @@ class TaxiDispatchSettingsService
         GeneralSetting::set(
             self::KEY_NETWORK_MAX_RADIUS_KM,
             (string) max(1, min(200, $km)),
+            $companyId
+        );
+    }
+
+    /**
+     * Straal (km) voor marktplaats-kaart: alleen actieve taxi’s binnen deze afstand
+     * van de klantlocatie. Onafhankelijk van network_max_radius_km.
+     */
+    public function marketplaceMapRadiusKm(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.marketplace_map_radius_km', 25);
+        $raw = GeneralSetting::get(self::KEY_MARKETPLACE_MAP_RADIUS_KM, null, $companyId);
+        $km = ($raw === null || $raw === '') ? $default : (int) $raw;
+
+        return max(1, min(200, $km));
+    }
+
+    public function setMarketplaceMapRadiusKm(int $km, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_MARKETPLACE_MAP_RADIUS_KM,
+            (string) max(1, min(200, $km)),
+            $companyId
+        );
+    }
+
+    /**
+     * Korting (%) die standaard op boekingsprijzen wordt toegepast (0–100).
+     * 50 → klant betaalt de helft van de tariefprijs.
+     */
+    public function bookingDiscountPercent(?int $companyId = null): int
+    {
+        $default = (int) config('taxi-dispatch.booking_discount_percent', 0);
+        $raw = GeneralSetting::get(self::KEY_BOOKING_DISCOUNT_PERCENT, null, $companyId);
+        $pct = ($raw === null || $raw === '') ? $default : (int) $raw;
+
+        return max(0, min(100, $pct));
+    }
+
+    public function setBookingDiscountPercent(int $percent, ?int $companyId = null): void
+    {
+        GeneralSetting::set(
+            self::KEY_BOOKING_DISCOUNT_PERCENT,
+            (string) max(0, min(100, $percent)),
             $companyId
         );
     }

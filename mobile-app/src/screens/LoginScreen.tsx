@@ -271,7 +271,7 @@ function makeStyles(_colors: ColorPalette) {
   return StyleSheet.create({
     body: {
       flex: 1,
-      paddingHorizontal: 20,
+      paddingHorizontal: 12,
     },
   });
 }

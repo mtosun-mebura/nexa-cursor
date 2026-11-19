@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAiChatController;
 use App\Http\Controllers\Admin\AdminAiImageGeneratorController;
+use App\Http\Controllers\Admin\AdminPromoVideoController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
@@ -1072,6 +1073,11 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::get('ai-images', [AdminAiImageGeneratorController::class, 'index'])->name('ai-images.index');
             Route::post('ai-images/generate', [AdminAiImageGeneratorController::class, 'generate'])->name('ai-images.generate');
             Route::delete('ai-images/{aiGeneratedImage}', [AdminAiImageGeneratorController::class, 'destroy'])->name('ai-images.destroy');
+
+            Route::get('promo-videos', [AdminPromoVideoController::class, 'index'])->name('promo-videos.index');
+            Route::post('promo-videos/preview', [AdminPromoVideoController::class, 'preview'])->name('promo-videos.preview');
+            Route::post('promo-videos/render', [AdminPromoVideoController::class, 'render'])->name('promo-videos.render');
+            Route::post('promo-videos/upload-logo', [AdminPromoVideoController::class, 'uploadLogo'])->name('promo-videos.upload-logo');
         });
 
         Route::get('frontend-themes', [AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');

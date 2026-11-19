@@ -143,6 +143,19 @@ class AdminTenantScopeTest extends TestCase
         $this->assertFalse($scope->shouldHideContent());
     }
 
+    public function test_super_admin_without_tenant_can_open_promo_videos(): void
+    {
+        $user = $this->superAdminWithoutTenant();
+        $this->actingAs($user);
+        $this->bindRoute('/admin/promo-videos', 'admin.promo-videos.index');
+
+        $scope = app(AdminTenantScope::class);
+
+        $this->assertFalse($scope->routeRequiresTenant());
+        $this->assertFalse($scope->shouldShowTenantNotice());
+        $this->assertFalse($scope->shouldHideContent());
+    }
+
     public function test_super_admin_without_tenant_can_manage_newsletters(): void
     {
         $user = $this->superAdminWithoutTenant();

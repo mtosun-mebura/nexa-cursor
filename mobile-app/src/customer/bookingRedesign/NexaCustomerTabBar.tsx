@@ -18,7 +18,7 @@ const TABS: {
   { key: 'book', label: 'Boeken', icon: 'car-sport' },
   { key: 'rides', label: 'Ritten', icon: 'calendar-outline' },
   { key: 'notifications', label: 'Meldingen', icon: 'notifications-outline' },
-  { key: 'more', label: 'Meer', icon: 'menu' },
+  { key: 'more', label: 'Profiel', icon: 'person-outline' },
 ];
 
 export function NexaCustomerTabBar({
@@ -36,14 +36,17 @@ export function NexaCustomerTabBar({
   const { colorScheme } = useTheme();
   const light = colorScheme === 'light';
 
+  const barBg = light ? '#FFFFFF' : theme.color.navy800;
+
   return (
     <View
       style={[
         styles.bar,
         {
-          paddingBottom: tabBarBottomPadding(insets.bottom),
+          // Footer-kleur tot onder de home-indicator (geen zwarte spleet).
+          paddingBottom: Math.max(tabBarBottomPadding(insets.bottom), insets.bottom),
           borderTopColor: light ? 'rgba(8, 125, 255, 0.2)' : theme.color.border,
-          backgroundColor: light ? '#FFFFFF' : theme.color.navy800,
+          backgroundColor: barBg,
         },
       ]}
     >

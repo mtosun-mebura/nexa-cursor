@@ -14,12 +14,12 @@ import { t, useI18n } from '../../i18n';
 import { DutchPlateBadge } from '../../ui/DutchPlateInput';
 import { getApiBaseUrl } from '../../config';
 import { useTheme } from '../../theme/ThemeContext';
+import { exactDriverCardBg, exactModeAsset } from './exactAssets';
 import { NexaGlowCard } from './NexaGlowCard';
 import { nexaBookingTheme as theme } from './theme';
 
 /** Zelfde map-route visual als welkomst-/boekenscherm — als schermzone, niet als card. */
 export const nexaMapHeaderBg = require('../../../assets/map-header-background.png');
-const driverCardScene = require('../../../assets/nexa-booking/crops/nexa-driver-card-scene.jpg');
 const sedanFallback = require('../../../assets/nexa-booking/vehicles/nexa-taxi-sedan.png');
 
 function resolveMediaUrl(raw?: string | null): string | null {
@@ -57,6 +57,7 @@ export function NexaAssignedRidePanel({
   useI18n();
   const { colorScheme } = useTheme();
   const light = colorScheme === 'light';
+  const driverCardScene = exactModeAsset(exactDriverCardBg, light);
   const ink = light ? ({ color: '#0B1220' } as const) : null;
   const mutedInk = light ? ({ color: '#64748B' } as const) : null;
   const photo = resolveMediaUrl(live.driver?.photo_url);
@@ -73,18 +74,30 @@ export function NexaAssignedRidePanel({
       ? Number(live.eta_minutes)
       : null;
   const eta = (() => {
+    const formatMins = (minutes: number) => {
+      const rounded = Math.max(1, Math.round(minutes));
+      if (rounded < 60) {
+        return rounded === 1
+          ? t('ongeveer 1 minuut')
+          : t('ongeveer {n} minuten', { n: rounded });
+      }
+      const hours = Math.floor(rounded / 60);
+      const mins = rounded % 60;
+      if (mins === 0) {
+        return hours === 1
+          ? t('ongeveer 1 uur')
+          : t('ongeveer {n} uur', { n: hours });
+      }
+      if (hours === 1) {
+        return t('ongeveer 1 uur en {m} minuten', { m: mins });
+      }
+      return t('ongeveer {h} uur en {m} minuten', { h: hours, m: mins });
+    };
     if (etaMinutes != null && etaMinutes > 0) {
-      return etaMinutes === 1
-        ? t('ongeveer 1 minuut')
-        : t('ongeveer {n} minuten', { n: Math.max(1, Math.round(etaMinutes)) });
+      return formatMins(etaMinutes);
     }
     const m = etaRaw.match(/ongeveer\s+(\d+)\s+minu/i);
-    if (m) {
-      const n = Number(m[1]);
-      return n === 1
-        ? t('ongeveer 1 minuut')
-        : t('ongeveer {n} minuten', { n });
-    }
+    if (m) return formatMins(Number(m[1]));
     return etaRaw;
   })();
 
@@ -122,43 +135,70 @@ export function NexaAssignedRidePanel({
 
   return (
     <View style={styles.wrap}>
-      {embedInScreenBackdrop ? (
-        <View style={styles.statusOnBackdrop}>{statusBlock}</View>
-      ) : (
+      {/* Titel staat op het live-scherm boven de map (plaatje 5); hier geen dubbele status. */}
+      {embedInScreenBackdrop ? null : (
         <View style={styles.heroZone}>
           <ImageBackground
-            source={nexaMapHeaderBg}
+            source={driverCardScene}
             style={StyleSheet.absoluteFill}
+            imageStyle={[styles.heroImg, light ? { opacity: 0.9 } : null]}
+          />
+          <ImageBackground
+            source={nexaMapHeaderBg}
+            style={styles.heroRouteLayer}
             imageStyle={styles.heroImg}
           />
           <LinearGradient
-            colors={['rgba(6,19,41,0.25)', 'rgba(6,19,41,0.88)']}
+            colors={
+              light
+                ? [
+                    'rgba(244,248,255,0.15)',
+                    'rgba(244,248,255,0.35)',
+                    'rgba(244,248,255,0.72)',
+                  ]
+                : [
+                    'rgba(6,19,41,0.15)',
+                    'rgba(6,19,41,0.4)',
+                    'rgba(6,19,41,0.88)',
+                  ]
+            }
+            locations={[0, 0.45, 1]}
             style={StyleSheet.absoluteFill}
           />
           {statusBlock}
         </View>
       )}
 
-      <NexaGlowCard glowOnly={light ? false : true}>
-        {!light ? (
-          <>
-            <ImageBackground
-              source={driverCardScene}
-              style={StyleSheet.absoluteFill}
-              imageStyle={styles.driverCardSceneImg}
-            />
-            <LinearGradient
-              colors={[
-                'rgba(6,19,41,0.97)',
-                'rgba(6,19,41,0.88)',
-                'rgba(6,19,41,0.45)',
-                'rgba(6,19,41,0.2)',
-              ]}
-              locations={[0, 0.42, 0.72, 1]}
-              style={StyleSheet.absoluteFill}
-            />
-          </>
-        ) : null}
+      <NexaGlowCard glowOnly>
+        <>
+          <ImageBackground
+            source={driverCardScene}
+            style={StyleSheet.absoluteFill}
+            imageStyle={[
+              styles.driverCardSceneImg,
+              light ? { opacity: 0.78 } : null,
+            ]}
+          />
+          <LinearGradient
+            colors={
+              light
+                ? [
+                    'rgba(244,248,255,0.55)',
+                    'rgba(232,241,255,0.35)',
+                    'rgba(232,241,255,0.18)',
+                    'rgba(248,251,255,0.08)',
+                  ]
+                : [
+                    'rgba(6,19,41,0.97)',
+                    'rgba(6,19,41,0.88)',
+                    'rgba(6,19,41,0.45)',
+                    'rgba(6,19,41,0.2)',
+                  ]
+            }
+            locations={[0, 0.42, 0.72, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </>
 
         <View style={styles.driverTop}>
           <View style={styles.mediaCol}>
@@ -193,7 +233,7 @@ export function NexaAssignedRidePanel({
           </View>
 
           <View style={styles.driverMeta}>
-            <Text style={[styles.driverName, ink]} numberOfLines={1}>
+            <Text style={[styles.driverName, ink]} numberOfLines={2}>
               {driverName}
             </Text>
             {live.driver?.rating_avg != null ? (
@@ -228,7 +268,12 @@ export function NexaAssignedRidePanel({
             {eta ? (
               <>
                 <Text style={[styles.etaLabel, mutedInk]}>{t('Aankomst over')}</Text>
-                <Text style={[styles.etaValue, ink]} numberOfLines={2}>
+                <Text
+                  style={[styles.etaValue, ink]}
+                  numberOfLines={4}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
                   {eta}
                 </Text>
               </>
@@ -446,6 +491,13 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingTop: 28,
   },
+  heroRouteLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '58%',
+  },
   heroImg: {
     resizeMode: 'cover',
   },
@@ -519,7 +571,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: theme.color.navy700,
     borderWidth: 2,
-    borderColor: 'rgba(8,125,255,0.85)',
+    borderColor: '#087DFF',
   },
   avatarFallback: {
     alignItems: 'center',
@@ -532,7 +584,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: theme.color.navy700,
     borderWidth: 2,
-    borderColor: 'rgba(8,125,255,0.85)',
+    borderColor: '#087DFF',
   },
   carThumb: {
     width: '100%',
@@ -548,9 +600,10 @@ const styles = StyleSheet.create({
   },
   driverName: {
     color: theme.color.text,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 20,
+    flexShrink: 1,
   },
   rating: {
     color: theme.color.textMuted,
@@ -584,22 +637,24 @@ const styles = StyleSheet.create({
   etaCol: {
     alignItems: 'center',
     justifyContent: 'flex-start',
-    width: 86,
+    width: 118,
+    flexShrink: 0,
     gap: 4,
     paddingTop: 2,
+    paddingHorizontal: 2,
   },
   etaIcon: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 2,
-    borderColor: 'rgba(8,125,255,0.95)',
+    borderColor: '#087DFF',
     backgroundColor: 'rgba(8,125,255,0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#087DFF',
-    shadowOpacity: 0.55,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
   },
   etaLabel: {
@@ -610,7 +665,8 @@ const styles = StyleSheet.create({
   },
   etaValue: {
     color: theme.color.text,
-    fontSize: 15,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
     textAlign: 'center',
   },

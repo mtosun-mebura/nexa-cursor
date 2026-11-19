@@ -135,6 +135,15 @@ backend/storage/app/onboarding-video/concat.txt
 # AI knowledge graph (local artefact; rebuild with graphify)
 graphify-out/
 
+# Remotion promo-videos package
+promo-videos/node_modules/
+promo-videos/out/
+promo-videos/props.json
+promo-videos/.remotion/
+backend/storage/app/public/promo-videos/
+# Player SPA: rebuild with `cd promo-videos && npm run player:build`
+# (built files under backend/public/promo-videos-player/ may be committed)
+
 # Push secrets. google-services.json (Firebase client) may be committed; these may not.
 *.p8
 *firebase-adminsdk*.json

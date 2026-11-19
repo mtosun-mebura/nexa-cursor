@@ -1,0 +1,30 @@
+---
+description: NEXA Taxi mobile UI must follow app-design-map (mockups, tokens, full-bleed map, CTAs)
+globs: mobile-app/**/*.{tsx,ts,jsx,js}
+alwaysApply: false
+---
+
+# NEXA Taxi — App Design Map
+
+Before changing customer (or shared booking) UI in `mobile-app/`:
+
+1. Follow skill **`nexa-taxi-app-design`** (`.cursor/skills/nexa-taxi-app-design/SKILL.md`) — design map, header/footer, buttons, assets, **new-ride tones** (`rideAlert`) and **archive/restore motions** (`ArchiveMotion`) for klant, chauffeur/contractant, and contractouder.
+2. Read **`mobile-app/app-design-map/DESIGN_MAP.md`** and Exact Pack **`app-design-map/exact-pack/NEXA_TAXI_CURSOR_EXACT_EXECUTION.md`**.
+3. Compare to Exact Pack refs under **`app-design-map/exact-pack/references/{dark|light}/`**.
+4. Use pure assets from **`assets/nexa-booking/exact/`** (via `exactAssets.ts`) — never screenshot-slices with baked text/icons.
+5. Tokens: **`theme.ts`** / Exact Pack `design_tokens.json`.
+
+## Must match
+
+- **Pure heroes** (`home_hero_with_car`, `taxi_scene_with_car`); welcome text only as RN Text (first visit vs returning).
+- **Active-ride green banner** above Rit-boeken tiles (not baked into hero).
+- **Destination field** white with dark ink; pickup glow card.
+- **Chauffeurkaart** uses pure cityscape BG (`driver_card_bg_*.jpg`).
+- **Map marker**: yellow neon (`nexa-map-car-marker-neon.png`).
+- **Light surfaces**: `nexaSurfaceText` / `nexaSurfaceMuted` — never white text on light backgrounds.
+
+## Do not
+
+- Place mockup screenshots as full-screen images.
+- Re-introduce crops with baked “Welkom terug” / UI chrome.
+- Invent a parallel palette or drop the header “because light mode”.

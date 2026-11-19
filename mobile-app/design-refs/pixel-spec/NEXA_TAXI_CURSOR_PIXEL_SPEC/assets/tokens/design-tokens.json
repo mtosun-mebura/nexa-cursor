@@ -1,0 +1,58 @@
+{
+  "reference": {
+    "width_px": 941,
+    "height_px": 1672,
+    "design_width_dp": 390,
+    "scale_px_per_dp": 2.4128205128205127
+  },
+  "brand": {
+    "orange": "#F57C00",
+    "blue": "#1E4C97",
+    "electricBlue": "#087DFF",
+    "lightBlue": "#8EBBFF"
+  },
+  "dark": {
+    "background": "#061329",
+    "surface": "#102542",
+    "surfaceRaised": "#152E50",
+    "text": "#FFFFFF",
+    "muted": "#B7C7DF",
+    "border": "#355A86",
+    "primary": "#FF8900",
+    "secondary": "#087DFF",
+    "lightInput": "#EAF2FF"
+  },
+  "light": {
+    "background": "#F4F8FF",
+    "surface": "#FFFFFF",
+    "surfaceRaised": "#EDF4FD",
+    "text": "#0A1A34",
+    "muted": "#64748B",
+    "border": "#CFDDF0",
+    "primary": "#F57C00",
+    "secondary": "#087DFF"
+  },
+  "radius_dp": {
+    "sm": 10,
+    "md": 16,
+    "card": 22,
+    "pill": 999
+  },
+  "spacing_dp": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32
+  ],
+  "font": {
+    "preferred": "Inter or existing NEXA app font; use system fallback",
+    "title_dp": 27,
+    "section_dp": 22,
+    "body_dp": 15,
+    "caption_dp": 12,
+    "button_dp": 18
+  }
+}

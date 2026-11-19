@@ -51,18 +51,28 @@ import {
   type RideChatMessage,
 } from '../customer/bookingRedesign/RideChatModal';
 import { USE_NEXA_BOOKING_REDESIGN } from '../customer/bookingRedesign/featureFlag';
-import {
-  NexaAssignedRidePanel,
-  nexaMapHeaderBg,
-} from '../customer/bookingRedesign/NexaAssignedRidePanel';
+import { NexaAssignedRidePanel } from '../customer/bookingRedesign/NexaAssignedRidePanel';
 import { NexaHeroBanner } from '../customer/bookingRedesign/NexaHeroBanner';
 import { NexaHomeScreen } from '../customer/bookingRedesign/NexaHomeScreen';
+import { NexaScreenBackdrop } from '../customer/bookingRedesign/NexaScreenBackdrop';
+import {
+  NexaLocateButton,
+  NexaLocationField,
+} from '../customer/bookingRedesign/NexaLocationField';
+import { NexaGlowCard } from '../customer/bookingRedesign/NexaGlowCard';
 import {
   NexaCustomerTabBar,
   type NexaCustomerTabKey,
 } from '../customer/bookingRedesign/NexaCustomerTabBar';
 import { NexaPrimaryButton } from '../customer/bookingRedesign/NexaPrimaryButton';
-import { nexaBookingTheme } from '../customer/bookingRedesign/theme';
+import { DriverEnRouteStatusCard } from '../customer/bookingRedesign/DriverEnRouteStatusCard';
+import { NexaPickupCodeButton } from '../customer/bookingRedesign/NexaPickupCodeButton';
+import { NexaPickupCodeModal } from '../customer/bookingRedesign/NexaPickupCodeModal';
+import {
+  nexaBookingTheme,
+  nexaSurfaceMuted,
+  nexaSurfaceText,
+} from '../customer/bookingRedesign/theme';
 import { notifyNewRideStatusUpdates } from '../customer/rideStatusNotifications';
 import { ApiError } from '../api/client';
 import { newUuidV4 } from '../lib/uuid';
@@ -126,6 +136,7 @@ import {
   Screen,
 } from '../ui/components';
 import { AppModal } from '../ui/AppModal';
+import { ArchiveMotion, type ArchiveMotionMode } from '../ui/ArchiveMotion';
 import { CustomerTabBar, CustomerTabKey } from '../ui/CustomerTabBar';
 import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppearanceControls } from '../ui/AppearanceControls';
@@ -137,7 +148,6 @@ import {
   startDemoSimulation,
   stopDemoSimulation,
   updateDemoSimulationCenter,
-  useDemoTaxiCount,
   useDemoTaxis,
 } from '../demo/taxiSimulation';
 import { PickupAtField } from '../ui/PickupAtPicker';
@@ -179,8 +189,13 @@ const taxiCarYellowMarker = require('../../assets/taxi-car-yellow-marker.png');
 /** Flat illustrated taxi thumb when vehicle photo is missing/fails (not a real car photo). */
 const taxiVehiclePlaceholder = require('../../assets/taxi-vehicle-placeholder.png');
 const dropPinGreen = require('../../assets/marker-drop-green.png');
-/** Pixel-spec map marker (NEXA auto met blauwe ring). */
-const nexaMapCarMarker = require('../../assets/nexa-booking/markers/nexa-map-car-marker-sm.png');
+/**
+ * Pixel-spec map marker (gele NEXA-auto, zonder cirkel).
+ * Density-set 44 / @2x / @3x — voorkomt te grote Android Marker.image.
+ */
+const nexaMapCarMarker = require('../../assets/nexa-taxi-marker.png');
+/** HD bron voor custom iOS Marker-view. */
+const nexaMapCarMarkerHd = require('../../assets/nexa-booking/exact/markers/nexa-map-car-marker-neon.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
   { key: 'system', label: t("Systeem"), hint: t("Volgt de telefooninstelling") },
@@ -220,19 +235,19 @@ function bearingDegrees(
 const NEON_ROUTE = '#00D4FF';
 
 const taxiMarkerFrameStyle = {
-  width: USE_NEXA_BOOKING_REDESIGN ? 88 : 56,
-  height: USE_NEXA_BOOKING_REDESIGN ? 88 : 56,
+  width: USE_NEXA_BOOKING_REDESIGN ? 64 : 56,
+  height: USE_NEXA_BOOKING_REDESIGN ? 64 : 56,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };
 const taxiMarkerImageStyle = USE_NEXA_BOOKING_REDESIGN
-  ? { width: 56, height: 40 }
+  ? { width: 52, height: 52 }
   : { width: 26, height: 39 };
 const activeTaxiMarkerSource = USE_NEXA_BOOKING_REDESIGN
   ? nexaMapCarMarker
   : taxiCarYellowMarker;
 const activeTaxiMarkerViewSource = USE_NEXA_BOOKING_REDESIGN
-  ? nexaMapCarMarker
+  ? nexaMapCarMarkerHd
   : taxiCarYellow;
 
 /**
@@ -324,7 +339,6 @@ function CustomerTaxiMarker({
       zIndex={20}
     >
       <View style={taxiMarkerFrameStyle} collapsable={false}>
-        {USE_NEXA_BOOKING_REDESIGN ? <View style={taxiGlowHaloStyle} pointerEvents="none" /> : null}
         <Image
           source={activeTaxiMarkerViewSource}
           onLoad={() => {
@@ -337,20 +351,6 @@ function CustomerTaxiMarker({
     </Marker>
   );
 }
-
-const taxiGlowHaloStyle = {
-  position: 'absolute' as const,
-  width: 64,
-  height: 64,
-  borderRadius: 32,
-  backgroundColor: 'rgba(61, 180, 255, 0.28)',
-  borderWidth: 2,
-  borderColor: 'rgba(61, 180, 255, 0.85)',
-  shadowColor: '#3DB4FF',
-  shadowOpacity: 0.95,
-  shadowRadius: 16,
-  shadowOffset: { width: 0, height: 0 },
-};
 
 function MapPlaceCallout({
   label,
@@ -442,9 +442,22 @@ const arrivalLine = { alignSelf: 'stretch' as const, width: '100%' as const };
 
 function formatEtaPhrase(minutes: number): string {
   const rounded = Math.max(1, Math.round(minutes));
-  return rounded === 1
-    ? t('ongeveer 1 minuut')
-    : t('ongeveer {n} minuten', { n: rounded });
+  if (rounded < 60) {
+    return rounded === 1
+      ? t('ongeveer 1 minuut')
+      : t('ongeveer {n} minuten', { n: rounded });
+  }
+  const hours = Math.floor(rounded / 60);
+  const mins = rounded % 60;
+  if (mins === 0) {
+    return hours === 1
+      ? t('ongeveer 1 uur')
+      : t('ongeveer {n} uur', { n: hours });
+  }
+  if (hours === 1) {
+    return t('ongeveer 1 uur en {m} minuten', { m: mins });
+  }
+  return t('ongeveer {h} uur en {m} minuten', { h: hours, m: mins });
 }
 
 /** API stuurt NL-eta_label; lokaliseer voor EN (en hergebruik minutes indien aanwezig). */
@@ -571,7 +584,7 @@ function AcceptedRideIdentity({
   onChat?: () => void;
   onShare?: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, colorScheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const photo = resolveCustomerMediaUrl(live.driver?.photo_url);
   const carPhoto = resolveCustomerMediaUrl(live.vehicle?.photo_url);
@@ -625,7 +638,14 @@ function AcceptedRideIdentity({
           </View>
           <View style={styles.acceptedDriverMeta}>
             {live.driver?.name ? (
-              <Text style={[styles.driverName, redesign && { color: nexaBookingTheme.color.text }]}>
+              <Text
+                style={[
+                  styles.driverName,
+                  redesign && {
+                    color: nexaSurfaceText(colorScheme === 'light'),
+                  },
+                ]}
+              >
                 {live.driver.name}
               </Text>
             ) : (
@@ -871,6 +891,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [guestRides, setGuestRides] = useState<GuestRide[]>([]);
   const [archivedKeys, setArchivedKeys] = useState<string[]>([]);
   const [showArchivedRides, setShowArchivedRides] = useState(false);
+  const [rideArchiveMotion, setRideArchiveMotion] = useState<{
+    key: string;
+    mode: Exclude<ArchiveMotionMode, 'idle' | 'delete-out'>;
+  } | null>(null);
+  const pendingRideArchiveRef = useRef<{ ride: GuestRide; archived: boolean } | null>(
+    null
+  );
   const keyboardOverlap = useAndroidKeyboardOverlap();
   useAndroidBackHandler(() => {
     if (showArchivedRides) {
@@ -906,7 +933,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [chatAllowed, setChatAllowed] = useState(true);
   /** Live-volgen scherm (kaart uitvergroot + overlays) na "ophalen" door chauffeur. */
   const [liveFollowUi, setLiveFollowUi] = useState(false);
-  const [hiddenPinKeys, setHiddenPinKeys] = useState<string[]>([]);
+  /** Ophaalcode standaard verborgen; pas tonen na “Ophaalcode bekijken”. */
+  const [revealedPinKeys, setRevealedPinKeys] = useState<string[]>([]);
   const [rateStars, setRateStars] = useState(0);
   const [complaintModalToken, setComplaintModalToken] = useState<string | null>(null);
   const [complaintCategory, setComplaintCategory] = useState('other');
@@ -934,8 +962,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const driverComing = !!(hasActiveRide && !tripStarted && latestStatusEvent === 'en_route');
   const rideMapOpen = !!(hasActiveRide && live?.phase === 'accepted');
   const tripMapHeight = Math.max(
-    300,
-    Math.round(windowHeight * (liveFollowUi && driverComing ? 0.62 : 0.48))
+    220,
+    Math.round(windowHeight * (liveFollowUi && driverComing ? 0.38 : 0.32))
   );
 
   useEffect(() => {
@@ -998,7 +1026,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [nearbyTaxis, setNearbyTaxis] = useState<NearbyTaxi[]>([]);
   const demo = useDemo();
   const demoActive = demo.active;
-  const demoCount = useDemoTaxiCount();
   /** Los van MapView-fragment: hook hier zodat markers directe children kunnen zijn. */
   const demoTaxis = useDemoTaxis();
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1027,6 +1054,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const dropoffInputRef = useRef<TextInputType | null>(null);
   const profileSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapSectionY = useRef(0);
+  const pickupAtSectionY = useRef(0);
   const [bookMountKey, setBookMountKey] = useState(0);
 
   dropoffRef.current = dropoff;
@@ -1052,21 +1080,30 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     live?.vehicle_location?.lng,
     live?.vehicle_location?.heading,
   ]);
-  // Demo aan: client-simulatie toont ~20 taxi’s; echte vloot blijft meelopen.
-  // Bij ophalen alleen de toegewezen taxi.
-  const freeTaxis = nearbyTaxis.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc));
+  // Demo aan: client-simulatie toont taxi’s; echte vloot blijft meelopen.
+  // Bij ophalen alleen de toegewezen taxi. Range = admin Marktplaats kaart-radius.
+  const [fleetRangeKm, setFleetRangeKm] = useState(25);
+  const fleetRangeOrigin = pickup
+    ? { lat: pickup.lat, lng: pickup.lng }
+    : fleetOrigin;
+  const taxiInFleetRange = useCallback(
+    (taxi: NearbyTaxi) =>
+      haversineKm(fleetRangeOrigin.lat, fleetRangeOrigin.lng, taxi.lat, taxi.lng) <=
+      fleetRangeKm,
+    [fleetRangeOrigin.lat, fleetRangeOrigin.lng, fleetRangeKm]
+  );
+  const freeTaxis = nearbyTaxis.filter(
+    (taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc) && taxiInFleetRange(taxi)
+  );
   const pickupTracking = !!(hasActiveRide && activeTaxiLoc && (driverComing || rideMapOpen));
   const visibleFleetTaxis = (() => {
     if (pickupTracking) return [] as NearbyTaxi[];
-    if (!demoActive || demoTaxis.length === 0) return freeTaxis;
-    const demoIds = new Set(demoTaxis.map((taxi) => String(taxi.id)));
-    return [...demoTaxis, ...freeTaxis.filter((taxi) => !demoIds.has(String(taxi.id)))];
+    const demoInRange = demoTaxis.filter(taxiInFleetRange);
+    if (!demoActive || demoInRange.length === 0) return freeTaxis;
+    const demoIds = new Set(demoInRange.map((taxi) => String(taxi.id)));
+    return [...demoInRange, ...freeTaxis.filter((taxi) => !demoIds.has(String(taxi.id)))];
   })();
-  const freeNearby = pickupTracking
-    ? 1
-    : demoActive
-      ? Math.max(demoCount, demoTaxis.length, freeTaxis.length)
-      : freeTaxis.length;
+  const freeNearby = pickupTracking ? 1 : visibleFleetTaxis.length;
   const marketplaceBlocksDispatch =
     quote?.marketplace?.taxi_available === false ||
     !!quote?.payment?.deferred_until_taxi;
@@ -1836,12 +1873,20 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       ? { lat: pickup.lat, lng: pickup.lng }
       : fleetOrigin;
     try {
-      const vehicles = await fetchNearbyTaxis({
+      const { vehicles, radiusKm } = await fetchNearbyTaxis({
         lat: origin.lat,
         lng: origin.lng,
-        radiusKm: 50,
       });
-      setNearbyTaxis(vehicles.filter((taxi) => !taxi.busy && !isSameTaxi(taxi, activeTaxiLoc)));
+      const range = Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : 25;
+      setFleetRangeKm(range);
+      setNearbyTaxis(
+        vehicles.filter(
+          (taxi) =>
+            !taxi.busy &&
+            !isSameTaxi(taxi, activeTaxiLoc) &&
+            haversineKm(origin.lat, origin.lng, taxi.lat, taxi.lng) <= range
+        )
+      );
     } catch {
       /* behoud vorige markers */
     }
@@ -2197,9 +2242,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   function scrollToMap() {
     Keyboard.dismiss();
-    // Iets hoger dan de map-top, zodat de hele kaart onder de header zichtbaar blijft.
+    // Net boven ophaaltijd: veld volledig zichtbaar + kiesbaar, map eronder.
     const go = () => {
-      const y = Math.max(0, mapSectionY.current - 72);
+      const anchor =
+        pickupAtSectionY.current > 0
+          ? pickupAtSectionY.current
+          : Math.max(0, mapSectionY.current - 120);
+      const y = Math.max(0, anchor - 16);
       bookScrollRef.current?.scrollTo({ y, animated: true });
     };
     requestAnimationFrame(go);
@@ -2785,10 +2834,25 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     loadRideLive(ride);
   }
 
-  async function toggleArchiveRide(ride: GuestRide, archived: boolean) {
-    const keys = await setRideArchived(ride, archived);
-    setArchivedKeys(keys);
+  function toggleArchiveRide(ride: GuestRide, archived: boolean) {
+    if (rideArchiveMotion) return;
+    const key = rideArchiveKey(ride);
+    pendingRideArchiveRef.current = { ride, archived };
+    setRideArchiveMotion({
+      key,
+      mode: archived ? 'archive-out' : 'restore-out',
+    });
   }
+
+  const finishRideArchiveMotion = useCallback(() => {
+    const pending = pendingRideArchiveRef.current;
+    pendingRideArchiveRef.current = null;
+    setRideArchiveMotion(null);
+    if (!pending) return;
+    void setRideArchived(pending.ride, pending.archived).then((keys) => {
+      setArchivedKeys(keys);
+    });
+  }, []);
 
   const routeSummary = useMemo(() => {
     const metrics = routeMetrics;
@@ -2809,15 +2873,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     return null;
   }, [offer, routeMetrics]);
 
+  const mapBleed = USE_NEXA_BOOKING_REDESIGN;
   const mapBlock = (
-    <View style={styles.mapWrap}>
+    <View style={[styles.mapWrap, mapBleed && styles.mapWrapRounded]}>
       <MapView
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
-        {...(colorScheme === 'dark' || USE_NEXA_BOOKING_REDESIGN
-          ? { customMapStyle: DARK_MAP_STYLE }
-          : {})}
+        {...(colorScheme === 'dark' ? { customMapStyle: DARK_MAP_STYLE } : {})}
         initialRegion={mapRegion}
         showsUserLocation
         showsMyLocationButton={false}
@@ -2916,6 +2979,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         >
           <Text style={styles.zoomBtnText}>−</Text>
         </Pressable>
+      </View>
+      <View style={styles.mapBottomRightControls} pointerEvents="box-none">
         {pickup && dropoff ? (
           <Pressable
             onPress={fitMapToRoute}
@@ -2926,32 +2991,43 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             <Ionicons name="navigate" size={18} color={colors.text} />
           </Pressable>
         ) : null}
+        <Pressable
+          onPress={() => {
+            bookUserMoving.current = false;
+            bookFingerDown.current = false;
+            void moveBookMapToCurrentLocation(true);
+          }}
+          style={styles.zoomBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t("Huidige locatie")}
+        >
+          <Ionicons name="locate" size={18} color={colors.text} />
+        </Pressable>
       </View>
-      <Pressable
-        onPress={() => {
-          bookUserMoving.current = false;
-          bookFingerDown.current = false;
-          void moveBookMapToCurrentLocation(true);
-        }}
-        style={styles.locateBtn}
-        accessibilityRole="button"
-        accessibilityLabel={t("Huidige locatie")}
-      >
-        <Ionicons name="locate" size={18} color={colors.text} />
-      </Pressable>
       {demoActive ? (
         <View style={styles.demoBadge} pointerEvents="none">
           <Text style={styles.demoBadgeText}>DEMO</Text>
         </View>
       ) : null}
-      <View style={styles.fleetBadge}>
-        <Text style={styles.fleetBadgeText}>
-          {pickupTracking
-            ? t('Taxi onderweg')
-            : freeNearby === 1
+      <View style={[styles.fleetBadge, mapBleed && styles.fleetBadgeNexa]}>
+        {mapBleed ? (
+          <View style={styles.routePill}>
+            <Ionicons name="car-sport" size={14} color="#fff" />
+            <Text style={[styles.fleetBadgeText, { color: '#FFFFFF' }]}>
+              {routeMetrics
+                ? `Ca. ${routeSummary}`
+                : freeNearby === 1
+                  ? t('{n} taxi online', { n: freeNearby })
+                  : t('{n} taxi’s online', { n: freeNearby })}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.fleetBadgeText}>
+            {freeNearby === 1
               ? t('{n} taxi online', { n: freeNearby })
               : t('{n} taxi’s online', { n: freeNearby })}
-        </Text>
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -2967,13 +3043,15 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         ? t("Profiel")
         : tab === 'notifications'
           ? t("Meldingen")
-          : tab === 'home'
+          : tab === 'home' || (USE_NEXA_BOOKING_REDESIGN && tab === 'book')
             ? null
             : t("Boeken");
 
+  // Dark map → witte chrome. Light map-asset is bleek → dark ink chrome.
   const headerOnDark = USE_NEXA_BOOKING_REDESIGN && colorScheme === 'dark';
+  // Home + Boeken: chrome zit in de hero-scene (mockup), geen dubbele AppPageHeader.
   const appHeader =
-    USE_NEXA_BOOKING_REDESIGN && tab === 'home' ? null : (
+    USE_NEXA_BOOKING_REDESIGN && (tab === 'home' || tab === 'book') ? null : (
     <AppPageHeader
       title={headerTitle}
       chrome={headerOnDark ? 'onDark' : 'theme'}
@@ -3050,11 +3128,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     <Card>
       <Text style={[styles.section, styles.sectionCenter]}>{t("Rit & prijs")}</Text>
       {USE_NEXA_BOOKING_REDESIGN ? (
-        <Image
-          source={require('../../assets/nexa-booking/crops/vehicle_standard_reference.png')}
-          style={{ width: '100%', height: 96, marginBottom: 8 }}
-          resizeMode="contain"
-        />
+        <View
+          style={{
+            width: '100%',
+            height: 96,
+            marginBottom: 8,
+            borderRadius: 16,
+            overflow: 'hidden',
+          }}
+        >
+          <Image
+            source={require('../../assets/nexa-booking/crops/vehicle_standard_reference.png')}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
       ) : null}
       {showQuoteMetrics ? (
         <View style={styles.quoteMetricsBox}>
@@ -3119,128 +3207,246 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const bookContent = (
     <>
       {USE_NEXA_BOOKING_REDESIGN ? (
-        <NexaHeroBanner greetingName={firstName} />
+        <NexaHeroBanner
+          greetingName={firstName}
+          showChrome
+          onBack={onBack}
+          onLogoPress={() => {
+            setTab('home');
+            AsyncStorage.setItem(TAB_KEY, 'home').catch(() => undefined);
+          }}
+        />
       ) : null}
       {activeBannerRide ? (
-        <ActiveRideBanner
-          ride={activeBannerRide as GuestRide}
-          etaLabel={
-            driverComing
-              ? localizeEtaLabel(live?.eta_label, live?.eta_minutes)
-              : null
-          }
-          onPress={() => openRideFollow(activeBannerRide as GuestRide)}
-        />
+        <View style={{ marginBottom: 14 }}>
+          <ActiveRideBanner
+            ride={activeBannerRide as GuestRide}
+            etaLabel={
+              driverComing
+                ? localizeEtaLabel(live?.eta_label, live?.eta_minutes)
+                : null
+            }
+            isLive={driverComing}
+            onPress={() => openRideFollow(activeBannerRide as GuestRide)}
+          />
+        </View>
       ) : null}
 
-      <Card>
-        <Field
-          label={t("Ophaaladres")}
-          value={pickupQuery}
-          onChangeText={(v) => {
-            setPickupQuery(v);
-            if (pickup && v.trim() !== pickup.address) setPickup(null);
-            setFieldErrors((e) => ({ ...e, pickup: undefined }));
-            scheduleSuggestions(v, 'pickup');
-          }}
-          placeholder={t("Typ een adres en kies een suggestie")}
-          autoCapitalize="words"
-          autoComplete="off"
-          confirmed={!!pickup}
-          error={fieldErrors.pickup}
-          returnKeyType="next"
-          onSubmitEditing={focusDropoffField}
-          onClear={() => {
-            if (pickupSuggestTimer.current) clearTimeout(pickupSuggestTimer.current);
-            pickupSuggestSeq.current += 1;
-            setPickupQuery('');
-            setPickup(null);
-            setPickupSuggestions([]);
-            setFieldErrors((e) => ({ ...e, pickup: undefined }));
-          }}
-          clearAccessibilityLabel={t("Ophaaladres wissen")}
-          rightAccessory={
-            <Pressable
-              onPress={() => loadPickup({ focusDropoff: true })}
-              disabled={pickupLoading}
-              hitSlop={8}
-              style={styles.locIconBtn}
-              accessibilityLabel={t("Bepaal mijn locatie")}
-            >
-              {pickupLoading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Ionicons name="location" size={22} color={colors.primary} />
-              )}
-            </Pressable>
-          }
-        />
-        {pickupSuggestions.map((s, i) => (
-          <Pressable
-            key={`p-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`}
-            onPress={() => {
-              applySuggestion(s, 'pickup');
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <>
+          <NexaLocationField
+            variant="pickup"
+            label={t('Ophaallocatie')}
+            value={pickupQuery}
+            onChangeText={(v) => {
+              setPickupQuery(v);
+              if (pickup && v.trim() !== pickup.address) setPickup(null);
+              setFieldErrors((e) => ({ ...e, pickup: undefined }));
+              scheduleSuggestions(v, 'pickup');
+            }}
+            placeholder={t('Typ een adres en kies een suggestie')}
+            autoCapitalize="words"
+            autoComplete="off"
+            confirmed={!!pickup}
+            error={fieldErrors.pickup}
+            returnKeyType="next"
+            onSubmitEditing={focusDropoffField}
+            onClear={() => {
+              if (pickupSuggestTimer.current) clearTimeout(pickupSuggestTimer.current);
+              pickupSuggestSeq.current += 1;
+              setPickupQuery('');
+              setPickup(null);
+              setPickupSuggestions([]);
               setFieldErrors((e) => ({ ...e, pickup: undefined }));
             }}
-            style={[styles.suggestRow, i === 0 && styles.suggestRowFirst]}
-          >
-            <Text style={styles.suggestText}>{s.label}</Text>
-          </Pressable>
-        ))}
-      </Card>
-
-      <Card>
-        <Field
-          label={t("Bestemming")}
-          value={dropoffQuery}
-          inputRef={dropoffInputRef}
-          onChangeText={(v) => {
-            setDropoffQuery(v);
-            if (dropoff && v.trim() !== dropoff.address) setDropoff(null);
-            setFieldErrors((e) => ({ ...e, dropoff: undefined }));
-            scheduleSuggestions(v, 'dropoff');
-          }}
-          placeholder={t("Typ een adres en kies een suggestie")}
-          autoCapitalize="words"
-          autoComplete="off"
-          confirmed={!!dropoff}
-          error={fieldErrors.dropoff}
-          returnKeyType="done"
-          onSubmitEditing={() => Keyboard.dismiss()}
-          onClear={() => {
-            if (dropoffSuggestTimer.current) clearTimeout(dropoffSuggestTimer.current);
-            dropoffSuggestSeq.current += 1;
-            setDropoffQuery('');
-            setDropoff(null);
-            setDropoffSuggestions([]);
-            setFieldErrors((e) => ({ ...e, dropoff: undefined }));
-          }}
-          clearAccessibilityLabel={t("Bestemming wissen")}
-        />
-        {dropoffSuggestions.map((s, i) => (
-          <Pressable
-            key={`d-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`}
-            onPress={() => {
-              applySuggestion(s, 'dropoff');
+            clearAccessibilityLabel={t('Ophaaladres wissen')}
+            rightAccessory={
+              <NexaLocateButton
+                loading={pickupLoading}
+                onPress={() => loadPickup({ focusDropoff: true })}
+                accessibilityLabel={t('Bepaal mijn locatie')}
+              />
+            }
+            suggestions={pickupSuggestions.map((s, i) => ({
+              key: `p-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`,
+              label: s.label,
+              onPress: () => {
+                applySuggestion(s, 'pickup');
+                setFieldErrors((e) => ({ ...e, pickup: undefined }));
+              },
+            }))}
+          />
+          <NexaLocationField
+            variant="dropoff"
+            label={t('Bestemming')}
+            value={dropoffQuery}
+            inputRef={dropoffInputRef}
+            onChangeText={(v) => {
+              setDropoffQuery(v);
+              if (dropoff && v.trim() !== dropoff.address) setDropoff(null);
+              setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+              scheduleSuggestions(v, 'dropoff');
+            }}
+            placeholder={t('Waar wil je naartoe?')}
+            autoCapitalize="words"
+            autoComplete="off"
+            confirmed={!!dropoff}
+            error={fieldErrors.dropoff}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+            onClear={() => {
+              if (dropoffSuggestTimer.current) clearTimeout(dropoffSuggestTimer.current);
+              dropoffSuggestSeq.current += 1;
+              setDropoffQuery('');
+              setDropoff(null);
+              setDropoffSuggestions([]);
               setFieldErrors((e) => ({ ...e, dropoff: undefined }));
             }}
-            style={[styles.suggestRow, i === 0 && styles.suggestRowFirst]}
+            clearAccessibilityLabel={t('Bestemming wissen')}
+            suggestions={dropoffSuggestions.map((s, i) => ({
+              key: `d-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`,
+              label: s.label,
+              onPress: () => {
+                applySuggestion(s, 'dropoff');
+                setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+              },
+            }))}
+          />
+          <View
+            style={{ marginBottom: 10 }}
+            onLayout={(e) => {
+              pickupAtSectionY.current = e.nativeEvent.layout.y;
+            }}
           >
-            <Text style={styles.suggestText}>{s.label}</Text>
-          </Pressable>
-        ))}
-      </Card>
+            <PickupAtField
+              variant="nexa"
+              value={pickupAt}
+              error={fieldErrors.pickupAt}
+              onChange={(next) => {
+                setPickupAt(next);
+                setFieldErrors((e) => ({ ...e, pickupAt: undefined }));
+              }}
+            />
+          </View>
+        </>
+      ) : (
+        <>
+          <Card>
+            <Field
+              label={t('Ophaaladres')}
+              value={pickupQuery}
+              onChangeText={(v) => {
+                setPickupQuery(v);
+                if (pickup && v.trim() !== pickup.address) setPickup(null);
+                setFieldErrors((e) => ({ ...e, pickup: undefined }));
+                scheduleSuggestions(v, 'pickup');
+              }}
+              placeholder={t('Typ een adres en kies een suggestie')}
+              autoCapitalize="words"
+              autoComplete="off"
+              confirmed={!!pickup}
+              error={fieldErrors.pickup}
+              returnKeyType="next"
+              onSubmitEditing={focusDropoffField}
+              onClear={() => {
+                if (pickupSuggestTimer.current) clearTimeout(pickupSuggestTimer.current);
+                pickupSuggestSeq.current += 1;
+                setPickupQuery('');
+                setPickup(null);
+                setPickupSuggestions([]);
+                setFieldErrors((e) => ({ ...e, pickup: undefined }));
+              }}
+              clearAccessibilityLabel={t('Ophaaladres wissen')}
+              rightAccessory={
+                <Pressable
+                  onPress={() => loadPickup({ focusDropoff: true })}
+                  disabled={pickupLoading}
+                  hitSlop={8}
+                  style={styles.locIconBtn}
+                  accessibilityLabel={t('Bepaal mijn locatie')}
+                >
+                  {pickupLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons name="location" size={22} color={colors.primary} />
+                  )}
+                </Pressable>
+              }
+            />
+            {pickupSuggestions.map((s, i) => (
+              <Pressable
+                key={`p-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`}
+                onPress={() => {
+                  applySuggestion(s, 'pickup');
+                  setFieldErrors((e) => ({ ...e, pickup: undefined }));
+                }}
+                style={[styles.suggestRow, i === 0 && styles.suggestRowFirst]}
+              >
+                <Text style={styles.suggestText}>{s.label}</Text>
+              </Pressable>
+            ))}
+          </Card>
 
-      <Card>
-        <PickupAtField
-          value={pickupAt}
-          error={fieldErrors.pickupAt}
-          onChange={(next) => {
-            setPickupAt(next);
-            setFieldErrors((e) => ({ ...e, pickupAt: undefined }));
-          }}
-        />
-      </Card>
+          <Card>
+            <Field
+              label={t('Bestemming')}
+              value={dropoffQuery}
+              inputRef={dropoffInputRef}
+              onChangeText={(v) => {
+                setDropoffQuery(v);
+                if (dropoff && v.trim() !== dropoff.address) setDropoff(null);
+                setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+                scheduleSuggestions(v, 'dropoff');
+              }}
+              placeholder={t('Typ een adres en kies een suggestie')}
+              autoCapitalize="words"
+              autoComplete="off"
+              confirmed={!!dropoff}
+              error={fieldErrors.dropoff}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+              onClear={() => {
+                if (dropoffSuggestTimer.current) clearTimeout(dropoffSuggestTimer.current);
+                dropoffSuggestSeq.current += 1;
+                setDropoffQuery('');
+                setDropoff(null);
+                setDropoffSuggestions([]);
+                setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+              }}
+              clearAccessibilityLabel={t('Bestemming wissen')}
+            />
+            {dropoffSuggestions.map((s, i) => (
+              <Pressable
+                key={`d-${i}-${s.lat.toFixed(5)}-${s.lng.toFixed(5)}-${s.label}`}
+                onPress={() => {
+                  applySuggestion(s, 'dropoff');
+                  setFieldErrors((e) => ({ ...e, dropoff: undefined }));
+                }}
+                style={[styles.suggestRow, i === 0 && styles.suggestRowFirst]}
+              >
+                <Text style={styles.suggestText}>{s.label}</Text>
+              </Pressable>
+            ))}
+          </Card>
+
+          <View
+            onLayout={(e) => {
+              pickupAtSectionY.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <Card>
+              <PickupAtField
+                value={pickupAt}
+                error={fieldErrors.pickupAt}
+                onChange={(next) => {
+                  setPickupAt(next);
+                  setFieldErrors((e) => ({ ...e, pickupAt: undefined }));
+                }}
+              />
+            </Card>
+          </View>
+        </>
+      )}
 
       <View
         onLayout={(e) => {
@@ -3252,171 +3458,380 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
       {priceBlock}
 
-      <Card>
-        <Text style={[styles.section, styles.sectionCenter]}>{t("Passagiers")}</Text>
-        <View style={[styles.qtyWrap, styles.qtyWrapCenter]}>
-          <Pressable
-            onPress={() => bumpPassengers(-1)}
-            disabled={passengerCount <= 1}
-            style={[styles.qtyBtn, passengerCount <= 1 && styles.qtyBtnDisabled]}
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={{ padding: 14 }} style={{ marginBottom: 10 }}>
+          <Text
+            style={[
+              styles.section,
+              styles.sectionCenter,
+              { color: nexaSurfaceText(colorScheme === 'light') },
+            ]}
           >
-            <Text
-              style={[styles.qtyBtnText, passengerCount <= 1 && styles.qtyBtnTextDisabled]}
-            >
-              −
-            </Text>
-          </Pressable>
-          <Text style={styles.qtyValue}>{passengerCount}</Text>
-          <Pressable
-            onPress={() => bumpPassengers(1)}
-            disabled={passengerCount >= 20}
-            style={[styles.qtyBtn, passengerCount >= 20 && styles.qtyBtnDisabled]}
-          >
-            <Text
-              style={[styles.qtyBtnText, passengerCount >= 20 && styles.qtyBtnTextDisabled]}
-            >
-              +
-            </Text>
-          </Pressable>
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.section}>{t("Bagage")}</Text>
-        {BAGGAGE_ROWS.map((row) => (
-          <View key={row.key} style={styles.baggageRow}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.baggageLabel}>{t(row.label)}</Text>
-              <Text style={styles.baggageHint}>{t(row.hint)}</Text>
-            </View>
-            <View style={styles.qtyWrap}>
-              <Pressable
-                onPress={() => bumpBaggage(row.key, -1, row.max)}
-                style={styles.qtyBtn}
-              >
-                <Text style={styles.qtyBtnText}>−</Text>
-              </Pressable>
-              <Text style={styles.qtyValue}>{baggage[row.key]}</Text>
-              <Pressable
-                onPress={() => bumpBaggage(row.key, 1, row.max)}
-                style={styles.qtyBtn}
-              >
-                <Text style={styles.qtyBtnText}>+</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
-      </Card>
-
-      <Card>
-        <Field
-          label="Opmerkingen"
-          value={remarks}
-          onChangeText={setRemarks}
-          placeholder={t("Bijv. bakfiets, hulp bij instappen…")}
-          multiline
-        />
-      </Card>
-
-      <Card>
-        {showBookContactInputs ? (
-          <>
-            <View style={styles.nameRow}>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label={t("Voornaam")}
-                  value={firstName}
-                  onChangeText={(v) => {
-                    setFirstName(v);
-                    setFieldErrors((e) => ({ ...e, firstName: undefined }));
-                  }}
-                  autoCapitalize="words"
-                  error={fieldErrors.firstName}
-                />
-              </View>
-              <View style={{ width: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Field
-                  label={t("Achternaam")}
-                  value={lastName}
-                  onChangeText={(v) => {
-                    setLastName(v);
-                    setFieldErrors((e) => ({ ...e, lastName: undefined }));
-                  }}
-                  autoCapitalize="words"
-                  error={fieldErrors.lastName}
-                />
-              </View>
-            </View>
-            <Field
-              label={t("Telefoon")}
-              value={phone}
-              onChangeText={(v) => {
-                setPhone(v);
-                setFieldErrors((e) => ({ ...e, phone: undefined }));
-              }}
-              keyboardType="phone-pad"
-              placeholder="06…"
-              error={fieldErrors.phone}
-            />
-            <Field
-              label="E-mail"
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                setFieldErrors((e) => ({ ...e, email: undefined }));
-              }}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="naam@email.nl"
-              error={fieldErrors.email}
-            />
-            {bookContactEditing ? (
-              <>
-                {profileSaved ? (
-                  <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
-                ) : null}
-                <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
-                <View style={{ height: 10 }} />
-                <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('book')} />
-              </>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <View style={styles.nameRow}>
-              <View style={[styles.contactReadonlyField, { flex: 1 }]}>
-                <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
-                <Text style={styles.rowValue}>{firstName}</Text>
-              </View>
-              <View style={{ width: 10 }} />
-              <View style={[styles.contactReadonlyField, { flex: 1 }]}>
-                <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
-                <Text style={styles.rowValue}>{lastName}</Text>
-              </View>
-            </View>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
-              <Text style={styles.rowValue}>{phone}</Text>
-            </View>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>E-mail</Text>
-              <Text style={styles.rowValue}>{email}</Text>
-            </View>
+            {t('Passagiers')}
+          </Text>
+          <View style={[styles.qtyWrap, styles.qtyWrapCenter]}>
             <Pressable
-              onPress={() => beginContactEdit('book')}
-              style={({ pressed }) => [
-                styles.contactEditBtn,
-                pressed && styles.contactEditBtnPressed,
-              ]}
-              accessibilityRole="button"
+              onPress={() => bumpPassengers(-1)}
+              disabled={passengerCount <= 1}
+              style={[styles.qtyBtn, passengerCount <= 1 && styles.qtyBtnDisabled]}
             >
-              <Text style={styles.contactEditBtnText}>{t("Bewerk")}</Text>
+              <Text
+                style={[styles.qtyBtnText, passengerCount <= 1 && styles.qtyBtnTextDisabled]}
+              >
+                −
+              </Text>
             </Pressable>
-          </>
-        )}
-        <Text style={styles.profileHint}>{t("Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden ingevuld.")}</Text>
-      </Card>
+            <Text
+              style={[styles.qtyValue, { color: nexaSurfaceText(colorScheme === 'light') }]}
+            >
+              {passengerCount}
+            </Text>
+            <Pressable
+              onPress={() => bumpPassengers(1)}
+              disabled={passengerCount >= 20}
+              style={[styles.qtyBtn, passengerCount >= 20 && styles.qtyBtnDisabled]}
+            >
+              <Text
+                style={[styles.qtyBtnText, passengerCount >= 20 && styles.qtyBtnTextDisabled]}
+              >
+                +
+              </Text>
+            </Pressable>
+          </View>
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          <Text style={[styles.section, styles.sectionCenter]}>{t('Passagiers')}</Text>
+          <View style={[styles.qtyWrap, styles.qtyWrapCenter]}>
+            <Pressable
+              onPress={() => bumpPassengers(-1)}
+              disabled={passengerCount <= 1}
+              style={[styles.qtyBtn, passengerCount <= 1 && styles.qtyBtnDisabled]}
+            >
+              <Text
+                style={[styles.qtyBtnText, passengerCount <= 1 && styles.qtyBtnTextDisabled]}
+              >
+                −
+              </Text>
+            </Pressable>
+            <Text style={styles.qtyValue}>{passengerCount}</Text>
+            <Pressable
+              onPress={() => bumpPassengers(1)}
+              disabled={passengerCount >= 20}
+              style={[styles.qtyBtn, passengerCount >= 20 && styles.qtyBtnDisabled]}
+            >
+              <Text
+                style={[styles.qtyBtnText, passengerCount >= 20 && styles.qtyBtnTextDisabled]}
+              >
+                +
+              </Text>
+            </Pressable>
+          </View>
+        </Card>
+      )}
+
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={{ padding: 14 }} style={{ marginBottom: 10 }}>
+          <Text style={[styles.section, { color: nexaSurfaceText(colorScheme === 'light') }]}>
+            {t('Bagage')}
+          </Text>
+          {BAGGAGE_ROWS.map((row) => (
+            <View key={row.key} style={styles.baggageRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={[
+                    styles.baggageLabel,
+                    { color: nexaSurfaceText(colorScheme === 'light') },
+                  ]}
+                >
+                  {t(row.label)}
+                </Text>
+                <Text
+                  style={[
+                    styles.baggageHint,
+                    { color: nexaSurfaceMuted(colorScheme === 'light') },
+                  ]}
+                >
+                  {t(row.hint)}
+                </Text>
+              </View>
+              <View style={styles.qtyWrap}>
+                <Pressable
+                  onPress={() => bumpBaggage(row.key, -1, row.max)}
+                  style={styles.qtyBtn}
+                >
+                  <Text style={styles.qtyBtnText}>−</Text>
+                </Pressable>
+                <Text
+                  style={[
+                    styles.qtyValue,
+                    { color: nexaSurfaceText(colorScheme === 'light') },
+                  ]}
+                >
+                  {baggage[row.key]}
+                </Text>
+                <Pressable
+                  onPress={() => bumpBaggage(row.key, 1, row.max)}
+                  style={styles.qtyBtn}
+                >
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          <Text style={styles.section}>{t('Bagage')}</Text>
+          {BAGGAGE_ROWS.map((row) => (
+            <View key={row.key} style={styles.baggageRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.baggageLabel}>{t(row.label)}</Text>
+                <Text style={styles.baggageHint}>{t(row.hint)}</Text>
+              </View>
+              <View style={styles.qtyWrap}>
+                <Pressable
+                  onPress={() => bumpBaggage(row.key, -1, row.max)}
+                  style={styles.qtyBtn}
+                >
+                  <Text style={styles.qtyBtnText}>−</Text>
+                </Pressable>
+                <Text style={styles.qtyValue}>{baggage[row.key]}</Text>
+                <Pressable
+                  onPress={() => bumpBaggage(row.key, 1, row.max)}
+                  style={styles.qtyBtn}
+                >
+                  <Text style={styles.qtyBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
+
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={{ padding: 14 }} style={{ marginBottom: 10 }}>
+          <Field
+            label="Opmerkingen"
+            value={remarks}
+            onChangeText={setRemarks}
+            placeholder={t('Bijv. bakfiets, hulp bij instappen…')}
+            multiline
+          />
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          <Field
+            label="Opmerkingen"
+            value={remarks}
+            onChangeText={setRemarks}
+            placeholder={t('Bijv. bakfiets, hulp bij instappen…')}
+            multiline
+          />
+        </Card>
+      )}
+
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={{ padding: 14 }} style={{ marginBottom: 10 }}>
+          {showBookContactInputs ? (
+            <>
+              <View style={styles.nameRow}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label={t("Voornaam")}
+                    value={firstName}
+                    onChangeText={(v) => {
+                      setFirstName(v);
+                      setFieldErrors((e) => ({ ...e, firstName: undefined }));
+                    }}
+                    autoCapitalize="words"
+                    error={fieldErrors.firstName}
+                  />
+                </View>
+                <View style={{ width: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label={t("Achternaam")}
+                    value={lastName}
+                    onChangeText={(v) => {
+                      setLastName(v);
+                      setFieldErrors((e) => ({ ...e, lastName: undefined }));
+                    }}
+                    autoCapitalize="words"
+                    error={fieldErrors.lastName}
+                  />
+                </View>
+              </View>
+              <Field
+                label={t("Telefoon")}
+                value={phone}
+                onChangeText={(v) => {
+                  setPhone(v);
+                  setFieldErrors((e) => ({ ...e, phone: undefined }));
+                }}
+                keyboardType="phone-pad"
+                placeholder="06…"
+                error={fieldErrors.phone}
+              />
+              <Field
+                label="E-mail"
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  setFieldErrors((e) => ({ ...e, email: undefined }));
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="naam@email.nl"
+                error={fieldErrors.email}
+              />
+              {bookContactEditing ? (
+                <>
+                  {profileSaved ? (
+                    <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
+                  ) : null}
+                  <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+                  <View style={{ height: 10 }} />
+                  <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('book')} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.nameRow}>
+                <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                  <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+                  <Text style={styles.rowValue}>{firstName}</Text>
+                </View>
+                <View style={{ width: 10 }} />
+                <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                  <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+                  <Text style={styles.rowValue}>{lastName}</Text>
+                </View>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+                <Text style={styles.rowValue}>{phone}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>E-mail</Text>
+                <Text style={styles.rowValue}>{email}</Text>
+              </View>
+              <Pressable
+                onPress={() => beginContactEdit('book')}
+                style={({ pressed }) => [
+                  styles.contactEditBtn,
+                  pressed && styles.contactEditBtnPressed,
+                ]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.contactEditBtnText}>{t("Bewerk")}</Text>
+              </Pressable>
+            </>
+          )}
+          <Text style={styles.profileHint}>{t("Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden ingevuld.")}</Text>
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          {showBookContactInputs ? (
+            <>
+              <View style={styles.nameRow}>
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label={t("Voornaam")}
+                    value={firstName}
+                    onChangeText={(v) => {
+                      setFirstName(v);
+                      setFieldErrors((e) => ({ ...e, firstName: undefined }));
+                    }}
+                    autoCapitalize="words"
+                    error={fieldErrors.firstName}
+                  />
+                </View>
+                <View style={{ width: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Field
+                    label={t("Achternaam")}
+                    value={lastName}
+                    onChangeText={(v) => {
+                      setLastName(v);
+                      setFieldErrors((e) => ({ ...e, lastName: undefined }));
+                    }}
+                    autoCapitalize="words"
+                    error={fieldErrors.lastName}
+                  />
+                </View>
+              </View>
+              <Field
+                label={t("Telefoon")}
+                value={phone}
+                onChangeText={(v) => {
+                  setPhone(v);
+                  setFieldErrors((e) => ({ ...e, phone: undefined }));
+                }}
+                keyboardType="phone-pad"
+                placeholder="06…"
+                error={fieldErrors.phone}
+              />
+              <Field
+                label="E-mail"
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  setFieldErrors((e) => ({ ...e, email: undefined }));
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="naam@email.nl"
+                error={fieldErrors.email}
+              />
+              {bookContactEditing ? (
+                <>
+                  {profileSaved ? (
+                    <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
+                  ) : null}
+                  <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+                  <View style={{ height: 10 }} />
+                  <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('book')} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.nameRow}>
+                <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                  <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+                  <Text style={styles.rowValue}>{firstName}</Text>
+                </View>
+                <View style={{ width: 10 }} />
+                <View style={[styles.contactReadonlyField, { flex: 1 }]}>
+                  <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+                  <Text style={styles.rowValue}>{lastName}</Text>
+                </View>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+                <Text style={styles.rowValue}>{phone}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>E-mail</Text>
+                <Text style={styles.rowValue}>{email}</Text>
+              </View>
+              <Pressable
+                onPress={() => beginContactEdit('book')}
+                style={({ pressed }) => [
+                  styles.contactEditBtn,
+                  pressed && styles.contactEditBtnPressed,
+                ]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.contactEditBtnText}>{t("Bewerk")}</Text>
+              </Pressable>
+            </>
+          )}
+          <Text style={styles.profileHint}>{t("Deze gegevens kun je ook in je profiel invullen, waarna ze hier automatisch worden ingevuld.")}</Text>
+        </Card>
+      )}
 
       {locationError ? <ErrorText>{locationError}</ErrorText> : null}
       {error && !showNoTaxiWarn ? <ErrorText>{error}</ErrorText> : null}
@@ -3427,7 +3842,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       ) : null}
       {USE_NEXA_BOOKING_REDESIGN ? (
         <NexaPrimaryButton
-          title={t("Bekijk ritopties")}
+          title={t('Boek de rit')}
           onPress={onBook}
           loading={busy}
           disabled={!canDispatch}
@@ -3446,6 +3861,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const homeContent = USE_NEXA_BOOKING_REDESIGN ? (
     <NexaHomeScreen
       greetingName={firstName}
+      isReturning={guestRides.length > 0 || firstName.trim().length > 0}
       onBook={goToBookTab}
       onRides={() => {
         leaveContactEditModes();
@@ -3470,6 +3886,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                 ? localizeEtaLabel(live?.eta_label, live?.eta_minutes)
                 : null
             }
+            isLive={driverComing}
             onPress={() => openRideFollow(activeBannerRide as GuestRide)}
           />
         ) : null
@@ -3478,11 +3895,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   ) : null;
 
   const notificationsContent = (
-    <View style={{ padding: 20 }}>
-      <Text style={[styles.section, { color: nexaBookingTheme.color.text }]}>
-        {t('Meldingen')}
-      </Text>
-      <Text style={[styles.meta, { color: nexaBookingTheme.color.textMuted }]}>
+    <View style={{ padding: 20, backgroundColor: 'transparent' }}>
+      <Text
+        style={[
+          styles.meta,
+          {
+            color:
+              colorScheme === 'light'
+                ? nexaBookingTheme.color.ink
+                : nexaSurfaceMuted(false),
+            marginTop: 0,
+          },
+        ]}
+      >
         {t('Je hebt geen nieuwe meldingen.')}
       </Text>
     </View>
@@ -3718,7 +4143,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           : t("Je rit is aangeboden aan aangesloten taxibedrijven in de buurt.");
 
       return (
-        <View key={key || ride.token} style={styles.rideCard}>
+        <ArchiveMotion
+          key={key || ride.token}
+          mode={
+            rideArchiveMotion?.key === key ? rideArchiveMotion.mode : 'idle'
+          }
+          accentColor={nexaBookingTheme.color.blueBright}
+          onFinished={
+            rideArchiveMotion?.key === key ? finishRideArchiveMotion : undefined
+          }
+        >
+        <View style={styles.rideCard}>
           <View style={styles.rideCardBody}>
             <PhasePill phase="searching" />
             <SearchingTaxiTitle />
@@ -3769,12 +4204,20 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             ) : null}
           </View>
         </View>
+        </ArchiveMotion>
       );
     }
 
     return (
-      <View
+      <ArchiveMotion
         key={key || ride.token}
+        mode={rideArchiveMotion?.key === key ? rideArchiveMotion.mode : 'idle'}
+        accentColor={nexaBookingTheme.color.blueBright}
+        onFinished={
+          rideArchiveMotion?.key === key ? finishRideArchiveMotion : undefined
+        }
+      >
+      <View
         style={[
           styles.rideCard,
           cancelled && styles.rideCardCancelled,
@@ -3924,16 +4367,17 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               ) : null}
             </View>
           </Pressable>
-          {active && ridePin && !ridePin.started && hiddenPinKeys.includes(ridePin.key) ? (
-            <Pressable
-              onPress={() => setHiddenPinKeys((keys) => keys.filter((key) => key !== ridePin.key))}
-              style={styles.pinShowBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t("Ophaalcode tonen")}
-            >
-              <Ionicons name="keypad-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.pinShowBtnText}>{t("Ophaalcode")}</Text>
-            </Pressable>
+          {active &&
+          ridePin &&
+          !ridePin.started &&
+          !revealedPinKeys.includes(ridePin.key) ? (
+            <NexaPickupCodeButton
+              onPress={() =>
+                setRevealedPinKeys((keys) =>
+                  keys.includes(ridePin.key) ? keys : [...keys, ridePin.key]
+                )
+              }
+            />
           ) : null}
         </View>
 
@@ -4171,9 +4615,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               <View style={{ marginTop: 12 }}>
                 <GhostButton
                   title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
-                  onPress={() =>
-                    toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-                  }
+                  onPress={() => toggleArchiveRide(ride, !showArchivedRides)}
                 />
               </View>
             ) : null}
@@ -4200,9 +4642,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             {canArchive ? (
               <GhostButton
                 title={showArchivedRides ? t('Terugzetten uit archief') : t('Naar archief')}
-                onPress={() =>
-                  toggleArchiveRide(ride, !showArchivedRides).catch(() => undefined)
-                }
+                onPress={() => toggleArchiveRide(ride, !showArchivedRides)}
               />
             ) : null}
             {completed && ride.complaint?.can_file ? (
@@ -4224,6 +4664,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           </View>
         )}
       </View>
+      </ArchiveMotion>
     );
   }
 
@@ -4237,12 +4678,60 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const tripPanel =
     rideMapOpen && live ? (
       <View>
-        <View style={[styles.mapWrap, { height: tripMapHeight }]}>
+        <View style={styles.liveTitleRow}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              style={[
+                styles.liveTitleEyebrow,
+                { color: nexaBookingTheme.color.orangeHot },
+              ]}
+              numberOfLines={1}
+            >
+              {t('Je rit is bevestigd')}
+            </Text>
+            <Text
+              style={[
+                styles.liveTitleMain,
+                { color: nexaSurfaceText(colorScheme === 'light') },
+              ]}
+              numberOfLines={1}
+            >
+              {tripStarted ? t('Rit onderweg') : t('Chauffeur onderweg')}
+            </Text>
+            <View style={styles.liveTitleUnderline} />
+          </View>
+          {driverComing || liveFollowUi || tripStarted ? (
+            <View style={styles.liveTrackingPillHd}>
+              <Ionicons
+                name="radio"
+                size={15}
+                color={colorScheme === 'light' ? '#0D9488' : '#69E0B1'}
+              />
+              <Text
+                style={[
+                  styles.liveTrackingPillHdText,
+                  {
+                    color: colorScheme === 'light' ? '#0F766E' : '#D0EDE8',
+                  },
+                ]}
+              >
+                {t('Live tracking')}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <View
+          style={[
+            styles.mapWrap,
+            USE_NEXA_BOOKING_REDESIGN && styles.mapWrapRounded,
+            { height: tripMapHeight },
+          ]}
+        >
           <MapView
             ref={tripMapRef}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
-            {...{ customMapStyle: DARK_MAP_STYLE }}
+            {...(colorScheme === 'dark' ? { customMapStyle: DARK_MAP_STYLE } : {})}
             initialRegion={{
               latitude: (activeTaxiLoc?.lat ?? Number(live.pickup_lat)) || 52.22,
               longitude: (activeTaxiLoc?.lng ?? Number(live.pickup_lng)) || 6.89,
@@ -4326,27 +4815,29 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   )
               : null}
             {tripRoute.length > 1 ? (
-              <Polyline
-                coordinates={tripRoute}
-                strokeColor={NEON_ROUTE}
-                strokeWidth={5}
-                lineCap="round"
-                lineJoin="round"
-              />
+              <>
+                {/* Soft glow onder neon route (mockup-stijl). */}
+                <Polyline
+                  coordinates={tripRoute}
+                  strokeColor="rgba(0, 212, 255, 0.28)"
+                  strokeWidth={12}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+                <Polyline
+                  coordinates={tripRoute}
+                  strokeColor={NEON_ROUTE}
+                  strokeWidth={5}
+                  lineCap="round"
+                  lineJoin="round"
+                />
+              </>
             ) : null}
           </MapView>
-          {driverComing || liveFollowUi ? (
-            <View style={styles.liveMapTopBar} pointerEvents="box-none">
-              <View style={styles.liveTrackingPill}>
-                <Ionicons name="radio" size={14} color="#19BA83" />
-                <Text style={styles.liveTrackingPillText}>{t('Live tracking')}</Text>
-              </View>
-            </View>
-          ) : null}
           {(driverComing || liveFollowUi) &&
           (live.eta_label || live.eta_minutes != null) ? (
             <View style={styles.liveEtaChip} pointerEvents="none">
-              <Ionicons name="time" size={16} color={NEON_ROUTE} />
+              <Ionicons name="time" size={22} color={NEON_ROUTE} />
               <View>
                 <Text style={styles.liveEtaChipLabel}>{t('Aankomst over')}</Text>
                 <Text style={styles.liveEtaChipValue}>
@@ -4370,28 +4861,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             >
               <Text style={styles.zoomBtnText}>−</Text>
             </Pressable>
-            {(tripRoute.length > 1 ||
-              (live.pickup_lat != null && live.dropoff_lat != null) ||
-              activeTaxiLoc) ? (
-              <Pressable
-                onPress={fitTripRoute}
-                style={styles.zoomBtn}
-                accessibilityLabel={t("Toon route")}
-                accessibilityHint={t("Centreert de kaart op de geplande rit")}
-              >
-                <Ionicons name="navigate" size={18} color={colors.text} />
-              </Pressable>
-            ) : null}
-            {activeTaxiLoc ? (
-              <Pressable
-                onPress={focusTripTaxi}
-                style={styles.zoomBtn}
-                accessibilityLabel={t("Focus op taxi")}
-                accessibilityHint={t("Centreert de kaart op je taxi en volgt die")}
-              >
-                <Ionicons name="locate" size={18} color={colors.text} />
-              </Pressable>
-            ) : null}
+          </View>
+          <View style={styles.mapBottomRightControls} pointerEvents="box-none">
+            <Pressable
+              onPress={fitTripRoute}
+              style={styles.zoomBtn}
+              accessibilityLabel={t("Toon route")}
+              accessibilityHint={t("Centreert de kaart op de geplande rit")}
+            >
+              <Ionicons name="navigate" size={18} color={colors.text} />
+            </Pressable>
+            <Pressable
+              onPress={focusTripTaxi}
+              style={styles.zoomBtn}
+              accessibilityLabel={t("Focus op taxi")}
+              accessibilityHint={t("Centreert de kaart op je taxi en volgt die")}
+            >
+              <Ionicons name="locate" size={18} color={colors.text} />
+            </Pressable>
           </View>
         </View>
         <View
@@ -4401,7 +4888,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         >
         <View style={{ gap: 12 }}>
           {invoiceSentLabel ? (
-            <Text style={[styles.liveTitle, { color: nexaBookingTheme.color.text }]}>
+            <Text
+              style={[
+                styles.liveTitle,
+                { color: nexaSurfaceText(colorScheme === 'light') },
+              ]}
+            >
               {invoiceSentLabel}
             </Text>
           ) : (
@@ -4421,36 +4913,54 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               token: trackToken || '',
               pickup_confirmation: live.pickup_confirmation,
             } as GuestRide);
-            if (!livePin || livePin.started || !hiddenPinKeys.includes(livePin.key)) return null;
+            if (!livePin || livePin.started || revealedPinKeys.includes(livePin.key)) {
+              return null;
+            }
             return (
-              <Pressable
+              <NexaPickupCodeButton
                 onPress={() =>
-                  setHiddenPinKeys((keys) => keys.filter((key) => key !== livePin.key))
+                  setRevealedPinKeys((keys) =>
+                    keys.includes(livePin.key) ? keys : [...keys, livePin.key]
+                  )
                 }
-                style={styles.pinShowBtn}
-                accessibilityRole="button"
-                accessibilityLabel={t("Ophaalcode tonen")}
-              >
-                <Ionicons name="keypad-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.pinShowBtnText}>{t("Ophaalcode")}</Text>
-              </Pressable>
+              />
             );
           })()}
           {live.quoted_price != null ? (
             <View style={styles.rideCardFoot}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.metaCaption, { color: nexaBookingTheme.color.textMuted }]}>
+                <Text
+                  style={[
+                    styles.metaCaption,
+                    { color: nexaSurfaceMuted(colorScheme === 'light') },
+                  ]}
+                >
                   {t("Datum")}
                 </Text>
-                <Text style={[styles.rideCardAmount, { color: nexaBookingTheme.color.text }]}>
+                <Text
+                  style={[
+                    styles.rideCardAmount,
+                    { color: nexaSurfaceText(colorScheme === 'light') },
+                  ]}
+                >
                   {formatPickupWhen(livePickupAt(live)) || '—'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.metaCaption, { color: nexaBookingTheme.color.textMuted }]}>
+                <Text
+                  style={[
+                    styles.metaCaption,
+                    { color: nexaSurfaceMuted(colorScheme === 'light') },
+                  ]}
+                >
                   {t("Prijs")}
                 </Text>
-                <Text style={[styles.rideCardAmount, { color: nexaBookingTheme.color.text }]}>
+                <Text
+                  style={[
+                    styles.rideCardAmount,
+                    { color: nexaSurfaceText(colorScheme === 'light') },
+                  ]}
+                >
                   {formatEuroNl(Number(live.quoted_price))}
                 </Text>
               </View>
@@ -4467,7 +4977,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       style={styles.formScroll}
       contentContainerStyle={[
         styles.scroll,
-        rideMapOpen && !tripStarted ? { paddingBottom: 168 } : null,
+        { paddingBottom: 16 },
+        rideMapOpen ? { paddingBottom: 20 } : null,
       ]}
       keyboardShouldPersistTaps="handled"
       nestedScrollEnabled
@@ -4552,84 +5063,175 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       nestedScrollEnabled
     >
       <ErrorText>{error}</ErrorText>
-      <Card>
-        {showProfileInputs ? (
-          <>
-            <Field label={t("Voornaam")} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
-            <Field label={t("Achternaam")} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
-            <Field
-              label={t("Telefoon")}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholder="06…"
-            />
-            <Field
-              label="E-mail"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="naam@email.nl"
-            />
-            {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
-            <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
-            {profileEditing ? (
-              <>
-                <View style={{ height: 10 }} />
-                <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('profile')} />
-              </>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
-              <Text style={styles.rowValue}>{firstName}</Text>
-            </View>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
-              <Text style={styles.rowValue}>{lastName}</Text>
-            </View>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
-              <Text style={styles.rowValue}>{phone}</Text>
-            </View>
-            <View style={styles.contactReadonlyField}>
-              <Text style={styles.rowLabel}>E-mail</Text>
-              <Text style={styles.rowValue}>{email}</Text>
-            </View>
-            {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
-            <PrimaryButton title={t("Bewerk")} onPress={() => beginContactEdit('profile')} />
-          </>
-        )}
-      </Card>
-
-      <Card>
-        <Text style={styles.section}>{t("Weergave")}</Text>
-        <Text style={styles.themeHint}>{t("Standaard volgt de app de light/dark-modus van je telefoon. Kies hieronder alleen als je dat wilt overschrijven.")}</Text>
-        {THEME_OPTIONS.map((opt) => {
-          const selected = preference === opt.key;
-          return (
-            <Pressable
-              key={opt.key}
-              onPress={() => setPreference(opt.key)}
-              style={[styles.themeRow, selected && styles.themeRowActive]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-            >
-              <View style={[styles.themeRadio, selected && styles.themeRadioOn]} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.themeLabel}>{t(opt.label)}</Text>
-                <Text style={styles.themeSub}>{t(opt.hint)}</Text>
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={styles.profileGlowInner} style={styles.profileGlowCard}>
+          {showProfileInputs ? (
+            <>
+              <Field label={t("Voornaam")} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+              <Field label={t("Achternaam")} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+              <Field
+                label={t("Telefoon")}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="06…"
+              />
+              <Field
+                label="E-mail"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="naam@email.nl"
+              />
+              {profileSaved ? (
+                <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
+              ) : null}
+              <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+              {profileEditing ? (
+                <>
+                  <View style={{ height: 10 }} />
+                  <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('profile')} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+                <Text style={styles.rowValue}>{firstName}</Text>
               </View>
-            </Pressable>
-          );
-        })}
-      </Card>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+                <Text style={styles.rowValue}>{lastName}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+                <Text style={styles.rowValue}>{phone}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>E-mail</Text>
+                <Text style={styles.rowValue}>{email}</Text>
+              </View>
+              {profileSaved ? (
+                <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text>
+              ) : null}
+              <PrimaryButton title={t("Bewerk")} onPress={() => beginContactEdit('profile')} />
+            </>
+          )}
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          {showProfileInputs ? (
+            <>
+              <Field label={t("Voornaam")} value={firstName} onChangeText={setFirstName} autoCapitalize="words" />
+              <Field label={t("Achternaam")} value={lastName} onChangeText={setLastName} autoCapitalize="words" />
+              <Field
+                label={t("Telefoon")}
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="06…"
+              />
+              <Field
+                label="E-mail"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="naam@email.nl"
+              />
+              {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
+              <PrimaryButton title={t("Opslaan")} onPress={() => void saveProfile()} />
+              {profileEditing ? (
+                <>
+                  <View style={{ height: 10 }} />
+                  <GhostButton title={t("Annuleren")} onPress={() => cancelContactEdit('profile')} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Voornaam")}</Text>
+                <Text style={styles.rowValue}>{firstName}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Achternaam")}</Text>
+                <Text style={styles.rowValue}>{lastName}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>{t("Telefoon")}</Text>
+                <Text style={styles.rowValue}>{phone}</Text>
+              </View>
+              <View style={styles.contactReadonlyField}>
+                <Text style={styles.rowLabel}>E-mail</Text>
+                <Text style={styles.rowValue}>{email}</Text>
+              </View>
+              {profileSaved ? <Text style={[styles.meta, { color: colors.success }]}>{t("Opgeslagen.")}</Text> : null}
+              <PrimaryButton title={t("Bewerk")} onPress={() => beginContactEdit('profile')} />
+            </>
+          )}
+        </Card>
+      )}
+
+      {USE_NEXA_BOOKING_REDESIGN ? (
+        <NexaGlowCard contentStyle={styles.profileGlowInner} style={styles.profileGlowCard}>
+          <Text style={styles.section}>{t("Weergave")}</Text>
+          <Text style={styles.themeHint}>
+            {t(
+              'Standaard volgt de app de light/dark-modus van je telefoon. Kies hieronder alleen als je dat wilt overschrijven.'
+            )}
+          </Text>
+          {THEME_OPTIONS.map((opt) => {
+            const selected = preference === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setPreference(opt.key)}
+                style={[styles.themeRow, selected && styles.themeRowActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <View style={[styles.themeRadio, selected && styles.themeRadioOn]} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.themeLabel}>{t(opt.label)}</Text>
+                  <Text style={styles.themeSub}>{t(opt.hint)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </NexaGlowCard>
+      ) : (
+        <Card>
+          <Text style={styles.section}>{t("Weergave")}</Text>
+          <Text style={styles.themeHint}>
+            {t(
+              'Standaard volgt de app de light/dark-modus van je telefoon. Kies hieronder alleen als je dat wilt overschrijven.'
+            )}
+          </Text>
+          {THEME_OPTIONS.map((opt) => {
+            const selected = preference === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setPreference(opt.key)}
+                style={[styles.themeRow, selected && styles.themeRowActive]}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+              >
+                <View style={[styles.themeRadio, selected && styles.themeRadioOn]} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.themeLabel}>{t(opt.label)}</Text>
+                  <Text style={styles.themeSub}>{t(opt.hint)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </Card>
+      )}
 
       <DemoModeRow showOpenBooking={false} />
-
     </ScrollView>
   );
 
@@ -4659,43 +5261,34 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       null;
     if (!ride) return null;
     const info = pickupPinForRide(ride);
-    if (!info || info.started || hiddenPinKeys.includes(info.key)) return null;
+    if (!info || info.started) return null;
     return info;
   })();
+  const pickupPinRevealed = !!(
+    pickupPinInfo && revealedPinKeys.includes(pickupPinInfo.key)
+  );
 
+  // Home/Boeken hebben eigen map→hero overloop; geen tweede screen-backdrop.
   const showMapBackdrop =
-    colorScheme === 'dark' &&
-    (tab === 'book' ||
-      tab === 'rides' ||
-      tab === 'home' ||
-      tab === 'profile' ||
-      tab === 'more' ||
-      tab === 'notifications');
+    USE_NEXA_BOOKING_REDESIGN &&
+    (tab === 'rides' || tab === 'profile' || tab === 'more' || tab === 'notifications');
+  const lightMode = colorScheme === 'light';
 
   return (
     <Screen
       style={[
         styles.shell,
         {
-          backgroundColor:
-            colorScheme === 'dark' ? nexaBookingTheme.color.navy900 : colors.bg,
+          // Onderkant = footer-kleur zodat er geen zwarte spleet onder de tabbar is.
+          backgroundColor: lightMode
+            ? '#FFFFFF'
+            : showMapBackdrop
+              ? 'transparent'
+              : nexaBookingTheme.color.navy800,
         },
       ]}
     >
-      {showMapBackdrop ? (
-        <View style={styles.mapBackdrop} pointerEvents="none">
-          <ImageBackground
-            source={nexaMapHeaderBg}
-            style={StyleSheet.absoluteFill}
-            imageStyle={styles.mapBackdropImg}
-          />
-          <LinearGradient
-            colors={['rgba(6,19,41,0.2)', 'rgba(6,19,41,0.82)', nexaBookingTheme.color.navy900]}
-            locations={[0, 0.55, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-      ) : null}
+      {showMapBackdrop ? <NexaScreenBackdrop /> : null}
       {appHeader}
       {demoActive && demo.isSuperAdmin ? (
         <View style={styles.demoModeBanner} accessibilityRole="text">
@@ -4719,7 +5312,12 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                     key={`book-${bookMountKey}`}
                     ref={bookScrollRef}
                     style={styles.formScroll}
-                    contentContainerStyle={[styles.scroll, { paddingBottom: 24 + keyboardOverlap }]}
+                    contentContainerStyle={[
+                      styles.scroll,
+                      // Zelfde top als Home: geen lege strip boven de hero.
+                      USE_NEXA_BOOKING_REDESIGN ? { paddingTop: 0 } : null,
+                      { paddingBottom: 24 + keyboardOverlap },
+                    ]}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode="on-drag"
                     automaticallyAdjustKeyboardInsets
@@ -4793,29 +5391,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       )}
 
       {pickupPinInfo && tab === 'rides' ? (
-        <View style={styles.pickupPinBanner} pointerEvents="box-none">
-          <Pressable
-            onPress={() =>
-              setHiddenPinKeys((keys) =>
-                keys.includes(pickupPinInfo.key) ? keys : [...keys, pickupPinInfo.key]
-              )
-            }
-            hitSlop={10}
-            style={styles.pickupPinClose}
-            accessibilityRole="button"
-            accessibilityLabel={t("Ophaalcode sluiten")}
-          >
-            <Ionicons name="close" size={20} color="#FFFFFF" />
-          </Pressable>
-          <Text style={styles.pickupPinBannerLabel}>{t("Ophaalcode voor de chauffeur")}</Text>
-          <Text
-            style={styles.pickupPinDigits}
-            accessibilityLabel={`Ophaalcode ${pickupPinInfo.pin}`}
-          >
-            {pickupPinInfo.pin}
-          </Text>
-          <Text style={styles.pickupPinBannerHint}>{pickupPinInfo.prompt}</Text>
-        </View>
+        <NexaPickupCodeModal
+          visible={pickupPinRevealed}
+          pin={pickupPinInfo.pin}
+          onClose={() =>
+            setRevealedPinKeys((keys) => keys.filter((key) => key !== pickupPinInfo.key))
+          }
+        />
       ) : null}
 
       <AppModal
@@ -4886,11 +5468,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       <AppModal
         visible={!!longWaitCancelRide}
         onRequestClose={() => undefined}
+        placement="center"
         dismissOnBackdrop={false}
         dismissDisabled
-        panelStyle={styles.confirmBanner}
+        scrollEnabled={false}
+        panelStyle={{
+          ...styles.cancelAckPanel,
+          borderColor:
+            colorScheme === 'light'
+              ? 'rgba(15, 132, 255, 0.35)'
+              : 'rgba(0, 163, 255, 0.75)',
+        }}
       >
-        <Text style={styles.confirmTitle}>{t("Rit geannuleerd")}</Text>
+        <Text style={styles.cancelAckTitle}>{t("Rit geannuleerd")}</Text>
         {longWaitCancelRide ? (
           <>
             {renderWaitStyleRoute({
@@ -4900,13 +5490,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               toPlace: longWaitCancelRide.to_place,
             })}
             {formatPickupWhen(longWaitCancelRide.pickup_at) ? (
-              <Text style={[styles.confirmText, { marginBottom: 0, marginTop: 10 }]}>
+              <Text style={styles.cancelAckMeta}>
                 {t('Ophalen')}: {formatPickupWhen(longWaitCancelRide.pickup_at)}
               </Text>
             ) : null}
           </>
         ) : null}
-        <Text style={[styles.confirmText, { marginTop: 12 }]}>
+        <Text style={styles.cancelAckBody}>
           {t(
             String(
               longWaitCancelRide?.cancellation_message ||
@@ -4915,24 +5505,26 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             ).trim()
           )}
         </Text>
-        <View style={{ marginTop: 14 }}>
-          <PrimaryButton
-            title={t('Sluiten')}
-            onPress={() => {
-              const ride = longWaitCancelRide;
-              setLongWaitCancelRide(null);
-              if (!ride) return;
-              const key = rideArchiveKey(ride);
-              if (key) longWaitCancelShownRef.current.add(key);
-              void toggleArchiveRide(ride, true);
-              if (trackToken && (ride.token === trackToken || Number(live?.id) === Number(ride.id))) {
-                setTrackToken(null);
-                setLive(null);
-                void AsyncStorage.removeItem(TRACK_KEY);
-              }
-            }}
-          />
-        </View>
+        <Pressable
+          onPress={() => {
+            const ride = longWaitCancelRide;
+            setLongWaitCancelRide(null);
+            if (!ride) return;
+            const key = rideArchiveKey(ride);
+            if (key) longWaitCancelShownRef.current.add(key);
+            void toggleArchiveRide(ride, true);
+            if (trackToken && (ride.token === trackToken || Number(live?.id) === Number(ride.id))) {
+              setTrackToken(null);
+              setLive(null);
+              void AsyncStorage.removeItem(TRACK_KEY);
+            }
+          }}
+          style={({ pressed }) => [styles.cancelAckCta, pressed && { opacity: 0.9 }]}
+          accessibilityRole="button"
+          accessibilityLabel={t('Sluiten')}
+        >
+          <Text style={styles.cancelAckCtaText}>{t('Sluiten')}</Text>
+        </Pressable>
       </AppModal>
 
       <AppModal
@@ -5125,6 +5717,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         visible={chatOpen}
         onClose={() => setChatOpen(false)}
         driverName={live?.driver?.name}
+        peerPhotoUrl={resolveCustomerMediaUrl(live?.driver?.photo_url)}
         messages={chatMessages}
         sending={chatSending}
         readOnly={!chatAllowed}
@@ -5138,15 +5731,19 @@ function ActiveRideBanner({
   ride,
   etaLabel,
   onPress,
+  isLive = false,
 }: {
   ride: GuestRide;
   etaLabel?: string | null;
   onPress: () => void;
+  /** Live tracking actief (chauffeur onderweg). */
+  isLive?: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const shimmer = useRef(new Animated.Value(0)).current;
   const isSearching = ride.phase === 'searching' || ride.phase === 'awaiting_payment';
+  const nexa = USE_NEXA_BOOKING_REDESIGN;
 
   useEffect(() => {
     if (!isSearching) {
@@ -5178,9 +5775,40 @@ function ActiveRideBanner({
     outputRange: [0.08, 0.22],
   });
 
+  if (nexa) {
+    const from = shortAddress(ride.from);
+    const to = shortAddress(ride.to);
+    const routeText =
+      from && to ? `${from} → ${to}` : from || to || null;
+    const enRoute = ride.phase === 'accepted' && (!!etaLabel || isLive);
+    const title = enRoute
+      ? t('Chauffeur onderweg')
+      : ride.phase === 'accepted'
+        ? t('De chauffeur heeft je rit geaccepteerd.')
+        : t('Openstaande rit');
+    const etaText = enRoute
+      ? etaLabel
+        ? t('Je chauffeur arriveert over {eta}.', { eta: etaLabel })
+        : t('De aankomsttijd wordt bijgewerkt.')
+      : null;
+
+    return (
+      <DriverEnRouteStatusCard
+        title={title}
+        etaText={etaText}
+        routeText={routeText}
+        isLive={enRoute && isLive}
+        onFollow={onPress}
+      />
+    );
+  }
+
   return (
     <Pressable
-      style={[styles.activeBanner, ride.phase === 'accepted' && styles.activeBannerAccepted]}
+      style={[
+        styles.activeBanner,
+        ride.phase === 'accepted' && styles.activeBannerAccepted,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={t("Openstaande rit volgen")}
@@ -5395,17 +6023,6 @@ function makeStyles(colors: ColorPalette) {
       paddingTop: 4,
       paddingBottom: 24,
     },
-    mapBackdrop: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 280,
-      zIndex: 0,
-    },
-    mapBackdropImg: {
-      resizeMode: 'cover',
-    },
     activeBanner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -5419,8 +6036,30 @@ function makeStyles(colors: ColorPalette) {
       marginBottom: 12,
       overflow: 'hidden',
     },
+    activeBannerNexa: {
+      backgroundColor: 'rgba(8, 36, 24, 0.94)',
+      borderWidth: 1.5,
+      borderColor: 'rgba(74, 222, 128, 0.7)',
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 14,
+      shadowColor: '#22C55E',
+      shadowOpacity: 0.4,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 6,
+    },
+    activeBannerNexaLight: {
+      backgroundColor: 'rgba(220, 252, 231, 0.96)',
+      borderColor: 'rgba(22, 163, 74, 0.5)',
+      shadowOpacity: 0.16,
+    },
     activeBannerAccepted: {
       backgroundColor: 'rgba(34,197,94,0.2)',
+    },
+    activeBannerNexaAccepted: {
+      backgroundColor: 'rgba(6, 42, 28, 0.96)',
     },
     activeBannerWash: {
       position: 'absolute',
@@ -5436,14 +6075,35 @@ function makeStyles(colors: ColorPalette) {
       fontWeight: '700',
       marginBottom: 2,
     },
+    activeBannerTitleNexa: {
+      color: '#4ADE80',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    activeBannerEtaNexa: {
+      color: '#35B6FF',
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 2,
+      marginBottom: 2,
+    },
     activeBannerMeta: {
       color: colors.muted,
       fontSize: 13,
+    },
+    activeBannerMetaNexa: {
+      color: 'rgba(185, 203, 228, 0.85)',
+      fontSize: 12,
     },
     activeBannerCta: {
       color: colors.success,
       fontSize: 15,
       fontWeight: '700',
+    },
+    activeBannerCtaNexa: {
+      color: '#4ADE80',
+      fontSize: 15,
+      fontWeight: '800',
     },
     ridesSection: {
       color: colors.muted,
@@ -5800,6 +6460,93 @@ function makeStyles(colors: ColorPalette) {
       marginBottom: 12,
       backgroundColor: colors.card,
     },
+    mapWrapRounded: {
+      borderRadius: 22,
+      borderWidth: 0,
+      borderColor: 'transparent',
+      height: 240,
+      marginBottom: 16,
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+    },
+    liveTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+      marginBottom: 14,
+      paddingHorizontal: 2,
+    },
+    liveTitleEyebrow: {
+      fontSize: 13,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    liveTitleMain: {
+      fontSize: 26,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
+    liveTitleUnderline: {
+      marginTop: 8,
+      width: 78,
+      height: 4,
+      borderRadius: 3,
+      backgroundColor: nexaBookingTheme.color.orangeHot,
+    },
+    liveTrackingPillHd: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 2,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: '#5AB19D',
+      backgroundColor: 'transparent',
+    },
+    liveTrackingPillHdText: {
+      color: '#D0EDE8',
+      fontSize: 13,
+      fontWeight: '600',
+      letterSpacing: 0.1,
+    },
+    mapBottomRightControls: {
+      position: 'absolute',
+      right: 10,
+      bottom: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      zIndex: 5,
+    },
+    profileGlowCard: {
+      marginBottom: 14,
+    },
+    profileGlowInner: {
+      padding: 14,
+    },
+    fleetBadgeNexa: {
+      left: 12,
+      right: undefined,
+      bottom: 12,
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    routePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: 'rgba(6,19,41,0.88)',
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(110,190,255,0.45)',
+    },
     followMapBlock: {
       marginTop: 2,
       marginBottom: 8,
@@ -5832,7 +6579,7 @@ function makeStyles(colors: ColorPalette) {
       height: 36,
       borderRadius: 10,
       backgroundColor: colors.card,
-      borderWidth: 1,
+      borderWidth: 2,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
@@ -6356,6 +7103,54 @@ function makeStyles(colors: ColorPalette) {
       lineHeight: 21,
       marginBottom: 16,
     },
+    /** Zelfde layout-ritme als NexaPickupCodeModal (titel/body gecentreerd, oranje CTA). */
+    cancelAckPanel: {
+      borderRadius: 22,
+      borderWidth: 1.5,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 14,
+      maxWidth: 400,
+      width: '92%',
+      alignSelf: 'center',
+    },
+    cancelAckTitle: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '800',
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    cancelAckMeta: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 0,
+    },
+    cancelAckBody: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+      marginTop: 10,
+      marginBottom: 12,
+    },
+    cancelAckCta: {
+      minHeight: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: nexaBookingTheme.color.orangeHot,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'stretch',
+    },
+    cancelAckCtaText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+    },
     waitRouteBlock: {
       marginTop: 10,
       marginBottom: 4,
@@ -6459,21 +7254,17 @@ function makeStyles(colors: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: 'rgba(25, 186, 131, 0.85)',
-      backgroundColor: 'rgba(6, 19, 41, 0.88)',
-      shadowColor: '#19BA83',
-      shadowOpacity: 0.4,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 0 },
+      borderColor: '#5AB19D',
+      backgroundColor: 'transparent',
     },
     liveTrackingPillText: {
-      color: '#FFFFFF',
+      color: '#D0EDE8',
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: '600',
     },
     liveEtaChip: {
       position: 'absolute',
@@ -6482,27 +7273,28 @@ function makeStyles(colors: ColorPalette) {
       zIndex: 4,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      borderRadius: 14,
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 18,
       borderWidth: 1.5,
       borderColor: 'rgba(61, 180, 255, 0.85)',
-      backgroundColor: 'rgba(6, 19, 41, 0.9)',
+      backgroundColor: 'rgba(6, 19, 41, 0.92)',
       shadowColor: '#3DB4FF',
-      shadowOpacity: 0.45,
-      shadowRadius: 8,
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
       shadowOffset: { width: 0, height: 0 },
     },
     liveEtaChipLabel: {
       color: '#B7C7DF',
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: '600',
     },
     liveEtaChipValue: {
       color: '#FFFFFF',
-      fontSize: 16,
+      fontSize: 22,
       fontWeight: '800',
+      lineHeight: 26,
     },
     confirmActions: {
       flexDirection: 'row',

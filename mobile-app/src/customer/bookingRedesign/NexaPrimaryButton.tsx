@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { nexaBookingTheme as theme } from './theme';
 
 export function NexaPrimaryButton({
@@ -7,52 +9,80 @@ export function NexaPrimaryButton({
   onPress,
   loading,
   disabled,
+  icon = 'car-sport',
 }: {
   title: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  icon?: keyof typeof Ionicons.glyphMap | null;
 }) {
+  const off = disabled || loading;
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled || loading}
+      disabled={off}
       style={({ pressed }) => [
-        styles.btn,
-        (disabled || loading) && styles.disabled,
-        pressed && !disabled && !loading && styles.pressed,
+        styles.wrap,
+        off && styles.disabled,
+        pressed && !off && styles.pressed,
       ]}
       accessibilityRole="button"
       accessibilityLabel={title}
     >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={styles.text}>{title}</Text>
-      )}
+      <LinearGradient
+        colors={['#FF9A1A', theme.color.orangeHot, '#E67000']}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={styles.btn}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <View style={styles.row}>
+            {icon ? <Ionicons name={icon} size={20} color="#fff" /> : null}
+            <Text style={styles.text}>{title}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </View>
+        )}
+      </LinearGradient>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  btn: {
-    minHeight: theme.touchTargetMin,
+  wrap: {
     borderRadius: theme.radius.md,
-    backgroundColor: theme.color.orangeHot,
+    shadowColor: theme.color.orangeHot,
+    shadowOpacity: 0.55,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  btn: {
+    minHeight: 54,
+    borderRadius: theme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 14,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   text: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: theme.font.button,
     fontWeight: '800',
   },
   disabled: {
     opacity: 0.45,
   },
   pressed: {
-    opacity: 0.9,
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
   },
 });

@@ -26,6 +26,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-task-manager": "~57.0.21",
+    "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-maps": "1.27.2",
@@ -48,10 +49,14 @@
   "expo": {
     "autolinking": {
       "android": {
-        "buildFromSource": ["expo-audio"]
+        "buildFromSource": [
+          "expo-audio"
+        ]
       },
       "ios": {
-        "buildFromSource": ["expo-location"]
+        "buildFromSource": [
+          "expo-location"
+        ]
       }
     }
   }

@@ -96,6 +96,8 @@ class VehicleController extends Controller
         ]);
 
         $file = $request->file('image');
+        $cutout = app(\App\Services\VehiclePhotoCutoutService::class)->process($file);
+        $file = $cutout['file'];
         $dir = 'vehicles';
         if (! Storage::disk('public')->exists($dir)) {
             Storage::disk('public')->makeDirectory($dir);
@@ -103,7 +105,12 @@ class VehicleController extends Controller
         $path = $file->store($dir, 'public');
         $url = '/storage/'.ltrim($path, '/');
 
-        return response()->json(['success' => true, 'url' => $url]);
+        return response()->json([
+            'success' => true,
+            'url' => $url,
+            'cutout' => (bool) $cutout['cutout'],
+            'cutout_driver' => $cutout['driver'] ?? null,
+        ]);
     }
 
     public function create()

@@ -1,25 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../i18n';
+import { useTheme } from '../../theme/ThemeContext';
 import { AppBrandLogo } from '../../ui/AppBrandLogo';
 import { AppearanceControls } from '../../ui/AppearanceControls';
+import { exactHeroHome, exactModeAsset } from './exactAssets';
 import { NexaGlowCard } from './NexaGlowCard';
-import { nexaBookingTheme as theme } from './theme';
+import {
+  nexaHeroChromeRow,
+  nexaHeroContentHeight,
+  nexaHeroImageStyle,
+  nexaHeroReadableScrim,
+  nexaHeroSideRight,
+  nexaHeroSideSlot,
+} from './nexaHeroLayout';
+import { nexaBookingTheme as theme, nexaSurfaceText } from './theme';
 
-const homeHero = require('../../../assets/nexa-booking/crops/home_hero_scene_reference.png');
+const VISITED_KEY = 'nexa_customer_has_visited';
 
 type Props = {
   greetingName?: string | null;
+  /** Terugkerende klant (naam / rittenhistorie). */
+  isReturning?: boolean;
   onBook: () => void;
   onRides: () => void;
   onAccount: () => void;
@@ -27,12 +41,13 @@ type Props = {
   onAirport?: () => void;
   onBusiness?: () => void;
   onGroup?: () => void;
-  /** Optionele actieve-rit banner (boven de hero). */
+  /** Actieve-rit banner — tussen hero en tiles. */
   topBanner?: React.ReactNode;
 };
 
 export function NexaHomeScreen({
   greetingName,
+  isReturning = false,
   onBook,
   onRides,
   onAccount,
@@ -42,41 +57,126 @@ export function NexaHomeScreen({
   onGroup,
   topBanner,
 }: Props) {
+  const { colorScheme } = useTheme();
+  const light = colorScheme === 'light';
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const name = String(greetingName || '').trim();
+  const [visitedBefore, setVisitedBefore] = useState(false);
+  const returning = isReturning || name.length > 0 || visitedBefore;
+  const heroSource = exactModeAsset(exactHeroHome, light);
+  const heroHeight = useMemo(
+    () => nexaHeroContentHeight(width, insets.top, 'home'),
+    [width, insets.top]
+  );
+  const imgStyle = useMemo(
+    () => nexaHeroImageStyle(width, heroHeight, light),
+    [width, heroHeight, light]
+  );
+  const scrim = useMemo(() => nexaHeroReadableScrim(light), [light]);
+  const fadeTo = light ? '#FFFFFF' : theme.color.navy900;
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(VISITED_KEY)
+      .then((v) => {
+        if (cancelled) return;
+        if (v === '1') {
+          setVisitedBefore(true);
+        } else {
+          AsyncStorage.setItem(VISITED_KEY, '1').catch(() => undefined);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <ScrollView
-      style={styles.scroll}
+      style={[styles.scroll, light && { backgroundColor: '#FFFFFF' }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.headerRow}>
-        <View style={styles.sideSlot} />
-        <AppBrandLogo bare />
-        <View style={[styles.sideSlot, styles.sideRight]}>
-          <AppearanceControls />
-        </View>
-      </View>
-
-      {topBanner}
-
-      <View style={styles.heroBlock}>
-        <ImageBackground source={homeHero} style={styles.heroImage} imageStyle={styles.heroImageInner}>
+      <View style={[styles.heroBlock, light && { backgroundColor: '#FFFFFF' }]}>
+        <ImageBackground
+          source={heroSource}
+          style={[
+            styles.heroImage,
+            {
+              height: heroHeight,
+              paddingTop: insets.top,
+              backgroundColor: light ? '#FFFFFF' : theme.color.navy900,
+            },
+          ]}
+          imageStyle={imgStyle}
+        >
           <LinearGradient
-            colors={['rgba(6,19,41,0.15)', 'rgba(6,19,41,0.92)']}
+            colors={scrim.horizontal}
+            locations={scrim.horizontalLoc}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
             style={StyleSheet.absoluteFill}
           />
-          <Text style={styles.welcome}>
-            {name ? t('Welkom terug,') : t('Welkom bij NEXA Taxi')}
-          </Text>
-          <Text style={styles.headline}>
-            {name
-              ? t('Goed je weer te zien, {name}!', { name })
-              : t('Goed je weer te zien!')}
-          </Text>
-          <View style={styles.underline} />
+          <LinearGradient
+            colors={scrim.bottom}
+            locations={scrim.bottomLoc}
+            style={styles.heroBottomScrim}
+            pointerEvents="none"
+          />
+
+          <View style={nexaHeroChromeRow}>
+            <View style={nexaHeroSideSlot} />
+            <View style={styles.logoCenter}>
+              <AppBrandLogo bare />
+            </View>
+            <View style={[nexaHeroSideSlot, nexaHeroSideRight]}>
+              <AppearanceControls tone={light ? 'theme' : 'onDark'} />
+            </View>
+          </View>
+
+          <View style={[styles.copy, styles.copyLower]}>
+            {returning ? (
+              <>
+                <Text style={styles.welcomeBold}>{t('Welkom terug,')}</Text>
+                <Text style={[styles.headline, light && styles.headlineLight]}>
+                  {name
+                    ? t('Goed je weer te zien, {name}!', { name })
+                    : t('Goed je weer te zien!')}
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.headline, light && styles.headlineLight]}>
+                {t('Welkom bij NEXA Taxi')}
+              </Text>
+            )}
+            <View style={styles.underline} />
+          </View>
         </ImageBackground>
+        <LinearGradient
+          colors={
+            light
+              ? [
+                  'rgba(255,255,255,0)',
+                  'rgba(255,255,255,0.55)',
+                  'rgba(255,255,255,0.92)',
+                  '#FFFFFF',
+                ]
+              : [
+                  'rgba(6,19,41,0)',
+                  'rgba(6,19,41,0.55)',
+                  'rgba(6,19,41,0.92)',
+                  fadeTo,
+                ]
+          }
+          locations={[0, 0.35, 0.7, 1]}
+          style={styles.heroBottomFade}
+          pointerEvents="none"
+        />
       </View>
+
+      {topBanner ? <View style={styles.bannerSlot}>{topBanner}</View> : null}
 
       <View style={styles.tileRow}>
         <Pressable
@@ -101,23 +201,29 @@ export function NexaHomeScreen({
           style={({ pressed }) => [styles.tile, styles.tileLight, pressed && styles.pressed]}
           onPress={onAccount}
           accessibilityRole="button"
-          accessibilityLabel={t('Account')}
+          accessibilityLabel={t('Profiel')}
         >
           <Ionicons name="person" size={26} color={theme.color.navy900} />
-          <Text style={[styles.tileText, styles.tileTextDark]}>{t('Account')}</Text>
+          <Text style={[styles.tileText, styles.tileTextDark]}>{t('Profiel')}</Text>
         </Pressable>
       </View>
 
       <NexaGlowCard contentStyle={styles.searchCard}>
         <Pressable
-          style={styles.searchBar}
+          style={[styles.searchBar, light && styles.searchBarLight]}
           onPress={onDestinationFocus}
           accessibilityRole="button"
           accessibilityLabel={t('Waar wil je naartoe?')}
         >
           <Ionicons name="location" size={22} color={theme.color.orangeHot} />
-          <Text style={styles.searchText}>{t('Waar wil je naartoe?')}</Text>
-          <Ionicons name="chevron-forward" size={20} color={theme.color.navy800} />
+          <Text style={[styles.searchText, light && { color: nexaSurfaceText(true) }]}>
+            {t('Waar wil je naartoe?')}
+          </Text>
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={light ? theme.color.inkMuted : theme.color.navy800}
+          />
         </Pressable>
 
         <View style={styles.shortcutRow}>
@@ -153,12 +259,20 @@ function Shortcut({
   label: string;
   onPress: () => void;
 }) {
+  const { colorScheme } = useTheme();
+  const light = colorScheme === 'light';
   return (
     <Pressable style={styles.shortcut} onPress={onPress} accessibilityRole="button">
-      <View style={styles.shortcutIcon}>
-        <Ionicons name={icon} size={22} color={theme.color.lightBlue} />
+      <View style={[styles.shortcutIcon, light && styles.shortcutIconLight]}>
+        <Ionicons
+          name={icon}
+          size={22}
+          color={light ? theme.color.blueBright : theme.color.lightBlue}
+        />
       </View>
-      <Text style={styles.shortcutLabel}>{label}</Text>
+      <Text style={[styles.shortcutLabel, light && { color: nexaSurfaceText(true) }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -172,44 +286,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 28,
   },
-  headerRow: {
-    flexDirection: 'row',
+  logoCenter: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 48,
-    marginBottom: 8,
-  },
-  sideSlot: {
-    minWidth: 72,
-  },
-  sideRight: {
-    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   heroBlock: {
-    overflow: 'hidden',
     marginHorizontal: -12,
-    marginBottom: 14,
+    marginBottom: 6,
+    overflow: 'visible',
   },
   heroImage: {
-    minHeight: 210,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingBottom: 18,
-    paddingTop: 48,
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
+    paddingBottom: 22,
+    overflow: 'hidden',
   },
-  heroImageInner: {
-    resizeMode: 'cover',
+  heroBottomScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '48%',
   },
-  welcome: {
-    color: theme.color.lightBlue,
+  heroBottomFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: -48,
+    height: 96,
+  },
+  copy: {
+    paddingHorizontal: 16,
+    maxWidth: '72%',
+    paddingBottom: 8,
+  },
+  /** Halve regel omhoog t.o.v. vorige spot — tekst/oranje lijn boven de overloop. */
+  copyLower: {
+    transform: [{ translateY: 11 }],
+  },
+  welcomeBold: {
+    color: theme.color.orangeHot,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '800',
   },
   headline: {
-    color: theme.color.text,
-    fontSize: theme.font.title,
+    color: '#FFFFFF',
+    fontSize: theme.font.section,
     fontWeight: '800',
     marginTop: 2,
+  },
+  headlineLight: {
+    color: theme.color.ink,
   },
   underline: {
     marginTop: 8,
@@ -218,10 +346,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: theme.color.orangeHot,
   },
+  bannerSlot: {
+    marginBottom: 16,
+  },
   tileRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   tile: {
     flex: 1,
@@ -260,10 +391,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: theme.radius.md,
     minHeight: 52,
     paddingHorizontal: 14,
+  },
+  searchBarLight: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(8, 125, 255, 0.28)',
   },
   searchText: {
     flex: 1,
@@ -291,6 +427,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.navy700,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  shortcutIconLight: {
+    backgroundColor: 'rgba(8, 125, 255, 0.1)',
+    borderColor: 'rgba(8, 125, 255, 0.45)',
   },
   shortcutLabel: {
     color: theme.color.textMuted,

@@ -10,7 +10,9 @@ import {
 import { useTheme } from '../../theme/ThemeContext';
 import { nexaBookingTheme as theme } from './theme';
 
-const cardBase = require('../../../assets/nexa-booking/crops/nexa-card-base-dark.png');
+const cardBaseDark = require('../../../assets/nexa-booking/crops/nexa-card-base-dark.png');
+/** Light: witte wash (plaatje 3) — geen grijze gradient. */
+const cardBaseLight = require('../../../assets/nexa-booking/exact/bg/light/card_base_light.png');
 
 type Props = {
   children: ReactNode;
@@ -21,8 +23,8 @@ type Props = {
 };
 
 /**
- * Kaart met overloop-achtergrond + cyan/blauwe rand.
- * Past zich aan op light/dark.
+ * Kaart met zelfde opbouw in light én dark.
+ * Light: witte card_base_light. Dark: navy texture + wash.
  */
 export function NexaGlowCard({ children, style, contentStyle, glowOnly = false }: Props) {
   const { colorScheme } = useTheme();
@@ -33,18 +35,16 @@ export function NexaGlowCard({ children, style, contentStyle, glowOnly = false }
     <View style={[styles.card, style]}>
       {!glowOnly ? (
         light ? (
-          <LinearGradient
-            colors={['#FFFFFF', '#F0F6FF', '#E7F0FF', '#F0F6FF', '#FFFFFF']}
-            locations={[0, 0.22, 0.5, 0.78, 1]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
+          <ImageBackground
+            source={cardBaseLight}
             style={styles.fillBleed}
+            imageStyle={styles.fillImg}
             pointerEvents="none"
           />
         ) : (
           <>
             <LinearGradient
-              colors={['#030914', '#0A1C38', '#1A4578', '#0A1C38', '#030914']}
+              colors={['#0A1C38', '#102542', '#143056', '#102542', '#0A1C38']}
               locations={[0, 0.22, 0.5, 0.78, 1]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -53,16 +53,24 @@ export function NexaGlowCard({ children, style, contentStyle, glowOnly = false }
             />
             <View style={styles.fillBleed} pointerEvents="none">
               <ImageBackground
-                source={cardBase}
+                source={cardBaseDark}
                 style={StyleSheet.absoluteFill}
-                imageStyle={styles.fillImg}
+                imageStyle={[styles.fillImg, { opacity: 0.32 }]}
               />
             </View>
+            <LinearGradient
+              colors={[
+                'rgba(10,28,56,0.45)',
+                'rgba(16,37,66,0.2)',
+                'rgba(10,28,56,0.45)',
+              ]}
+              locations={[0, 0.5, 1]}
+              style={styles.fillBleed}
+              pointerEvents="none"
+            />
           </>
         )
-      ) : (
-        <View style={[styles.fillBleed, styles.fillFallback]} pointerEvents="none" />
-      )}
+      ) : null}
       <View style={[styles.content, contentStyle]}>{children}</View>
     </View>
   );
@@ -73,14 +81,14 @@ function makeStyles(light: boolean) {
     card: {
       borderRadius: theme.radius.card,
       borderWidth: 1.5,
-      borderColor: light ? 'rgba(8, 125, 255, 0.4)' : 'rgba(110, 190, 255, 0.65)',
+      borderColor: light ? 'rgba(8, 125, 255, 0.38)' : 'rgba(110, 190, 255, 0.55)',
       overflow: 'hidden',
-      backgroundColor: light ? '#F4F8FF' : '#0A1C38',
+      backgroundColor: light ? '#FFFFFF' : theme.color.navy800,
       shadowColor: light ? '#087DFF' : '#4DB2FF',
-      shadowOpacity: light ? 0.12 : 0.55,
-      shadowRadius: light ? 8 : 14,
+      shadowOpacity: light ? 0.1 : 0.35,
+      shadowRadius: light ? 8 : 12,
       shadowOffset: { width: 0, height: light ? 2 : 0 },
-      elevation: light ? 3 : 8,
+      elevation: light ? 3 : 6,
     },
     fillBleed: {
       position: 'absolute',
@@ -91,9 +99,6 @@ function makeStyles(light: boolean) {
     },
     fillImg: {
       resizeMode: 'cover',
-    },
-    fillFallback: {
-      backgroundColor: light ? '#E8F1FF' : '#061329',
     },
     content: {
       position: 'relative',

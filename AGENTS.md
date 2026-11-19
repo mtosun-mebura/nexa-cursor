@@ -12,17 +12,19 @@ Token-efficient map for Cursor and Claude. **Do not duplicate** these rules in c
 
 | Skill | When |
 |-------|------|
+| `nexa-taxi-app-design` | Mobile app UX: design map, heroes, header/footer, CTAs, tokens, Exact Pack, new-ride sounds, archive/restore motions (all roles) |
 | `graphify` | Architecture blueprint, cross-file impact, `/graphify` |
 | `security-audit` | Security audit / vulnerability hunt |
 | `jev-ultrafast` | Browser automation / UI walkthroughs |
 | `karpathy-guidelines` | Explicit behavioral refresh |
 
-Personal copies: `~/.cursor/skills/` and `~/.claude/skills/` (symlinked).
+Personal copies: `~/.cursor/skills/` and `~/.claude/skills/` (symlinked).  
+Project skills: `.cursor/skills/` (incl. `nexa-taxi-app-design`).
 
 ## Project rules (scoped — open matching files)
 
 Admin UI: `admin-*.mdc`, `foto-upload-patroon.mdc`, `scroll-zonder-achtergrond.mdc`  
-Mobile: `mobile-app-*.mdc`  
+Mobile: `mobile-app-*.mdc`, `nexa-taxi-app-design-map.mdc` → skill **`nexa-taxi-app-design`** + `mobile-app/app-design-map/DESIGN_MAP.md`  
 Safety: `geen-destructieve-db-commandos.mdc`
 
 ## Stack map

@@ -1,12 +1,17 @@
 import React, { ReactNode, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ColorPalette } from '../config';
 import { t, useI18n } from '../i18n';
 import { useThemeColors } from '../theme/ThemeContext';
 import {
   AppBrandLogo,
-  APP_LOGO_BAR_MIN_HEIGHT,
 } from './AppBrandLogo';
+import {
+  APP_CHROME_HEIGHT,
+  APP_CHROME_PAD_H,
+  APP_CHROME_SIDE_SLOT,
+} from './appChrome';
 import {
   SCREEN_TITLE_FONT_SIZE,
   SCREEN_TITLE_LINE_HEIGHT,
@@ -16,11 +21,11 @@ import { compactFontProps } from './androidText';
 /** Zelfde top-inset als Taxi boeken (CustomerHomeScreen). */
 export const APP_PAGE_TOP_INSET = 0;
 
-/** Zijslot naast logo (home / spacer) — zelfde breedte als klantscherm. */
-export const APP_PAGE_SIDE_SLOT = 40;
+/** Zijslot naast logo — gelijk aan Home-hero chrome. */
+export const APP_PAGE_SIDE_SLOT = APP_CHROME_SIDE_SLOT;
 
 /** Horizontale padding van de kop (logo-rij + titel). */
-export const APP_PAGE_HEADER_PAD_H = 12;
+export const APP_PAGE_HEADER_PAD_H = APP_CHROME_PAD_H;
 
 type Props = {
   title?: string | null;
@@ -39,7 +44,7 @@ type Props = {
 
 /**
  * Canonieke kop: logo + optionele paginatitel.
- * Zelfde hoogte/lettertype op start, boeken, login, marktplaats, enz.
+ * Zelfde chrome-hoogte/slots als Home / Boeken hero.
  */
 export function AppPageHeader({
   title,
@@ -53,6 +58,7 @@ export function AppPageHeader({
   chrome = 'theme',
 }: Props) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   useI18n();
   const onDark = chrome === 'onDark';
   const styles = useMemo(() => makeStyles(colors, onDark), [colors, onDark]);
@@ -62,7 +68,7 @@ export function AppPageHeader({
   );
 
   return (
-    <View style={[styles.header, style]}>
+    <View style={[styles.header, { paddingTop: insets.top }, style]}>
       <View style={styles.logoBar}>
         <View style={[styles.sideSlot, styles.sideSlotLeft]}>{left ?? null}</View>
         {onLogoPress ? (
@@ -99,20 +105,21 @@ export function AppPageHeader({
 function makeStyles(colors: ColorPalette, onDark: boolean) {
   return StyleSheet.create({
     header: {
-      paddingHorizontal: APP_PAGE_HEADER_PAD_H,
+      paddingHorizontal: APP_CHROME_PAD_H,
       paddingBottom: 0,
     },
     logoBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      minHeight: APP_LOGO_BAR_MIN_HEIGHT,
-      paddingTop: 2,
-      paddingBottom: 2,
+      minHeight: APP_CHROME_HEIGHT,
+      height: APP_CHROME_HEIGHT,
+      paddingTop: 0,
+      paddingBottom: 0,
     },
     sideSlot: {
-      minWidth: APP_PAGE_SIDE_SLOT,
-      minHeight: APP_PAGE_SIDE_SLOT,
+      minWidth: APP_CHROME_SIDE_SLOT,
+      height: APP_CHROME_HEIGHT,
       flexDirection: 'row',
       alignItems: 'center',
       flexShrink: 0,
@@ -135,10 +142,10 @@ function makeStyles(colors: ColorPalette, onDark: boolean) {
       fontSize: SCREEN_TITLE_FONT_SIZE,
       lineHeight: SCREEN_TITLE_LINE_HEIGHT,
       fontWeight: '700',
-      // Ruimte boven de titel zodat de map-routelijn in de header-bg zichtbaar blijft
-      paddingTop: 18,
-      paddingBottom: 8,
-      marginBottom: 0,
+      // Onder de map-header / chrome-lijn; extra lucht onder de titel.
+      paddingTop: 34,
+      paddingBottom: 18,
+      marginBottom: 4,
     },
   });
 }
