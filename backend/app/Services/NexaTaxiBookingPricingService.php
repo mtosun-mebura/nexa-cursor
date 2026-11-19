@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Module;
 use App\Modules\NexaTaxi\Models\DefaultRate;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use Carbon\Carbon;
 
 class NexaTaxiBookingPricingService
@@ -403,6 +404,10 @@ class NexaTaxiBookingPricingService
             }
         }
 
+        $discountPercent = app(TaxiDispatchSettingsService::class)
+            ->bookingDiscountPercent($tenantCompanyId);
+        $resultOffers = $this->applyBookingDiscount($resultOffers, $discountPercent);
+
         return [
             'passengers' => $passengers,
             'offer_display_mode' => $offerDisplayMode,
@@ -414,8 +419,42 @@ class NexaTaxiBookingPricingService
             'duration_seconds' => $durationSeconds,
             'return_trip' => $returnTrip,
             'extra_total' => round($extraTotal, 2),
+            'booking_discount_percent' => $discountPercent,
             'offers' => $resultOffers,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $offers
+     * @return list<array<string, mixed>>
+     */
+    private function applyBookingDiscount(array $offers, int $discountPercent): array
+    {
+        $discountPercent = max(0, min(100, $discountPercent));
+        if ($discountPercent <= 0) {
+            return $offers;
+        }
+
+        $factor = (100 - $discountPercent) / 100;
+
+        return array_map(static function (array $offer) use ($factor, $discountPercent): array {
+            $price = isset($offer['price']) && is_numeric($offer['price'])
+                ? (float) $offer['price']
+                : null;
+            if ($price === null) {
+                return $offer;
+            }
+            $existingOld = isset($offer['old_price']) && is_numeric($offer['old_price'])
+                ? (float) $offer['old_price']
+                : null;
+            if ($existingOld === null || $existingOld < $price) {
+                $offer['old_price'] = round($price, 2);
+            }
+            $offer['price'] = round($price * $factor, 2);
+            $offer['discount_percent'] = $discountPercent;
+
+            return $offer;
+        }, $offers);
     }
 
     private function normalizePricedItems(mixed $items, array $fallback): array

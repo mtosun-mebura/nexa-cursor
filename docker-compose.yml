@@ -7,6 +7,18 @@ include:
   - path: ./docker-compose.postgres.yml
 
 services:
+  rembg:
+    image: danielgatis/rembg:latest
+    container_name: nexa_rembg
+    command: ["s", "--host", "0.0.0.0", "--port", "7000", "--no-ui"]
+    # Geen host-poort nodig: alleen bereikbaar vanaf backend-netwerk.
+    expose:
+      - "7000"
+    volumes:
+      # Model-cache (u2net e.d.) — eerste run downloadt ~176MB
+      - rembg_models:/root/.rembg
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -18,6 +30,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rembg:
+        condition: service_started
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -40,6 +54,10 @@ services:
       # Zonder dit blokkeert de AI-chat: Laravel wacht op n8n terwijl n8n terugbelt naar Laravel.
       PHP_CLI_SERVER_WORKERS: "8"
       NEXA_HOST_PROJECT_DIR: ${PWD}
+      VEHICLE_CUTOUT_DRIVER: ${VEHICLE_CUTOUT_DRIVER:-auto}
+      REMBG_URL: ${REMBG_URL:-http://rembg:7000}
+      REMBG_MODEL: ${REMBG_MODEL:-u2net}
+      REMOVEBG_API_KEY: ${REMOVEBG_API_KEY:-}
     volumes:
       - ./backend:/var/www/html
       - ./.env:/var/www/html/.env
@@ -53,3 +71,6 @@ services:
       - 8.8.8.8
       - 1.1.1.1
     restart: unless-stopped
+
+volumes:
+  rembg_models:

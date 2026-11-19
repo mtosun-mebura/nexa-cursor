@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
@@ -32,6 +33,8 @@ type Props = {
   onClose: () => void;
   /** Peer display name (chauffeur of klant). */
   driverName?: string | null;
+  /** Optionele peer-foto (chauffeurfoto bij klant-chat). */
+  peerPhotoUrl?: string | null;
   /** Wie “jij” bent in deze chat (bepaalt bubble-uitlijning). */
   selfFrom?: 'customer' | 'driver';
   messages: RideChatMessage[];
@@ -44,6 +47,7 @@ export function RideChatModal({
   visible,
   onClose,
   driverName,
+  peerPhotoUrl,
   selfFrom = 'customer',
   messages,
   sending,
@@ -55,7 +59,14 @@ export function RideChatModal({
   const light = colorScheme === 'light';
   const styles = useMemo(() => makeStyles(light), [light]);
   const [draft, setDraft] = useState('');
+  const [photoFailed, setPhotoFailed] = useState(false);
   const listRef = useRef<FlatList<RideChatMessage>>(null);
+  const photoUri = String(peerPhotoUrl || '').trim();
+  const showPeerPhoto = photoUri !== '' && !photoFailed;
+
+  useEffect(() => {
+    setPhotoFailed(false);
+  }, [photoUri, visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -96,39 +107,53 @@ export function RideChatModal({
         style={styles.wrap}
       >
         <View style={styles.card}>
-          {!light ? (
-            <>
-              <LinearGradient
-                colors={['#030914', '#0A1C38', '#1A4578', '#0A1C38', '#030914']}
-                locations={[0, 0.22, 0.5, 0.78, 1]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.fillBleed}
-                pointerEvents="none"
-              />
-              <View style={styles.fillBleed} pointerEvents="none">
-                <ImageBackground
-                  source={cardBase}
-                  style={StyleSheet.absoluteFill}
-                  imageStyle={styles.fillImg}
-                />
-              </View>
-            </>
-          ) : (
+          <LinearGradient
+            colors={
+              light
+                ? ['#F8FBFF', '#E8F1FF', '#D6E8FF', '#E8F1FF', '#F8FBFF']
+                : ['#030914', '#0A1C38', '#1A4578', '#0A1C38', '#030914']
+            }
+            locations={[0, 0.22, 0.5, 0.78, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.fillBleed}
+            pointerEvents="none"
+          />
+          <View style={styles.fillBleed} pointerEvents="none">
+            <ImageBackground
+              source={cardBase}
+              style={StyleSheet.absoluteFill}
+              imageStyle={[styles.fillImg, light ? { opacity: 0.28 } : null]}
+            />
+          </View>
+          {light ? (
             <LinearGradient
-              colors={['#F8FBFF', '#E8F1FF', '#F8FBFF']}
+              colors={[
+                'rgba(248,251,255,0.72)',
+                'rgba(232,241,255,0.55)',
+                'rgba(248,251,255,0.78)',
+              ]}
               locations={[0, 0.5, 1]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
               style={styles.fillBleed}
               pointerEvents="none"
             />
-          )}
+          ) : null}
 
           <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
-            </View>
+            {showPeerPhoto ? (
+              <View style={styles.headerPhotoWrap}>
+                <Image
+                  source={{ uri: photoUri }}
+                  style={styles.headerPhoto}
+                  onError={() => setPhotoFailed(true)}
+                  accessibilityIgnoresInvertColors
+                />
+              </View>
+            ) : (
+              <View style={styles.headerIcon}>
+                <Ionicons name="chatbubble-ellipses" size={18} color="#fff" />
+              </View>
+            )}
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.title}>{t('Chat')}</Text>
               <Text style={styles.sub} numberOfLines={1}>
@@ -279,6 +304,19 @@ function makeStyles(light: boolean) {
       backgroundColor: theme.color.blueBright,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    headerPhotoWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: light ? 'rgba(8, 125, 255, 0.12)' : 'rgba(255,255,255,0.12)',
+      borderWidth: 1,
+      borderColor: light ? 'rgba(8, 125, 255, 0.35)' : 'rgba(110, 190, 255, 0.55)',
+    },
+    headerPhoto: {
+      width: 40,
+      height: 40,
     },
     /** Integer size + solid fill — geen dunne border/shadow (voorkomt aliasing). */
     closeBtn: {

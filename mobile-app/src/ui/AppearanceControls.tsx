@@ -18,7 +18,8 @@ export function AppearanceControls({ tone = 'theme' }: Props) {
   const { colorScheme, setPreference, colors } = useTheme();
   const { locale, setLocale, t } = useI18n();
   const onDark = tone === 'onDark';
-  const icon = onDark ? '#ffffff' : colors.text;
+  // Light mode: altijd donker icoon (ook op hero), anders verdwijnt de maan op lichte foto.
+  const icon = onDark && colorScheme === 'dark' ? '#ffffff' : colors.text;
   const toDark = colorScheme === 'light';
 
   return (
@@ -49,10 +50,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 40,
+    // Iets dichter bij de rechterrand.
+    marginRight: -6,
+    gap: 0,
   },
   hit: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
@@ -60,5 +65,6 @@ const styles = StyleSheet.create({
   flag: {
     fontSize: 18,
     lineHeight: 22,
+    textAlign: 'center',
   },
 });

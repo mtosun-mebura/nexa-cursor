@@ -4,6 +4,7 @@ namespace App\Modules\NexaTaxi\Services;
 
 use App\Models\DriverDeviceToken;
 use App\Modules\NexaTaxi\Models\RideRequest;
+use App\Modules\NexaTaxi\Support\RideAlertTone;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -268,6 +269,57 @@ class DriverExpoPushService
      *
      * @return array{devices: int, tickets: list<array{status: string, error: string|null}>, error: string|null}
      */
+    /**
+     * Chatbericht van klant → chauffeur. Zelfde ritgeluid-kanaal als nieuwe ritten.
+     */
+    public function sendRideChat(
+        int $driverId,
+        int $rideRequestId,
+        string $title,
+        string $body,
+        ?string $tone = null
+    ): void {
+        if ($driverId <= 0 || $rideRequestId <= 0 || trim($title) === '') {
+            return;
+        }
+
+        $toneKey = RideAlertTone::normalize($tone);
+        $sound = $toneKey.'.wav';
+        $channelId = 'driver-offers-alert-v10-'.$toneKey;
+        $rows = DriverDeviceToken::query()->where('user_id', $driverId)->get();
+        $messages = [];
+        $sentRows = [];
+        foreach ($rows as $row) {
+            $token = trim((string) $row->token);
+            if (! preg_match('/^Expo(nent)?PushToken\[.+\]$/', $token)) {
+                continue;
+            }
+            $sentRows[] = $row;
+            $messages[] = [
+                'to' => $token,
+                'title' => mb_substr(trim($title), 0, 80),
+                'body' => mb_substr(trim($body) !== '' ? trim($body) : 'Je hebt een nieuw chatbericht.', 0, 180),
+                'sound' => $sound,
+                '_contentAvailable' => true,
+                'priority' => 'high',
+                'channelId' => $channelId,
+                'interruptionLevel' => 'time-sensitive',
+                'data' => [
+                    'type' => 'driver_ride_chat',
+                    'screen' => 'trips',
+                    'open_chat' => true,
+                    'ride_request_id' => $rideRequestId,
+                ],
+            ];
+        }
+
+        if ($messages === []) {
+            return;
+        }
+
+        $this->postMessages($driverId, null, $messages, $sentRows);
+    }
+
     /**
      * Generieke inbox-/beheerpush (rating, klachtfollow-up, blokkade).
      *

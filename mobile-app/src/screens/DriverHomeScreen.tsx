@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -129,10 +130,10 @@ import {
 } from '../notifications/offerAlertWatch';
 import { alertNextPickupDeparture } from '../notifications/pickupDeparture';
 import { ActiveRideBar } from '../ui/ActiveRideBar';
-import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { AppBrandLogo } from '../ui/AppBrandLogo';
+import { APP_CHROME_HEIGHT, APP_CHROME_PAD_H, APP_CHROME_SIDE_SLOT } from '../ui/appChrome';
 import { AppearanceControls } from '../ui/AppearanceControls';
 import { DemoModeRow } from '../ui/DemoModeRow';
-import { APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { ArchiveMotion, type ArchiveMotionMode } from '../ui/ArchiveMotion';
 import { DriverNotificationsModal } from '../ui/DriverNotificationsModal';
@@ -622,6 +623,7 @@ const VEHICLE_FORM_PLATE_ACCESSORY_ID = 'vehicle-form-plate-keyboard';
 
 export function DriverHomeScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const { colorScheme, preference, setPreference } = useTheme();
   useI18n();
   const { driverToken, contractToken, logout } = useAuth();
@@ -4797,7 +4799,7 @@ export function DriverHomeScreen() {
 
   return (
     <DriverAccentProvider accent={accent}>
-    <Screen style={{ paddingHorizontal: 0, paddingTop: APP_PAGE_TOP_INSET, paddingBottom: 0 }}>
+    <Screen style={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
       <ImageCropModal
         visible={!!cropUri && cropKind !== 'vehicle-draft'}
         uri={cropUri}
@@ -4843,77 +4845,77 @@ export function DriverHomeScreen() {
           <Text style={styles.vehicleModalCloseText}>{t("Sluiten")}</Text>
         </Pressable>
       </AppModal>
-      <View style={styles.topBar}>
-        <View style={styles.onlineBox}>
-          <Text style={styles.onlineLabel}>{online ? t("Online") : t("Offline")}</Text>
-          <Switch
-            value={online}
-            onValueChange={toggleOnline}
-            trackColor={{ false: colors.border, true: colors.success }}
-            style={styles.onlineSwitch}
-          />
-        </View>
+      <View style={{ paddingTop: insets.top }}>
+        <View style={styles.topBar}>
+          <View style={styles.onlineBox}>
+            <Text style={styles.onlineLabel}>{online ? t("Online") : t("Offline")}</Text>
+            <Switch
+              value={online}
+              onValueChange={toggleOnline}
+              trackColor={{ false: colors.border, true: colors.success }}
+              style={styles.onlineSwitch}
+            />
+          </View>
 
-        <View style={styles.logoCenter} pointerEvents="none">
-          <AppBrandLogo
-            bare
-            uri={logoUri}
-            fallbackLabel={company || t("Chauffeur")}
-            accessibilityLabel={company || t("Bedrijfslogo")}
-          />
-        </View>
+          <View style={styles.logoCenter} pointerEvents="none">
+            <AppBrandLogo
+              bare
+              uri={logoUri}
+              fallbackLabel={company || t("Chauffeur")}
+              accessibilityLabel={company || t("Bedrijfslogo")}
+            />
+          </View>
 
-        <View style={styles.headerIcons}>
-          {inboxUnreadCount > 0 || notificationsOpen ? (
+          <View style={styles.headerIcons}>
+            {inboxUnreadCount > 0 || notificationsOpen ? (
+              <Pressable
+                style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
+                onPress={() => {
+                  void openNotifications();
+                }}
+                accessibilityLabel={
+                  inboxUnreadCount > 0
+                    ? t('Meldingen ({count})', { count: inboxUnreadCount })
+                    : t('Meldingen')
+                }
+              >
+                {inboxUnreadCount > 0 ? (
+                  <View style={styles.headerBadge}>
+                    <Text style={styles.headerBadgeText}>
+                      {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
+                    </Text>
+                  </View>
+                ) : null}
+                <Ionicons
+                  name="notifications-outline"
+                  size={22}
+                  color={notificationsOpen ? accentHex(accent) : colors.muted}
+                />
+              </Pressable>
+            ) : null}
             <Pressable
-              style={[styles.headerIconBtn, notificationsOpen && styles.headerIconBtnActive]}
-              onPress={() => {
-                void openNotifications();
-              }}
+              style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
+              onPress={() => goToArchive(!showArchived)}
               accessibilityLabel={
-                inboxUnreadCount > 0
-                  ? t('Meldingen ({count})', { count: inboxUnreadCount })
-                  : t('Meldingen')
+                archiveBadgeCount > 0 ? `Archief (${archiveBadgeCount})` : t("Archief")
               }
             >
-              {inboxUnreadCount > 0 ? (
+              {archiveBadgeCount > 0 ? (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>
-                    {inboxUnreadCount > 9 ? '9+' : String(inboxUnreadCount)}
+                    {archiveBadgeCount > 9 ? '9+' : String(archiveBadgeCount)}
                   </Text>
                 </View>
               ) : null}
               <Ionicons
-                name="notifications-outline"
+                name="archive-outline"
                 size={22}
-                color={notificationsOpen ? accentHex(accent) : colors.muted}
+                color={showArchived ? accentHex(accent) : colors.muted}
               />
             </Pressable>
-          ) : null}
-          <Pressable
-            style={[styles.headerIconBtn, showArchived && styles.headerIconBtnActive]}
-            onPress={() => goToArchive(!showArchived)}
-            accessibilityLabel={
-              archiveBadgeCount > 0 ? `Archief (${archiveBadgeCount})` : t("Archief")
-            }
-          >
-            {archiveBadgeCount > 0 ? (
-              <View style={styles.headerBadge}>
-                <Text style={styles.headerBadgeText}>
-                  {archiveBadgeCount > 9 ? '9+' : String(archiveBadgeCount)}
-                </Text>
-              </View>
-            ) : null}
-            <Ionicons
-              name="archive-outline"
-              size={22}
-              color={showArchived ? accentHex(accent) : colors.muted}
-            />
-          </Pressable>
+            <AppearanceControls />
+          </View>
         </View>
-      </View>
-      <View style={styles.prefsRow}>
-        <AppearanceControls />
       </View>
 
       <Pressable
@@ -5639,14 +5641,15 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: 2,
-      paddingBottom: 2,
-      minHeight: APP_LOGO_BAR_MIN_HEIGHT,
+      paddingHorizontal: APP_CHROME_PAD_H,
+      paddingBottom: 0,
+      minHeight: APP_CHROME_HEIGHT,
+      height: APP_CHROME_HEIGHT,
     },
     onlineBox: {
-      width: 72,
+      minWidth: APP_CHROME_SIDE_SLOT,
       alignItems: 'flex-start',
+      justifyContent: 'center',
       zIndex: 2,
     },
     onlineLabel: {
@@ -5661,26 +5664,21 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
     },
     logoCenter: {
       position: 'absolute',
-      left: 72,
-      right: 72,
+      left: APP_CHROME_SIDE_SLOT,
+      right: APP_CHROME_SIDE_SLOT,
       top: 0,
       bottom: 0,
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1,
     },
-    prefsRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      paddingHorizontal: 12,
-      paddingBottom: 2,
-    },
     headerIcons: {
       marginLeft: 'auto',
-      minWidth: 96,
+      minWidth: APP_CHROME_SIDE_SLOT,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'flex-end',
+      height: APP_CHROME_HEIGHT,
       gap: 2,
       zIndex: 3,
     },

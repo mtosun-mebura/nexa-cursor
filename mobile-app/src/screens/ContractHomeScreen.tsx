@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import {
   ContractAbsence,
@@ -48,10 +49,14 @@ import { apiErrorMessage, apiErrorStatus } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { playRideAlertTone } from '../audio/rideAlert';
 import { getApiBaseUrl, ColorPalette } from '../config';
-import { AppBrandLogo, APP_LOGO_BAR_MIN_HEIGHT } from '../ui/AppBrandLogo';
+import { AppBrandLogo } from '../ui/AppBrandLogo';
+import {
+  APP_CHROME_HEIGHT,
+  APP_CHROME_PAD_H,
+  APP_CHROME_SIDE_SLOT,
+} from '../ui/appChrome';
 import { AppearanceControls } from '../ui/AppearanceControls';
 import { DemoModeRow } from '../ui/DemoModeRow';
-import { APP_PAGE_TOP_INSET, APP_PAGE_HEADER_PAD_H } from '../ui/AppPageHeader';
 import { AppModal } from '../ui/AppModal';
 import { AppScrollView } from '../ui/AppScrollView';
 import { fitLineFontProps } from '../ui/androidText';
@@ -764,6 +769,7 @@ function anyPassengerPickedUp(items: ContractDayItem[]): boolean {
 
 export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const { colorScheme, preference, setPreference } = useTheme();
   useI18n();
   const { session, contractToken, logout } = useAuth();
@@ -3309,18 +3315,21 @@ export function ContractHomeScreen({ embedded = false }: { embedded?: boolean } 
     <DriverAccentProvider accent={accent}>
       <View style={[styles.shell, { backgroundColor: colors.bg }]}>
         {embedded ? null : (
-          <View style={styles.topBar}>
-            <AppBrandLogo
-              bare
-              uri={logoUri}
-              fallbackLabel={customerName || t("Contract")}
-              accessibilityLabel={customerName || t("Bedrijfslogo")}
-            />
-          </View>
-        )}
-        {embedded ? null : (
-          <View style={styles.prefsRow}>
-            <AppearanceControls />
+          <View style={{ paddingTop: insets.top }}>
+            <View style={styles.topBar}>
+              <View style={styles.chromeSide} />
+              <View style={styles.logoCenter}>
+                <AppBrandLogo
+                  bare
+                  uri={logoUri}
+                  fallbackLabel={customerName || t("Contract")}
+                  accessibilityLabel={customerName || t("Bedrijfslogo")}
+                />
+              </View>
+              <View style={[styles.chromeSide, styles.chromeSideRight]}>
+                <AppearanceControls />
+              </View>
+            </View>
           </View>
         )}
 
@@ -3486,19 +3495,27 @@ function makeStyles(colors: ColorPalette, accentHex: string) {
       flex: 1,
       minHeight: 0,
     },
-    prefsRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      paddingHorizontal: APP_PAGE_HEADER_PAD_H,
-      paddingBottom: 2,
-    },
     topBar: {
-      paddingHorizontal: APP_PAGE_HEADER_PAD_H,
-      paddingTop: APP_PAGE_TOP_INSET + 2,
-      paddingBottom: 2,
+      flexDirection: 'row',
+      paddingHorizontal: APP_CHROME_PAD_H,
+      paddingBottom: 0,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: APP_CHROME_HEIGHT,
+      height: APP_CHROME_HEIGHT,
+    },
+    chromeSide: {
+      minWidth: APP_CHROME_SIDE_SLOT,
+      height: APP_CHROME_HEIGHT,
+      justifyContent: 'center',
+    },
+    chromeSideRight: {
+      alignItems: 'flex-end',
+    },
+    logoCenter: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: APP_LOGO_BAR_MIN_HEIGHT,
     },
     body: {
       flex: 1,

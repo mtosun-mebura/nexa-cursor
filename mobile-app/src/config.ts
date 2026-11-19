@@ -88,7 +88,7 @@ export const DARK_COLORS: ColorPalette = {
 };
 
 export const LIGHT_COLORS: ColorPalette = {
-  bg: '#F1F5F9',
+  bg: '#FFFFFF',
   card: '#FFFFFF',
   border: 'rgba(15,23,42,0.14)',
   text: '#0F172A',

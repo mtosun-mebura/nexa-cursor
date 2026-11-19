@@ -300,7 +300,10 @@ function AppShell() {
       <AuthProvider>
         <DemoProvider>
           <ModalBlurHost>
-            <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+            <SafeAreaView
+              edges={['left', 'right']}
+              style={{ flex: 1, backgroundColor: colors.bg }}
+            >
               <RootNavigator />
             </SafeAreaView>
           </ModalBlurHost>

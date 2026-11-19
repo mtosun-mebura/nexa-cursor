@@ -3,7 +3,7 @@
  * Zet op `false` om terug te vallen op de UI van vóór de redesign
  * (zie ook `src/screens/legacy/CustomerHomeScreen.pre-nexa-redesign.tsx`).
  */
-export const USE_NEXA_BOOKING_REDESIGN = false;
+export const USE_NEXA_BOOKING_REDESIGN = true;
 
 /**
  * Marketplace quote forceert `offer_display_mode = person_range` → één prijsaanbod.

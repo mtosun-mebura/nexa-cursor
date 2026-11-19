@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { dateLocale, t, useI18n } from '../i18n';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -9,6 +11,12 @@ import {
 } from 'react-native';
 import { ColorPalette } from '../config';
 import { defaultPickupDate, formatOverMinutesLabel, formatPickupAtLabel } from '../geo/route';
+import {
+  nexaBookingTheme as nexaTheme,
+  nexaSurfaceMuted,
+  nexaSurfaceText,
+} from '../customer/bookingRedesign/theme';
+import { NexaGlowCard } from '../customer/bookingRedesign/NexaGlowCard';
 import { useTheme } from '../theme/ThemeContext';
 import { AppModal } from './AppModal';
 
@@ -59,22 +67,31 @@ export function PickupAtField({
   onChange,
   error,
   embedded = false,
+  variant = 'default',
 }: {
   value: Date;
   onChange: (next: Date) => void;
   error?: string | null;
   /** Zonder eigen Modal — voor gebruik binnen een andere AppModal (iOS stapelt niet). */
   embedded?: boolean;
+  /** `nexa` = Nu/Later segment volgens app-design-map 04_controleer_rit. */
+  variant?: 'default' | 'nexa';
 }) {
-  const { colors } = useTheme();
+  const { colors, colorScheme } = useTheme();
+  const light = colorScheme === 'light';
   const { locale } = useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [nexaMode, setNexaMode] = useState<'now' | 'later'>(() => {
+    const mins = Math.round((value.getTime() - Date.now()) / 60_000);
+    return mins >= 0 && mins <= 20 ? 'now' : 'later';
+  });
   const hourScrollRef = useRef<ScrollView>(null);
   const minuteScrollRef = useRef<ScrollView>(null);
   const dayScrollRef = useRef<ScrollView>(null);
+  const isNowMode = variant === 'nexa' ? nexaMode === 'now' : false;
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 15_000);
@@ -152,6 +169,7 @@ export function PickupAtField({
 
   function confirm() {
     onChange(clampToFuture(draft));
+    if (variant === 'nexa') setNexaMode('later');
     setOpen(false);
   }
 
@@ -293,6 +311,106 @@ export function PickupAtField({
     </>
   );
 
+  if (variant === 'nexa') {
+    return (
+      <>
+        <NexaGlowCard contentStyle={{ padding: 14 }}>
+          <View style={nexaPick.header}>
+            <View style={nexaPick.headerIcon}>
+              <Ionicons name="calendar" size={16} color={nexaTheme.color.orangeHot} />
+            </View>
+            <Text style={[nexaPick.headerTitle, { color: nexaSurfaceText(light) }]}>
+              {t('Ophaaltijd')}
+            </Text>
+          </View>
+          <View style={nexaPick.segRow}>
+            <Pressable
+              onPress={() => {
+                setNexaMode('now');
+                onChange(defaultPickupDate(10));
+              }}
+              style={[nexaPick.seg, isNowMode && nexaPick.segActiveWrap]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isNowMode }}
+            >
+              {isNowMode ? (
+                <LinearGradient
+                  colors={['#3BA0FF', nexaTheme.color.blueBright, '#055FBF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={nexaPick.segGrad}
+                >
+                  <Ionicons name="flash" size={16} color="#fff" />
+                  <Text style={nexaPick.segTextOn}>{t('Nu')}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={[nexaPick.segIdle, light && nexaPick.segIdleLight]}>
+                  <Ionicons
+                    name="flash-outline"
+                    size={16}
+                    color={nexaSurfaceMuted(light)}
+                  />
+                  <Text style={[nexaPick.segTextOff, { color: nexaSurfaceMuted(light) }]}>
+                    {t('Nu')}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setNexaMode('later');
+                setOpen(true);
+              }}
+              style={[nexaPick.seg, !isNowMode && nexaPick.segActiveWrap]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: !isNowMode }}
+            >
+              {!isNowMode ? (
+                <LinearGradient
+                  colors={['#3BA0FF', nexaTheme.color.blueBright, '#055FBF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={nexaPick.segGrad}
+                >
+                  <Ionicons name="calendar" size={16} color="#fff" />
+                  <Text style={nexaPick.segTextOn}>{t('Later')}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={[nexaPick.segIdle, light && nexaPick.segIdleLight]}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={16}
+                    color={nexaSurfaceMuted(light)}
+                  />
+                  <Text style={[nexaPick.segTextOff, { color: nexaSurfaceMuted(light) }]}>
+                    {t('Later')}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+          {!isNowMode ? (
+            <Pressable onPress={() => setOpen(true)} style={nexaPick.whenRow}>
+              <Text style={[nexaPick.whenText, { color: nexaSurfaceText(light) }]}>
+                {pickupTriggerLabel(value, nowTick)}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={nexaSurfaceMuted(light)} />
+            </Pressable>
+          ) : null}
+          {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+        </NexaGlowCard>
+
+        {embedded ? (
+          open ? <View style={styles.embeddedSheet}>{sheet}</View> : null
+        ) : (
+          <AppModal visible={open} onRequestClose={() => setOpen(false)} panelStyle={styles.sheet}>
+            {sheet}
+          </AppModal>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <Text style={styles.fieldLabel}>{t("Ophalen")}</Text>
@@ -317,6 +435,91 @@ export function PickupAtField({
     </>
   );
 }
+
+const nexaPick = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  headerIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,137,0,0.15)',
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  segRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  seg: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    minHeight: 48,
+  },
+  segActiveWrap: {
+    shadowColor: '#087DFF',
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  segGrad: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  segIdle: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(110,190,255,0.35)',
+    backgroundColor: 'rgba(16,37,66,0.55)',
+    paddingHorizontal: 12,
+  },
+  segIdleLight: {
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    borderColor: 'rgba(8,125,255,0.28)',
+  },
+  segTextOn: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  segTextOff: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  whenRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  whenText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
 
 function makeStyles(colors: ColorPalette) {
   return StyleSheet.create({
