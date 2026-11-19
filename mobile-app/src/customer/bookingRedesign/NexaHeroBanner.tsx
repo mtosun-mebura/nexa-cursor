@@ -124,7 +124,8 @@ export function NexaHeroBanner({
             </View>
           </View>
         ) : (
-          <View style={{ height: 8 }} />
+          /* Ruimte voor sticky chrome erboven — layout gelijk houden. */
+          <View style={nexaHeroChromeRow} pointerEvents="none" />
         )}
 
         <View style={[styles.copy, width >= 700 && styles.copyWide]}>

@@ -71,7 +71,7 @@ Alle klantpagina’s delen dezelfde opmaak: header-scene, gloedkaarten, oranje C
 - **Full-bleed** (volledige schermbreedte): geen smalle kaart in een padded wit/navy blok met dikke outer card-radius die “los” voelt.
 - Optioneel: floating pill met afstand/tijd rechtsonder op de kaart.
 - Dark map style in dark én redesign.
-- Light header (Ritten/Meldingen/Profiel): `assets/map-header-background-light.jpg` via `NexaScreenBackdrop` — **geen grijze waas**; dark: `map-header-background.png`.
+- Light header (Ritten/Profiel): `assets/map-header-background-light.jpg` via `NexaScreenBackdrop` — **geen grijze waas**; dark: `map-header-background.png`.
 
 ## Knoppen (primair)
 

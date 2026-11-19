@@ -603,11 +603,15 @@ class CustomerRideController extends Controller
             return response()->json(['message' => 'Rit niet gevonden.'], 404);
         }
 
+        // Openen van chat = gelezen voor de klant.
+        $chat->markRead($ride, 'customer');
+
         return response()->json([
             'success' => true,
             'data' => [
                 'allowed' => $chat->communicationAllowed($ride),
                 'messages' => $chat->messages($ride),
+                'unread_count' => 0,
             ],
         ]);
     }

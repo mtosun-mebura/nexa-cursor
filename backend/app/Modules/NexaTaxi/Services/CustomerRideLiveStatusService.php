@@ -363,7 +363,41 @@ class CustomerRideLiveStatusService
             'distance_to_pickup_km' => $eta['distance_km'] ?? null,
             'poll_interval_ms' => $phase === 'awaiting_payment' ? 1200
                 : ($phase === 'searching' ? 2500 : 4000),
+            ...$this->chatPayloadForCustomer($ride),
         ];
+    }
+
+    /**
+     * Ongelezen chauffeur-berichten voor lokale push + knipperende chatknop.
+     *
+     * @return array{chat_unread_count: int, chat_latest: array{id: string, from: string, body: string, at: string}|null}
+     */
+    protected function chatPayloadForCustomer(RideRequest $ride): array
+    {
+        try {
+            $chat = app(RideChatService::class);
+            $unread = $chat->unreadCountFor($ride, 'customer');
+            $latest = null;
+            if ($unread > 0) {
+                $messages = $chat->messages($ride);
+                for ($i = count($messages) - 1; $i >= 0; $i--) {
+                    if (($messages[$i]['from'] ?? '') === 'driver') {
+                        $latest = $messages[$i];
+                        break;
+                    }
+                }
+            }
+
+            return [
+                'chat_unread_count' => $unread,
+                'chat_latest' => $latest,
+            ];
+        } catch (\Throwable) {
+            return [
+                'chat_unread_count' => 0,
+                'chat_latest' => null,
+            ];
+        }
     }
 
     /**

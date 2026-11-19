@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { TextInput as TextInputType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   bookGuest,
   cancelLive,
@@ -73,7 +74,10 @@ import {
   nexaSurfaceMuted,
   nexaSurfaceText,
 } from '../customer/bookingRedesign/theme';
-import { notifyNewRideStatusUpdates } from '../customer/rideStatusNotifications';
+import {
+  notifyNewRideChat,
+  notifyNewRideStatusUpdates,
+} from '../customer/rideStatusNotifications';
 import { ApiError } from '../api/client';
 import { newUuidV4 } from '../lib/uuid';
 import {
@@ -138,8 +142,14 @@ import {
 import { AppModal } from '../ui/AppModal';
 import { ArchiveMotion, type ArchiveMotionMode } from '../ui/ArchiveMotion';
 import { CustomerTabBar, CustomerTabKey } from '../ui/CustomerTabBar';
+import { AppBrandLogo } from '../ui/AppBrandLogo';
 import { AppPageHeader, APP_PAGE_TOP_INSET } from '../ui/AppPageHeader';
 import { AppearanceControls } from '../ui/AppearanceControls';
+import {
+  nexaHeroChromeRow,
+  nexaHeroSideRight,
+  nexaHeroSideSlot,
+} from '../customer/bookingRedesign/nexaHeroLayout';
 import { useAndroidKeyboardOverlap } from '../ui/androidText';
 import { useAndroidBackHandler } from '../ui/useAndroidBackHandler';
 import { DemoModeRow } from '../ui/DemoModeRow';
@@ -577,12 +587,14 @@ function AcceptedRideIdentity({
   onCall,
   onChat,
   onShare,
+  chatAttention,
 }: {
   live: LiveRide;
   onPreview: (uri: string) => void;
   onCall?: () => void;
   onChat?: () => void;
   onShare?: () => void;
+  chatAttention?: boolean;
 }) {
   const { colors, colorScheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -720,6 +732,7 @@ function AcceptedRideIdentity({
           onCall={onCall}
           onChat={onChat}
           onShare={onShare}
+          chatAttention={chatAttention}
         />
       ) : null}
     </View>
@@ -880,9 +893,11 @@ function statusUpdatesNewestFirst(updates: RideStatusUpdate[]): RideStatusUpdate
 
 export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { colors, colorScheme, preference, setPreference } = useTheme();
   useI18n();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const bookChromeSolid = useRef(new Animated.Value(0)).current;
   const [tab, setTab] = useState<CustomerTabKey | NexaCustomerTabKey>(
     USE_NEXA_BOOKING_REDESIGN ? 'home' : 'book'
   );
@@ -931,6 +946,10 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   const [chatMessages, setChatMessages] = useState<RideChatMessage[]>([]);
   const [chatSending, setChatSending] = useState(false);
   const [chatAllowed, setChatAllowed] = useState(true);
+  /** Knipperende chatknop tot de klant de chat opent. */
+  const [chatAttention, setChatAttention] = useState(false);
+  const chatOpenRef = useRef(false);
+  chatOpenRef.current = chatOpen;
   /** Live-volgen scherm (kaart uitvergroot + overlays) na "ophalen" door chauffeur. */
   const [liveFollowUi, setLiveFollowUi] = useState(false);
   /** Ophaalcode standaard verborgen; pas tonen na “Ophaalcode bekijken”. */
@@ -2083,6 +2102,14 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             prevLivePhase.current = ride.phase;
             setLive(ride);
             notifyNewRideStatusUpdates(ride).catch(() => undefined);
+            if (!chatOpenRef.current) {
+              if (Number(ride.chat_unread_count || 0) > 0) {
+                setChatAttention(true);
+                notifyNewRideChat(ride).catch(() => undefined);
+              } else {
+                setChatAttention(false);
+              }
+            }
             const rideId = Number(ride.id) || 0;
             if (
               ride.phase === 'completed' &&
@@ -2648,9 +2675,44 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   function openRideChat() {
     if (!trackToken) return;
+    setChatAttention(false);
     setChatOpen(true);
     void refreshChat(trackToken);
   }
+
+  const openRideChatRef = useRef(openRideChat);
+  openRideChatRef.current = openRideChat;
+
+  // Tik op chat-push → open chat.
+  useEffect(() => {
+    let sub: { remove: () => void } | null = null;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        if (cancelled) return;
+        sub = Notifications.addNotificationResponseReceivedListener((response) => {
+          try {
+            const data = (response.notification.request.content.data || {}) as Record<
+              string,
+              unknown
+            >;
+            if (String(data.type || '') !== 'customer_ride_chat') return;
+            if (!data.open_chat) return;
+            openRideChatRef.current();
+          } catch {
+            /* ignore */
+          }
+        });
+      } catch {
+        /* Expo Go / geen native module */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      sub?.remove();
+    };
+  }, []);
 
   function callAssignedDriver() {
     void callViaCentralRelay(live?.company?.phone);
@@ -3041,11 +3103,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           : t("Ritten")
       : tab === 'profile' || tab === 'more'
         ? t("Profiel")
-        : tab === 'notifications'
-          ? t("Meldingen")
-          : tab === 'home' || (USE_NEXA_BOOKING_REDESIGN && tab === 'book')
-            ? null
-            : t("Boeken");
+        : tab === 'home' || (USE_NEXA_BOOKING_REDESIGN && tab === 'book')
+          ? null
+          : t("Boeken");
 
   // Dark map → witte chrome. Light map-asset is bleek → dark ink chrome.
   const headerOnDark = USE_NEXA_BOOKING_REDESIGN && colorScheme === 'dark';
@@ -3101,6 +3161,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     return null;
   })();
 
+  const activeGuestRide = guestRides.find((r) => isActiveRidePhase(r.phase)) || null;
   const activeBannerRide =
     (live && trackToken && isActiveRidePhase(live.phase)
       ? {
@@ -3108,12 +3169,23 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           id: live.id,
           from: live.pickup_address || pickup?.address || '',
           to: live.dropoff_address || dropoff?.address || '',
+          // Bedrijfs-/plaatsnaam heeft voorrang op straatadres (zoals e-mails / map-callouts).
+          from_place:
+            live.pickup_place_name ||
+            pickup?.placeName ||
+            activeGuestRide?.from_place ||
+            null,
+          to_place:
+            live.dropoff_place_name ||
+            dropoff?.placeName ||
+            activeGuestRide?.to_place ||
+            null,
           phase: live.phase,
           status_label: liveStatusFromUpdates || live.status_label,
           at: Date.now(),
           quoted_price: live.quoted_price,
         }
-      : guestRides.find((r) => isActiveRidePhase(r.phase))) || null;
+      : activeGuestRide) || null;
 
   const quoteDistance = routeMetrics
     ? formatTripDistance(routeMetrics.distance_meters / 1000)
@@ -3209,7 +3281,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       {USE_NEXA_BOOKING_REDESIGN ? (
         <NexaHeroBanner
           greetingName={firstName}
-          showChrome
+          showChrome={false}
           onBack={onBack}
           onLogoPress={() => {
             setTab('home');
@@ -3840,6 +3912,26 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           {t("Geen taxi’s beschikbaar. We sturen geen rit uit. Je krijgt een melding zodra er weer een taxi beschikbaar is.")}
         </Text>
       ) : null}
+      {/* Marketplace-boekingen vereisen altijd eerst Mollie-betaling. */}
+      {canDispatch ? (
+        <Text
+          style={[
+            styles.meta,
+            {
+              marginTop: 0,
+              marginBottom: 10,
+              color:
+                colorScheme === 'light'
+                  ? nexaBookingTheme.color.inkMuted
+                  : colors.muted,
+            },
+          ]}
+        >
+          {t(
+            'Om te boeken betaal je eerst. Je wordt doorgestuurd naar een betaalpagina.'
+          )}
+        </Text>
+      ) : null}
       {USE_NEXA_BOOKING_REDESIGN ? (
         <NexaPrimaryButton
           title={t('Boek de rit')}
@@ -3893,25 +3985,6 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       }
     />
   ) : null;
-
-  const notificationsContent = (
-    <View style={{ padding: 20, backgroundColor: 'transparent' }}>
-      <Text
-        style={[
-          styles.meta,
-          {
-            color:
-              colorScheme === 'light'
-                ? nexaBookingTheme.color.ink
-                : nexaSurfaceMuted(false),
-            marginTop: 0,
-          },
-        ]}
-      >
-        {t('Je hebt geen nieuwe meldingen.')}
-      </Text>
-    </View>
-  );
 
   const archivedSet = new Set(archivedKeys);
   const activeRides = guestRides.filter((r) => isActiveRidePhase(r.phase));
@@ -4423,6 +4496,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                     onPreview={setPhotoPreviewUri}
                     onCall={callAssignedDriver}
                     onChat={openRideChat}
+                    chatAttention={chatAttention}
                     onLiveFollow={() => openRideFollow(ride)}
                     embedInScreenBackdrop
                   />
@@ -4904,6 +4978,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               onPreview={setPhotoPreviewUri}
               onCall={callAssignedDriver}
               onChat={openRideChat}
+              chatAttention={chatAttention}
               onLiveFollow={focusAcceptedMap}
               embedInScreenBackdrop
             />
@@ -5271,7 +5346,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   // Home/Boeken hebben eigen map→hero overloop; geen tweede screen-backdrop.
   const showMapBackdrop =
     USE_NEXA_BOOKING_REDESIGN &&
-    (tab === 'rides' || tab === 'profile' || tab === 'more' || tab === 'notifications');
+    (tab === 'rides' || tab === 'profile' || tab === 'more');
   const lightMode = colorScheme === 'light';
 
   return (
@@ -5305,27 +5380,92 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             ? ridesContent
             : tab === 'profile' || tab === 'more'
               ? profileContent
-              : tab === 'notifications'
-                ? notificationsContent
-                : (
-                  <ScrollView
-                    key={`book-${bookMountKey}`}
-                    ref={bookScrollRef}
-                    style={styles.formScroll}
-                    contentContainerStyle={[
-                      styles.scroll,
-                      // Zelfde top als Home: geen lege strip boven de hero.
-                      USE_NEXA_BOOKING_REDESIGN ? { paddingTop: 0 } : null,
-                      { paddingBottom: 24 + keyboardOverlap },
-                    ]}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                    automaticallyAdjustKeyboardInsets
-                    nestedScrollEnabled
-                    removeClippedSubviews={false}
-                  >
-                    {bookContent}
-                  </ScrollView>
+              : (
+                  <View style={styles.bookPane}>
+                    {USE_NEXA_BOOKING_REDESIGN ? (
+                      <View style={styles.bookStickyChrome} pointerEvents="box-none">
+                        <Animated.View
+                          pointerEvents="none"
+                          style={[
+                            styles.bookStickyChromeBg,
+                            {
+                              backgroundColor:
+                                colorScheme === 'light'
+                                  ? '#FFFFFF'
+                                  : nexaBookingTheme.color.navy900,
+                              opacity: bookChromeSolid,
+                            },
+                          ]}
+                        />
+                        <View style={{ paddingTop: insets.top }}>
+                          <View style={nexaHeroChromeRow}>
+                            <View style={nexaHeroSideSlot}>
+                              <Pressable
+                                onPress={onBack}
+                                hitSlop={10}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('Naar startpagina')}
+                                style={[
+                                  styles.bookStickyBack,
+                                  colorScheme === 'light' && styles.bookStickyBackLight,
+                                ]}
+                              >
+                                <Ionicons
+                                  name="chevron-back"
+                                  size={24}
+                                  color={
+                                    colorScheme === 'light'
+                                      ? nexaBookingTheme.color.ink
+                                      : '#FFFFFF'
+                                  }
+                                />
+                              </Pressable>
+                            </View>
+                            <Pressable
+                              onPress={() => {
+                                setTab('home');
+                                AsyncStorage.setItem(TAB_KEY, 'home').catch(() => undefined);
+                              }}
+                              style={styles.bookStickyLogo}
+                              accessibilityRole="button"
+                              accessibilityLabel={t('Naar startpagina')}
+                            >
+                              <AppBrandLogo bare />
+                            </Pressable>
+                            <View style={[nexaHeroSideSlot, nexaHeroSideRight]}>
+                              <AppearanceControls
+                                tone={colorScheme === 'light' ? 'theme' : 'onDark'}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    ) : null}
+                    <ScrollView
+                      key={`book-${bookMountKey}`}
+                      ref={bookScrollRef}
+                      style={styles.formScroll}
+                      contentContainerStyle={[
+                        styles.scroll,
+                        // Zelfde top als Home: geen lege strip boven de hero.
+                        USE_NEXA_BOOKING_REDESIGN ? { paddingTop: 0 } : null,
+                        { paddingBottom: 24 + keyboardOverlap },
+                      ]}
+                      keyboardShouldPersistTaps="handled"
+                      keyboardDismissMode="on-drag"
+                      automaticallyAdjustKeyboardInsets
+                      nestedScrollEnabled
+                      removeClippedSubviews={false}
+                      scrollEventThrottle={16}
+                      onScroll={(e) => {
+                        if (!USE_NEXA_BOOKING_REDESIGN) return;
+                        const y = e.nativeEvent.contentOffset.y;
+                        bookChromeSolid.setValue(Math.min(1, Math.max(0, y / 56)));
+                      }}
+                    >
+                      {bookContent}
+                    </ScrollView>
+                  </View>
                 )}
       </View>
       {USE_NEXA_BOOKING_REDESIGN ? (
@@ -5776,10 +5916,16 @@ function ActiveRideBanner({
   });
 
   if (nexa) {
-    const from = shortAddress(ride.from);
-    const to = shortAddress(ride.to);
-    const routeText =
-      from && to ? `${from} → ${to}` : from || to || null;
+    // Prioriteit: bedrijfs-/plaatsnaam → pas daarna straatadres.
+    const placeName = String(ride.to_place || '').trim();
+    const destination =
+      placeName ||
+      shortAddress(ride.to) ||
+      String(ride.to || '').trim() ||
+      null;
+    const routeText = destination
+      ? t('Bestemming: {destination}', { destination })
+      : null;
     const enRoute = ride.phase === 'accepted' && (!!etaLabel || isLive);
     const title = enRoute
       ? t('Chauffeur onderweg')
@@ -5802,6 +5948,13 @@ function ActiveRideBanner({
       />
     );
   }
+
+  const placeName = String(ride.to_place || '').trim();
+  const destination =
+    placeName ||
+    shortAddress(ride.to) ||
+    String(ride.to || '').trim() ||
+    null;
 
   return (
     <Pressable
@@ -5830,9 +5983,11 @@ function ActiveRideBanner({
         {etaLabel ? (
           <Text style={styles.tripEta}>Chauffeur arriveert over {etaLabel}.</Text>
         ) : null}
-        <Text style={styles.activeBannerMeta} numberOfLines={1}>
-          {shortAddress(ride.from)} → {shortAddress(ride.to)}
-        </Text>
+        {destination ? (
+          <Text style={styles.activeBannerMeta} numberOfLines={1}>
+            {t('Bestemming: {destination}', { destination })}
+          </Text>
+        ) : null}
       </View>
       <Text style={styles.activeBannerCta}>{t("Volgen")}</Text>
     </Pressable>
@@ -6012,6 +6167,32 @@ function makeStyles(colors: ColorPalette) {
     bookPane: {
       flex: 1,
       minHeight: 0,
+    },
+    bookStickyChrome: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 30,
+    },
+    bookStickyChromeBg: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    bookStickyBack: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(6,19,41,0.45)',
+    },
+    bookStickyBackLight: {
+      backgroundColor: 'rgba(255,255,255,0.72)',
+    },
+    bookStickyLogo: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     formScroll: {
       flex: 1,
@@ -7292,9 +7473,9 @@ function makeStyles(colors: ColorPalette) {
     },
     liveEtaChipValue: {
       color: '#FFFFFF',
-      fontSize: 22,
+      fontSize: 16,
       fontWeight: '800',
-      lineHeight: 26,
+      lineHeight: 20,
     },
     confirmActions: {
       flexDirection: 'row',

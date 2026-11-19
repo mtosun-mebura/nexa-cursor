@@ -109,6 +109,7 @@ import {
   ensureDriverNotificationPermission,
   notifyDriverOfferClosed,
   prepareDriverNotificationChannels,
+  setForegroundDriverChatListener,
   setForegroundDriverOfferListener,
   type DriverNotificationOpenTarget,
   type DriverOfferPushPreview,
@@ -744,6 +745,10 @@ export function DriverHomeScreen() {
   const [chatMessages, setChatMessages] = useState<RideChatMessage[]>([]);
   const [chatSending, setChatSending] = useState(false);
   const [chatAllowed, setChatAllowed] = useState(true);
+  /** Ongelezen chat per rit (push + inbox chat_unread_count). */
+  const [chatUnreadByRideId, setChatUnreadByRideId] = useState<Record<number, number>>({});
+  const chatRideIdRef = useRef<number | null>(null);
+  chatRideIdRef.current = chatRideId;
   const [busyRideId, setBusyRideId] = useState<number | null>(null);
   const [pinRideId, setPinRideId] = useState<number | null>(null);
   const [pickupPin, setPickupPin] = useState('');
@@ -1810,23 +1815,90 @@ export function DriverHomeScreen() {
     return () => setForegroundDriverOfferListener(null);
   }, [applyPushOfferPreview, hydrateOfferFromInbox]);
 
+  const openTripsFromNotification = useCallback((target: DriverNotificationOpenTarget) => {
+    if (!mountedRef.current) return;
+    const rideId = Number(target.rideId || 0);
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      try {
+        setShowArchived(false);
+        persistDriverArchive(false);
+        setTab('trips');
+        persistDriverTab('trips');
+        if (rideId <= 0) return;
+        setFocusRideId(rideId);
+        if (!target.openChat) return;
+        setChatRideId(rideId);
+        setChatCustomerName(null);
+        setChatMessages([]);
+        setChatAllowed(true);
+        setChatUnreadByRideId((prev) => {
+          if (!prev[rideId]) return prev;
+          const next = { ...prev };
+          delete next[rideId];
+          return next;
+        });
+      } catch {
+        /* ignore */
+      }
+    }, 0);
+  }, []);
+
   useEffect(() => {
     return addDriverOfferNotificationResponseListener(
       (target) => openOfferFromNotification(target),
-      () => {
-        if (!mountedRef.current) return;
-        setTimeout(() => {
-          if (!mountedRef.current) return;
-          try {
-            setTab('trips');
-            persistDriverTab('trips');
-          } catch {
-            /* ignore */
-          }
-        }, 0);
-      }
+      (target) => openTripsFromNotification(target)
     );
-  }, [openOfferFromNotification]);
+  }, [openOfferFromNotification, openTripsFromNotification]);
+
+  useEffect(() => {
+    setForegroundDriverChatListener((rideId) => {
+      if (!mountedRef.current || rideId <= 0) return;
+      if (chatRideIdRef.current === rideId) return;
+      setChatUnreadByRideId((prev) => ({
+        ...prev,
+        [rideId]: Math.max(1, (prev[rideId] || 0) + 1),
+      }));
+    });
+    return () => setForegroundDriverChatListener(null);
+  }, []);
+
+  // Inbox chat_unread_count + lokale push-unread samenvoegen.
+  useEffect(() => {
+    const rides = [
+      activeRide,
+      ...parkedRides,
+      ...scheduledRides,
+      ...overdueScheduledRides,
+    ].filter((ride): ride is DriverActiveRide => !!ride && Number(ride.id) > 0);
+    if (rides.length === 0) return;
+    setChatUnreadByRideId((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const ride of rides) {
+        const id = Number(ride.id);
+        if (chatRideIdRef.current === id) {
+          if (next[id]) {
+            delete next[id];
+            changed = true;
+          }
+          continue;
+        }
+        const server = Math.max(0, Number(ride.chat_unread_count || 0));
+        const merged = Math.max(server, next[id] || 0);
+        if (merged > 0) {
+          if (next[id] !== merged) {
+            next[id] = merged;
+            changed = true;
+          }
+        } else if (next[id]) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activeRide, parkedRides, scheduledRides, overdueScheduledRides]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1837,11 +1909,7 @@ export function DriverHomeScreen() {
         if (initial.screen === 'requests') {
           openOfferFromNotification(initial);
         } else {
-          setTimeout(() => {
-            if (cancelled || !mountedRef.current) return;
-            setTab('trips');
-            persistDriverTab('trips');
-          }, 0);
+          openTripsFromNotification(initial);
         }
       } catch {
         /* cold-start deep-link mag niet crashen */
@@ -1850,7 +1918,7 @@ export function DriverHomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [openOfferFromNotification]);
+  }, [openOfferFromNotification, openTripsFromNotification]);
 
   // Houd GPS-posts gelijk met admin refresh_seconds zolang de chauffeur online is
   // (ook na heropenen van de app terwijl status al online was).
@@ -2272,7 +2340,17 @@ export function DriverHomeScreen() {
     setChatCustomerName(ride.customer_name ? String(ride.customer_name) : null);
     setChatMessages([]);
     setChatAllowed(true);
+    setChatUnreadByRideId((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     void refreshDriverChat(id);
+  }
+
+  function rideChatAttention(rideId: number): boolean {
+    return (chatUnreadByRideId[rideId] || 0) > 0;
   }
 
   async function sendDriverChatMessage(body: string) {
@@ -2987,6 +3065,7 @@ export function DriverHomeScreen() {
                   onStart={() => onStartRide(activeRideFiltered.id)}
                   onOpenMaps={() => openMapsForRide(activeRideFiltered, 'dropoff')}
                   onChat={() => openDriverRideChat(activeRideFiltered)}
+                  chatAttention={rideChatAttention(activeRideFiltered.id)}
                   onComplete={() => requestCompleteRide(activeRideFiltered)}
                   onCancel={
                     activeRideFiltered.can_cancel_with_reason
@@ -3011,6 +3090,7 @@ export function DriverHomeScreen() {
                 onStart={() => onStartRide(ride.id)}
                 onOpenMaps={() => openMapsForRide(ride, 'dropoff')}
                 onChat={() => openDriverRideChat(ride)}
+                chatAttention={rideChatAttention(ride.id)}
                 onComplete={() => requestCompleteRide(ride)}
               />
             </View>
@@ -3033,6 +3113,7 @@ export function DriverHomeScreen() {
                       })
                     }
                     onChat={() => openDriverRideChat(ride)}
+                    chatAttention={rideChatAttention(ride.id)}
                     onCancel={
                       ride.can_cancel_with_reason
                         ? () => {
@@ -3075,6 +3156,7 @@ export function DriverHomeScreen() {
                         })
                       }
                       onChat={() => openDriverRideChat(ride)}
+                      chatAttention={rideChatAttention(ride.id)}
                       onProposePickup={() => openProposePickup(ride)}
                       onRelease={() => requestReleaseRide(ride.id)}
                       onArchive={
@@ -3129,6 +3211,7 @@ export function DriverHomeScreen() {
                         })
                       }
                       onChat={() => openDriverRideChat(ride)}
+                      chatAttention={rideChatAttention(ride.id)}
                       onProposePickup={() => openProposePickup(ride)}
                       onRelease={() => requestReleaseRide(ride.id)}
                       onArchive={

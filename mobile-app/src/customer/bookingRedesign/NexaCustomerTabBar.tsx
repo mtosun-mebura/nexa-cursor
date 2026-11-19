@@ -7,7 +7,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { tabBarBottomPadding } from '../../ui/tabBarSafeArea';
 import { nexaBookingTheme as theme } from './theme';
 
-export type NexaCustomerTabKey = 'home' | 'book' | 'rides' | 'notifications' | 'more';
+export type NexaCustomerTabKey = 'home' | 'book' | 'rides' | 'more';
 
 const TABS: {
   key: NexaCustomerTabKey;
@@ -17,7 +17,6 @@ const TABS: {
   { key: 'home', label: 'Home', icon: 'home' },
   { key: 'book', label: 'Boeken', icon: 'car-sport' },
   { key: 'rides', label: 'Ritten', icon: 'calendar-outline' },
-  { key: 'notifications', label: 'Meldingen', icon: 'notifications-outline' },
   { key: 'more', label: 'Profiel', icon: 'person-outline' },
 ];
 
@@ -25,12 +24,10 @@ export function NexaCustomerTabBar({
   active,
   onChange,
   ridesBadge,
-  notificationsBadge,
 }: {
   active: NexaCustomerTabKey;
   onChange: (key: NexaCustomerTabKey) => void;
   ridesBadge?: number;
-  notificationsBadge?: number;
 }) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
@@ -57,12 +54,7 @@ export function NexaCustomerTabBar({
           : light
             ? '#64748B'
             : theme.color.textMuted;
-        const badge =
-          tab.key === 'rides'
-            ? ridesBadge
-            : tab.key === 'notifications'
-              ? notificationsBadge
-              : 0;
+        const badge = tab.key === 'rides' ? ridesBadge : 0;
         return (
           <Pressable
             key={tab.key}
