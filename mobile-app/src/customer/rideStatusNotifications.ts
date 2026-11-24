@@ -201,7 +201,10 @@ async function saveChatSeen(map: Record<string, string[]>): Promise<void> {
  * zelfde idee als ritstatus — klanten hebben geen aparte Expo push-tokens.
  * Retourneert true als er een nieuw bericht was.
  */
-export async function notifyNewRideChat(ride: LiveRide): Promise<boolean> {
+export async function notifyNewRideChat(
+  ride: LiveRide,
+  trackToken?: string | null
+): Promise<boolean> {
   const unread = Math.max(0, Number(ride.chat_unread_count || 0));
   if (unread <= 0) return false;
 
@@ -228,6 +231,7 @@ export async function notifyNewRideChat(ride: LiveRide): Promise<boolean> {
   const body =
     preview ||
     t('Je chauffeur heeft een bericht gestuurd.');
+  const token = String(trackToken || '').trim();
 
   try {
     await ensureHandler();
@@ -244,6 +248,7 @@ export async function notifyNewRideChat(ride: LiveRide): Promise<boolean> {
           type: 'customer_ride_chat',
           rideId: ride.id,
           open_chat: true,
+          ...(token ? { track_token: token } : {}),
         },
         sound: !foreground,
         ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),

@@ -5,7 +5,6 @@ import {
   BackHandler,
   Easing,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -34,7 +33,7 @@ type AppModalProps = {
   dismissDisabled?: boolean;
   /** Extra style op het paneel */
   panelStyle?: ViewStyle;
-  /** KeyboardAvoidingView om het paneel (default true bij center) */
+  /** Paneel boven toetsenbord houden (default true bij center) */
   avoidKeyboard?: boolean;
   /** Uitzetten als de inhoud zelf scrollt, bijvoorbeeld bij bijsnijden. */
   scrollEnabled?: boolean;
@@ -84,12 +83,45 @@ function ModalOverlayBody({
   const { height } = useWindowDimensions();
   const isSheet = placement === 'sheet';
   const wrapKeyboard = avoidKeyboard ?? !isSheet;
-  const scrollMaxHeight = Math.round(height * (isSheet ? 0.72 : 0.78));
   const closeFromBackdrop = dismissOnBackdrop && !dismissDisabled;
   const useAndroidBlur = Platform.OS === 'android' && !!blurTargetRef;
   const zoom = enterAnimation === 'zoom' && !isSheet;
   /** Remount BlurView once so findNodeHandle resolves after BlurTargetView is attached. */
   const [blurEpoch, setBlurEpoch] = useState(0);
+  /**
+   * Alleen handmatige keyboard-padding (geen KeyboardAvoidingView erbij).
+   * KAV + paddingBottom samen schoven het paneel naar de top en knipten knoppen af
+   * (ophaalcode / chat in ModalBlurHost-portal).
+   */
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!wrapKeyboard) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: { endCoordinates?: { height?: number } }) => {
+      setKeyboardHeight(Math.max(0, Number(e?.endCoordinates?.height) || 0));
+    };
+    const onHide = () => setKeyboardHeight(0);
+    const subShow = Keyboard.addListener(showEvent, onShow);
+    const subHide = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [wrapKeyboard]);
+
+  const keyboardPad = wrapKeyboard
+    ? Math.max(androidKeyboardOverlap, keyboardHeight)
+    : 0;
+  /** Ruimte boven het toetsenbord — paneel blijft hierin gecentreerd. */
+  const availableHeight = Math.max(220, height - keyboardPad);
+  const scrollMaxHeight = Math.round(
+    availableHeight * (isSheet ? 0.88 : keyboardPad > 0 ? 0.92 : 0.78)
+  );
 
   useEffect(() => {
     if (!useAndroidBlur) return;
@@ -112,7 +144,8 @@ function ModalOverlayBody({
       style={[
         styles.root,
         isSheet ? styles.rootSheet : styles.rootCenter,
-        androidKeyboardOverlap > 0 ? { paddingBottom: androidKeyboardOverlap } : null,
+        // Alleen paddingBottom: krimpt de layout tot boven het toetsenbord.
+        keyboardPad > 0 ? { paddingBottom: keyboardPad } : null,
         { opacity: fadeOpacity },
       ]}
       pointerEvents="box-none"
@@ -152,7 +185,14 @@ function ModalOverlayBody({
           ? { accessibilityLabel: 'Sluiten' }
           : { accessible: false, importantForAccessibility: 'no' as const })}
       />
-      <View pointerEvents="box-none" style={isSheet ? styles.sheetLayer : styles.centerLayer}>
+      {/*
+        Paneel gecentreerd in de ruimte bóven het toetsenbord (geen flex-end,
+        geen tweede KeyboardAvoidingView).
+      */}
+      <View
+        pointerEvents="box-none"
+        style={isSheet ? styles.sheetLayerFlex : styles.centerLayerFlex}
+      >
         <Animated.View
           pointerEvents="auto"
           collapsable={false}
@@ -189,26 +229,15 @@ function ModalOverlayBody({
     </Animated.View>
   );
 
-  const modalBody = wrapKeyboard ? (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      {body}
-    </KeyboardAvoidingView>
-  ) : (
-    body
-  );
-
   return (
     <View style={styles.fill} pointerEvents="box-none">
       {keyboardAccessory ? (
         <View style={styles.flex} pointerEvents="box-none">
-          {modalBody}
+          {body}
           {keyboardAccessory}
         </View>
       ) : (
-        modalBody
+        body
       )}
     </View>
   );
@@ -417,17 +446,19 @@ function makeStyles(colors: ColorPalette) {
       // Lichte sluier bovenop BlurView-tint (niet stapelen tot pechzwart).
       backgroundColor: 'rgba(15, 23, 42, 0.28)',
     },
-    centerLayer: {
-      ...StyleSheet.absoluteFill,
+    centerLayerFlex: {
+      flex: 1,
       zIndex: 2,
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 24,
+      width: '100%',
     },
-    sheetLayer: {
-      ...StyleSheet.absoluteFill,
+    sheetLayerFlex: {
+      flex: 1,
       zIndex: 2,
       justifyContent: 'flex-end',
+      width: '100%',
     },
     panel: {
       width: '100%',

@@ -107,7 +107,7 @@ export function NexaHeroBanner({
                   accessibilityLabel={t('Naar startpagina')}
                   style={[styles.backBtn, light && styles.backBtnLight]}
                 >
-                  <Ionicons name="chevron-back" size={24} color={iconColor} />
+                  <Ionicons name="home-outline" size={24} color={iconColor} />
                 </Pressable>
               ) : null}
             </View>
@@ -187,13 +187,12 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(6,19,41,0.45)',
+    backgroundColor: 'transparent',
   },
   backBtnLight: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'transparent',
   },
   logoCenter: {
     flex: 1,

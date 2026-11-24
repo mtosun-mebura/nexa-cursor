@@ -272,8 +272,8 @@ class NexaTaxiBookingPricingService
             )
         );
         $distanceMeters = max(0, (int) ($input['distance_meters'] ?? 0));
+        // Ruwe routetijd voor weergave; vloer alleen intern bij tariefberekening.
         $durationSeconds = max(0, (int) ($input['duration_seconds'] ?? 0));
-        $durationSeconds = $this->ensureTaxiDurationFloor($distanceMeters, $durationSeconds);
         $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
@@ -830,8 +830,15 @@ class NexaTaxiBookingPricingService
     }
 
     /**
-     * Free-flow routes (OSRM/Google zonder files) onderschatten stadsritten.
-     * Taximeters tikken mee bij stoplichten; vloer op ~15 km/u gemiddeld in de stad.
+     * Max. afstand waarvoor de stads-tijdvloer geldt (km).
+     * Daarboven (snelweg / luchthaven) is OSRM-tijd betrouwbaar genoeg —
+     * 15 km/u over 135 km zou ~9 uur rijtijd en absurde prijzen geven.
+     */
+    public const CITY_DURATION_FLOOR_MAX_KM = 25.0;
+
+    /**
+     * Free-flow routes (OSRM/Google zonder files) onderschatten korte stadsritten.
+     * Taximeters tikken mee bij stoplichten; vloer op ~15 km/u — alleen tot 25 km.
      */
     public function ensureTaxiDurationFloor(int $distanceMeters, int $durationSeconds): int
     {
@@ -840,7 +847,12 @@ class NexaTaxiBookingPricingService
             return $durationSeconds;
         }
 
-        $minSeconds = (int) round(($distanceMeters / 1000) / 15.0 * 3600);
+        $distanceKm = $distanceMeters / 1000.0;
+        if ($distanceKm > self::CITY_DURATION_FLOOR_MAX_KM) {
+            return $durationSeconds;
+        }
+
+        $minSeconds = (int) round($distanceKm / 15.0 * 3600);
 
         return max($durationSeconds, $minSeconds);
     }
