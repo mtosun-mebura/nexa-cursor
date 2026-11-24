@@ -135,6 +135,14 @@ export type LiveRide = {
     prompt?: string | null;
     can_answer?: boolean;
   } | null;
+  /** Ongelezen chatberichten van de chauffeur. */
+  chat_unread_count?: number | null;
+  chat_latest?: {
+    id: string;
+    from: 'customer' | 'driver' | 'system';
+    body: string;
+    at: string;
+  } | null;
 };
 
 export type BookResponse = {
@@ -198,21 +206,28 @@ export async function fetchNearbyTaxis(input: {
   lat: number;
   lng: number;
   radiusKm?: number;
-}): Promise<NearbyTaxi[]> {
+}): Promise<{ vehicles: NearbyTaxi[]; radiusKm: number }> {
   const params = new URLSearchParams({
     lat: String(input.lat),
     lng: String(input.lng),
-    radius_km: String(input.radiusKm ?? 50),
     section_key: MARKETPLACE_SECTION,
   });
+  // Server gebruikt admin Marktplaats kaart-radius; optionele hint mag mee.
+  if (input.radiusKm != null && Number.isFinite(input.radiusKm)) {
+    params.set('radius_km', String(input.radiusKm));
+  }
   const base = await resolveApiBaseUrl();
   const res = await fetch(`${base}/nexa-taxi/booking/nearby-taxis?${params}`, {
     headers: { Accept: 'application/json' },
   });
-  if (!res.ok) return [];
+  if (!res.ok) return { vehicles: [], radiusKm: 25 };
   const data = await res.json();
   const list = Array.isArray(data?.vehicles) ? data.vehicles : [];
-  return list
+  const radiusKm =
+    data?.radius_km != null && Number.isFinite(Number(data.radius_km))
+      ? Number(data.radius_km)
+      : 25;
+  const vehicles = list
     .map((v: NearbyTaxi) => ({
       id: String(v.id),
       lat: Number(v.lat),
@@ -223,6 +238,7 @@ export async function fetchNearbyTaxis(input: {
       heading: v.heading == null || !Number.isFinite(Number(v.heading)) ? null : Number(v.heading),
     }))
     .filter((v: NearbyTaxi) => Number.isFinite(v.lat) && Number.isFinite(v.lng));
+  return { vehicles, radiusKm };
 }
 
 export function bookGuest(body: BookPayload) {
@@ -317,5 +333,42 @@ export function complainLive(
   }>('/api/taxi/v1/customer/live/complain', {
     method: 'POST',
     body: { token, ...payload },
+  });
+}
+
+export type RideChatMessageDto = {
+  id: string;
+  from: 'customer' | 'driver' | 'system';
+  body: string;
+  at: string;
+};
+
+export function fetchLiveChat(token: string) {
+  return apiRequest<{
+    success?: boolean;
+    data?: {
+      allowed?: boolean;
+      messages?: RideChatMessageDto[];
+      unread_count?: number;
+    };
+  }>(`/api/taxi/v1/customer/live/chat?token=${encodeURIComponent(token)}`);
+}
+
+export function sendLiveChat(
+  token: string,
+  body: string,
+  clientMessageId?: string
+) {
+  return apiRequest<{
+    success?: boolean;
+    data?: { allowed?: boolean; messages?: RideChatMessageDto[] };
+    message?: string;
+  }>('/api/taxi/v1/customer/live/chat', {
+    method: 'POST',
+    body: {
+      token,
+      body,
+      client_message_id: clientMessageId || undefined,
+    },
   });
 }

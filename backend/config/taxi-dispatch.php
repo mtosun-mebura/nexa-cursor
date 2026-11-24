@@ -141,6 +141,18 @@ return [
     'network_max_radius_km' => (int) env('TAXI_NETWORK_MAX_RADIUS_KM', 25),
 
     /**
+     * Marktplaats-kaart: alleen online taxi’s binnen deze straal (km) rond de klant.
+     * Los van network_max_radius_km (partner-offers).
+     */
+    'marketplace_map_radius_km' => (int) env('TAXI_MARKETPLACE_MAP_RADIUS_KM', 25),
+
+    /**
+     * Standaard korting (%) op boekingsprijzen t.o.v. ingestelde tarieven.
+     * 0 = geen korting; 50 = helft van de tariefprijs.
+     */
+    'booking_discount_percent' => (int) env('TAXI_BOOKING_DISCOUNT_PERCENT', 0),
+
+    /**
      * Hours to hold a completed ride before settlement_eligible (Phase 4 gate).
      * High-risk rides use RideSettlementEligibilityService::HOLD_HOURS_HIGH_RISK.
      */

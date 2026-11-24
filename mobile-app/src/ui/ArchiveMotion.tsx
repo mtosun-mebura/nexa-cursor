@@ -21,8 +21,8 @@ type Props = {
 };
 
 /**
- * Ritkaart-animatie: archiveren (pakketje weg), terugzetten (terugschuiven),
- * of verwijderen (omlaag faden).
+ * Ritkaart-animatie: archiveren (pakketje weg), terugzetten (terug naar ritten),
+ * of verwijderen (oplossen tot volledig weg).
  */
 export function ArchiveMotion({
   children,
@@ -72,48 +72,50 @@ export function ArchiveMotion({
     }
 
     if (mode === 'archive-out') {
+      // Langer + verder weg + kleiner: voelt als “pakketje naar archief”.
+      const duration = 820;
       badgeOpacity.setValue(1);
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 480,
+          duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
-          toValue: -64,
-          duration: 480,
+          toValue: -148,
+          duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(translateX, {
-          toValue: 56,
-          duration: 480,
+          toValue: 120,
+          duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(scale, {
-          toValue: 0.78,
-          duration: 480,
+          toValue: 0.38,
+          duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(rotate, {
           toValue: 1,
-          duration: 480,
+          duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.sequence([
           Animated.timing(badgeOpacity, {
             toValue: 1,
-            duration: 90,
+            duration: 120,
             useNativeDriver: true,
           }),
           Animated.timing(badgeOpacity, {
             toValue: 0,
-            duration: 280,
-            delay: 80,
+            duration: 420,
+            delay: 140,
             useNativeDriver: true,
           }),
         ]),
@@ -124,47 +126,88 @@ export function ArchiveMotion({
     }
 
     if (mode === 'restore-out') {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 360,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: -28,
-          duration: 360,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scale, {
-          toValue: 0.94,
-          duration: 360,
-          useNativeDriver: true,
-        }),
+      // 1) Iets kleiner + naar achteren  →  2) naar links verdwijnen.
+      badgeOpacity.setValue(1);
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 0.82,
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 18,
+            duration: 320,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0.88,
+            duration: 320,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(badgeOpacity, {
+            toValue: 1,
+            duration: 160,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: -140,
+            duration: 480,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 480,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 0.72,
+            duration: 480,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(badgeOpacity, {
+            toValue: 0,
+            duration: 280,
+            useNativeDriver: true,
+          }),
+        ]),
       ]).start(({ finished }) => {
         if (finished) done();
       });
       return;
     }
 
-    // delete-out
+    // delete-out: oplossen tot volledig weg (geen snelle slide).
+    const dissolveMs = 720;
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 0,
-        duration: 320,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 28,
-        duration: 320,
-        easing: Easing.in(Easing.quad),
+        duration: dissolveMs,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       Animated.timing(scale, {
-        toValue: 0.92,
-        duration: 320,
+        toValue: 0.02,
+        duration: dissolveMs,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: dissolveMs,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateX, {
+        toValue: 0,
+        duration: dissolveMs,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -174,7 +217,7 @@ export function ArchiveMotion({
 
   const spin = rotate.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '-10deg'],
+    outputRange: ['0deg', '-18deg'],
   });
 
   return (
@@ -191,6 +234,13 @@ export function ArchiveMotion({
         <Animated.View pointerEvents="none" style={[styles.badge, { opacity: badgeOpacity }]}>
           <View style={[styles.badgePill, { borderColor: accentColor }]}>
             <Ionicons name="archive-outline" size={18} color={accentColor} />
+          </View>
+        </Animated.View>
+      ) : null}
+      {mode === 'restore-out' ? (
+        <Animated.View pointerEvents="none" style={[styles.badge, { opacity: badgeOpacity }]}>
+          <View style={[styles.badgePill, { borderColor: accentColor }]}>
+            <Ionicons name="arrow-undo-outline" size={18} color={accentColor} />
           </View>
         </Animated.View>
       ) : null}

@@ -199,6 +199,56 @@
                     </td>
                 </tr>
                 <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Marktplaats kaart-radius (km)') }}</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="marketplace_map_radius_km"
+                            id="marketplace_map_radius_km"
+                            class="kt-input w-32 @error('marketplace_map_radius_km') border-destructive @enderror"
+                            min="1"
+                            max="200"
+                            step="1"
+                            value="{{ old('marketplace_map_radius_km', $marketplaceMapRadiusKm ?? 25) }}"
+                            aria-invalid="{{ $errors->has('marketplace_map_radius_km') ? 'true' : 'false' }}"
+                        >
+                        <div class="field-feedback text-sm mt-1" data-field="marketplace_map_radius_km" aria-live="polite"></div>
+                        <p class="text-xs text-muted-foreground mt-1 mb-0">
+                            {{ __('Alleen online taxi’s binnen deze hemelsbrede afstand van de klantlocatie worden op de marktplaats-kaart getoond (app + website). Standaard: :default km. Los van de network-partner radius.', ['default' => $envDefaultMarketplaceMapRadiusKm ?? 25]) }}
+                        </p>
+                        @error('marketplace_map_radius_km')
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="marketplace_map_radius_km"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
+                        @enderror
+                    </td>
+                </tr>
+                <tr>
+                    <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Boekingskorting (%)') }}</td>
+                    <td class="min-w-48 w-full pt-4">
+                        <input
+                            type="number"
+                            name="booking_discount_percent"
+                            id="booking_discount_percent"
+                            class="kt-input w-32 @error('booking_discount_percent') border-destructive @enderror"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value="{{ old('booking_discount_percent', $bookingDiscountPercent ?? 0) }}"
+                            aria-invalid="{{ $errors->has('booking_discount_percent') ? 'true' : 'false' }}"
+                        >
+                        <div class="field-feedback text-sm mt-1" data-field="booking_discount_percent" aria-live="polite"></div>
+                        <p class="text-xs text-muted-foreground mt-1 mb-0">
+                            {{ __('Standaard korting op boekingsprijzen t.o.v. de ingestelde tarieven (app + website). 0 = geen korting, 50 = helft van de tariefprijs. Standaard: :default%.', ['default' => $envDefaultBookingDiscountPercent ?? 0]) }}
+                        </p>
+                        @error('booking_discount_percent')
+                            <p class="text-sm text-destructive mt-1 mb-0 laravel-inline-error"
+                               data-laravel-field="booking_discount_percent"
+                               data-laravel-message="{{ $message }}">{{ $message }}</p>
+                        @enderror
+                    </td>
+                </tr>
+                <tr>
                     <td class="min-w-56 text-secondary-foreground font-normal align-top pt-4">{{ __('Geen reactie op wachtmelding (minuten)') }}</td>
                     <td class="min-w-48 w-full pt-4">
                         <input

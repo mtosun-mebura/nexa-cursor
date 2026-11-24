@@ -5,6 +5,7 @@ namespace App\Modules\NexaTaxi\Services;
 use App\Helpers\GeoHelper;
 use App\Models\Company;
 use App\Models\Invoice;
+use App\Models\InvoiceSetting;
 use App\Models\User;
 use App\Modules\NexaTaxi\Models\DriverAvailability;
 use App\Modules\NexaTaxi\Models\RideGpsPoint;
@@ -330,7 +331,11 @@ class CustomerRideLiveStatusService
             'company' => $company ? [
                 'id' => (int) $company->id,
                 'name' => (string) $company->name,
-                'phone' => (string) ($company->phone ?? ''),
+                // Factuurinstelling eerst: company.phone is vaak leeg → Bel-knop deed niets.
+                'phone' => (string) (
+                    InvoiceSetting::getSettingsForCompany($companyId)->company_phone
+                    ?: ($company->phone ?? '')
+                ),
             ] : null,
             'vehicle' => $vehicle ? [
                 'id' => (int) $vehicle->id,
@@ -358,7 +363,41 @@ class CustomerRideLiveStatusService
             'distance_to_pickup_km' => $eta['distance_km'] ?? null,
             'poll_interval_ms' => $phase === 'awaiting_payment' ? 1200
                 : ($phase === 'searching' ? 2500 : 4000),
+            ...$this->chatPayloadForCustomer($ride),
         ];
+    }
+
+    /**
+     * Ongelezen chauffeur-berichten voor lokale push + knipperende chatknop.
+     *
+     * @return array{chat_unread_count: int, chat_latest: array{id: string, from: string, body: string, at: string}|null}
+     */
+    protected function chatPayloadForCustomer(RideRequest $ride): array
+    {
+        try {
+            $chat = app(RideChatService::class);
+            $unread = $chat->unreadCountFor($ride, 'customer');
+            $latest = null;
+            if ($unread > 0) {
+                $messages = $chat->messages($ride);
+                for ($i = count($messages) - 1; $i >= 0; $i--) {
+                    if (($messages[$i]['from'] ?? '') === 'driver') {
+                        $latest = $messages[$i];
+                        break;
+                    }
+                }
+            }
+
+            return [
+                'chat_unread_count' => $unread,
+                'chat_latest' => $latest,
+            ];
+        } catch (\Throwable) {
+            return [
+                'chat_unread_count' => 0,
+                'chat_latest' => null,
+            ];
+        }
     }
 
     /**
@@ -598,12 +637,28 @@ class CustomerRideLiveStatusService
     private function vehiclePhotoUrl(string $conn, Vehicle $vehicle): ?string
     {
         TaxiDispatchSchema::ensureVehicleDriverPhotoColumn($conn);
-        if (! Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
-            return null;
+        if (Schema::connection($conn)->hasColumn('vehicles', 'driver_photo_path')) {
+            $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+            $driverPhoto = app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+            if (is_string($driverPhoto) && $driverPhoto !== '') {
+                return $driverPhoto;
+            }
         }
 
-        $path = Vehicle::on($conn)->whereKey($vehicle->id)->value('driver_photo_path');
+        $imageUrl = trim((string) ($vehicle->image_url ?? ''));
+        if ($imageUrl !== '') {
+            try {
+                $display = app(\App\Services\WebsiteBuilderService::class)->storageUrlToDisplayUrl($imageUrl);
 
-        return app(TaxiDriverProfileMediaService::class)->publicUrlFor(is_string($path) ? $path : null);
+                return is_string($display) && $display !== '' ? $display : $imageUrl;
+            } catch (\Throwable) {
+                return $imageUrl;
+            }
+        }
+
+        return app(\App\Services\VehicleDummyImageService::class)->publicUrlForType(
+            is_string($vehicle->type ?? null) ? $vehicle->type : null,
+            is_string($vehicle->person_range ?? null) ? $vehicle->person_range : null
+        );
     }
 }

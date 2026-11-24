@@ -17,6 +17,14 @@ type NotificationsModule = typeof import('expo-notifications');
 
 let Notifications: NotificationsModule | null = null;
 let alertOnReceiveAttached = false;
+/** Chat-push terwijl de app open is → knipperende chatknop. */
+let foregroundChatListener: ((rideId: number) => void) | null = null;
+
+export function setForegroundDriverChatListener(
+  listener: ((rideId: number) => void) | null
+): void {
+  foregroundChatListener = listener;
+}
 
 function offerAlertWatch() {
   // Lazy: voorkomt circulaire import met offerAlertWatch → driverOffers.
@@ -66,6 +74,16 @@ try {
         const type = String(data.type || '');
         if (type === 'driver_offer_closed') {
           // Lokale Bel-melding speelt al OS-sound; geen extra expo-audio.
+          return;
+        }
+        if (type === 'driver_ride_chat') {
+          // OS toont banner + geluid; app markeert unread via chat-listener.
+          const rideId =
+            positiveId(data.ride_request_id) ??
+            positiveId(data.rideRequestId) ??
+            positiveId(data.ride_id) ??
+            positiveId(data.rideId);
+          if (rideId) foregroundChatListener?.(rideId);
           return;
         }
         if (type && type !== 'driver_offer') return;
@@ -640,6 +658,8 @@ export type DriverNotificationOpenTarget = {
   preview?: DriverOfferPushPreview;
   /** Tik op “Rit geannuleerd”: toon grijze kaart, niet als open aanbod. */
   closed?: boolean;
+  /** Tik op chat-push: open de rit-chat. */
+  openChat?: boolean;
 };
 
 function positiveId(value: unknown): number | null {
@@ -750,6 +770,13 @@ function targetFromNotificationData(data: Record<string, unknown> | undefined | 
       rideId,
     };
   }
+  if (type === 'driver_ride_chat') {
+    return {
+      screen: 'trips',
+      rideId,
+      openChat: true,
+    };
+  }
   return null;
 }
 
@@ -846,7 +873,7 @@ export function setForegroundDriverOfferListener(listener: ForegroundOfferListen
 
 export function addDriverOfferNotificationResponseListener(
   onOpenRequests: (target: DriverNotificationOpenTarget) => void,
-  onOpenTrips?: (rideId?: number | null) => void
+  onOpenTrips?: (target: DriverNotificationOpenTarget) => void
 ): () => void {
   if (!Notifications) return () => undefined;
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -859,7 +886,7 @@ export function addDriverOfferNotificationResponseListener(
       if (target.screen === 'requests') {
         onOpenRequests(target);
       } else {
-        onOpenTrips?.(target.rideId ?? null);
+        onOpenTrips?.(target);
       }
     } catch {
       /* nooit crashen vanuit native notification callback */

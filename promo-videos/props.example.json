@@ -1,0 +1,13 @@
+{
+  "companyName": "NEXA Suite",
+  "productName": "NexaTaxi",
+  "tagline": "Online boeken, dispatch en chauffeur-app in één platform",
+  "subtitle": "White-label taxi SaaS voor ZZP tot vloot",
+  "primaryColor": "#2563eb",
+  "accentColor": "#f97316",
+  "backgroundColor": "#0b1220",
+  "ctaText": "Start met NexaTaxi",
+  "websiteUrl": "nexasuite.nl",
+  "logoUrl": "images/nexa-taxi-logo.png",
+  "showAppScreens": true
+}

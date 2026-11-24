@@ -109,7 +109,7 @@ class NexaTaxiBookingController extends Controller
         $data = $request->validate([
             'lat' => 'nullable|numeric',
             'lng' => 'nullable|numeric',
-            'radius_km' => 'nullable|numeric|min:1|max:100',
+            'radius_km' => 'nullable|numeric|min:1|max:200',
             'section_key' => 'nullable|string|max:120',
             'page_id' => 'nullable|integer',
             'module' => 'nullable|string|max:64',
@@ -122,26 +122,34 @@ class NexaTaxiBookingController extends Controller
             $lat = null;
             $lng = null;
         }
-        $radiusKm = isset($data['radius_km']) && is_numeric($data['radius_km'])
-            ? \App\Services\NearestTaxiTenantResolver::normalizeRadiusKm($data['radius_km'])
-            : null;
-
         $resolved = $this->resolveSectionConfig(
             isset($data['page_id']) ? (int) $data['page_id'] : null,
             $sectionKey,
             isset($data['module']) ? trim((string) $data['module']) : null
         );
-        $configRadiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
-            $resolved['config']['logic']['marketplace_radius_km'] ?? null
-        );
-        if ($radiusKm === null) {
-            $radiusKm = $configRadiusKm;
-        }
         $company = ! empty($resolved['tenant_company_id'])
             ? Company::query()->find((int) $resolved['tenant_company_id'])
             : null;
         $fleet = app(\App\Services\TenantBookingLiveFleetService::class);
         $isMarketplace = $fleet->isMarketplaceSection($sectionKey);
+        $dispatchSettings = app(\App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService::class);
+        // Marktplaats-kaart: admin Dispatch → Marktplaats kaart-radius (los van network radius).
+        $mapRadiusKm = (float) $dispatchSettings->marketplaceMapRadiusKm(
+            $company?->id
+        );
+        $requestRadiusKm = isset($data['radius_km']) && is_numeric($data['radius_km'])
+            ? \App\Services\NearestTaxiTenantResolver::normalizeRadiusKm($data['radius_km'])
+            : null;
+        $configRadiusKm = NearestTaxiTenantResolver::normalizeRadiusKm(
+            $resolved['config']['logic']['marketplace_radius_km'] ?? null
+        );
+        if ($isMarketplace) {
+            $radiusKm = $mapRadiusKm;
+        } elseif ($requestRadiusKm !== null) {
+            $radiusKm = $requestRadiusKm;
+        } else {
+            $radiusKm = $configRadiusKm;
+        }
         $fleetCarColor = $this->normalizeBookingFleetCarColor(
             $resolved['config']['logic']['live_fleet_car_color'] ?? null
         );

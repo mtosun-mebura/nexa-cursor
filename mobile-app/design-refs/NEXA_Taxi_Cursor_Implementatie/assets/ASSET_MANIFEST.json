@@ -1,0 +1,37 @@
+{
+  "backgrounds": [
+    "nexa-route-banner.svg",
+    "nexa-dark-gradient.svg"
+  ],
+  "vehicles": [
+    "nexa-taxi-sedan.png",
+    "nexa-taxi-sedan-duo.png",
+    "nexa-taxi-variant-1.png",
+    "nexa-taxi-variant-2.png"
+  ],
+  "icons": [
+    "call",
+    "chat",
+    "share",
+    "microphone",
+    "mute",
+    "camera",
+    "pin",
+    "plane",
+    "group",
+    "briefcase",
+    "car",
+    "check",
+    "close",
+    "headset",
+    "notification"
+  ],
+  "screens": [
+    "01_home.png",
+    "02_plan_rit.png",
+    "03_kies_voertuig.png",
+    "04_controleer_rit.png",
+    "05_chauffeur_gekoppeld.png",
+    "06_live_volgen.png"
+  ]
+}

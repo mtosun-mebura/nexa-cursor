@@ -58,6 +58,7 @@ return [
         'admin.taxi.complaints.*',
         'admin.website-pages.*',
         'admin.website-ai.*',
+        'admin.promo-videos.*',
         'admin.frontend-themes.*',
         'admin.frontend-components.*',
         'admin.customer-emails.*',

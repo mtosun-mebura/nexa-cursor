@@ -500,6 +500,17 @@ export function startDemoSimulation(at: { lat: number; lng: number }) {
       const pathDone = next.path.length < 2 || next.pathIndex >= next.path.length - 1;
       if (pathDone && !next.routing) {
         requestNextCruise(next);
+      } else if (pathDone && next.routing) {
+        // OSRM nog bezig maar straight path klaar: blijf rijden i.p.v. stil te staan/draaien.
+        const from = { lat: next.lat, lng: next.lng };
+        const to = pickDestination(next, next.band);
+        const straight = buildStraightPath(from, to);
+        next = {
+          ...next,
+          path: straight,
+          pathIndex: 0,
+          heading: bearingTo(straight[0], straight[1]),
+        };
       }
       return next;
     });

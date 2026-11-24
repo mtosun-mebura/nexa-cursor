@@ -40,8 +40,14 @@ class NexaTaxiVehicleDisplayService
                 $query->where('company_id', $forCompanyId);
             }
             $vehicle = $query->first();
-            if (! $vehicle || empty($vehicle->image_url)) {
+            if (! $vehicle) {
                 return null;
+            }
+            if (empty($vehicle->image_url)) {
+                return app(VehicleDummyImageService::class)->publicUrlForType(
+                    is_string($vehicle->type ?? null) ? $vehicle->type : null,
+                    is_string($vehicle->person_range ?? null) ? $vehicle->person_range : null
+                );
             }
             $displayUrl = $this->websiteBuilder->storageUrlToDisplayUrl(trim((string) $vehicle->image_url));
 

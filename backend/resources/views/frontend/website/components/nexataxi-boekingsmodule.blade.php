@@ -3765,8 +3765,10 @@ section#boek-rit[data-nexataxi-booking-module],
     var submitUrl = @json(route('nexataxi.booking.submit'));
     var pendingUrl = @json(route('nexataxi.booking.pending'));
     var pageId = @json($bookingPageId);
-    var bookingVehiclePlaceholderUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder.png'));
-    var bookingVehiclePlaceholderVanUrl = @json(asset('modules/nexa-taxi/vehicle-placeholder-van.png'));
+    var bookingVehiclePlaceholderUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_CAR));
+    var bookingVehiclePlaceholderVanUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_VAN));
+    var bookingVehiclePlaceholderBusUrl = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderUrl(\App\Modules\NexaTaxi\Models\Vehicle::TYPE_BUS));
+    var bookingVehicleDummyBg = @json(\App\Modules\NexaTaxi\Models\Vehicle::placeholderBackgroundColor());
     var sectionKey = @json($sectionKey ?? 'component:taxi.boekingsmodule');
     var bookingModuleName = @json(isset($page) && !empty($page->module_name) ? $page->module_name : null);
     var bookingReturnUrl = @json($bookingReturnUrl !== '' ? $bookingReturnUrl : null);
@@ -4180,7 +4182,15 @@ section#boek-rit[data-nexataxi-booking-module],
             if (durationSeconds > 0) {
                 var mins = Math.max(1, Math.round(durationSeconds / 60));
                 if (state.return_trip) mins = mins * 2;
-                durationEl.textContent = mins + ' min';
+                var hours = Math.floor(mins / 60);
+                var rest = mins % 60;
+                if (hours <= 0) {
+                    durationEl.textContent = rest + ' min';
+                } else if (rest <= 0) {
+                    durationEl.textContent = hours + ' u';
+                } else {
+                    durationEl.textContent = hours + ' u ' + rest + ' min';
+                }
             } else {
                 durationEl.textContent = '—';
             }
@@ -5044,7 +5054,16 @@ section#boek-rit[data-nexataxi-booking-module],
             loading.classList.remove('flex');
         }
         if (kmEl) kmEl.textContent = String(kmStr) + ' km';
-        if (minEl) minEl.textContent = '± ' + String(minStr) + ' min';
+        if (minEl) {
+            var minsNum = Math.max(0, parseInt(String(minStr), 10) || 0);
+            var hrs = Math.floor(minsNum / 60);
+            var restM = minsNum % 60;
+            var durLabel;
+            if (hrs <= 0) durLabel = restM + ' min';
+            else if (restM <= 0) durLabel = hrs + ' u';
+            else durLabel = hrs + ' u ' + restM + ' min';
+            minEl.textContent = '± ' + durLabel;
+        }
         if (stats) stats.classList.remove('hidden');
         if (banner) {
             banner.classList.remove('hidden');
@@ -6891,9 +6910,14 @@ section#boek-rit[data-nexataxi-booking-module],
     }
 
     function placeholderUrlForPersonRange(range) {
-        return String(range || '') === '5-8'
-            ? String(bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim()
-            : String(bookingVehiclePlaceholderUrl || '').trim();
+        var r = String(range || '').trim();
+        if (r === '5-8') {
+            return String(bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim();
+        }
+        if (r === '9+') {
+            return String(bookingVehiclePlaceholderBusUrl || bookingVehiclePlaceholderVanUrl || bookingVehiclePlaceholderUrl || '').trim();
+        }
+        return String(bookingVehiclePlaceholderUrl || '').trim();
     }
 
     function isBookingVehiclePlaceholderUrl(url) {
@@ -6902,16 +6926,26 @@ section#boek-rit[data-nexataxi-booking-module],
         var placeholders = [
             String(bookingVehiclePlaceholderUrl || '').trim(),
             String(bookingVehiclePlaceholderVanUrl || '').trim(),
+            String(bookingVehiclePlaceholderBusUrl || '').trim(),
         ].filter(Boolean);
         if (placeholders.some(function(p) { return src === p || src.indexOf(p) === 0; })) {
             return true;
         }
-        return /\/modules\/nexa-taxi\/vehicle-placeholder(?:-van)?\.png(?:\?|$)/i.test(src);
+        return /\/modules\/nexa-taxi\/vehicle-dummy-[a-z0-9-]+\.png(?:\?|$)/i.test(src)
+            || /\/modules\/nexa-taxi\/vehicle-placeholder(?:-van)?\.png(?:\?|$)/i.test(src)
+            || /\/(?:storage|file)\/settings\/vehicle-dummies\//i.test(src);
     }
 
     function setBookingVehiclePlaceholderBadge(wrapEl, badgeEl, imageUrl, isPlaceholder) {
         if (wrapEl) {
             wrapEl.classList.toggle('is-placeholder', !!isPlaceholder);
+            if (isPlaceholder && bookingVehicleDummyBg) {
+                wrapEl.style.backgroundColor = bookingVehicleDummyBg;
+            } else if (isPlaceholder) {
+                wrapEl.style.backgroundColor = 'transparent';
+            } else {
+                wrapEl.style.backgroundColor = '';
+            }
         }
         if (!badgeEl) return;
         if (isPlaceholder && imageUrl) {
@@ -9142,9 +9176,11 @@ section#boek-rit[data-nexataxi-booking-module],
         if (seq !== routeCalcSeq) return;
         var dist = Math.max(0, Math.round(Number(distanceMeters) || 0));
         var dur = Math.max(0, Math.round(Number(durationSeconds) || 0));
-        // Stadsrit-vloer (~15 km/u): free-flow OSRM/Google onderschat taximetertijd (stoplichten).
-        if (dist > 0) {
-            var minDur = Math.round((dist / 1000) / 15 * 3600);
+        // Stadsrit-vloer (~15 km/u) alleen tot 25 km — daarboven OSRM/Google-tijd houden
+        // (anders wordt Enschede→DUS ~544 min / €860).
+        var distKm = dist / 1000;
+        if (dist > 0 && distKm <= 25) {
+            var minDur = Math.round(distKm / 15 * 3600);
             if (dur < minDur) dur = minDur;
         }
         state.distance_meters = dist;

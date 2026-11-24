@@ -26,6 +26,15 @@ services:
       retries: 12
       start_period: 15s
 
+  rembg:
+    image: danielgatis/rembg:latest
+    command: ["s", "--host", "0.0.0.0", "--port", "7000", "--no-ui"]
+    expose:
+      - "7000"
+    volumes:
+      - rembg_models:/root/.rembg
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -77,6 +86,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      rembg:
+        condition: service_started
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -98,6 +109,10 @@ services:
       N8N_EMAIL: m.tosun@mebura.nl
       # Coolify interpolates this at deploy time (not a volume source).
       NEXA_HOST_PROJECT_DIR: ${PWD}
+      VEHICLE_CUTOUT_DRIVER: ${VEHICLE_CUTOUT_DRIVER:-auto}
+      REMBG_URL: ${REMBG_URL:-http://rembg:7000}
+      REMBG_MODEL: ${REMBG_MODEL:-u2net}
+      REMOVEBG_API_KEY: ${REMOVEBG_API_KEY:-}
 
     volumes:
       - ./backend/storage:/var/www/html/storage
@@ -125,3 +140,4 @@ volumes:
     # Coolify wisselt soms de projectnaam; dan ontstaat een leeg volume en lijken
     # alle wachtwoorden “gereset” (nieuwe DB + bootstrap-default).
     name: nexa_postgres_data
+  rembg_models:

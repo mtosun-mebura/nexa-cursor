@@ -15,7 +15,13 @@ import { useThemeColors } from '../theme/ThemeContext';
 import { useOptionalDriverAccent } from '../theme/driverAccent';
 import { compactInputProps } from './androidText';
 
-export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function Screen({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle | ViewStyle[] | false | null;
+}) {
   const colors = useThemeColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return <View style={[styles.screen, style]}>{children}</View>;
@@ -287,7 +293,7 @@ function makeStyles(colors: ColorPalette) {
       flex: 1,
       minHeight: 0,
       backgroundColor: colors.bg,
-      paddingHorizontal: 20,
+      paddingHorizontal: 12,
       paddingTop: 24,
       paddingBottom: 28,
     },

@@ -10,6 +10,7 @@ use App\Modules\NexaTaxi\Models\RidePayment;
 use App\Modules\NexaTaxi\Models\RideRequest;
 use App\Modules\NexaTaxi\Services\DriverCompletedRideArchiveService;
 use App\Modules\NexaTaxi\Services\MarketplacePickupConfirmationService;
+use App\Modules\NexaTaxi\Services\RideChatService;
 use App\Modules\NexaTaxi\Services\RideClaimService;
 use App\Modules\NexaTaxi\Services\RideDispatchService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
@@ -1055,5 +1056,77 @@ class DriverDispatchController extends Controller
                 && $partners !== [],
             'partners' => $partners,
         ];
+    }
+
+    public function chat(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideChatService $chat
+    ): JsonResponse {
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $driver = $request->user();
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        $model = RideRequest::on($conn)->find($ride);
+
+        if (! $model || ! $model->isVisibleToDriver((int) $driver->id, $vehicleId)) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        // Openen van chat = gelezen voor de chauffeur.
+        $chat->markRead($model, 'driver');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'allowed' => $chat->communicationAllowed($model),
+                'messages' => $chat->messages($model),
+                'customer_name' => (string) ($model->customer_name ?? ''),
+                'unread_count' => 0,
+            ],
+        ]);
+    }
+
+    public function sendChat(
+        Request $request,
+        int $ride,
+        ModuleDatabaseService $moduleDb,
+        RideChatService $chat
+    ): JsonResponse {
+        $data = $request->validate([
+            'body' => 'required|string|min:1|max:2000',
+            // Client mag weglaten; server maakt UUID. Oude apps stuurden soms d-timestamp.
+            'client_message_id' => 'nullable|string|max:64',
+        ]);
+
+        $conn = $moduleDb->getModuleConnectionName('taxi');
+        $driver = $request->user();
+        $vehicleId = DriverAvailability::vehicleIdForDriver($conn, (int) $driver->id);
+        $model = RideRequest::on($conn)->find($ride);
+
+        if (! $model || ! $model->isVisibleToDriver((int) $driver->id, $vehicleId)) {
+            return response()->json(['message' => 'Rit niet gevonden.'], 404);
+        }
+
+        if (! $chat->communicationAllowed($model)) {
+            return response()->json([
+                'message' => 'Chat is alleen beschikbaar tijdens een gekoppelde rit.',
+            ], 409);
+        }
+
+        $messages = $chat->append(
+            $model,
+            'driver',
+            (string) $data['body'],
+            isset($data['client_message_id']) ? (string) $data['client_message_id'] : null
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'allowed' => true,
+                'messages' => $messages,
+            ],
+        ]);
     }
 }

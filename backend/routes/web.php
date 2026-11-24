@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAiChatController;
 use App\Http\Controllers\Admin\AdminAiImageGeneratorController;
+use App\Http\Controllers\Admin\AdminPromoVideoController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\Admin\AdminCandidateController;
 use App\Http\Controllers\Admin\AdminCompanyBillingProfileController;
@@ -1055,6 +1056,10 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
         Route::post('settings/upload-coming-soon-image', [AdminSettingsController::class, 'uploadComingSoonImage'])->name('settings.upload-coming-soon-image');
         Route::post('settings/remove-coming-soon-image', [AdminSettingsController::class, 'removeComingSoonImage'])->name('settings.remove-coming-soon-image');
         Route::get('settings/coming-soon-image', [AdminSettingsController::class, 'getComingSoonImage'])->name('settings.coming-soon-image');
+        Route::post('settings/vehicle-dummies/upload', [AdminSettingsController::class, 'uploadVehicleDummyImage'])->name('settings.vehicle-dummies.upload');
+        Route::post('settings/vehicle-dummies/select', [AdminSettingsController::class, 'selectVehicleDummyImage'])->name('settings.vehicle-dummies.select');
+        Route::post('settings/vehicle-dummies/remove', [AdminSettingsController::class, 'removeVehicleDummyImage'])->name('settings.vehicle-dummies.remove');
+        Route::post('settings/vehicle-dummies/background', [AdminSettingsController::class, 'updateVehicleDummyBackground'])->name('settings.vehicle-dummies.background');
 
         // Welkom-pagina editor (Super Admin only)
         Route::get('welcome-page', [AdminWelcomePageController::class, 'edit'])->name('welcome-page.edit');
@@ -1068,6 +1073,11 @@ Route::middleware(['web', 'admin', 'admin.password.changed', 'admin.tenant.sync'
             Route::get('ai-images', [AdminAiImageGeneratorController::class, 'index'])->name('ai-images.index');
             Route::post('ai-images/generate', [AdminAiImageGeneratorController::class, 'generate'])->name('ai-images.generate');
             Route::delete('ai-images/{aiGeneratedImage}', [AdminAiImageGeneratorController::class, 'destroy'])->name('ai-images.destroy');
+
+            Route::get('promo-videos', [AdminPromoVideoController::class, 'index'])->name('promo-videos.index');
+            Route::post('promo-videos/preview', [AdminPromoVideoController::class, 'preview'])->name('promo-videos.preview');
+            Route::post('promo-videos/render', [AdminPromoVideoController::class, 'render'])->name('promo-videos.render');
+            Route::post('promo-videos/upload-logo', [AdminPromoVideoController::class, 'uploadLogo'])->name('promo-videos.upload-logo');
         });
 
         Route::get('frontend-themes', [AdminFrontendThemeController::class, 'index'])->name('frontend-themes.index');

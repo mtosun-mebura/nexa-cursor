@@ -213,6 +213,12 @@ Route::prefix('v1/driver')
         Route::post('dispatch/rides/{ride}/en-route', [DriverDispatchController::class, 'enRoute'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');
+        Route::get('dispatch/rides/{ride}/chat', [DriverDispatchController::class, 'chat'])
+            ->middleware('throttle:taxi-driver-read')
+            ->whereNumber('ride');
+        Route::post('dispatch/rides/{ride}/chat', [DriverDispatchController::class, 'sendChat'])
+            ->middleware('throttle:taxi-driver-action')
+            ->whereNumber('ride');
         Route::post('dispatch/rides/{ride}/start', [DriverDispatchController::class, 'start'])
             ->middleware('throttle:taxi-driver-action')
             ->whereNumber('ride');

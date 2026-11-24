@@ -130,6 +130,22 @@ class NexaTaxiBookingFareFormulaTest extends TestCase
         $this->assertSame(1500, $kept);
     }
 
+    #[Test]
+    public function long_highway_trip_does_not_apply_city_duration_floor(): void
+    {
+        // Enschede → DUS ≈ 135,8 km / 89 min — vloer zou ~544 min zijn.
+        $osrmSeconds = 89 * 60;
+        $floored = app(NexaTaxiBookingPricingService::class)
+            ->ensureTaxiDurationFloor(135800, $osrmSeconds);
+        $this->assertSame($osrmSeconds, $floored);
+
+        $quotes = $this->quotes(135800, $osrmSeconds);
+        // Weergave-duur blijft OSRM (niet de oude 15 km/u-vloer).
+        $this->assertSame($osrmSeconds, (int) $quotes['duration_seconds']);
+        // 4,31 + 135,8×3,17 + 89×0,52 ≈ 481,17
+        $this->assertEqualsWithDelta(481.17, (float) $quotes['offers'][0]['price'], 0.5);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -71,4 +71,31 @@ return [
         ),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Voertuigfoto cutouts (transparante PNG)
+    |--------------------------------------------------------------------------
+    | driver=auto: rembg (HTTP/CLI/Docker) → remove.bg fallback
+    | driver=rembg|removebg|off
+    */
+    'vehicle_cutout' => [
+        'driver' => env('VEHICLE_CUTOUT_DRIVER', 'auto'),
+        'rembg' => [
+            'url' => env('REMBG_URL'), // bv. http://rembg:7000
+            'bin' => env('REMBG_BIN', 'rembg'),
+            'model' => env('REMBG_MODEL', 'u2net'),
+            'docker' => env('REMBG_DOCKER', false),
+            'docker_image' => env('REMBG_DOCKER_IMAGE', 'danielgatis/rembg'),
+            'timeout' => (int) env('REMBG_TIMEOUT', 90),
+        ],
+        'removebg' => [
+            'key' => env('REMOVEBG_API_KEY'),
+        ],
+    ],
+
+    // Legacy alias (zelfde key als vehicle_cutout.removebg.key)
+    'removebg' => [
+        'key' => env('REMOVEBG_API_KEY'),
+    ],
+
 ];

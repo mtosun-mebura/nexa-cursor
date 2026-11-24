@@ -81,6 +81,8 @@ export type DispatchOfferRide = {
   customer_email?: string | null;
   customer_phone?: string | null;
   customer_note?: string | null;
+  /** Ongelezen chatberichten van de klant voor deze rit. */
+  chat_unread_count?: number | null;
   quoted_price?: number | null;
   payment_status?: string | null;
   payment_method?: string | null;
@@ -690,6 +692,45 @@ export function markRideEnRoute(token: string, rideId: number) {
   }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/en-route`, {
     method: 'POST',
     token,
+  });
+}
+
+export type DriverRideChatMessage = {
+  id: string;
+  from: 'customer' | 'driver' | 'system';
+  body: string;
+  at: string;
+};
+
+export function fetchDriverRideChat(token: string, rideId: number) {
+  return apiRequest<{
+    success?: boolean;
+    data?: {
+      allowed?: boolean;
+      messages?: DriverRideChatMessage[];
+      customer_name?: string | null;
+      unread_count?: number;
+    };
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/chat`, { token });
+}
+
+export function sendDriverRideChat(
+  token: string,
+  rideId: number,
+  body: string,
+  clientMessageId?: string
+) {
+  return apiRequest<{
+    success?: boolean;
+    data?: { allowed?: boolean; messages?: DriverRideChatMessage[] };
+    message?: string;
+  }>(`/api/taxi/v1/driver/dispatch/rides/${rideId}/chat`, {
+    method: 'POST',
+    token,
+    body: {
+      body,
+      client_message_id: clientMessageId || undefined,
+    },
   });
 }
 

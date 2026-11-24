@@ -14,6 +14,8 @@ class TaxiDriverNotification extends Model
 
     public const TYPE_BLOCKED = 'blocked';
 
+    public const TYPE_RIDE_CHAT = 'ride_chat';
+
     protected $table = 'taxi_driver_notifications';
 
     protected $fillable = [

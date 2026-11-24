@@ -84,6 +84,10 @@ class DispatchSettingsController extends Controller
             'envDefaultMarketplaceMaxWaitMinutes' => (int) config('taxi-dispatch.marketplace_max_wait_minutes', 30),
             'minMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES,
             'maxMarketplaceMaxWaitMinutes' => TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES,
+            'marketplaceMapRadiusKm' => $this->dispatchSettings->marketplaceMapRadiusKm($companyId),
+            'envDefaultMarketplaceMapRadiusKm' => (int) config('taxi-dispatch.marketplace_map_radius_km', 25),
+            'bookingDiscountPercent' => $this->dispatchSettings->bookingDiscountPercent($companyId),
+            'envDefaultBookingDiscountPercent' => (int) config('taxi-dispatch.booking_discount_percent', 0),
             'requireEnRouteBeforeStart' => $this->dispatchSettings->requireEnRouteBeforeStart($companyId),
             'bookingDriverEmailEnabled' => $this->dispatchSettings->bookingDriverEmailEnabled($companyId),
             'bookingCustomerEmailEnabled' => $this->dispatchSettings->bookingCustomerEmailEnabled($companyId),
@@ -245,6 +249,8 @@ class DispatchSettingsController extends Controller
             'network_mode' => ['nullable', 'string', 'in:off,manual,auto'],
             'network_fallback_seconds' => ['nullable', 'integer', 'min:30', 'max:3600'],
             'network_max_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'marketplace_map_radius_km' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'booking_discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
         ];
         if ($companyId !== null) {
             $rules['overdue_auto_archive_days'] = [
@@ -307,6 +313,14 @@ class DispatchSettingsController extends Controller
             (int) $validated['marketplace_max_wait_minutes'],
             $companyId
         );
+        $this->dispatchSettings->setMarketplaceMapRadiusKm(
+            (int) ($validated['marketplace_map_radius_km'] ?? 25),
+            $companyId
+        );
+        $this->dispatchSettings->setBookingDiscountPercent(
+            (int) ($validated['booking_discount_percent'] ?? 0),
+            $companyId
+        );
         $this->dispatchSettings->setRequireEnRouteBeforeStart(
             $request->boolean('require_en_route_before_start'),
             $companyId
@@ -367,6 +381,8 @@ class DispatchSettingsController extends Controller
             $rules['unaccepted_auto_cancel_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_UNACCEPTED_AUTO_CANCEL_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_UNACCEPTED_AUTO_CANCEL_MINUTES];
             $rules['customer_unaccepted_decision_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_CUSTOMER_UNACCEPTED_DECISION_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_CUSTOMER_UNACCEPTED_DECISION_MINUTES];
             $rules['marketplace_max_wait_minutes'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_MARKETPLACE_MAX_WAIT_MINUTES, 'max:'.TaxiDispatchSettingsService::MAX_MARKETPLACE_MAX_WAIT_MINUTES];
+            $rules['marketplace_map_radius_km'] = ['nullable', 'integer', 'min:1', 'max:200'];
+            $rules['booking_discount_percent'] = ['nullable', 'integer', 'min:0', 'max:100'];
             $rules['require_en_route_before_start'] = ['nullable', 'in:0,1'];
             if ($companyId !== null) {
                 $rules['overdue_auto_archive_days'] = ['required', 'integer', 'min:'.TaxiDispatchSettingsService::MIN_OVERDUE_AUTO_ARCHIVE_DAYS, 'max:'.TaxiDispatchSettingsService::MAX_OVERDUE_AUTO_ARCHIVE_DAYS];
@@ -414,6 +430,14 @@ class DispatchSettingsController extends Controller
             $this->dispatchSettings->setUnacceptedAutoCancelMinutes((int) $validated['unaccepted_auto_cancel_minutes'], $companyId);
             $this->dispatchSettings->setCustomerUnacceptedDecisionMinutes((int) $validated['customer_unaccepted_decision_minutes'], $companyId);
             $this->dispatchSettings->setMarketplaceMaxWaitMinutes((int) $validated['marketplace_max_wait_minutes'], $companyId);
+            $this->dispatchSettings->setMarketplaceMapRadiusKm(
+                (int) ($validated['marketplace_map_radius_km'] ?? 25),
+                $companyId
+            );
+            $this->dispatchSettings->setBookingDiscountPercent(
+                (int) ($validated['booking_discount_percent'] ?? 0),
+                $companyId
+            );
             $this->dispatchSettings->setRequireEnRouteBeforeStart($request->boolean('require_en_route_before_start'), $companyId);
         }
         if (in_array('customer_login', $mutating, true)) {

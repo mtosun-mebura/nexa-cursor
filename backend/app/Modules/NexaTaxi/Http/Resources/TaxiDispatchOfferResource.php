@@ -8,6 +8,7 @@ use App\Modules\NexaTaxi\Models\TransportOccurrence;
 use App\Modules\NexaTaxi\Services\ContractOccurrenceGeneratorService;
 use App\Modules\NexaTaxi\Services\ContractRideStopService;
 use App\Models\GeneralSetting;
+use App\Modules\NexaTaxi\Services\RideChatService;
 use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use App\Modules\NexaTaxi\Services\TaxiRideInvoiceService;
 use App\Modules\NexaTaxi\Services\TaxiRidePaymentService;
@@ -289,6 +290,7 @@ class TaxiDispatchOfferResource
             'customer_name' => $ride->customer_name,
             'customer_phone' => $ride->customer_phone,
             'customer_note' => $ride->customer_note ? (string) $ride->customer_note : null,
+            'chat_unread_count' => app(RideChatService::class)->unreadCountFor($ride, 'driver'),
             'baggage' => self::baggagePayload($ride),
             'distance_km' => $tripMeters > 0 ? round($tripMeters / 1000, 1) : null,
             'duration_seconds' => $tripSeconds > 0 ? $tripSeconds : null,

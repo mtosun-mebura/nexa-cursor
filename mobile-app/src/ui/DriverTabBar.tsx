@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../theme/ThemeContext';
+import { useTheme, useThemeColors } from '../theme/ThemeContext';
 import { compactFontProps } from './androidText';
 import { tabBarBottomPadding } from './tabBarSafeArea';
 
@@ -19,12 +19,15 @@ const ALL_TABS: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'trips', label: t("Ritten"), icon: 'calendar-outline' },
-  { key: 'requests', label: t("Aanvragen"), icon: 'car-outline' },
-  { key: 'planning', label: t("Planning"), icon: 'calendar-number-outline' },
-  { key: 'earnings', label: t("Inkomsten"), icon: 'cash-outline' },
-  { key: 'profile', label: t("Profiel"), icon: 'person-outline' },
+  { key: 'trips', label: t('Ritten'), icon: 'calendar-outline' },
+  { key: 'requests', label: t('Aanvragen'), icon: 'car-outline' },
+  { key: 'planning', label: t('Planning'), icon: 'calendar-number-outline' },
+  { key: 'earnings', label: t('Inkomsten'), icon: 'cash-outline' },
+  { key: 'profile', label: t('Profiel'), icon: 'person-outline' },
 ];
+
+const ORANGE = '#FF8A00';
+const NAVY = '#0B1F3A';
 
 export function DriverTabBar({
   active,
@@ -43,30 +46,34 @@ export function DriverTabBar({
 }) {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+  const { colorScheme } = useTheme();
+  const light = colorScheme === 'light';
   const tabs = useMemo(
-    () => ALL_TABS.filter((t) => t.key !== 'earnings' || showEarnings),
+    () => ALL_TABS.filter((tab) => tab.key !== 'earnings' || showEarnings),
     [showEarnings]
   );
+  const activeTint = accent || ORANGE;
+  const barBg = light ? '#FFFFFF' : NAVY;
 
   return (
     <View
       style={[
         styles.bar,
         {
-          paddingBottom: tabBarBottomPadding(insets.bottom),
-          borderTopColor: colors.border,
-          backgroundColor: colors.tabBar,
+          paddingBottom: Math.max(tabBarBottomPadding(insets.bottom), insets.bottom),
+          borderTopColor: light ? 'rgba(8, 125, 255, 0.2)' : 'rgba(110, 190, 255, 0.28)',
+          backgroundColor: barBg,
         },
       ]}
     >
       {tabs.map((tab) => {
         const isActive = active === tab.key;
-        const tint = isActive ? accent || colors.amber : colors.muted;
+        const tint = isActive ? activeTint : light ? '#64748B' : colors.muted;
         return (
           <Pressable
             key={tab.key}
             onPress={() => onChange(tab.key)}
-            style={[styles.tab, isActive && { backgroundColor: `${accent || colors.amber}24` }]}
+            style={styles.tab}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={
@@ -106,17 +113,15 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingTop: 4,
-    paddingHorizontal: 2,
-    gap: 1,
+    paddingTop: 8,
+    paddingHorizontal: 4,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 5,
-    borderRadius: 10,
-    minHeight: 48,
+    paddingVertical: 6,
+    minHeight: 52,
     position: 'relative',
   },
   icon: {
@@ -128,16 +133,16 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: '16%',
-    minWidth: 18,
-    height: 18,
+    top: 2,
+    right: '18%',
+    minWidth: 16,
+    height: 16,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
     zIndex: 2,
-    backgroundColor: '#EF4444',
+    backgroundColor: ORANGE,
   },
   badgeText: {
     fontSize: 10,

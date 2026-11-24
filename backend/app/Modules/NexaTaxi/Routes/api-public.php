@@ -63,6 +63,10 @@ Route::prefix('v1/customer')->group(function () {
         ->middleware('throttle:taxi-customer-action');
     Route::get('live/invoice', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'invoiceByToken'])
         ->middleware('throttle:taxi-customer-read');
+    Route::get('live/chat', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'chatByToken'])
+        ->middleware('throttle:taxi-customer-read');
+    Route::post('live/chat', [\App\Modules\NexaTaxi\Controllers\Api\CustomerRideController::class, 'sendChatByToken'])
+        ->middleware('throttle:taxi-customer-action');
 });
 
 Route::post('webhooks/mollie', TaxiMollieWebhookController::class)

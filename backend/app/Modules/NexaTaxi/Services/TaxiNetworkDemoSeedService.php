@@ -229,7 +229,7 @@ class TaxiNetworkDemoSeedService
         ]);
         $this->roles->syncWebRoles($driver, ['chauffeur']);
 
-        $vehicle = Vehicle::on($conn)->updateOrCreate(
+        $vehicle = Vehicle::on($conn)->firstOrCreate(
             [
                 'company_id' => $company->id,
                 'license_plate' => $def['plate'],

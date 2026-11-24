@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Module;
 use App\Modules\NexaTaxi\Models\DefaultRate;
 use App\Modules\NexaTaxi\Models\Vehicle;
+use App\Modules\NexaTaxi\Services\TaxiDispatchSettingsService;
 use Carbon\Carbon;
 
 class NexaTaxiBookingPricingService
@@ -271,8 +272,8 @@ class NexaTaxiBookingPricingService
             )
         );
         $distanceMeters = max(0, (int) ($input['distance_meters'] ?? 0));
+        // Ruwe routetijd voor weergave; vloer alleen intern bij tariefberekening.
         $durationSeconds = max(0, (int) ($input['duration_seconds'] ?? 0));
-        $durationSeconds = $this->ensureTaxiDurationFloor($distanceMeters, $durationSeconds);
         $returnTrip = ! empty($input['return_trip']);
         $pickupAt = isset($input['pickup_at']) && trim((string) $input['pickup_at']) !== '' ? (string) $input['pickup_at'] : null;
         $waitingMinutes = max(0, (float) ($input['waiting_minutes'] ?? 0));
@@ -403,6 +404,10 @@ class NexaTaxiBookingPricingService
             }
         }
 
+        $discountPercent = app(TaxiDispatchSettingsService::class)
+            ->bookingDiscountPercent($tenantCompanyId);
+        $resultOffers = $this->applyBookingDiscount($resultOffers, $discountPercent);
+
         return [
             'passengers' => $passengers,
             'offer_display_mode' => $offerDisplayMode,
@@ -414,8 +419,42 @@ class NexaTaxiBookingPricingService
             'duration_seconds' => $durationSeconds,
             'return_trip' => $returnTrip,
             'extra_total' => round($extraTotal, 2),
+            'booking_discount_percent' => $discountPercent,
             'offers' => $resultOffers,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $offers
+     * @return list<array<string, mixed>>
+     */
+    private function applyBookingDiscount(array $offers, int $discountPercent): array
+    {
+        $discountPercent = max(0, min(100, $discountPercent));
+        if ($discountPercent <= 0) {
+            return $offers;
+        }
+
+        $factor = (100 - $discountPercent) / 100;
+
+        return array_map(static function (array $offer) use ($factor, $discountPercent): array {
+            $price = isset($offer['price']) && is_numeric($offer['price'])
+                ? (float) $offer['price']
+                : null;
+            if ($price === null) {
+                return $offer;
+            }
+            $existingOld = isset($offer['old_price']) && is_numeric($offer['old_price'])
+                ? (float) $offer['old_price']
+                : null;
+            if ($existingOld === null || $existingOld < $price) {
+                $offer['old_price'] = round($price, 2);
+            }
+            $offer['price'] = round($price * $factor, 2);
+            $offer['discount_percent'] = $discountPercent;
+
+            return $offer;
+        }, $offers);
     }
 
     private function normalizePricedItems(mixed $items, array $fallback): array
@@ -523,11 +562,10 @@ class NexaTaxiBookingPricingService
     {
         $normalized = $this->normalizePersonRange($range);
 
-        if ($normalized === '5-8') {
-            return asset('modules/nexa-taxi/vehicle-placeholder-van.png');
-        }
-
-        return asset('modules/nexa-taxi/vehicle-placeholder.png');
+        return app(VehicleDummyImageService::class)->publicUrlForType(
+            Vehicle::typeForPersonRange($normalized ?: '1-4'),
+            $normalized ?: '1-4'
+        );
     }
 
     private function higherPersonRange(string $a, string $b): string
@@ -792,8 +830,15 @@ class NexaTaxiBookingPricingService
     }
 
     /**
-     * Free-flow routes (OSRM/Google zonder files) onderschatten stadsritten.
-     * Taximeters tikken mee bij stoplichten; vloer op ~15 km/u gemiddeld in de stad.
+     * Max. afstand waarvoor de stads-tijdvloer geldt (km).
+     * Daarboven (snelweg / luchthaven) is OSRM-tijd betrouwbaar genoeg —
+     * 15 km/u over 135 km zou ~9 uur rijtijd en absurde prijzen geven.
+     */
+    public const CITY_DURATION_FLOOR_MAX_KM = 25.0;
+
+    /**
+     * Free-flow routes (OSRM/Google zonder files) onderschatten korte stadsritten.
+     * Taximeters tikken mee bij stoplichten; vloer op ~15 km/u — alleen tot 25 km.
      */
     public function ensureTaxiDurationFloor(int $distanceMeters, int $durationSeconds): int
     {
@@ -802,7 +847,12 @@ class NexaTaxiBookingPricingService
             return $durationSeconds;
         }
 
-        $minSeconds = (int) round(($distanceMeters / 1000) / 15.0 * 3600);
+        $distanceKm = $distanceMeters / 1000.0;
+        if ($distanceKm > self::CITY_DURATION_FLOOR_MAX_KM) {
+            return $durationSeconds;
+        }
+
+        $minSeconds = (int) round($distanceKm / 15.0 * 3600);
 
         return max($durationSeconds, $minSeconds);
     }

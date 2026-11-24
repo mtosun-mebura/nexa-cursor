@@ -33,7 +33,7 @@ export function DutchPlateInput({
   );
 }
 
-const BADGE_HEIGHT = 34;
+const BADGE_HEIGHT = 26;
 const EU_STARS = 12;
 
 function EuStarRing() {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     flexShrink: 1,
     maxWidth: '100%',
     height: BADGE_HEIGHT,
@@ -146,11 +146,12 @@ const styles = StyleSheet.create({
     borderColor: '#1A1A1A',
   },
   badgeEu: {
-    width: BADGE_HEIGHT / 2,
+    width: 14,
     backgroundColor: '#003399',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
+    gap: 0,
+    paddingVertical: 1,
   },
   badgeNl: {
     color: '#FFFFFF',
@@ -162,11 +163,12 @@ const styles = StyleSheet.create({
   badgeText: {
     flexShrink: 1,
     color: '#141414',
-    fontSize: 22,
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 1,
     textAlign: 'center',
     paddingHorizontal: 8,
     lineHeight: BADGE_HEIGHT - 2,
+    includeFontPadding: false,
   },
 });
