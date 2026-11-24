@@ -2301,6 +2301,11 @@ export function DriverHomeScreen() {
     setPickupPin('');
     setPinFormError(null);
     setFlowMessage(null);
+    // Focus ná modal-paint — anders toetsenbord vóór popup (paneel onzichtbaar).
+    setTimeout(() => {
+      if (!mountedRef.current) return;
+      pickupPinInputRef.current?.focus();
+    }, 320);
   }
 
   function confirmPickupPin() {
@@ -5628,6 +5633,7 @@ export function DriverHomeScreen() {
           setPinFormError(null);
         }}
         dismissDisabled={pinBusy}
+        avoidKeyboard
         panelStyle={styles.centeredSheet}
       >
         <Text style={styles.pickerTitle}>{t("Ophaalcode")}</Text>
@@ -5665,7 +5671,6 @@ export function DriverHomeScreen() {
             keyboardType="number-pad"
             maxLength={4}
             editable={!pinBusy}
-            autoFocus
             caretHidden
             style={styles.pinInputHidden}
             accessibilityLabel={t("Ophaalcode")}

@@ -200,13 +200,6 @@ const taxiCarYellowMarker = require('../../assets/taxi-car-yellow-marker.png');
 /** Flat illustrated taxi thumb when vehicle photo is missing/fails (not a real car photo). */
 const taxiVehiclePlaceholder = require('../../assets/taxi-vehicle-placeholder.png');
 const dropPinGreen = require('../../assets/marker-drop-green.png');
-/**
- * Pixel-spec map marker (gele NEXA-auto, zonder cirkel).
- * Density-set 44 / @2x / @3x — voorkomt te grote Android Marker.image.
- */
-const nexaMapCarMarker = require('../../assets/nexa-taxi-marker.png');
-/** HD bron voor custom iOS Marker-view. */
-const nexaMapCarMarkerHd = require('../../assets/nexa-booking/exact/markers/nexa-map-car-marker-neon.png');
 
 const THEME_OPTIONS: { key: ThemePreference; label: string; hint: string }[] = [
   { key: 'system', label: t("Systeem"), hint: t("Volgt de telefooninstelling") },
@@ -245,36 +238,35 @@ function bearingDegrees(
 /** Fel neonblauw routepad (geen soft glow-laag). */
 const NEON_ROUTE = '#00D4FF';
 
+/**
+ * Oude top-down gele taxi (neus = boven). Draait betrouwbaar 0/90/180/270°.
+ * De isometrische NEXA-neon marker liet rotatie op iOS/Google Maps falen.
+ */
 const taxiMarkerFrameStyle = {
-  width: USE_NEXA_BOOKING_REDESIGN ? 64 : 56,
-  height: USE_NEXA_BOOKING_REDESIGN ? 64 : 56,
+  width: 36,
+  height: 36,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };
-const taxiMarkerImageStyle = USE_NEXA_BOOKING_REDESIGN
-  ? { width: 52, height: 52 }
-  : { width: 26, height: 39 };
-const activeTaxiMarkerSource = USE_NEXA_BOOKING_REDESIGN
-  ? nexaMapCarMarker
-  : taxiCarYellowMarker;
-const activeTaxiMarkerViewSource = USE_NEXA_BOOKING_REDESIGN
-  ? nexaMapCarMarkerHd
-  : taxiCarYellow;
-/**
- * NEXA-marker (isometrisch): voorkant (= bovenkant van de auto / neus) ligt
- * in de PNG naar linksonder (~225°). Maps/Image 0° = beeld-boven = noord.
- * Offset 135° → bij heading 0 wijst de voorkant naar boven; daarna meedraaien.
- * Legacy gele top-down PNG wijst al omhoog → offset 0.
- */
-const TAXI_MARKER_NOSE_OFFSET_DEG = USE_NEXA_BOOKING_REDESIGN ? 135 : 0;
+const taxiMarkerImageStyle = { width: 22, height: 33 };
+const activeTaxiMarkerSource = taxiCarYellowMarker;
+const activeTaxiMarkerViewSource = taxiCarYellow;
 
 function taxiMarkerRotationDeg(heading: number): number {
   const h = Number.isFinite(heading) ? heading : 0;
-  return ((h + TAXI_MARKER_NOSE_OFFSET_DEG) % 360 + 360) % 360;
+  return ((h % 360) + 360) % 360;
 }
 
 function headingDeltaDeg(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+/** Koers van A→B in graden (0 = noord, met de klok mee). */
+function headingToward(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number }
+): number {
+  return (bearingDegrees(from, to) + 360) % 360;
 }
 
 /**
@@ -288,7 +280,9 @@ function androidTaxiMarker(
   zIndex = 20
 ) {
   const heading =
-    taxi.heading != null && Number.isFinite(taxi.heading) ? taxi.heading : 0;
+    taxi.heading != null && Number.isFinite(taxi.heading) && taxi.heading >= 0
+      ? taxi.heading
+      : 0;
   return (
     <Marker
       key={taxi.id}
@@ -323,7 +317,9 @@ function CustomerTaxiMarker({
   const [pos, setPos] = useState({ lat: taxi.lat, lng: taxi.lng });
   const posRef = useRef(pos);
   const [heading, setHeading] = useState(() =>
-    taxi.heading != null && Number.isFinite(taxi.heading) ? taxi.heading : 0
+    taxi.heading != null && Number.isFinite(taxi.heading) && taxi.heading >= 0
+      ? taxi.heading
+      : 0
   );
   const [trackView, setTrackView] = useState(true);
 
@@ -333,13 +329,17 @@ function CustomerTaxiMarker({
     const dLat = to.lat - from.lat;
     const dLng = to.lng - from.lng;
     const moved = Math.abs(dLat) > 0.00001 || Math.abs(dLng) > 0.00001;
-    if (taxi.heading != null && Number.isFinite(taxi.heading)) {
+    if (taxi.heading != null && Number.isFinite(taxi.heading) && taxi.heading >= 0) {
       setHeading(taxi.heading);
     } else if (moved) {
-      setHeading((bearingDegrees(from, to) + 360) % 360);
+      setHeading(headingToward(from, to));
     }
     setTrackView(true);
-    if (!moved) return;
+    if (!moved) {
+      // Heading-only update: iOS custom marker moet opnieuw tekenen.
+      const t = setTimeout(() => setTrackView(false), 350);
+      return () => clearTimeout(t);
+    }
     const started = Date.now();
     const timer = setInterval(() => {
       const t = Math.min(1, (Date.now() - started) / smoothMs);
@@ -357,6 +357,8 @@ function CustomerTaxiMarker({
 
   const rotateDeg = taxiMarkerRotationDeg(heading);
 
+  // iOS: Image-transform (Marker.rotation op custom views is onbetrouwbaar).
+  // Android gebruikt androidTaxiMarker (image + rotation).
   return (
     <Marker
       identifier={`taxi-${taxi.id}`}
@@ -366,7 +368,6 @@ function CustomerTaxiMarker({
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={trackView}
       flat
-      rotation={0}
       zIndex={20}
     >
       <View style={taxiMarkerFrameStyle} collapsable={false}>
@@ -375,7 +376,10 @@ function CustomerTaxiMarker({
           onLoad={() => {
             setTimeout(() => setTrackView(false), 300);
           }}
-          style={[taxiMarkerImageStyle, { transform: [{ rotate: `${rotateDeg}deg` }] }]}
+          style={[
+            taxiMarkerImageStyle,
+            { transform: [{ rotate: `${rotateDeg}deg` }] },
+          ]}
           resizeMode="contain"
         />
       </View>
@@ -1132,12 +1136,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
       phase === 'in_progress' || phase === 'arrived_dropoff'
         ? towardDrop
         : towardPickup;
-    if (toward) {
-      const routeHeading = (bearingDegrees({ lat, lng }, toward) + 360) % 360;
-      // Altijd met de neus (= bovenkant auto) richting reisdoel — voorkomt “op de kop”.
-      if (heading == null || heading < 0 || headingDeltaDeg(heading, routeHeading) > 45) {
-        heading = routeHeading;
-      }
+    // Alleen koers afleiden als GPS-heading ontbreekt — anders blijft de marker “op de kop”.
+    if ((heading == null || heading < 0) && toward) {
+      heading = headingToward({ lat, lng }, toward);
     }
     return {
       lat,
@@ -2010,6 +2011,8 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
 
   const guestRidesRef = useRef(guestRides);
   guestRidesRef.current = guestRides;
+  const trackTokenRef = useRef(trackToken);
+  trackTokenRef.current = trackToken;
 
   const presentLongWaitCancel = useCallback(
     (
@@ -2158,7 +2161,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
             if (!chatOpenRef.current) {
               if (Number(ride.chat_unread_count || 0) > 0) {
                 setChatAttention(true);
-                notifyNewRideChat(ride).catch(() => undefined);
+                notifyNewRideChat(ride, token).catch(() => undefined);
               } else {
                 setChatAttention(false);
               }
@@ -2323,8 +2326,9 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
   }
 
   function updateBookChromeFromScrollY(y: number) {
-    const next = y <= 4 ? 0 : Math.min(1, (y - 4) / 20);
-    if (Math.abs(next - bookChromeOpacityRef.current) < 0.04 && next > 0 && next < 1) {
+    // Snel volle bg: na ~12px scroll al solid — moet zichtbaar “klikken”.
+    const next = y <= 2 ? 0 : Math.min(1, (y - 2) / 12);
+    if (Math.abs(next - bookChromeOpacityRef.current) < 0.03 && next > 0 && next < 1) {
       return;
     }
     bookChromeOpacityRef.current = next;
@@ -2776,26 +2780,91 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     void refreshChat(trackToken);
   }
 
-  const openRideChatRef = useRef(openRideChat);
-  openRideChatRef.current = openRideChat;
+  /**
+   * Tik op chat-melding: open chat én Ritten-tab met die rit eronder,
+   * zodat sluiten van de popup de rit toont.
+   */
+  function openRideChatFromNotification(data: Record<string, unknown>) {
+    const rideId = Number(data.rideId || data.ride_id || 0);
+    const tokenFromPush = String(data.track_token || data.token || '').trim();
+    const guests = guestRidesRef.current;
+    const guest =
+      (tokenFromPush
+        ? guests.find((r) => r.token === tokenFromPush)
+        : undefined) ||
+      (rideId > 0 ? guests.find((r) => Number(r.id) === rideId) : undefined) ||
+      (trackTokenRef.current
+        ? guests.find((r) => r.token === trackTokenRef.current)
+        : undefined) ||
+      guests.find((r) => isActiveRidePhase(r.phase)) ||
+      null;
 
-  // Tik op chat-push → open chat.
+    setShowArchivedRides(false);
+    setTab('rides');
+    AsyncStorage.setItem(TAB_KEY, 'rides').catch(() => undefined);
+
+    if (guest) {
+      setExpandedRideKey(rideArchiveKey(guest));
+      if (guest.token !== trackTokenRef.current) {
+        loadRideLive(guest);
+      } else {
+        setTrackToken(guest.token);
+        void persistTrack(
+          isActiveRidePhase(guest.phase) ? guest.token : null
+        );
+      }
+      setChatAttention(false);
+      setChatOpen(true);
+      void refreshChat(guest.token);
+      return;
+    }
+
+    const fallback = tokenFromPush || trackTokenRef.current;
+    if (!fallback) return;
+    setTrackToken(fallback);
+    void persistTrack(fallback);
+    setChatAttention(false);
+    setChatOpen(true);
+    void refreshChat(fallback);
+  }
+
+  const openRideChatFromNotificationRef = useRef(openRideChatFromNotification);
+  openRideChatFromNotificationRef.current = openRideChatFromNotification;
+
+  // Tik op chat-push → open chat + rit op Ritten.
   useEffect(() => {
     let sub: { remove: () => void } | null = null;
     let cancelled = false;
+    let lastKey: string | null = null;
+    const handleResponse = (response: {
+      notification?: {
+        date?: number;
+        request?: {
+          identifier?: string;
+          content?: { data?: Record<string, unknown> };
+        };
+      };
+    }) => {
+      const data = (response.notification?.request?.content?.data || {}) as Record<
+        string,
+        unknown
+      >;
+      if (String(data.type || '') !== 'customer_ride_chat') return;
+      if (!data.open_chat) return;
+      const key = `${String(response.notification?.request?.identifier || '')}|${Number(response.notification?.date || 0)}`;
+      if (lastKey === key) return;
+      lastKey = key;
+      openRideChatFromNotificationRef.current(data);
+    };
     void (async () => {
       try {
         const Notifications = await import('expo-notifications');
         if (cancelled) return;
+        const last = await Notifications.getLastNotificationResponseAsync();
+        if (!cancelled && last) handleResponse(last);
         sub = Notifications.addNotificationResponseReceivedListener((response) => {
           try {
-            const data = (response.notification.request.content.data || {}) as Record<
-              string,
-              unknown
-            >;
-            if (String(data.type || '') !== 'customer_ride_chat') return;
-            if (!data.open_chat) return;
-            openRideChatRef.current();
+            handleResponse(response);
           } catch {
             /* ignore */
           }
@@ -3065,22 +3134,49 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           <Marker
             coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
             title={t("Ophalen")}
-            anchor={{ x: 0.5, y: 0.5 }}
+            anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges={false}
+            zIndex={12}
           >
-            <View style={styles.pickupDotOuter}>
-              <View style={styles.pickupDotInner} />
-            </View>
+            {USE_NEXA_BOOKING_REDESIGN ? (
+              <MapPlaceCallout
+                label={t('Ophaalpunt')}
+                address={String(pickup.placeName || pickup.address || t('Ophalen'))}
+                tone="blue"
+                icon="person"
+              />
+            ) : (
+              <View style={styles.pickupDotOuter}>
+                <View style={styles.pickupDotInner} />
+              </View>
+            )}
           </Marker>
         ) : null}
         {dropoff ? (
-          <Marker
-            coordinate={{ latitude: dropoff.lat, longitude: dropoff.lng }}
-            title={t("Bestemming")}
-            image={dropPinGreen}
-            anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={false}
-          />
+          USE_NEXA_BOOKING_REDESIGN ? (
+            <Marker
+              coordinate={{ latitude: dropoff.lat, longitude: dropoff.lng }}
+              title={t("Bestemming")}
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={false}
+              zIndex={12}
+            >
+              <MapPlaceCallout
+                label={t('Bestemming')}
+                address={String(dropoff.placeName || dropoff.address || t('Bestemming'))}
+                tone="orange"
+                icon="flag"
+              />
+            </Marker>
+          ) : (
+            <Marker
+              coordinate={{ latitude: dropoff.lat, longitude: dropoff.lng }}
+              title={t("Bestemming")}
+              image={dropPinGreen}
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={false}
+            />
+          )
         ) : null}
         {activeTaxiLoc
           ? Platform.OS === 'android'
@@ -3119,7 +3215,13 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
               />
             ))}
         {routeCoords.length > 1 ? (
-          <Polyline coordinates={routeCoords} strokeColor={colors.primary} strokeWidth={4} />
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor={USE_NEXA_BOOKING_REDESIGN ? NEON_ROUTE : colors.primary}
+            strokeWidth={USE_NEXA_BOOKING_REDESIGN ? 5 : 4}
+            lineCap="round"
+            lineJoin="round"
+          />
         ) : null}
       </MapView>
       <View style={styles.zoomControls} pointerEvents="box-none">
@@ -3225,11 +3327,21 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={t("Naar startpagina")}
+          style={[
+            styles.bookStickyBack,
+            !headerOnDark && colorScheme === 'light' && styles.bookStickyBackLight,
+          ]}
         >
           <Ionicons
             name="home-outline"
             size={24}
-            color={headerOnDark ? '#FFFFFF' : colors.text}
+            color={
+              headerOnDark
+                ? '#FFFFFF'
+                : colorScheme === 'light'
+                  ? nexaBookingTheme.color.ink
+                  : colors.text
+            }
           />
         </Pressable>
       }
@@ -3299,16 +3411,19 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
         <View
           style={{
             width: '100%',
-            height: 96,
+            height: 148,
             marginBottom: 8,
             borderRadius: 16,
             overflow: 'hidden',
+            backgroundColor: colorScheme === 'light' ? '#0B1220' : '#060F1F',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <Image
             source={require('../../assets/nexa-booking/crops/vehicle_standard_reference.png')}
             style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </View>
       ) : null}
@@ -4050,6 +4165,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
     <NexaHomeScreen
       greetingName={firstName}
       isReturning={guestRides.length > 0 || firstName.trim().length > 0}
+      onBack={onBack}
       onBook={goToBookTab}
       onRides={() => {
         leaveContactEditModes();
@@ -4985,37 +5101,16 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                   )
               : null}
             {tripRoute.length > 1 ? (
-              <>
-                {/* Soft glow onder neon route (mockup-stijl). */}
-                <Polyline
-                  coordinates={tripRoute}
-                  strokeColor="rgba(0, 212, 255, 0.28)"
-                  strokeWidth={12}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-                <Polyline
-                  coordinates={tripRoute}
-                  strokeColor={NEON_ROUTE}
-                  strokeWidth={5}
-                  lineCap="round"
-                  lineJoin="round"
-                />
-              </>
+              <Polyline
+                coordinates={tripRoute}
+                strokeColor={NEON_ROUTE}
+                strokeWidth={5}
+                lineCap="round"
+                lineJoin="round"
+              />
             ) : null}
           </MapView>
-          {(driverComing || liveFollowUi) &&
-          (live.eta_label || live.eta_minutes != null) ? (
-            <View style={styles.liveEtaChip} pointerEvents="none">
-              <Ionicons name="time" size={22} color={NEON_ROUTE} />
-              <View>
-                <Text style={styles.liveEtaChipLabel}>{t('Aankomst over')}</Text>
-                <Text style={styles.liveEtaChipValue}>
-                  {localizeEtaLabel(live.eta_label, live.eta_minutes)}
-                </Text>
-              </View>
-            </View>
-          ) : null}
+          {/* Geen ETA-chip op de kaart — aankomst staat al bij chauffeurgegevens. */}
           <View style={styles.zoomControls} pointerEvents="box-none">
             <Pressable
               onPress={() => zoomTripMap(1)}
@@ -5503,23 +5598,24 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                     </ScrollView>
                     {USE_NEXA_BOOKING_REDESIGN ? (
                       <View
+                        collapsable={false}
                         style={[
                           styles.bookStickyChrome,
-                          { height: insets.top + APP_CHROME_HEIGHT },
+                          {
+                            height: insets.top + APP_CHROME_HEIGHT,
+                            backgroundColor:
+                              colorScheme === 'light'
+                                ? `rgba(255,255,255,${bookChromeOpacity})`
+                                : `rgba(6,19,41,${bookChromeOpacity})`,
+                            borderBottomWidth: bookChromeOpacity > 0.2 ? StyleSheet.hairlineWidth : 0,
+                            borderBottomColor:
+                              colorScheme === 'light'
+                                ? 'rgba(15,23,42,0.12)'
+                                : 'rgba(255,255,255,0.12)',
+                          },
                         ]}
                         pointerEvents="box-none"
                       >
-                        <View
-                          pointerEvents="none"
-                          style={[
-                            styles.bookStickyChromeBg,
-                            {
-                              opacity: bookChromeOpacity,
-                              backgroundColor:
-                                colorScheme === 'light' ? '#FFFFFF' : '#061329',
-                            },
-                          ]}
-                        />
                         <View
                           style={{
                             paddingTop: insets.top,
@@ -5541,7 +5637,7 @@ export function CustomerHomeScreen({ onBack }: { onBack: () => void }) {
                                 ]}
                               >
                                 <Ionicons
-                                  name="chevron-back"
+                                  name="home-outline"
                                   size={24}
                                   color={
                                     colorScheme === 'light'
@@ -6288,13 +6384,12 @@ function makeStyles(colors: ColorPalette) {
     bookStickyBack: {
       width: 40,
       height: 40,
-      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(6,19,41,0.45)',
+      backgroundColor: 'transparent',
     },
     bookStickyBackLight: {
-      backgroundColor: 'rgba(255,255,255,0.72)',
+      backgroundColor: 'transparent',
     },
     bookStickyLogo: {
       flex: 1,

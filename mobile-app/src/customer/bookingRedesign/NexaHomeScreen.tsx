@@ -35,6 +35,7 @@ type Props = {
   greetingName?: string | null;
   /** Terugkerende klant (naam / rittenhistorie). */
   isReturning?: boolean;
+  onBack?: () => void;
   onBook: () => void;
   onRides: () => void;
   onAccount: () => void;
@@ -49,6 +50,7 @@ type Props = {
 export function NexaHomeScreen({
   greetingName,
   isReturning = false,
+  onBack,
   onBook,
   onRides,
   onAccount,
@@ -105,8 +107,8 @@ export function NexaHomeScreen({
       scrollEventThrottle={8}
       onScroll={(e) => {
         const y = e.nativeEvent.contentOffset.y;
-        const next = y <= 4 ? 0 : Math.min(1, (y - 4) / 20);
-        if (Math.abs(next - chromeOpacityRef.current) < 0.04 && next > 0 && next < 1) {
+        const next = y <= 2 ? 0 : Math.min(1, (y - 2) / 12);
+        if (Math.abs(next - chromeOpacityRef.current) < 0.03 && next > 0 && next < 1) {
           return;
         }
         chromeOpacityRef.current = next;
@@ -255,25 +257,44 @@ export function NexaHomeScreen({
       </NexaGlowCard>
     </ScrollView>
       <View
-        style={[styles.stickyChrome, { height: insets.top + APP_CHROME_HEIGHT }]}
+        collapsable={false}
+        style={[
+          styles.stickyChrome,
+          {
+            height: insets.top + APP_CHROME_HEIGHT,
+            backgroundColor: light
+              ? `rgba(255,255,255,${chromeOpacity})`
+              : `rgba(6,19,41,${chromeOpacity})`,
+            borderBottomWidth: chromeOpacity > 0.2 ? StyleSheet.hairlineWidth : 0,
+            borderBottomColor: light
+              ? 'rgba(15,23,42,0.12)'
+              : 'rgba(255,255,255,0.12)',
+          },
+        ]}
         pointerEvents="box-none"
       >
-        <View
-          pointerEvents="none"
-          style={[
-            styles.stickyChromeBg,
-            {
-              opacity: chromeOpacity,
-              backgroundColor: light ? '#FFFFFF' : '#061329',
-            },
-          ]}
-        />
         <View
           style={{ paddingTop: insets.top, zIndex: 2, height: insets.top + APP_CHROME_HEIGHT }}
           pointerEvents="box-none"
         >
           <View style={nexaHeroChromeRow}>
-            <View style={nexaHeroSideSlot} />
+            <View style={nexaHeroSideSlot}>
+              {onBack ? (
+                <Pressable
+                  onPress={onBack}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('Naar startpagina')}
+                  style={[styles.homeBtn, light && styles.homeBtnLight]}
+                >
+                  <Ionicons
+                    name="home-outline"
+                    size={24}
+                    color={light ? theme.color.ink : '#FFFFFF'}
+                  />
+                </Pressable>
+              ) : null}
+            </View>
             <View style={styles.logoCenter}>
               <AppBrandLogo bare />
             </View>
@@ -345,6 +366,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  homeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  homeBtnLight: {
+    backgroundColor: 'transparent',
   },
   heroBlock: {
     marginHorizontal: -12,

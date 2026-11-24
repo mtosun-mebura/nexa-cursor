@@ -6,8 +6,6 @@ import {
   FlatList,
   Image,
   ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -61,26 +59,55 @@ export function RideChatModal({
   const [draft, setDraft] = useState('');
   const [photoFailed, setPhotoFailed] = useState(false);
   const listRef = useRef<FlatList<RideChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
   const photoUri = String(peerPhotoUrl || '').trim();
   const showPeerPhoto = photoUri !== '' && !photoFailed;
+
+  const scrollToLatest = (animated = false) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  };
 
   useEffect(() => {
     setPhotoFailed(false);
   }, [photoUri, visible]);
 
   useEffect(() => {
-    if (!visible) return;
-    const tmr = setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    }, 80);
-    return () => clearTimeout(tmr);
+    if (!visible) {
+      setDraft('');
+      return;
+    }
+    // Na modal-animatie: focus + laatste berichten zichtbaar.
+    const focusTmr = setTimeout(() => {
+      if (!readOnly) inputRef.current?.focus();
+      scrollToLatest(false);
+    }, 350);
+    const scrollTmr = setTimeout(() => scrollToLatest(false), 120);
+    const scrollAgain = setTimeout(() => scrollToLatest(true), 500);
+    return () => {
+      clearTimeout(focusTmr);
+      clearTimeout(scrollTmr);
+      clearTimeout(scrollAgain);
+    };
+  }, [visible, readOnly]);
+
+  useEffect(() => {
+    if (!visible || messages.length === 0) return;
+    scrollToLatest(messages.length > 1);
   }, [visible, messages.length]);
 
   async function submit() {
     const body = draft.trim();
     if (!body || sending || readOnly) return;
     setDraft('');
-    await onSend(body);
+    try {
+      await onSend(body);
+    } finally {
+      // Send-knop / re-render mag focus niet stelen — gelijk verder typen.
+      requestAnimationFrame(() => inputRef.current?.focus());
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
   }
 
   return (
@@ -102,10 +129,7 @@ export function RideChatModal({
         paddingBottom: 0,
       }}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.wrap}
-      >
+      <View style={styles.wrap}>
         <View style={styles.card}>
           <LinearGradient
             colors={
@@ -180,7 +204,17 @@ export function RideChatModal({
             data={messages}
             keyExtractor={(item) => item.id}
             style={styles.listFlex}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              messages.length === 0 ? styles.listGrow : null,
+            ]}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => {
+              if (visible && messages.length > 0) scrollToLatest(false);
+            }}
+            onLayout={() => {
+              if (visible && messages.length > 0) scrollToLatest(false);
+            }}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <View style={styles.emptyIcon}>
@@ -228,6 +262,7 @@ export function RideChatModal({
           ) : (
             <View style={styles.composer}>
               <TextInput
+                ref={inputRef}
                 style={styles.input}
                 value={draft}
                 onChangeText={setDraft}
@@ -235,7 +270,9 @@ export function RideChatModal({
                 placeholderTextColor={light ? '#64748B' : theme.color.textMuted}
                 maxLength={2000}
                 multiline
-                editable={!sending}
+                editable={!readOnly}
+                autoFocus={visible && !readOnly}
+                blurOnSubmit={false}
               />
               <Pressable
                 style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendDisabled]}
@@ -255,7 +292,7 @@ export function RideChatModal({
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </AppModal>
   );
 }
@@ -267,11 +304,12 @@ function makeStyles(light: boolean) {
   return StyleSheet.create({
     wrap: {
       width: '100%',
-      minHeight: 400,
-      maxHeight: 520,
+      height: 440,
+      maxHeight: 440,
     },
     card: {
       flex: 1,
+      minHeight: 0,
       borderRadius: theme.radius.card,
       borderWidth: 1.5,
       borderColor: border,
@@ -344,8 +382,10 @@ function makeStyles(light: boolean) {
     list: {
       paddingVertical: 4,
       gap: 8,
-      flexGrow: 1,
       paddingBottom: 8,
+    },
+    listGrow: {
+      flexGrow: 1,
     },
     emptyWrap: {
       alignItems: 'center',

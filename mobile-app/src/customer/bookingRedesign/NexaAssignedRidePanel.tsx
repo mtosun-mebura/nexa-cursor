@@ -211,6 +211,18 @@ export function NexaAssignedRidePanel({
               light ? { opacity: 0.78 } : null,
             ]}
           />
+          {/* Lichte waas over het achtergrondplaatje. */}
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: light
+                  ? 'rgba(255,255,255,0.42)'
+                  : 'rgba(15,23,42,0.38)',
+              },
+            ]}
+          />
           <LinearGradient
             colors={
               light
